@@ -9,6 +9,17 @@ const log = createLogger('useFileSystem');
 
 const EMPTY_FILE_TREE: FileSystemNode[] = [];
 
+function findNodeByPath(nodes: FileSystemNode[], targetPath: string): FileSystemNode | undefined {
+  for (const node of nodes) {
+    if (node.path === targetPath) return node;
+    if (node.children) {
+      const found = findNodeByPath(node.children, targetPath);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 export interface UseFileSystemOptions extends FileSystemOptions {
   rootPath?: string;
   autoLoad?: boolean;
@@ -296,6 +307,32 @@ export function useFileSystem(options: UseFileSystemOptions = {}): UseFileSystem
     });
   }, []);
 
+  const refreshDirectoryInTree = useCallback(async (dirPath: string) => {
+    try {
+      const newChildren = await fileSystemService.getDirectoryChildren(dirPath);
+      directoryCache.set(dirPath, newChildren);
+      loadedPathsRef.current.add(dirPath);
+
+      setState(prev => {
+        const mergedChildren = newChildren.map(newChild => {
+          if (!newChild.isDirectory) return newChild;
+          const existingChild = findNodeByPath(prev.fileTree, newChild.path);
+          if (existingChild?.children) {
+            return { ...newChild, children: existingChild.children };
+          }
+          return newChild;
+        });
+
+        return {
+          ...prev,
+          fileTree: updateNodeChildrenInTree(prev.fileTree, dirPath, mergedChildren)
+        };
+      });
+    } catch (error) {
+      log.warn('Failed to refresh directory after file change', { dirPath, error });
+    }
+  }, [updateNodeChildrenInTree]);
+
   const expandFolderLazy = useCallback(async (folderPath: string) => {
     if (state.expandedFolders.has(folderPath)) {
       setState(prev => {
@@ -494,6 +531,8 @@ export function useFileSystem(options: UseFileSystemOptions = {}): UseFileSystem
       debounceTimer = setTimeout(() => {
         if (pendingPaths.length > 0 && rootPath) {
           if (enableLazyLoad) {
+            const affectedParents = new Set<string>();
+
             pendingPaths.forEach(changedPath => {
               directoryCache.invalidate(changedPath);
               loadedPathsRef.current.delete(changedPath);
@@ -501,9 +540,14 @@ export function useFileSystem(options: UseFileSystemOptions = {}): UseFileSystem
               if (parentPath && parentPath !== changedPath) {
                 directoryCache.invalidate(parentPath);
                 loadedPathsRef.current.delete(parentPath);
+                affectedParents.add(parentPath);
               }
             });
             pendingPaths = [];
+
+            for (const parentPath of affectedParents) {
+              refreshDirectoryInTree(parentPath);
+            }
           } else {
             pendingPaths = [];
             loadFileTree(rootPath, true);
@@ -522,7 +566,7 @@ export function useFileSystem(options: UseFileSystemOptions = {}): UseFileSystem
         clearTimeout(debounceTimer);
       }
     };
-  }, [enableAutoWatch, rootPath, enableLazyLoad, loadFileTree, loadFileTreeLazy]);
+  }, [enableAutoWatch, rootPath, enableLazyLoad, loadFileTree, loadFileTreeLazy, refreshDirectoryInTree]);
 
   const effectiveFileTree =
     rootPathRef.current === rootPath ? state.fileTree : EMPTY_FILE_TREE;
