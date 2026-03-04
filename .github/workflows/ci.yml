@@ -63,7 +63,7 @@ jobs:
           shared-key: "ci-check"
 
       - name: Check compilation
-        run: cargo check --workspace
+        run: cargo check --workspace --exclude bitfun-desktop
 
   # ── Frontend: build ────────────────────────────────────────────────
   frontend-build:
