@@ -932,8 +932,7 @@ async fn handle_cancel_task(
     state: &mut BotChatState,
     requested_turn_id: Option<&str>,
 ) -> HandleResult {
-    use crate::agentic::coordination::get_global_coordinator;
-    use crate::agentic::core::SessionState;
+    use crate::service::remote_connect::remote_server::get_or_init_global_dispatcher;
 
     let session_id = match state.current_session_id.clone() {
         Some(id) => id,
@@ -946,55 +945,9 @@ async fn handle_cancel_task(
         }
     };
 
-    let coordinator = match get_global_coordinator() {
-        Some(c) => c,
-        None => {
-            return HandleResult {
-                reply: "BitFun session system not ready.".to_string(),
-                actions: vec![],
-                forward_to_session: None,
-            };
-        }
-    };
-
-    let session = match coordinator.restore_session(&session_id).await {
-        Ok(session) => session,
-        Err(e) => {
-            return HandleResult {
-                reply: format!("Failed to load session: {e}"),
-                actions: vec![],
-                forward_to_session: None,
-            };
-        }
-    };
-
-    let current_turn_id = match session.state {
-        SessionState::Processing { current_turn_id, .. } => current_turn_id,
-        _ => {
-            return HandleResult {
-                reply: if requested_turn_id.is_some() {
-                    "This request has already finished.".to_string()
-                } else {
-                    "No running task to cancel.".to_string()
-                },
-                actions: vec![],
-                forward_to_session: None,
-            };
-        }
-    };
-
-    if let Some(requested_turn_id) = requested_turn_id {
-        if requested_turn_id != current_turn_id {
-            return HandleResult {
-                reply: "This request is no longer running.".to_string(),
-                actions: vec![],
-                forward_to_session: None,
-            };
-        }
-    }
-
-    match coordinator
-        .cancel_dialog_turn(&session_id, &current_turn_id)
+    let dispatcher = get_or_init_global_dispatcher();
+    match dispatcher
+        .cancel_task(&session_id, requested_turn_id)
         .await
     {
         Ok(_) => {
@@ -1346,83 +1299,12 @@ async fn handle_chat_message(state: &mut BotChatState, message: &str) -> HandleR
 
 // ── Forwarded-turn execution ────────────────────────────────────────
 
-enum StreamChunk {
-    Text(String),
-    Thinking(String),
-    ThinkingEnd,
-    Interaction(BotInteractiveRequest),
-    Done,
-    Error(String),
-}
-
-struct BotResponseCollector {
-    session_id: String,
-    chunk_tx: tokio::sync::mpsc::UnboundedSender<StreamChunk>,
-}
-
-#[async_trait::async_trait]
-impl crate::agentic::events::EventSubscriber for BotResponseCollector {
-    async fn on_event(
-        &self,
-        event: &crate::agentic::events::AgenticEvent,
-    ) -> crate::util::errors::BitFunResult<()> {
-        use bitfun_events::AgenticEvent as AE;
-        match event {
-            AE::TextChunk { text, session_id, .. } if session_id == &self.session_id => {
-                let _ = self.chunk_tx.send(StreamChunk::Text(text.clone()));
-            }
-            AE::ThinkingChunk { content, session_id, .. } if session_id == &self.session_id => {
-                if content == "<thinking_end>" {
-                    let _ = self.chunk_tx.send(StreamChunk::ThinkingEnd);
-                } else {
-                    let _ = self.chunk_tx.send(StreamChunk::Thinking(content.clone()));
-                }
-            }
-            AE::ToolEvent {
-                session_id,
-                tool_event,
-                ..
-            } if session_id == &self.session_id => match tool_event {
-                bitfun_events::ToolEventData::Started {
-                    tool_id,
-                    tool_name,
-                    params,
-                } if tool_name == "AskUserQuestion" => {
-                    if let Some(questions_value) = params.get("questions").cloned() {
-                        if let Ok(questions) =
-                            serde_json::from_value::<Vec<BotQuestion>>(questions_value)
-                        {
-                            let request = build_question_prompt(
-                                tool_id.clone(),
-                                questions,
-                                0,
-                                Vec::new(),
-                                false,
-                                None,
-                            );
-                            let _ = self.chunk_tx.send(StreamChunk::Interaction(request));
-                        }
-                    }
-                }
-                _ => {}
-            },
-            AE::DialogTurnCompleted { session_id, .. } if session_id == &self.session_id => {
-                let _ = self.chunk_tx.send(StreamChunk::Done);
-            }
-            AE::DialogTurnFailed { session_id, error, .. } if session_id == &self.session_id => {
-                let _ = self.chunk_tx.send(StreamChunk::Error(error.clone()));
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-}
-
 /// Execute a forwarded dialog turn and return the AI response text.
 ///
 /// Called from the bot implementations after `handle_command` returns a
-/// `ForwardRequest`.  Subscribes to session events, starts the turn, and
-/// collects text chunks until completion or timeout.
+/// `ForwardRequest`.  Dispatches the command through
+/// `RemoteExecutionDispatcher` (the same path used by mobile), then
+/// subscribes to the tracker's broadcast channel for real-time events.
 ///
 /// `message_sender` is called to send intermediate messages (e.g. thinking
 /// content) before the final response is returned.
@@ -1431,67 +1313,89 @@ pub async fn execute_forwarded_turn(
     interaction_handler: Option<BotInteractionHandler>,
     message_sender: Option<BotMessageSender>,
 ) -> String {
-    use crate::agentic::coordination::{get_global_coordinator, DialogTriggerSource};
-
-    let coordinator = match get_global_coordinator() {
-        Some(c) => c,
-        None => return "Session system not ready.".to_string(),
+    use crate::agentic::coordination::DialogTriggerSource;
+    use crate::service::remote_connect::remote_server::{
+        get_or_init_global_dispatcher, TrackerEvent,
     };
 
-    let (chunk_tx, mut chunk_rx) = tokio::sync::mpsc::unbounded_channel::<StreamChunk>();
-    let subscriber_id = format!("bot_forward_{}", uuid::Uuid::new_v4());
-    let collector = BotResponseCollector {
-        session_id: forward.session_id.clone(),
-        chunk_tx,
-    };
-    coordinator.subscribe_internal(subscriber_id.clone(), collector);
+    let dispatcher = get_or_init_global_dispatcher();
 
-    if let Err(e) = coordinator
-        .start_dialog_turn(
-            forward.session_id.clone(),
+    let tracker = dispatcher.ensure_tracker(&forward.session_id);
+    let mut event_rx = tracker.subscribe();
+
+    if let Err(e) = dispatcher
+        .send_message(
+            &forward.session_id,
             forward.content,
-            Some(forward.turn_id),
-            forward.agent_type,
+            Some(&forward.agent_type),
+            None,
             DialogTriggerSource::Bot,
+            Some(forward.turn_id),
         )
         .await
     {
-        coordinator.unsubscribe_internal(&subscriber_id);
         return format!("Failed to send message: {e}");
     }
 
-    let sub_id = subscriber_id.clone();
     let result = tokio::time::timeout(std::time::Duration::from_secs(300), async {
         let mut thinking = String::new();
         let mut response = String::new();
-        while let Some(chunk) = chunk_rx.recv().await {
-            match chunk {
-                StreamChunk::Thinking(t) => thinking.push_str(&t),
-                StreamChunk::ThinkingEnd => {
-                    if !thinking.is_empty() {
-                        if let Some(sender) = message_sender.as_ref() {
-                            sender(thinking.clone()).await;
+        loop {
+            match event_rx.recv().await {
+                Ok(event) => match event {
+                    TrackerEvent::ThinkingChunk(t) => thinking.push_str(&t),
+                    TrackerEvent::ThinkingEnd => {
+                        if !thinking.is_empty() {
+                            if let Some(sender) = message_sender.as_ref() {
+                                sender(thinking.clone()).await;
+                            }
+                            thinking.clear();
                         }
-                        thinking.clear();
                     }
-                }
-                StreamChunk::Text(t) => response.push_str(&t),
-                StreamChunk::Interaction(interaction) => {
-                    if let Some(handler) = interaction_handler.as_ref() {
-                        handler(interaction).await;
+                    TrackerEvent::TextChunk(t) => response.push_str(&t),
+                    TrackerEvent::ToolStarted {
+                        tool_id,
+                        tool_name,
+                        params,
+                    } if tool_name == "AskUserQuestion" => {
+                        if let Some(questions_value) =
+                            params.and_then(|p| p.get("questions").cloned())
+                        {
+                            if let Ok(questions) =
+                                serde_json::from_value::<Vec<BotQuestion>>(questions_value)
+                            {
+                                let request = build_question_prompt(
+                                    tool_id,
+                                    questions,
+                                    0,
+                                    Vec::new(),
+                                    false,
+                                    None,
+                                );
+                                if let Some(handler) = interaction_handler.as_ref() {
+                                    handler(request).await;
+                                }
+                            }
+                        }
                     }
+                    TrackerEvent::TurnCompleted => break,
+                    TrackerEvent::TurnFailed(e) => return format!("Error: {e}"),
+                    TrackerEvent::TurnCancelled => {
+                        return "Task was cancelled.".to_string();
+                    }
+                    _ => {}
+                },
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    log::warn!("Bot event receiver lagged by {n} events");
                 }
-                StreamChunk::Done => break,
-                StreamChunk::Error(e) => return format!("Error: {e}"),
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    break;
+                }
             }
         }
         response
     })
     .await;
-
-    if let Some(coord) = get_global_coordinator() {
-        coord.unsubscribe_internal(&sub_id);
-    }
 
     match result {
         Ok(text) if text.is_empty() => "(No response)".to_string(),

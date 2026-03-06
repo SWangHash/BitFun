@@ -14,7 +14,7 @@ use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use super::encryption;
 
@@ -502,16 +502,35 @@ struct TrackerState {
     active_items: Vec<ChatMessageItem>,
 }
 
+/// Lightweight event broadcast by the tracker for real-time consumers (e.g. bots).
+#[derive(Debug, Clone)]
+pub enum TrackerEvent {
+    TextChunk(String),
+    ThinkingChunk(String),
+    ThinkingEnd,
+    ToolStarted {
+        tool_id: String,
+        tool_name: String,
+        params: Option<serde_json::Value>,
+    },
+    TurnCompleted,
+    TurnFailed(String),
+    TurnCancelled,
+}
+
 /// Tracks the real-time state of a session for polling by the mobile client.
 /// Subscribes to `AgenticEvent` and updates an in-memory snapshot.
+/// Also broadcasts lightweight `TrackerEvent`s for real-time consumers.
 pub struct RemoteSessionStateTracker {
     target_session_id: String,
     version: AtomicU64,
     state: RwLock<TrackerState>,
+    event_tx: tokio::sync::broadcast::Sender<TrackerEvent>,
 }
 
 impl RemoteSessionStateTracker {
     pub fn new(session_id: String) -> Self {
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
         Self {
             target_session_id: session_id,
             version: AtomicU64::new(0),
@@ -526,7 +545,13 @@ impl RemoteSessionStateTracker {
                 round_index: 0,
                 active_items: Vec::new(),
             }),
+            event_tx,
         }
+    }
+
+    /// Subscribe to real-time tracker events (for bot streaming).
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<TrackerEvent> {
+        self.event_tx.subscribe()
     }
 
     pub fn version(&self) -> u64 {
@@ -675,6 +700,7 @@ impl RemoteSessionStateTracker {
                 }
                 drop(s);
                 self.bump_version();
+                let _ = self.event_tx.send(TrackerEvent::TextChunk(text.clone()));
             }
             AE::ThinkingChunk { content, .. } => {
                 let clean = content
@@ -703,6 +729,11 @@ impl RemoteSessionStateTracker {
                 }
                 drop(s);
                 self.bump_version();
+                if content == "<thinking_end>" {
+                    let _ = self.event_tx.send(TrackerEvent::ThinkingEnd);
+                } else {
+                    let _ = self.event_tx.send(TrackerEvent::ThinkingChunk(content.clone()));
+                }
             }
             AE::ToolEvent { tool_event, .. } => {
                 if let Ok(val) = serde_json::to_value(tool_event) {
@@ -764,7 +795,7 @@ impl RemoteSessionStateTracker {
                                 text.chars().take(160).collect()
                             });
                             let tool_input = if tool_name == "AskUserQuestion" {
-                                params
+                                params.clone()
                             } else {
                                 None
                             };
@@ -776,6 +807,11 @@ impl RemoteSessionStateTracker {
                                 input_preview,
                                 tool_input,
                             );
+                            let _ = self.event_tx.send(TrackerEvent::ToolStarted {
+                                tool_id: tool_id.clone(),
+                                tool_name: tool_name.clone(),
+                                params,
+                            });
                         }
                         "Confirmed" => {
                             Self::upsert_active_tool(
@@ -901,14 +937,16 @@ impl RemoteSessionStateTracker {
                 s.session_state = "idle".to_string();
                 drop(s);
                 self.bump_version();
+                let _ = self.event_tx.send(TrackerEvent::TurnCompleted);
             }
-            AE::DialogTurnFailed { .. } if is_direct => {
+            AE::DialogTurnFailed { error, .. } if is_direct => {
                 let mut s = self.state.write().unwrap();
                 s.turn_status = "failed".to_string();
                 s.turn_id = None;
                 s.session_state = "idle".to_string();
                 drop(s);
                 self.bump_version();
+                let _ = self.event_tx.send(TrackerEvent::TurnFailed(error.clone()));
             }
             AE::DialogTurnCancelled { .. } if is_direct => {
                 let mut s = self.state.write().unwrap();
@@ -917,6 +955,7 @@ impl RemoteSessionStateTracker {
                 s.session_state = "idle".to_string();
                 drop(s);
                 self.bump_version();
+                let _ = self.event_tx.send(TrackerEvent::TurnCancelled);
             }
             AE::ModelRoundStarted { round_index, .. } if is_direct => {
                 let mut s = self.state.write().unwrap();
@@ -952,32 +991,169 @@ impl crate::agentic::events::EventSubscriber for Arc<RemoteSessionStateTracker> 
     }
 }
 
-// ── RemoteServer ───────────────────────────────────────────────────
+// ── RemoteExecutionDispatcher (global singleton) ────────────────────
 
-/// Bridges remote commands to local session operations.
-pub struct RemoteServer {
-    shared_secret: [u8; 32],
+/// Shared dispatch layer that owns the session state trackers.
+/// Both `RemoteServer` (mobile relay) and the bot use this to
+/// dispatch commands through the same path.
+pub struct RemoteExecutionDispatcher {
     state_trackers: Arc<DashMap<String, Arc<RemoteSessionStateTracker>>>,
 }
 
-impl Drop for RemoteServer {
-    fn drop(&mut self) {
-        use crate::agentic::coordination::get_global_coordinator;
-        if let Some(coordinator) = get_global_coordinator() {
-            for entry in self.state_trackers.iter() {
-                let sub_id = format!("remote_tracker_{}", entry.key());
+static GLOBAL_DISPATCHER: OnceLock<Arc<RemoteExecutionDispatcher>> = OnceLock::new();
+
+pub fn get_or_init_global_dispatcher() -> Arc<RemoteExecutionDispatcher> {
+    GLOBAL_DISPATCHER
+        .get_or_init(|| {
+            Arc::new(RemoteExecutionDispatcher {
+                state_trackers: Arc::new(DashMap::new()),
+            })
+        })
+        .clone()
+}
+
+pub fn get_global_dispatcher() -> Option<Arc<RemoteExecutionDispatcher>> {
+    GLOBAL_DISPATCHER.get().cloned()
+}
+
+impl RemoteExecutionDispatcher {
+    /// Ensure a state tracker exists for the given session and return it.
+    pub fn ensure_tracker(&self, session_id: &str) -> Arc<RemoteSessionStateTracker> {
+        if let Some(tracker) = self.state_trackers.get(session_id) {
+            return tracker.clone();
+        }
+
+        let tracker = Arc::new(RemoteSessionStateTracker::new(session_id.to_string()));
+        self.state_trackers
+            .insert(session_id.to_string(), tracker.clone());
+
+        if let Some(coordinator) = crate::agentic::coordination::get_global_coordinator() {
+            let sub_id = format!("remote_tracker_{}", session_id);
+            coordinator.subscribe_internal(sub_id, tracker.clone());
+            info!("Registered state tracker for session {session_id}");
+        }
+
+        tracker
+    }
+
+    pub fn get_tracker(&self, session_id: &str) -> Option<Arc<RemoteSessionStateTracker>> {
+        self.state_trackers.get(session_id).map(|t| t.clone())
+    }
+
+    pub fn remove_tracker(&self, session_id: &str) {
+        if let Some((_, _)) = self.state_trackers.remove(session_id) {
+            if let Some(coordinator) = crate::agentic::coordination::get_global_coordinator() {
+                let sub_id = format!("remote_tracker_{}", session_id);
                 coordinator.unsubscribe_internal(&sub_id);
             }
         }
     }
+
+    /// Dispatch a SendMessage command: ensure tracker, restore session, start dialog turn.
+    /// Returns `(session_id, turn_id)` on success.
+    /// If `turn_id` is `None`, one is auto-generated.
+    pub async fn send_message(
+        &self,
+        session_id: &str,
+        content: String,
+        agent_type: Option<&str>,
+        images: Option<&Vec<ImageAttachment>>,
+        trigger_source: crate::agentic::coordination::DialogTriggerSource,
+        turn_id: Option<String>,
+    ) -> std::result::Result<(String, String), String> {
+        use crate::agentic::coordination::get_global_coordinator;
+
+        let coordinator = get_global_coordinator()
+            .ok_or_else(|| "Desktop session system not ready".to_string())?;
+
+        self.ensure_tracker(session_id);
+
+        let session_mgr = coordinator.get_session_manager();
+        let _ = match session_mgr.get_session(session_id) {
+            Some(session) => Some(session),
+            None => coordinator.restore_session(session_id).await.ok(),
+        };
+
+        let resolved_agent_type = agent_type
+            .map(|t| resolve_agent_type(Some(t)).to_string())
+            .unwrap_or_else(|| "agentic".to_string());
+
+        let full_content = images
+            .map(|imgs| build_message_with_remote_images(&content, imgs))
+            .unwrap_or_else(|| content.clone());
+
+        let turn_id =
+            turn_id.unwrap_or_else(|| format!("turn_{}", chrono::Utc::now().timestamp_millis()));
+        coordinator
+            .start_dialog_turn(
+                session_id.to_string(),
+                full_content,
+                Some(turn_id.clone()),
+                resolved_agent_type,
+                trigger_source,
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+
+        Ok((session_id.to_string(), turn_id))
+    }
+
+    /// Cancel a running dialog turn.
+    pub async fn cancel_task(
+        &self,
+        session_id: &str,
+        requested_turn_id: Option<&str>,
+    ) -> std::result::Result<(), String> {
+        use crate::agentic::coordination::get_global_coordinator;
+
+        let coordinator = get_global_coordinator()
+            .ok_or_else(|| "Desktop session system not ready".to_string())?;
+
+        let session_mgr = coordinator.get_session_manager();
+        let session = match session_mgr.get_session(session_id) {
+            Some(s) => s,
+            None => coordinator
+                .restore_session(session_id)
+                .await
+                .map_err(|e| format!("Session not found: {e}"))?,
+        };
+
+        let running_turn_id = match &session.state {
+            crate::agentic::core::SessionState::Processing {
+                current_turn_id, ..
+            } => Some(current_turn_id.clone()),
+            _ => None,
+        };
+
+        match (running_turn_id, requested_turn_id) {
+            (Some(current_turn_id), Some(req_id)) if req_id != current_turn_id => {
+                Err("This task is no longer running.".to_string())
+            }
+            (Some(current_turn_id), _) => coordinator
+                .cancel_dialog_turn(session_id, &current_turn_id)
+                .await
+                .map_err(|e| e.to_string()),
+            (None, Some(_)) => Err("This task is already finished.".to_string()),
+            (None, None) => Err(format!(
+                "No running task to cancel for session: {}",
+                session_id
+            )),
+        }
+    }
+}
+
+// ── RemoteServer ───────────────────────────────────────────────────
+
+/// Bridges remote commands to local session operations.
+/// Delegates execution and tracker management to the global `RemoteExecutionDispatcher`.
+pub struct RemoteServer {
+    shared_secret: [u8; 32],
 }
 
 impl RemoteServer {
     pub fn new(shared_secret: [u8; 32]) -> Self {
-        Self {
-            shared_secret,
-            state_trackers: Arc::new(DashMap::new()),
-        }
+        get_or_init_global_dispatcher();
+        Self { shared_secret }
     }
 
     pub fn shared_secret(&self) -> &[u8; 32] {
@@ -1040,23 +1216,8 @@ impl RemoteServer {
         }
     }
 
-    /// Ensure a state tracker exists for the given session and return it.
     fn ensure_tracker(&self, session_id: &str) -> Arc<RemoteSessionStateTracker> {
-        if let Some(tracker) = self.state_trackers.get(session_id) {
-            return tracker.clone();
-        }
-
-        let tracker = Arc::new(RemoteSessionStateTracker::new(session_id.to_string()));
-        self.state_trackers
-            .insert(session_id.to_string(), tracker.clone());
-
-        if let Some(coordinator) = crate::agentic::coordination::get_global_coordinator() {
-            let sub_id = format!("remote_tracker_{}", session_id);
-            coordinator.subscribe_internal(sub_id, tracker.clone());
-            info!("Registered state tracker for session {session_id}");
-        }
-
-        tracker
+        get_or_init_global_dispatcher().ensure_tracker(session_id)
     }
 
     pub async fn generate_initial_sync(&self) -> RemoteResponse {
@@ -1472,13 +1633,7 @@ impl RemoteServer {
                 }
             }
             RemoteCommand::DeleteSession { session_id } => {
-                self.state_trackers.remove(session_id);
-                if let Some(coordinator) =
-                    crate::agentic::coordination::get_global_coordinator()
-                {
-                    let sub_id = format!("remote_tracker_{}", session_id);
-                    coordinator.unsubscribe_internal(&sub_id);
-                }
+                get_or_init_global_dispatcher().remove_tracker(session_id);
                 match coordinator.delete_session(session_id).await {
                     Ok(_) => RemoteResponse::SessionDeleted {
                         session_id: session_id.clone(),
@@ -1499,14 +1654,7 @@ impl RemoteServer {
     async fn handle_execution_command(&self, cmd: &RemoteCommand) -> RemoteResponse {
         use crate::agentic::coordination::{get_global_coordinator, DialogTriggerSource};
 
-        let coordinator = match get_global_coordinator() {
-            Some(c) => c,
-            None => {
-                return RemoteResponse::Error {
-                    message: "Desktop session system not ready".into(),
-                };
-            }
-        };
+        let dispatcher = get_or_init_global_dispatcher();
 
         match cmd {
             RemoteCommand::SendMessage {
@@ -1515,110 +1663,74 @@ impl RemoteServer {
                 agent_type: requested_agent_type,
                 images,
             } => {
-                self.ensure_tracker(session_id);
-
-                let session_mgr = coordinator.get_session_manager();
-                let _ = match session_mgr.get_session(session_id) {
-                    Some(session) => Some(session),
-                    None => coordinator.restore_session(session_id).await.ok(),
-                };
-
-                let agent_type = requested_agent_type
-                    .as_deref()
-                    .map(|t| resolve_agent_type(Some(t)).to_string())
-                    .unwrap_or_else(|| "agentic".to_string());
-
-                let full_content = images
-                    .as_ref()
-                    .map(|imgs| build_message_with_remote_images(content, imgs))
-                    .unwrap_or_else(|| content.clone());
-
                 info!(
-                    "Remote send_message: session={session_id}, agent_type={agent_type}, images={}",
+                    "Remote send_message: session={session_id}, agent_type={}, images={}",
+                    requested_agent_type.as_deref().unwrap_or("agentic"),
                     images.as_ref().map_or(0, |v| v.len())
                 );
-                let turn_id = format!("turn_{}", chrono::Utc::now().timestamp_millis());
-                match coordinator
-                    .start_dialog_turn(
-                        session_id.clone(),
-                        full_content,
-                        Some(turn_id.clone()),
-                        agent_type,
+                match dispatcher
+                    .send_message(
+                        session_id,
+                        content.clone(),
+                        requested_agent_type.as_deref(),
+                        images.as_ref(),
                         DialogTriggerSource::RemoteRelay,
+                        None,
                     )
                     .await
                 {
-                    Ok(()) => RemoteResponse::MessageSent {
-                        session_id: session_id.clone(),
+                    Ok((sid, turn_id)) => RemoteResponse::MessageSent {
+                        session_id: sid,
                         turn_id,
                     },
-                    Err(e) => RemoteResponse::Error {
-                        message: e.to_string(),
-                    },
+                    Err(e) => RemoteResponse::Error { message: e },
                 }
             }
             RemoteCommand::CancelTask {
                 session_id,
                 turn_id,
             } => {
-                let session = match coordinator.get_session_manager().get_session(session_id) {
-                    Some(session) => Some(session),
-                    None => coordinator.restore_session(session_id).await.ok(),
-                };
-
-                let Some(session) = session else {
-                    return RemoteResponse::Error {
-                        message: format!("Session not found: {}", session_id),
-                    };
-                };
-
-                let running_turn_id = match &session.state {
-                    crate::agentic::core::SessionState::Processing { current_turn_id, .. } => {
-                        Some(current_turn_id.clone())
-                    }
-                    _ => None,
-                };
-
-                match (running_turn_id, turn_id.as_ref()) {
-                    (Some(current_turn_id), Some(requested_turn_id))
-                        if requested_turn_id != &current_turn_id =>
-                    {
-                        RemoteResponse::Error {
-                            message: "This task is no longer running.".to_string(),
-                        }
-                    }
-                    (Some(current_turn_id), _) => match coordinator
-                        .cancel_dialog_turn(session_id, &current_turn_id)
-                        .await
-                    {
-                        Ok(_) => RemoteResponse::TaskCancelled {
-                            session_id: session_id.clone(),
-                        },
-                        Err(e) => RemoteResponse::Error {
-                            message: e.to_string(),
-                        },
+                match dispatcher
+                    .cancel_task(session_id, turn_id.as_deref())
+                    .await
+                {
+                    Ok(()) => RemoteResponse::TaskCancelled {
+                        session_id: session_id.clone(),
                     },
-                    (None, Some(_)) => RemoteResponse::Error {
-                        message: "This task is already finished.".to_string(),
-                    },
-                    (None, None) => RemoteResponse::Error {
-                        message: format!("No running task to cancel for session: {}", session_id),
-                    },
+                    Err(e) => RemoteResponse::Error { message: e },
                 }
             }
             RemoteCommand::ConfirmTool {
                 tool_id,
                 updated_input,
-            } => match coordinator.confirm_tool(tool_id, updated_input.clone()).await {
-                Ok(_) => RemoteResponse::InteractionAccepted {
-                    action: "confirm_tool".to_string(),
-                    target_id: tool_id.clone(),
-                },
-                Err(e) => RemoteResponse::Error {
-                    message: e.to_string(),
-                },
-            },
+            } => {
+                let coordinator = match get_global_coordinator() {
+                    Some(c) => c,
+                    None => {
+                        return RemoteResponse::Error {
+                            message: "Desktop session system not ready".into(),
+                        };
+                    }
+                };
+                match coordinator.confirm_tool(tool_id, updated_input.clone()).await {
+                    Ok(_) => RemoteResponse::InteractionAccepted {
+                        action: "confirm_tool".to_string(),
+                        target_id: tool_id.clone(),
+                    },
+                    Err(e) => RemoteResponse::Error {
+                        message: e.to_string(),
+                    },
+                }
+            }
             RemoteCommand::RejectTool { tool_id, reason } => {
+                let coordinator = match get_global_coordinator() {
+                    Some(c) => c,
+                    None => {
+                        return RemoteResponse::Error {
+                            message: "Desktop session system not ready".into(),
+                        };
+                    }
+                };
                 let reject_reason = reason
                     .clone()
                     .unwrap_or_else(|| "User rejected".to_string());
@@ -1633,6 +1745,14 @@ impl RemoteServer {
                 }
             }
             RemoteCommand::CancelTool { tool_id, reason } => {
+                let coordinator = match get_global_coordinator() {
+                    Some(c) => c,
+                    None => {
+                        return RemoteResponse::Error {
+                            message: "Desktop session system not ready".into(),
+                        };
+                    }
+                };
                 let cancel_reason = reason
                     .clone()
                     .unwrap_or_else(|| "User cancelled".to_string());
