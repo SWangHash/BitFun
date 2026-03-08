@@ -1,6 +1,12 @@
 {
   "title": "MCP",
   "subtitle": "Manage MCP server connections",
+  "section": {
+    "serverList": {
+      "title": "MCP Server List",
+      "description": "Manage MCP server status and JSON configuration."
+    }
+  },
   "tabs": {
     "servers": "Servers",
     "add": "Add Server"

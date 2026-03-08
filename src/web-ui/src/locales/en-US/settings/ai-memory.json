@@ -1,6 +1,12 @@
 {
   "title": "Memory",
   "subtitle": "Manage AI memory",
+  "section": {
+    "memoryList": {
+      "title": "Memory List",
+      "description": "Create and view knowledge memories."
+    }
+  },
   "toolbar": {
     "searchPlaceholder": "Search memories...",
     "addTooltip": "Add memory"

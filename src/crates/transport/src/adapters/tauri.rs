@@ -54,12 +54,29 @@ impl TransportAdapter for TauriTransportAdapter {
                     "sessionId": session_id,
                 }))?;
             }
-            AgenticEvent::DialogTurnStarted { session_id, turn_id, turn_index, user_input, subagent_parent_info } => {
+            AgenticEvent::ImageAnalysisStarted { session_id, image_count, user_input, image_metadata } => {
+                self.app_handle.emit("agentic://image-analysis-started", json!({
+                    "sessionId": session_id,
+                    "imageCount": image_count,
+                    "userInput": user_input,
+                    "imageMetadata": image_metadata,
+                }))?;
+            }
+            AgenticEvent::ImageAnalysisCompleted { session_id, success, duration_ms } => {
+                self.app_handle.emit("agentic://image-analysis-completed", json!({
+                    "sessionId": session_id,
+                    "success": success,
+                    "durationMs": duration_ms,
+                }))?;
+            }
+            AgenticEvent::DialogTurnStarted { session_id, turn_id, turn_index, user_input, original_user_input, user_message_metadata, subagent_parent_info } => {
                 self.app_handle.emit("agentic://dialog-turn-started", json!({
                     "sessionId": session_id,
                     "turnId": turn_id,
                     "turnIndex": turn_index,
                     "userInput": user_input,
+                    "originalUserInput": original_user_input,
+                    "userMessageMetadata": user_message_metadata,
                     "subagentParentInfo": subagent_parent_info,
                 }))?;
             }

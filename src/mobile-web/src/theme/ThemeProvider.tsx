@@ -18,13 +18,23 @@ const themeMap: Record<ThemeId, Record<string, string>> = {
   light: lightTheme,
 };
 
-function applyTheme(id: ThemeId) {
-  const vars = themeMap[id];
+let themeTransitionTimer: ReturnType<typeof setTimeout> | undefined;
+
+function applyTheme(id: ThemeId, animate = true) {
   const root = document.documentElement;
+
+  if (animate && root.getAttribute('data-theme')) {
+    root.classList.add('theme-transitioning');
+    clearTimeout(themeTransitionTimer);
+    themeTransitionTimer = setTimeout(() => root.classList.remove('theme-transitioning'), 450);
+  }
+
+  const vars = themeMap[id];
   for (const [key, value] of Object.entries(vars)) {
     root.style.setProperty(key, value);
   }
   root.setAttribute('data-theme', id);
+  root.setAttribute('data-theme-type', id);
 }
 
 function getInitialTheme(): ThemeId {

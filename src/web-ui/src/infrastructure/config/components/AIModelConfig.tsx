@@ -582,7 +582,7 @@ const AIModelConfig: React.FC = () => {
 
         <div className="bitfun-ai-model-config__form bitfun-ai-model-config__form--modal">
           <ConfigPageSection
-            title={t('editSubtitle', { defaultValue: '基础模型参数配置' })}
+            title={t('editSubtitle')}
             className="bitfun-ai-model-config__edit-section"
           >
             {isFromTemplate ? (
@@ -842,14 +842,14 @@ const AIModelConfig: React.FC = () => {
 
       <ConfigPageContent className="bitfun-ai-model-config__content">
         <ConfigPageSection
-          title={tDefault('tabs.default', { defaultValue: '默认模型分配' })}
-          description={tDefault('subtitle', { defaultValue: '为不同能力场景指定默认模型。' })}
+          title={tDefault('tabs.default')}
+          description={tDefault('subtitle')}
         >
           <DefaultModelConfig />
         </ConfigPageSection>
 
         <ConfigPageSection
-          title={tDefault('tabs.models', { defaultValue: '已配置模型' })}
+          title={tDefault('tabs.models')}
           description={t('subtitle')}
           extra={(
             <IconButton
@@ -899,7 +899,7 @@ const AIModelConfig: React.FC = () => {
                   <div className="bitfun-ai-model-config__details">
                     <div className="bitfun-ai-model-config__details-section">
                       <div className="bitfun-ai-model-config__details-section-title">
-                        {t('details.basicInfo', { defaultValue: '基础信息' })}
+                        {t('details.basicInfo')}
                       </div>
                       <div className="bitfun-ai-model-config__details-grid">
                         <div className="bitfun-ai-model-config__details-item">
@@ -924,7 +924,7 @@ const AIModelConfig: React.FC = () => {
                         </div>
                         {config.capabilities && config.capabilities.length > 0 && (
                           <div className="bitfun-ai-model-config__details-item bitfun-ai-model-config__details-item--wide">
-                            <span className="bitfun-ai-model-config__details-label">{t('details.capabilities', { defaultValue: '能力' })}</span>
+                            <span className="bitfun-ai-model-config__details-label">{t('details.capabilities')}</span>
                             <div className="bitfun-ai-model-config__details-tags">
                               {config.capabilities.map(capability => (
                                 <span key={capability} className="bitfun-ai-model-config__details-tag">
@@ -1012,7 +1012,7 @@ const AIModelConfig: React.FC = () => {
         </ConfigPageSection>
 
         <ConfigPageSection
-          title={tDefault('tabs.proxy', { defaultValue: '网络代理' })}
+          title={tDefault('tabs.proxy')}
           description={t('proxy.enableHint')}
           extra={(
             <Button

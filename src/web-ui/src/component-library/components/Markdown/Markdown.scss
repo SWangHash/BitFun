@@ -391,7 +391,8 @@
 }
 
 
-.markdown-renderer pre code {
+.markdown-renderer pre code,
+.markdown-renderer pre > .inline-code {
   display: block;
   padding: 0;
   margin: 0;
@@ -406,6 +407,8 @@
   user-select: text !important;
   box-shadow: none;
   font-size: 0.7rem !important;
+  color: inherit;
+  font-weight: inherit;
 }
 
 .markdown-renderer pre code:hover {

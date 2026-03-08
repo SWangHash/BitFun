@@ -123,6 +123,7 @@
     "contextWindow": "Context Window",
     "maxOutput": "Max Output",
     "description": "Description",
+    "capabilities": "Capabilities",
     "tokens": "tokens"
   },
   "proxy": {

@@ -1234,14 +1234,34 @@ export class FlowChatStore {
    * Convert DialogTurnData to FlowChat DialogTurn format
    */
   private convertToDialogTurns(turns: any[]): DialogTurn[] {
-    return turns.map(turn => ({
+    return turns.map(turn => {
+      const metadata = turn.userMessage.metadata;
+      const metaImages = metadata?.images;
+      const hasImages = Array.isArray(metaImages) && metaImages.length > 0;
+      const images = hasImages
+        ? metaImages.map((img: any) => ({
+            id: img.id || img.name || `img-${Date.now()}`,
+            name: img.name || 'image',
+            dataUrl: img.data_url,
+            imagePath: img.image_path,
+            mimeType: img.mime_type,
+          }))
+        : undefined;
+
+      const displayContent = metadata?.original_text || turn.userMessage.content;
+
+
+
+      return {
       id: turn.turnId,
       sessionId: turn.sessionId,
       userMessage: {
         id: turn.userMessage.id,
         type: 'user' as const,
-        content: turn.userMessage.content,
+        content: displayContent,
         timestamp: turn.userMessage.timestamp,
+        hasImages,
+        images,
       },
       modelRounds: turn.modelRounds.map((round: any) => ({
         id: round.id,
@@ -1311,7 +1331,8 @@ export class FlowChatStore {
       status: turn.status,
       startTime: turn.startTime,
       backendTurnIndex: turn.turnIndex,
-    }));
+    };
+    });
   }
 
   public setDialogTurnTodos(sessionId: string, turnId: string, todos: import('../types/flow-chat').TodoItem[]): void {

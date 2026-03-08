@@ -68,7 +68,7 @@ const WorkspacePage: React.FC<WorkspacePageProps> = ({ sessionMgr, onReady }) =>
 
   if (loading) {
     return (
-      <div className="workspace-page page-transition">
+      <div className="workspace-page">
         <div className="workspace-page__loading">
           <div className="spinner" />
           <span>Loading workspace info...</span>
@@ -78,7 +78,7 @@ const WorkspacePage: React.FC<WorkspacePageProps> = ({ sessionMgr, onReady }) =>
   }
 
   return (
-    <div className="workspace-page page-transition">
+    <div className="workspace-page">
       <div className="workspace-page__header">
         <h1>Workspace</h1>
       </div>

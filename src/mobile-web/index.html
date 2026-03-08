@@ -3,11 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#121214" />
+  <meta name="theme-color" content="#121214" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f7f8fa" media="(prefers-color-scheme: light)" />
   <title>BitFun Remote</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #121214; color: #e8e8e8; }
+    @media (prefers-color-scheme: light) {
+      body { background: #f7f8fa; color: #1e293b; }
+    }
   </style>
 </head>
 <body>

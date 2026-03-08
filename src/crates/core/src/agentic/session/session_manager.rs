@@ -641,6 +641,58 @@ impl SessionManager {
         Ok(())
     }
 
+    /// Mark a dialog turn as failed and persist it.
+    /// Unlike `complete_dialog_turn`, this sets the state to `Failed` with an error message.
+    pub async fn fail_dialog_turn(
+        &self,
+        session_id: &str,
+        turn_id: &str,
+        error: String,
+    ) -> BitFunResult<()> {
+        let mut turn = self
+            .persistence_manager
+            .load_dialog_turn(session_id, turn_id)
+            .await?;
+
+        turn.state = DialogTurnState::Failed { error };
+        turn.completed_at = Some(SystemTime::now());
+
+        if self.config.enable_persistence {
+            match self.get_context_messages(session_id).await {
+                Ok(context_messages) => {
+                    if let Err(err) = self
+                        .persistence_manager
+                        .save_turn_context_snapshot(
+                            session_id,
+                            turn.turn_index,
+                            &context_messages,
+                        )
+                        .await
+                    {
+                        warn!(
+                            "failed to save turn context snapshot on failure: session_id={}, turn_index={}, err={}",
+                            session_id, turn.turn_index, err
+                        );
+                    }
+                }
+                Err(err) => {
+                    warn!(
+                        "failed to build context messages for snapshot on failure: session_id={}, turn_index={}, err={}",
+                        session_id, turn.turn_index, err
+                    );
+                }
+            }
+            self.persistence_manager.save_dialog_turn(&turn).await?;
+        }
+
+        debug!(
+            "Dialog turn marked as failed: turn_id={}, turn_index={}",
+            turn_id, turn.turn_index
+        );
+
+        Ok(())
+    }
+
     // ============ Helper Methods ============
 
     /// Get session's message history (complete)

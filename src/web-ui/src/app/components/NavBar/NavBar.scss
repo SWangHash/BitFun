@@ -177,6 +177,10 @@
     transform-origin: top left;
     animation: bitfun-logo-menu-in $motion-fast $easing-decelerate forwards;
 
+    &.is-align-right {
+      transform-origin: top right;
+    }
+
     &.is-closing {
       animation: bitfun-logo-menu-out $motion-fast $easing-accelerate forwards;
     }

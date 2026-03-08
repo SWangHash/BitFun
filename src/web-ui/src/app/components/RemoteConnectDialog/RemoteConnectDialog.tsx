@@ -86,6 +86,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState<boolean>(() => getRemoteConnectDisclaimerAgreed());
 
+  const [qrCopied, setQrCopied] = useState(false);
   const [customUrl, setCustomUrl] = useState('');
   const [tgToken, setTgToken] = useState('');
   const [feishuAppId, setFeishuAppId] = useState('');
@@ -318,7 +319,16 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     return (
       <div className="bitfun-remote-connect__body">
         {connectionResult.qr_url && (
-          <div className="bitfun-remote-connect__qr-box">
+          <div
+            className="bitfun-remote-connect__qr-box"
+            style={{ cursor: 'pointer' }}
+            title="Click to copy URL"
+            onClick={() => {
+              navigator.clipboard.writeText(connectionResult.qr_url!);
+              setQrCopied(true);
+              setTimeout(() => setQrCopied(false), 2000);
+            }}
+          >
             <QRCodeSVG value={connectionResult.qr_url} size={180} level="M" includeMargin />
           </div>
         )}
@@ -330,10 +340,12 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           </div>
         )}
         <div className="bitfun-remote-connect__status">
-          <Badge variant="warning">
-            {activeGroup === 'bot'
-              ? t('remoteConnect.stateWaitingBot')
-              : t('remoteConnect.stateWaiting')}
+          <Badge variant={qrCopied ? 'success' : 'warning'}>
+            {qrCopied
+              ? t('remoteConnect.urlCopied')
+              : activeGroup === 'bot'
+                ? t('remoteConnect.stateWaitingBot')
+                : t('remoteConnect.stateWaiting')}
           </Badge>
         </div>
         <p className="bitfun-remote-connect__hint">

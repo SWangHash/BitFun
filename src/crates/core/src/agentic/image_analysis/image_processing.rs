@@ -153,7 +153,23 @@ pub fn optimize_image_for_provider(
     provider: &str,
     fallback_mime: Option<&str>,
 ) -> BitFunResult<ProcessedImage> {
+    optimize_image_with_size_limit(image_data, provider, fallback_mime, None)
+}
+
+/// Like `optimize_image_for_provider` but allows an explicit size cap.
+/// When `max_output_size` is `Some(n)`, the effective limit is
+/// `min(provider_limit, n)`.
+pub fn optimize_image_with_size_limit(
+    image_data: Vec<u8>,
+    provider: &str,
+    fallback_mime: Option<&str>,
+    max_output_size: Option<usize>,
+) -> BitFunResult<ProcessedImage> {
     let limits = ImageLimits::for_provider(provider);
+    let effective_max = match max_output_size {
+        Some(cap) => cap.min(limits.max_size),
+        None => limits.max_size,
+    };
 
     let guessed_format = image::guess_format(&image_data).ok();
     let dynamic = image::load_from_memory(&image_data)
@@ -162,7 +178,7 @@ pub fn optimize_image_for_provider(
     let (orig_width, orig_height) = (dynamic.width(), dynamic.height());
     let needs_resize = orig_width > limits.max_width || orig_height > limits.max_height;
 
-    if !needs_resize && image_data.len() <= limits.max_size {
+    if !needs_resize && image_data.len() <= effective_max {
         let mime_type = detect_mime_type_from_bytes(&image_data, fallback_mime)?;
         return Ok(ProcessedImage {
             data: image_data,
@@ -185,33 +201,33 @@ pub fn optimize_image_for_provider(
 
     let mut encoded = encode_dynamic_image(&working, preferred_format, 85)?;
 
-    if encoded.0.len() > limits.max_size {
+    if encoded.0.len() > effective_max {
         for quality in [80u8, 65, 50, 35] {
             encoded = encode_dynamic_image(&working, ImageFormat::Jpeg, quality)?;
-            if encoded.0.len() <= limits.max_size {
+            if encoded.0.len() <= effective_max {
                 break;
             }
         }
     }
 
-    if encoded.0.len() > limits.max_size {
-        for _ in 0..3 {
-            let next_w = ((working.width() as f32) * 0.85).round().max(64.0) as u32;
-            let next_h = ((working.height() as f32) * 0.85).round().max(64.0) as u32;
+    if encoded.0.len() > effective_max {
+        for _ in 0..5 {
+            let next_w = ((working.width() as f32) * 0.75).round().max(64.0) as u32;
+            let next_h = ((working.height() as f32) * 0.75).round().max(64.0) as u32;
             if next_w == working.width() && next_h == working.height() {
                 break;
             }
 
             working = working.resize(next_w, next_h, FilterType::Triangle);
 
-            for quality in [70u8, 55, 40] {
+            for quality in [70u8, 55, 40, 25] {
                 encoded = encode_dynamic_image(&working, ImageFormat::Jpeg, quality)?;
-                if encoded.0.len() <= limits.max_size {
+                if encoded.0.len() <= effective_max {
                     break;
                 }
             }
 
-            if encoded.0.len() <= limits.max_size {
+            if encoded.0.len() <= effective_max {
                 break;
             }
         }

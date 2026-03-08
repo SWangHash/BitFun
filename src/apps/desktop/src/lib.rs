@@ -712,13 +712,11 @@ fn start_event_loop_with_transport(
 
             if !batch.is_empty() {
                 for envelope in batch {
-                    let router = event_router.clone();
-                    let env_clone = envelope.clone();
-                    tokio::spawn(async move {
-                        if let Err(e) = router.route(env_clone).await {
-                            log::warn!("Internal event routing failed: {:?}", e);
-                        }
-                    });
+                    // Route to internal subscribers (e.g. RemoteSessionStateTracker)
+                    // sequentially so that text chunks are appended in order.
+                    if let Err(e) = event_router.route(envelope.clone()).await {
+                        log::warn!("Internal event routing failed: {:?}", e);
+                    }
 
                     if let Err(e) = transport.emit_event("", envelope.event).await {
                         log::error!("Failed to emit event: {:?}", e);

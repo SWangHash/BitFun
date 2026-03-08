@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Check, RotateCcw, Loader2, ArrowDownToLine } from 'lucide-react';
+import { Copy, Check, RotateCcw, Loader2, ArrowDownToLine, X } from 'lucide-react';
 import type { DialogTurn } from '../../types/flow-chat';
 import { useFlowChatContext } from './FlowChatContext';
 import { useActiveSession } from '../../store/modernFlowChatStore';
@@ -33,6 +33,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const [expanded, setExpanded] = useState(false);
     const [hasOverflow, setHasOverflow] = useState(false);
     const [isRollingBack, setIsRollingBack] = useState(false);
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -40,6 +41,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const dialogTurn = turnIndex >= 0 ? activeSession?.dialogTurns[turnIndex] : null;
     const isFailed = dialogTurn?.status === 'error';
     const canRollback = !!sessionId && turnIndex >= 0 && !isRollingBack;
+
     
     // Avoid zero-size errors by rendering a placeholder instead of null.
     if (!message) {
@@ -53,9 +55,17 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       const reproductionMatch = reproductionRegex.exec(contentStr);
       const reproduction = reproductionMatch ? reproductionMatch[1].trim() : null;
 
-      const cleaned = contentStr.replace(reproductionRegex, '').trim();
+      let cleaned = contentStr.replace(reproductionRegex, '').trim();
+
+      // Strip [Image: ...] context lines when images are shown as thumbnails.
+      if (message.images && message.images.length > 0) {
+        cleaned = cleaned
+          .replace(/\[Image:.*?\]\n(?:Path:.*?\n|Image ID:.*?\n)?/g, '')
+          .trim();
+      }
+
       return { displayText: cleaned, reproductionSteps: reproduction };
-    }, [message.content]);
+    }, [message.content, message.images]);
     
     // Check whether content overflows.
     useEffect(() => {
@@ -210,9 +220,31 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
           </div>
         </div>
 
+        {message.images && message.images.length > 0 && (
+          <div className="user-message-item__images">
+            {message.images.map(img => {
+              const src = img.dataUrl || (img.imagePath ? `https://asset.localhost/${encodeURIComponent(img.imagePath)}` : undefined);
+              return src ? (
+                <div key={img.id} className="user-message-item__image-thumb" onClick={(e) => { e.stopPropagation(); setLightboxImage(src); }}>
+                  <img src={src} alt={img.name} />
+                </div>
+              ) : null;
+            })}
+          </div>
+        )}
+
         {reproductionSteps && (
           <div className="user-message-item__blocks">
             {reproductionSteps && <ReproductionStepsBlock steps={reproductionSteps} />}
+          </div>
+        )}
+
+        {lightboxImage && (
+          <div className="user-message-item__lightbox" onClick={() => setLightboxImage(null)}>
+            <button className="user-message-item__lightbox-close" onClick={() => setLightboxImage(null)}>
+              <X size={20} />
+            </button>
+            <img src={lightboxImage} alt="Preview" onClick={(e) => e.stopPropagation()} />
           </div>
         )}
       </div>

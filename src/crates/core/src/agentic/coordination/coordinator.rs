@@ -246,6 +246,78 @@ impl ConversationCoordinator {
         }
     }
 
+    /// Ensure the completed/failed/cancelled turn is persisted to the workspace
+    /// conversation storage.  If the frontend already saved a richer version
+    /// during streaming, we only update the final status; otherwise we create
+    /// a minimal record with the user message so the turn is never lost.
+    /// Safety-net persistence: only creates a minimal record when the frontend
+    /// has not saved anything yet.  The frontend's PersistenceModule is the
+    /// authoritative writer for turn content (model rounds, text, tools, etc.)
+    /// and final status.  This function must NOT overwrite frontend-managed
+    /// data, because the spawned task always runs before the frontend receives
+    /// the DialogTurnCompleted event via the transport layer, and the existing
+    /// disk data from debounced saves may have incomplete model rounds.
+    async fn finalize_turn_in_workspace(
+        session_id: &str,
+        turn_id: &str,
+        turn_index: usize,
+        user_input: &str,
+        workspace_path: &str,
+        status: crate::service::conversation::TurnStatus,
+        user_message_metadata: Option<serde_json::Value>,
+    ) {
+        use crate::infrastructure::PathManager;
+        use crate::service::conversation::{
+            ConversationPersistenceManager, DialogTurnData, UserMessageData,
+        };
+
+        let path_manager = match PathManager::new() {
+            Ok(pm) => std::sync::Arc::new(pm),
+            Err(_) => return,
+        };
+
+        let conv_mgr = match ConversationPersistenceManager::new(
+            path_manager,
+            std::path::PathBuf::from(workspace_path),
+        )
+        .await
+        {
+            Ok(mgr) => mgr,
+            Err(_) => return,
+        };
+
+        if let Ok(Some(_existing)) = conv_mgr.load_dialog_turn(session_id, turn_index).await {
+            return;
+        }
+
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let mut turn_data = DialogTurnData::new(
+            turn_id.to_string(),
+            turn_index,
+            session_id.to_string(),
+            UserMessageData {
+                id: format!("{}-user", turn_id),
+                content: user_input.to_string(),
+                timestamp: now_ms,
+                metadata: user_message_metadata,
+            },
+        );
+        turn_data.status = status;
+        turn_data.end_time = Some(now_ms);
+        turn_data.duration_ms = Some(now_ms.saturating_sub(turn_data.start_time));
+
+        if let Err(e) = conv_mgr.save_dialog_turn(&turn_data).await {
+            warn!(
+                "Failed to finalize turn in workspace: session_id={}, turn_index={}, error={}",
+                session_id, turn_index, e
+            );
+        }
+    }
+
     /// Create a subagent session for internal AI execution.
     /// Unlike `create_session`, this does NOT emit `SessionCreated` to the transport layer,
     /// because subagent sessions are internal implementation details of the execution engine
@@ -317,6 +389,112 @@ impl ConversationCoordinator {
             trigger_source,
         )
         .await
+    }
+
+    /// Pre-analyze images using the configured vision model.
+    ///
+    /// Strategy:
+    /// 1. Vision model configured → analyze images → enhance user message with text descriptions → clear image_contexts
+    /// 2. No vision model → keep image_contexts as-is for multimodal fallback to primary model
+    async fn pre_analyze_images_if_needed(
+        &self,
+        user_input: String,
+        image_contexts: Option<Vec<ImageContextData>>,
+        session_id: &str,
+        image_metadata: Option<serde_json::Value>,
+    ) -> (String, Option<Vec<ImageContextData>>) {
+        let images = match &image_contexts {
+            Some(imgs) if !imgs.is_empty() => imgs,
+            _ => return (user_input, image_contexts),
+        };
+
+        use crate::agentic::image_analysis::{
+            resolve_vision_model_from_global_config, AnalyzeImagesRequest, ImageAnalyzer,
+            MessageEnhancer,
+        };
+        use crate::infrastructure::ai::get_global_ai_client_factory;
+
+        let vision_model = match resolve_vision_model_from_global_config().await {
+            Ok(m) => m,
+            Err(e) => {
+                info!("No vision model configured, using multimodal fallback: {}", e);
+                return (user_input, image_contexts);
+            }
+        };
+
+        let factory = match get_global_ai_client_factory().await {
+            Ok(f) => f,
+            Err(e) => {
+                warn!("Failed to get AI client factory for vision: {}", e);
+                return (user_input, image_contexts);
+            }
+        };
+
+        let vision_client = match factory.get_client_by_id(&vision_model.id).await {
+            Ok(c) => c,
+            Err(e) => {
+                warn!("Failed to create vision AI client: {}", e);
+                return (user_input, image_contexts);
+            }
+        };
+
+        let workspace_path = crate::infrastructure::get_workspace_path();
+        let analyzer = ImageAnalyzer::new(workspace_path, vision_client);
+        let request = AnalyzeImagesRequest {
+            images: images.clone(),
+            user_message: Some(user_input.clone()),
+            session_id: session_id.to_string(),
+        };
+
+        self.emit_event(AgenticEvent::ImageAnalysisStarted {
+            session_id: session_id.to_string(),
+            image_count: images.len(),
+            user_input: user_input.clone(),
+            image_metadata: image_metadata.clone(),
+        })
+        .await;
+
+        let analysis_start = std::time::Instant::now();
+
+        match analyzer.analyze_images(request, &vision_model).await {
+            Ok(results) => {
+                let duration_ms = analysis_start.elapsed().as_millis() as u64;
+
+                self.emit_event(AgenticEvent::ImageAnalysisCompleted {
+                    session_id: session_id.to_string(),
+                    success: true,
+                    duration_ms,
+                })
+                .await;
+
+                info!(
+                    "Vision pre-analysis completed: session={}, images={}, results={}, duration={}ms",
+                    session_id,
+                    images.len(),
+                    results.len(),
+                    duration_ms
+                );
+                let enhanced =
+                    MessageEnhancer::enhance_with_image_analysis(&user_input, &results, &[]);
+                (enhanced, None)
+            }
+            Err(e) => {
+                let duration_ms = analysis_start.elapsed().as_millis() as u64;
+
+                self.emit_event(AgenticEvent::ImageAnalysisCompleted {
+                    session_id: session_id.to_string(),
+                    success: false,
+                    duration_ms,
+                })
+                .await;
+
+                warn!(
+                    "Vision pre-analysis failed, falling back to multimodal: session={}, error={}",
+                    session_id, e
+                );
+                (user_input, image_contexts)
+            }
+        }
     }
 
     async fn start_dialog_turn_internal(
@@ -449,6 +627,50 @@ impl ConversationCoordinator {
         }
 
         let original_user_input = user_input.clone();
+
+        // Build image metadata for ConversationPersistenceManager (before image_contexts is consumed)
+        // Also stores original_text so the UI can display the user's actual input
+        // instead of the vision-enhanced text.
+        let user_message_metadata: Option<serde_json::Value> = image_contexts
+            .as_ref()
+            .filter(|imgs| !imgs.is_empty())
+            .map(|imgs| {
+                let image_meta: Vec<serde_json::Value> = imgs
+                    .iter()
+                    .map(|img| {
+                        let name = img
+                            .metadata
+                            .as_ref()
+                            .and_then(|m| m.get("name"))
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("image.png");
+                        let mut meta = serde_json::json!({
+                            "id": &img.id,
+                            "name": name,
+                            "mime_type": &img.mime_type,
+                        });
+                        if let Some(url) = &img.data_url {
+                            meta["data_url"] = serde_json::json!(url);
+                        }
+                        if let Some(path) = &img.image_path {
+                            meta["image_path"] = serde_json::json!(path);
+                        }
+                        meta
+                    })
+                    .collect();
+                serde_json::json!({
+                    "images": image_meta,
+                    "original_text": &original_user_input,
+                })
+            });
+
+        // Auto vision pre-analysis: when images are present, try to use the configured
+        // vision model to pre-analyze them, then enhance the user message with text descriptions.
+        // This is the single authoritative code path for all image handling (desktop, remote, bot).
+        // Fallback: if no vision model is configured, pass images as multimodal to the primary model.
+        let (user_input, image_contexts) =
+            self.pre_analyze_images_if_needed(user_input, image_contexts, &session_id, user_message_metadata.clone()).await;
+
         let wrapped_user_input = self
             .wrap_user_input(&effective_agent_type, user_input)
             .await?;
@@ -466,12 +688,20 @@ impl ConversationCoordinator {
             )
             .await?;
 
-        // Send dialog turn started event
+        // Send dialog turn started event with original input and image metadata
+        // so all frontends (desktop, mobile, bot) can display correctly.
+        let has_images = user_message_metadata.is_some();
         self.emit_event(AgenticEvent::DialogTurnStarted {
             session_id: session_id.clone(),
             turn_id: turn_id.clone(),
             turn_index,
             user_input: wrapped_user_input.clone(),
+            original_user_input: if has_images {
+                Some(original_user_input.clone())
+            } else {
+                None
+            },
+            user_message_metadata: user_message_metadata.clone(),
             subagent_parent_info: None,
         })
         .await;
@@ -560,14 +790,16 @@ impl ConversationCoordinator {
         let session_id_clone = session_id.clone();
         let turn_id_clone = turn_id.clone();
         let session_workspace_path = session.config.workspace_path.clone();
+        let user_input_for_workspace = wrapped_user_input.clone();
         let effective_agent_type_clone = effective_agent_type.clone();
+        let user_message_metadata_clone = user_message_metadata;
 
         tokio::spawn(async move {
             // Note: Don't check cancellation here as cancel token hasn't been created yet
             // Cancel token is created in execute_dialog_turn -> execute_round
             // execute_dialog_turn has proper cancellation checks internally
 
-            if let Some(workspace_path) = session_workspace_path {
+            if let Some(ref workspace_path) = session_workspace_path {
                 use crate::infrastructure::{get_workspace_path, set_workspace_path};
 
                 let current = get_workspace_path().map(|p| p.to_string_lossy().to_string());
@@ -590,7 +822,7 @@ impl ConversationCoordinator {
                 )
                 .await;
 
-            match execution_engine
+            let workspace_turn_status = match execution_engine
                 .execute_dialog_turn(effective_agent_type_clone, messages, execution_context)
                 .await
             {
@@ -621,17 +853,52 @@ impl ConversationCoordinator {
                     let _ = session_manager
                         .update_session_state(&session_id_clone, SessionState::Idle)
                         .await;
+
+                    Some(crate::service::conversation::TurnStatus::Completed)
                 }
                 Err(e) => {
                     let is_cancellation = matches!(&e, BitFunError::Cancelled(_));
 
                     if is_cancellation {
-                        // DialogTurnCancelled already sent in execution_engine
-                        debug!("Dialog turn cancelled: {}", e);
+                        info!("Dialog turn cancelled: session={}, turn={}", session_id_clone, turn_id_clone);
+
+                        // The execution engine only emits DialogTurnCancelled when
+                        // cancellation is detected between rounds.  If cancellation
+                        // interrupted streaming mid-round, no event was emitted.
+                        // Emit it here unconditionally (duplicates are harmless).
+                        let _ = event_queue
+                            .enqueue(
+                                AgenticEvent::DialogTurnCancelled {
+                                    session_id: session_id_clone.clone(),
+                                    turn_id: turn_id_clone.clone(),
+                                    subagent_parent_info: None,
+                                },
+                                Some(EventPriority::Critical),
+                            )
+                            .await;
+
+                        // Mark the turn as completed in persistence so its partial
+                        // content appears in historical messages (turns_to_chat_messages
+                        // skips InProgress turns).
+                        let _ = session_manager
+                            .complete_dialog_turn(
+                                &session_id_clone,
+                                &turn_id_clone,
+                                String::new(),
+                                TurnStats {
+                                    total_rounds: 0,
+                                    total_tools: 0,
+                                    total_tokens: 0,
+                                    duration_ms: 0,
+                                },
+                            )
+                            .await;
 
                         let _ = session_manager
                             .update_session_state(&session_id_clone, SessionState::Idle)
                             .await;
+
+                        Some(crate::service::conversation::TurnStatus::Cancelled)
                     } else {
                         error!("Dialog turn execution failed: {}", e);
 
@@ -651,6 +918,14 @@ impl ConversationCoordinator {
                             .await;
 
                         let _ = session_manager
+                            .fail_dialog_turn(
+                                &session_id_clone,
+                                &turn_id_clone,
+                                e.to_string(),
+                            )
+                            .await;
+
+                        let _ = session_manager
                             .update_session_state(
                                 &session_id_clone,
                                 SessionState::Error {
@@ -659,8 +934,23 @@ impl ConversationCoordinator {
                                 },
                             )
                             .await;
+
+                        Some(crate::service::conversation::TurnStatus::Error)
                     }
                 }
+            };
+
+            if let (Some(ref wp), Some(status)) = (&session_workspace_path, workspace_turn_status) {
+                Self::finalize_turn_in_workspace(
+                    &session_id_clone,
+                    &turn_id_clone,
+                    turn_index,
+                    &user_input_for_workspace,
+                    wp,
+                    status,
+                    user_message_metadata_clone,
+                )
+                .await;
             }
         });
 

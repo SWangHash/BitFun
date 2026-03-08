@@ -38,6 +38,13 @@ export interface ChatMessageItem {
   type: 'text' | 'tool' | 'thinking';
   content?: string;
   tool?: RemoteToolStatus;
+  is_subagent?: boolean;
+  subItems?: ChatMessageItem[];
+}
+
+export interface ChatImageAttachment {
+  name: string;
+  data_url: string;
 }
 
 export interface ChatMessage {
@@ -49,6 +56,7 @@ export interface ChatMessage {
   tools?: RemoteToolStatus[];
   thinking?: string;
   items?: ChatMessageItem[];
+  images?: ChatImageAttachment[];
 }
 
 export interface ActiveTurnSnapshot {
@@ -200,14 +208,20 @@ export class RemoteSessionManager {
     sessionId: string,
     content: string,
     agentType?: string,
-    images?: { name: string; data_url: string }[],
+    imageContexts?: Array<{
+      id: string;
+      image_path?: string;
+      data_url?: string;
+      mime_type: string;
+      metadata?: Record<string, unknown>;
+    }>,
   ): Promise<string> {
     const resp = await this.request<{ resp: string; turn_id: string }>({
       cmd: 'send_message',
       session_id: sessionId,
       content,
       agent_type: agentType || undefined,
-      images: images && images.length > 0 ? images : undefined,
+      image_contexts: imageContexts && imageContexts.length > 0 ? imageContexts : undefined,
     });
     return resp.turn_id;
   }
@@ -265,6 +279,7 @@ export class SessionPoller {
   private onUpdate: (state: PollResponse) => void;
   private polling = false;
   private stopped = false;
+  private hasActiveTurn = false;
 
   constructor(
     sessionMgr: RemoteSessionManager,
@@ -279,7 +294,7 @@ export class SessionPoller {
   start(initialMsgCount = 0) {
     this.stopped = false;
     this.knownMsgCount = initialMsgCount;
-    this.scheduleNext();
+    this.tick();
     document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
 
@@ -297,11 +312,22 @@ export class SessionPoller {
     this.knownMsgCount = 0;
   }
 
+  /** Call after sending a message to immediately switch to fast polling. */
+  nudge() {
+    this.hasActiveTurn = true;
+    if (this.intervalId !== null) clearTimeout(this.intervalId);
+    this.tick();
+  }
+
+  private getInterval(): number {
+    if (document.visibilityState !== 'visible') return 5000;
+    return this.hasActiveTurn ? 1000 : 10000;
+  }
+
   private scheduleNext() {
     if (this.stopped) return;
     if (this.intervalId !== null) clearTimeout(this.intervalId);
-    const interval = document.visibilityState === 'visible' ? 1000 : 5000;
-    this.intervalId = setTimeout(() => this.tick(), interval);
+    this.intervalId = setTimeout(() => this.tick(), this.getInterval());
   }
 
   private onVisibilityChange = () => {
@@ -326,6 +352,12 @@ export class SessionPoller {
         this.sinceVersion,
         this.knownMsgCount,
       );
+      // Only update hasActiveTurn from responses that carry actual data.
+      // When changed=false the backend omits active_turn, so we must
+      // preserve the previous value to keep 1-second fast polling alive.
+      if (resp.changed) {
+        this.hasActiveTurn = resp.active_turn != null && resp.active_turn.status === 'active';
+      }
       if (resp.changed) {
         this.sinceVersion = resp.version;
         if (resp.total_msg_count != null) {

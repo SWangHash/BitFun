@@ -199,10 +199,10 @@ export const PromptTemplateConfig: React.FC = () => {
 
       <ConfigPageContent>
         <ConfigPageSection
-          title={t('section.knowledgeList.title', { defaultValue: '提示词模板列表' })}
+          title={t('section.templateList.title')}
           description={
             <>
-              {t('section.knowledgeList.description', { defaultValue: '可创建、收藏与复用的提示词模板。' })}
+              {t('section.templateList.description')}
               {' '}
               {t('shortcuts.openPickerReminder')}
               <kbd className="prompt-template-config__shortcut-key">{globalShortcut}</kbd>

@@ -18,9 +18,6 @@ WebSocket relay server for BitFun Remote Connect. Bridges desktop (WebSocket) an
 ```bash
 # One-click deploy
 bash deploy.sh
-
-# With mobile web client rebuild
-bash deploy.sh --build-mobile
 ```
 
 ### What URL should I fill in BitFun Desktop?
@@ -123,7 +120,7 @@ Only desktop clients connect via WebSocket. Mobile clients use the HTTP endpoint
 
 1. Clone the repository
 2. Navigate to `src/apps/relay-server/`
-3. Run `bash deploy.sh --build-mobile`
+3. Run `bash deploy.sh`
 4. Configure DNS/firewall as needed
 5. In BitFun desktop, select "Custom Server" and enter your server URL
 

@@ -247,7 +247,10 @@ pub fn build_relay_router(
         .route("/health", get(routes::api::health_check))
         .route("/api/info", get(routes::api::server_info))
         .route("/api/rooms/:room_id/pair", post(routes::api::pair))
-        .route("/api/rooms/:room_id/command", post(routes::api::command))
+        .route(
+            "/api/rooms/:room_id/command",
+            post(routes::api::command).layer(DefaultBodyLimit::max(10 * 1024 * 1024)),
+        )
         .route(
             "/api/rooms/:room_id/upload-web",
             post(routes::api::upload_web).layer(DefaultBodyLimit::max(10 * 1024 * 1024)),

@@ -1,6 +1,12 @@
 {
   "title": "MCP",
   "subtitle": "管理 MCP 服务器连接",
+  "section": {
+    "serverList": {
+      "title": "MCP 服务列表",
+      "description": "统一管理 MCP 服务状态与 JSON 配置。"
+    }
+  },
   "tabs": {
     "servers": "服务器",
     "add": "添加服务器"

@@ -1,10 +1,23 @@
 {
   "title": "Tool Settings",
   "subtitle": "Tool execution configuration and available tool list",
+  "section": {
+    "config": {
+      "title": "Execution Behavior",
+      "description": "Control confirmation and timeout policies for tool calls."
+    },
+    "list": {
+      "title": "Tool List",
+      "description": "{{count}} tools available."
+    }
+  },
   "config": {
     "autoExecute": "Auto Execute",
+    "autoExecuteDesc": "Skip user confirmation before tool execution.",
     "confirmTimeout": "Confirm Timeout",
+    "confirmTimeoutDesc": "Maximum time (seconds) to wait for user confirmation of tool calls.",
     "executionTimeout": "Execution Timeout",
+    "executionTimeoutDesc": "Maximum time (seconds) for tool execution.",
     "seconds": "sec"
   },
   "filters": {

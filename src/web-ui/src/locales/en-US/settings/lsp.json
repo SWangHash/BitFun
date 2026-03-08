@@ -1,6 +1,16 @@
 {
   "title": "LSP Plugin Management",
   "subtitle": "Manage Language Server Protocol plugins",
+  "section": {
+    "settings": {
+      "title": "Basic Settings",
+      "description": "Runtime configuration for language services."
+    },
+    "plugins": {
+      "title": "Language Plugins",
+      "description": "Manage installed language service plugins."
+    }
+  },
   "tabs": {
     "plugins": "Plugin Management",
     "settings": "Settings",

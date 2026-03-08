@@ -4,7 +4,7 @@
 
 use super::image_processing::{
     build_multimodal_message, decode_data_url, detect_mime_type_from_bytes, load_image_from_path,
-    optimize_image_for_provider, resolve_image_path,
+    optimize_image_with_size_limit, resolve_image_path,
 };
 use super::types::{AnalyzeImagesRequest, ImageAnalysisResult, ImageContextData};
 use crate::infrastructure::ai::AIClient;
@@ -94,8 +94,13 @@ impl ImageAnalyzer {
         let (image_data, fallback_mime) =
             Self::load_image_from_context(&image_ctx, workspace_path.as_deref()).await?;
 
-        let processed =
-            optimize_image_for_provider(image_data, &model.provider, fallback_mime.as_deref())?;
+        const IMAGE_ANALYSIS_MAX_BYTES: usize = 1024 * 1024;
+        let processed = optimize_image_with_size_limit(
+            image_data,
+            &model.provider,
+            fallback_mime.as_deref(),
+            Some(IMAGE_ANALYSIS_MAX_BYTES),
+        )?;
 
         debug!(
             "Image processing completed: mime={}, size={}KB, dimensions={}x{}",

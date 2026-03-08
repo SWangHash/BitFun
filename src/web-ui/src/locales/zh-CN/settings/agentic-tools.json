@@ -1,10 +1,23 @@
 {
   "title": "工具设置",
   "subtitle": "工具执行配置与可用工具列表",
+  "section": {
+    "config": {
+      "title": "执行行为",
+      "description": "控制工具调用时的确认与超时策略。"
+    },
+    "list": {
+      "title": "工具列表",
+      "description": "共 {{count}} 个可用工具。"
+    }
+  },
   "config": {
     "autoExecute": "自动执行",
+    "autoExecuteDesc": "跳过工具执行前的用户确认步骤。",
     "confirmTimeout": "确认超时",
+    "confirmTimeoutDesc": "等待用户确认工具调用的最长时间（秒）。",
     "executionTimeout": "执行超时",
+    "executionTimeoutDesc": "工具执行的最长时间（秒）。",
     "seconds": "秒"
   },
   "filters": {

@@ -76,8 +76,8 @@ impl AskUserQuestionTool {
             }
 
             // Validate options
-            if question.options.len() < 2 || question.options.len() > 5 {
-                return Err(format!("Question {} must have 2-5 options", q_num));
+            if question.options.len() < 2 || question.options.len() > 10 {
+                return Err(format!("Question {} must have 2-10 options", q_num));
             }
 
             for (opt_idx, opt) in question.options.iter().enumerate() {
@@ -215,8 +215,8 @@ Usage notes:
                                     "additionalProperties": false
                                 },
                                 "minItems": 2,
-                                "maxItems": 5,
-                                "description": "The available choices for this question. Must have 2-5 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no 'Other' option, that will be provided automatically."
+                                "maxItems": 10,
+                                "description": "The available choices for this question. Must have 2-10 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). There should be no 'Other' option, that will be provided automatically."
                             },
                             "multiSelect": {
                                 "type": "boolean",

@@ -105,6 +105,13 @@ export interface ToolEvent extends AgenticEvent {
 }
 
  
+export interface ImageAnalysisEvent extends AgenticEvent {
+  imageCount?: number;
+  userInput?: string;
+  success?: boolean;
+  durationMs?: number;
+}
+
 export interface CompressionEvent extends AgenticEvent {
   compressionId: string;          
   
@@ -297,6 +304,14 @@ export class AgentAPI {
    
   onContextCompressionFailed(callback: (event: CompressionEvent) => void): () => void {
     return api.listen<CompressionEvent>('agentic://context-compression-failed', callback);
+  }
+
+  onImageAnalysisStarted(callback: (event: ImageAnalysisEvent) => void): () => void {
+    return api.listen<ImageAnalysisEvent>('agentic://image-analysis-started', callback);
+  }
+
+  onImageAnalysisCompleted(callback: (event: ImageAnalysisEvent) => void): () => void {
+    return api.listen<ImageAnalysisEvent>('agentic://image-analysis-completed', callback);
   }
 
    

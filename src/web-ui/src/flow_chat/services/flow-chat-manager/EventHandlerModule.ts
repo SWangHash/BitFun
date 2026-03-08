@@ -17,7 +17,10 @@ import {
 import { notificationService } from '../../../shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { globalAPI } from '@/infrastructure/api';
+import type { ImageAnalysisEvent } from '@/infrastructure/api/service-api/AgentAPI';
 import type { FlowChatContext, DialogTurn, ModelRound, FlowToolItem } from './types';
+
+const pendingImageAnalysisTurns = new Map<string, string>();
 import { 
   debouncedSaveDialogTurn, 
   immediateSaveDialogTurn, 
@@ -148,6 +151,12 @@ export async function initializeEventListeners(
     onSessionStateChanged: (event) => {
       handleSessionStateChanged(event);
     },
+    onImageAnalysisStarted: (event) => {
+      handleImageAnalysisStarted(context, event as ImageAnalysisEvent);
+    },
+    onImageAnalysisCompleted: (event) => {
+      handleImageAnalysisCompleted(context, event as ImageAnalysisEvent);
+    },
     onDialogTurnStarted: (event) => {
       handleDialogTurnStarted(context, event);
     },
@@ -256,8 +265,127 @@ function handleSessionStateChanged(event: any): void {
 }
 
 /**
- * Handle dialog turn started event
+ * Handle image analysis started event (backend vision pre-analysis).
+ *
+ * Two paths:
+ * - Desktop: MessageModule already created the turn locally → just update its status.
+ * - Remote (mobile/bot): No turn exists yet → create a temporary turn.
  */
+function handleImageAnalysisStarted(context: FlowChatContext, event: ImageAnalysisEvent): void {
+  const { sessionId, imageCount, userInput, imageMetadata } = event as any;
+
+  const store = FlowChatStore.getInstance();
+  let session = store.getState().sessions.get(sessionId);
+
+  if (!session) {
+    store.addExternalSession(sessionId, 'Remote Session', 'agentic');
+    globalAPI.getCurrentWorkspacePath().then(workspacePath => {
+      if (workspacePath) {
+        store.setState(prev => {
+          const s = prev.sessions.get(sessionId);
+          if (!s || s.workspacePath) return prev;
+          const newSessions = new Map(prev.sessions);
+          newSessions.set(sessionId, { ...s, workspacePath });
+          return { ...prev, sessions: newSessions };
+        });
+      }
+    }).catch(() => {});
+    session = store.getState().sessions.get(sessionId);
+  }
+
+  // Desktop path: the turn was created by MessageModule before the backend call.
+  if (session) {
+    const lastTurn = session.dialogTurns[session.dialogTurns.length - 1];
+    if (lastTurn && (lastTurn.status === 'pending' || lastTurn.status === 'processing' || lastTurn.status === 'image_analyzing')) {
+      store.updateDialogTurn(sessionId, lastTurn.id, turn => ({
+        ...turn,
+        status: 'image_analyzing' as const,
+        userMessage: { ...turn.userMessage, hasImages: true },
+      }));
+      log.info('Image analysis started: updated existing turn', {
+        sessionId,
+        turnId: lastTurn.id,
+        imageCount,
+      });
+      return;
+    }
+  }
+
+  // Extract image display data from metadata (same logic as handleDialogTurnStarted)
+  const metaImages = imageMetadata?.images;
+  const hasMetaImages = Array.isArray(metaImages) && metaImages.length > 0;
+  const images = hasMetaImages
+    ? metaImages.map((img: any) => ({
+        id: img.id || img.name || `img-${Date.now()}`,
+        name: img.name || 'image',
+        dataUrl: img.data_url,
+        imagePath: img.image_path,
+        mimeType: img.mime_type,
+      }))
+    : undefined;
+  const displayInput = imageMetadata?.original_text
+    ? cleanRemoteUserInput(imageMetadata.original_text)
+    : cleanRemoteUserInput(userInput || '');
+
+  // Remote path: create a temporary turn so the desktop UI shows activity.
+  const tempTurnId = `_img_analysis_${sessionId}_${Date.now()}`;
+
+  const tempTurn: DialogTurn = {
+    id: tempTurnId,
+    sessionId,
+    userMessage: {
+      id: `user_img_${Date.now()}`,
+      content: displayInput,
+      timestamp: Date.now(),
+      hasImages: true,
+      images,
+    },
+    modelRounds: [],
+    status: 'image_analyzing',
+    startTime: Date.now(),
+  };
+
+  store.addDialogTurn(sessionId, tempTurn);
+  pendingImageAnalysisTurns.set(sessionId, tempTurnId);
+
+  context.contentBuffers.set(sessionId, new Map());
+  context.activeTextItems.set(sessionId, new Map());
+
+  stateMachineManager.transition(sessionId, SessionExecutionEvent.START, {
+    taskId: sessionId,
+    dialogTurnId: tempTurnId,
+  });
+
+  log.info('Image analysis started: created temp turn for remote', {
+    sessionId,
+    tempTurnId,
+    imageCount,
+  });
+}
+
+/**
+ * Handle image analysis completed event.
+ * Updates the turn status so the UI transitions from "analyzing" to "processing".
+ */
+function handleImageAnalysisCompleted(_context: FlowChatContext, event: ImageAnalysisEvent): void {
+  const { sessionId, success, durationMs } = event;
+
+  const store = FlowChatStore.getInstance();
+  const session = store.getState().sessions.get(sessionId);
+
+  if (session) {
+    const lastTurn = session.dialogTurns[session.dialogTurns.length - 1];
+    if (lastTurn && lastTurn.status === 'image_analyzing') {
+      store.updateDialogTurn(sessionId, lastTurn.id, turn => ({
+        ...turn,
+        status: 'processing' as const,
+      }));
+    }
+  }
+
+  log.info('Image analysis completed', { sessionId, success, durationMs });
+}
+
 /**
  * Strip agent-internal XML wrapper tags from user input before displaying.
  * Handles: <user_query>...</user_query> and trailing <system_reminder>...</system_reminder>
@@ -278,13 +406,36 @@ function cleanRemoteUserInput(raw: string): string {
 }
 
 function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
-  const { sessionId, turnId, turnIndex, userInput, subagentParentInfo } = event;
+  const { sessionId, turnId, turnIndex, userInput, originalUserInput, userMessageMetadata, subagentParentInfo } = event;
 
   if (subagentParentInfo) {
     return;
   }
 
   const store = FlowChatStore.getInstance();
+
+  // Clean up temp image analysis turn if one exists for this session
+  const tempTurnId = pendingImageAnalysisTurns.get(sessionId);
+  const hadTempTurn = !!tempTurnId;
+  if (tempTurnId) {
+    store.deleteDialogTurn(sessionId, tempTurnId);
+    pendingImageAnalysisTurns.delete(sessionId);
+
+    // State machine was already transitioned to PROCESSING by ImageAnalysisStarted.
+    // Update the context's dialogTurnId to the real turn ID.
+    const machine = stateMachineManager.get(sessionId);
+    if (machine) {
+      const ctx = machine.getContext();
+      ctx.currentDialogTurnId = turnId;
+    }
+
+    log.info('Replaced temp image analysis turn with real turn', {
+      sessionId,
+      tempTurnId,
+      realTurnId: turnId,
+    });
+  }
+
   const state = store.getState();
   const session = state.sessions.get(sessionId);
 
@@ -304,6 +455,22 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
     }).catch(() => { /* ignore */ });
   }
 
+  // Extract image display data from metadata (sent by coordinator for all platforms)
+  const metaImages = userMessageMetadata?.images;
+  const hasImages = Array.isArray(metaImages) && metaImages.length > 0;
+  const images = hasImages
+    ? metaImages.map((img: any) => ({
+        id: img.id || img.name || `img-${Date.now()}`,
+        name: img.name || 'image',
+        dataUrl: img.data_url,
+        imagePath: img.image_path,
+        mimeType: img.mime_type,
+      }))
+    : undefined;
+  const displayContent = originalUserInput
+    ? cleanRemoteUserInput(originalUserInput)
+    : cleanRemoteUserInput(userInput || '');
+
   const freshSession = store.getState().sessions.get(sessionId);
   const dialogTurn = freshSession?.dialogTurns.find((turn: DialogTurn) => turn.id === turnId);
   if (!dialogTurn) {
@@ -312,8 +479,10 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
       sessionId,
       userMessage: {
         id: `user_remote_${Date.now()}`,
-        content: cleanRemoteUserInput(userInput || ''),
-        timestamp: Date.now()
+        content: displayContent,
+        timestamp: Date.now(),
+        hasImages,
+        images,
       },
       modelRounds: [],
       status: 'pending',
@@ -325,11 +494,12 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
     context.contentBuffers.set(sessionId, new Map());
     context.activeTextItems.set(sessionId, new Map());
 
-    // Transition state machine to PROCESSING so subsequent events are not filtered
-    stateMachineManager.transition(sessionId, SessionExecutionEvent.START, {
-      taskId: sessionId,
-      dialogTurnId: turnId,
-    });
+    if (!hadTempTurn) {
+      stateMachineManager.transition(sessionId, SessionExecutionEvent.START, {
+        taskId: sessionId,
+        dialogTurnId: turnId,
+      });
+    }
     return;
   }
 
@@ -964,6 +1134,15 @@ function handleDialogTurnCancelled(
   saveDialogTurnToDisk(context, sessionId, turnId).catch(err => {
     log.warn('Failed to save cancelled dialog turn', { sessionId, turnId, error: err });
   });
+
+  // Transition state machine to IDLE.  When the desktop's own stop button
+  // is used, USER_CANCEL is dispatched before DialogTurnCancelled arrives,
+  // so the machine is already IDLE.  When cancellation comes from an
+  // external source (mobile remote), the machine is still PROCESSING.
+  const currentState = stateMachineManager.getCurrentState(sessionId);
+  if (currentState === SessionExecutionState.PROCESSING) {
+    stateMachineManager.transition(sessionId, SessionExecutionEvent.STREAM_COMPLETE);
+  }
 }
 
 /**

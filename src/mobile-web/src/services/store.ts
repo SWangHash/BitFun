@@ -68,10 +68,13 @@ export const useMobileStore = create<MobileStore>((set, get) => ({
     set((s) => {
       if (messages.length === 0) return s;
       const prev = s.messagesBySession[sessionId] || [];
+      const existingIds = new Set(prev.map((m) => m.id));
+      const unique = messages.filter((m) => !existingIds.has(m.id));
+      if (unique.length === 0) return s;
       return {
         messagesBySession: {
           ...s.messagesBySession,
-          [sessionId]: [...prev, ...messages],
+          [sessionId]: [...prev, ...unique],
         },
       };
     }),

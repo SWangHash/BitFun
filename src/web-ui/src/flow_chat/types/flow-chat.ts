@@ -101,6 +101,13 @@ export interface DialogTurn {
     content: string;
     timestamp: number;
     hasImages?: boolean;
+    images?: Array<{
+      id: string;
+      name: string;
+      dataUrl?: string;
+      imagePath?: string;
+      mimeType?: string;
+    }>;
   };
   
   // Image analysis phase (only when images exist).

@@ -123,6 +123,7 @@
     "contextWindow": "上下文窗口",
     "maxOutput": "最大输出",
     "description": "描述",
+    "capabilities": "能力",
     "tokens": "tokens"
   },
   "proxy": {

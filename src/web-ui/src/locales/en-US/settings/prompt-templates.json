@@ -24,6 +24,12 @@
     "copy": "Copy",
     "delete": "Delete"
   },
+  "section": {
+    "templateList": {
+      "title": "Template List",
+      "description": "Create, favorite, and reuse prompt templates."
+    }
+  },
   "shortcuts": {
     "openPickerReminder": "Open template picker: "
   },

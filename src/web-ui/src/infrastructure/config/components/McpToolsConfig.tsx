@@ -809,16 +809,12 @@ const McpToolsConfig: React.FC = () => {
 
       <ConfigPageContent>
         <ConfigPageSection
-          title={tTools('section.config.title', { defaultValue: '执行行为' })}
-          description={tTools('section.config.description', {
-            defaultValue: '控制工具调用时的确认与超时策略。',
-          })}
+          title={tTools('section.config.title')}
+          description={tTools('section.config.description')}
         >
           <ConfigPageRow
             label={tTools('config.autoExecute')}
-            description={tTools('config.autoExecuteDesc', {
-              defaultValue: '跳过工具执行前的用户确认步骤。',
-            })}
+            description={tTools('config.autoExecuteDesc')}
           >
             <Switch
               checked={skipToolConfirmation}
@@ -830,9 +826,7 @@ const McpToolsConfig: React.FC = () => {
 
           <ConfigPageRow
             label={tTools('config.confirmTimeout')}
-            description={tTools('config.confirmTimeoutDesc', {
-              defaultValue: '等待用户确认工具调用的最长时间（秒）。',
-            })}
+            description={tTools('config.confirmTimeoutDesc')}
           >
             <NumberInput
               value={confirmationTimeout === '' ? 0 : parseInt(confirmationTimeout, 10)}
@@ -850,9 +844,7 @@ const McpToolsConfig: React.FC = () => {
 
           <ConfigPageRow
             label={tTools('config.executionTimeout')}
-            description={tTools('config.executionTimeoutDesc', {
-              defaultValue: '工具执行的最长时间（秒）。',
-            })}
+            description={tTools('config.executionTimeoutDesc')}
           >
             <NumberInput
               value={executionTimeout === '' ? 0 : parseInt(executionTimeout, 10)}
@@ -869,10 +861,8 @@ const McpToolsConfig: React.FC = () => {
 
         {/* MCP section */}
         <ConfigPageSection
-          title={tMcp('section.knowledgeList.title', { defaultValue: 'MCP 服务列表' })}
-          description={tMcp('section.knowledgeList.description', {
-            defaultValue: '统一管理 MCP 服务状态与 JSON 配置。',
-          })}
+          title={tMcp('section.serverList.title')}
+          description={tMcp('section.serverList.description')}
           extra={mcpSectionExtra}
         >
           {showJsonEditor && (
@@ -960,10 +950,8 @@ const McpToolsConfig: React.FC = () => {
 
         {/* Tools section: list */}
         <ConfigPageSection
-          title={tTools('section.list.title', { defaultValue: '工具列表' })}
-          description={tTools('section.list.description', {
-            defaultValue: `共 ${tools.length} 个可用工具。`,
-          })}
+          title={tTools('section.list.title')}
+          description={tTools('section.list.description', { count: tools.length })}
         >
           {toolsLoading && (
             <div className="bitfun-collection-empty">

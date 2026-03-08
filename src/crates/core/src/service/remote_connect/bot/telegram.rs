@@ -292,7 +292,7 @@ impl TelegramBot {
         }
 
         let cmd = parse_command(text);
-        let result = handle_command(state, cmd).await;
+        let result = handle_command(state, cmd, vec![]).await;
 
         self.persist_chat_state(chat_id, state).await;
         drop(states);

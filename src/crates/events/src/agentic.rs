@@ -46,11 +46,29 @@ pub enum AgenticEvent {
         title: String,
         method: String,
     },
+    ImageAnalysisStarted {
+        session_id: String,
+        image_count: usize,
+        user_input: String,
+        /// Image metadata JSON for UI rendering (same as DialogTurnStarted)
+        image_metadata: Option<serde_json::Value>,
+    },
+
+    ImageAnalysisCompleted {
+        session_id: String,
+        success: bool,
+        duration_ms: u64,
+    },
+
     DialogTurnStarted {
         session_id: String,
         turn_id: String,
         turn_index: usize,
         user_input: String,
+        /// Original user input before vision enhancement (for display on all clients)
+        original_user_input: Option<String>,
+        /// Image metadata JSON for UI rendering (id, name, data_url, mime_type, image_path)
+        user_message_metadata: Option<serde_json::Value>,
         subagent_parent_info: Option<SubagentParentInfo>,
     },
 
@@ -287,6 +305,8 @@ impl AgenticEvent {
             | Self::SessionStateChanged { session_id, .. }
             | Self::SessionDeleted { session_id }
             | Self::SessionTitleGenerated { session_id, .. }
+            | Self::ImageAnalysisStarted { session_id, .. }
+            | Self::ImageAnalysisCompleted { session_id, .. }
             | Self::DialogTurnStarted { session_id, .. }
             | Self::DialogTurnCompleted { session_id, .. }
             | Self::TokenUsageUpdated { session_id, .. }
@@ -316,7 +336,9 @@ impl AgenticEvent {
             | Self::DialogTurnCompleted { .. }
             | Self::ContextCompressionFailed { .. } => AgenticEventPriority::High,
 
-            Self::TextChunk { .. }
+            Self::ImageAnalysisStarted { .. }
+            | Self::ImageAnalysisCompleted { .. }
+            | Self::TextChunk { .. }
             | Self::ThinkingChunk { .. }
             | Self::ToolEvent { .. }
             | Self::ModelRoundStarted { .. }

@@ -57,7 +57,7 @@ const NavBar: React.FC<NavBarProps> = ({
   const { currentWorkspace, recentWorkspaces, openWorkspace, switchWorkspace } = useWorkspaceContext();
   const [showLogoMenu, setShowLogoMenu] = useState(false);
   const [logoMenuClosing, setLogoMenuClosing] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; alignRight?: boolean }>({ top: 0, left: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const menuPortalRef = useRef<HTMLDivElement>(null);
   const lastMouseDownTimeRef = useRef<number>(0);
@@ -102,7 +102,14 @@ const NavBar: React.FC<NavBarProps> = ({
     const btn = containerRef.current?.querySelector<HTMLElement>('.bitfun-nav-bar__logo-button');
     if (btn) {
       const rect = btn.getBoundingClientRect();
-      setMenuPos({ top: rect.bottom + 4, left: rect.left });
+      const viewportMid = window.innerWidth / 2;
+      const btnCenter = rect.left + rect.width / 2;
+      const alignRight = btnCenter > viewportMid;
+      setMenuPos({
+        top: rect.bottom + 4,
+        left: alignRight ? rect.right : rect.left,
+        alignRight,
+      });
     }
     setShowLogoMenu(true);
   }, []);
@@ -174,9 +181,13 @@ const NavBar: React.FC<NavBarProps> = ({
     ? createPortal(
         <div
           ref={menuPortalRef}
-          className={`bitfun-nav-bar__menu${logoMenuClosing ? ' is-closing' : ''}`}
+          className={`bitfun-nav-bar__menu${logoMenuClosing ? ' is-closing' : ''}${menuPos.alignRight ? ' is-align-right' : ''}`}
           role="menu"
-          style={{ top: menuPos.top, left: menuPos.left }}
+          style={
+            menuPos.alignRight
+              ? { top: menuPos.top, right: window.innerWidth - menuPos.left }
+              : { top: menuPos.top, left: menuPos.left }
+          }
         >
           {!isMacOS && (
             <>

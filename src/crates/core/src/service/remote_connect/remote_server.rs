@@ -54,6 +54,7 @@ pub enum RemoteCommand {
         content: String,
         agent_type: Option<String>,
         images: Option<Vec<ImageAttachment>>,
+        image_contexts: Option<Vec<crate::agentic::image_analysis::ImageContextData>>,
     },
     CancelTask {
         session_id: String,
@@ -182,6 +183,12 @@ pub struct SessionInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatImageAttachment {
+    pub name: String,
+    pub data_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub id: String,
     pub role: String,
@@ -195,6 +202,8 @@ pub struct ChatMessage {
     /// Ordered items preserving the interleaved display order from the desktop.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub items: Option<Vec<ChatMessageItem>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub images: Option<Vec<ChatImageAttachment>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -205,6 +214,8 @@ pub struct ChatMessageItem {
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool: Option<RemoteToolStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_subagent: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -244,30 +255,94 @@ pub struct RemoteToolStatus {
 
 pub type EncryptedPayload = (String, String);
 
+/// Build a slim version of tool params for mobile preview.
+/// Strips large string values (file content, diffs, etc.) to keep payload small,
+/// while preserving all short fields so the frontend can parse and display them.
+fn make_slim_params(params: &serde_json::Value) -> Option<String> {
+    match params {
+        serde_json::Value::Object(obj) => {
+            let slim: serde_json::Map<String, serde_json::Value> = obj
+                .iter()
+                .filter_map(|(k, v)| match v {
+                    serde_json::Value::String(s) if s.len() > 200 => None,
+                    _ => Some((k.clone(), v.clone())),
+                })
+                .collect();
+            if slim.is_empty() {
+                return None;
+            }
+            serde_json::to_string(&serde_json::Value::Object(slim)).ok()
+        }
+        serde_json::Value::String(s) => Some(s.chars().take(200).collect()),
+        _ => None,
+    }
+}
+
 /// Convert ConversationPersistenceManager turns into mobile ChatMessages.
 /// This is the same data source the desktop frontend uses.
 fn turns_to_chat_messages(
     turns: &[crate::service::conversation::DialogTurnData],
 ) -> Vec<ChatMessage> {
+    use crate::service::conversation::TurnStatus;
+
     let mut result = Vec::new();
 
     for turn in turns {
+        let images = turn
+            .user_message
+            .metadata
+            .as_ref()
+            .and_then(|m| m.get("images"))
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| {
+                        Some(ChatImageAttachment {
+                            name: v.get("name")?.as_str()?.to_string(),
+                            data_url: v.get("data_url")?.as_str()?.to_string(),
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .filter(|v| !v.is_empty());
+
+        // Prefer original_text from metadata (pre-enhancement) for display
+        let display_content = turn
+            .user_message
+            .metadata
+            .as_ref()
+            .and_then(|m| m.get("original_text"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| strip_user_input_tags(&turn.user_message.content));
+
         result.push(ChatMessage {
             id: turn.user_message.id.clone(),
             role: "user".to_string(),
-            content: strip_user_input_tags(&turn.user_message.content),
+            content: display_content,
             timestamp: (turn.user_message.timestamp / 1000).to_string(),
             metadata: None,
             tools: None,
             thinking: None,
             items: None,
+            images,
         });
+
+        // Skip assistant message for in-progress turns.  The active turn's
+        // content is delivered via the real-time overlay, not the historical
+        // list.  Including an empty / partial assistant message here would
+        // "consume" a slot in the count-based skip cursor and prevent the
+        // final version from ever being delivered.
+        if turn.status == TurnStatus::InProgress {
+            continue;
+        }
 
         // Collect ordered items across all rounds, preserving interleaved order
         struct OrderedEntry {
             order_index: Option<usize>,
             timestamp: u64,
             sequence: usize,
+            round_idx: usize,
             item: ChatMessageItem,
         }
         let mut ordered: Vec<OrderedEntry> = Vec::new();
@@ -276,26 +351,11 @@ fn turns_to_chat_messages(
         let mut text_parts = Vec::new();
         let mut sequence = 0usize;
 
-        for round in &turn.model_rounds {
-            for t in &round.text_items {
-                if t.is_subagent_item.unwrap_or(false) {
-                    continue;
-                }
-                if !t.content.is_empty() {
-                    text_parts.push(t.content.clone());
-                    ordered.push(OrderedEntry {
-                        order_index: t.order_index,
-                        timestamp: t.timestamp,
-                        sequence,
-                        item: ChatMessageItem {
-                            item_type: "text".to_string(),
-                            content: Some(t.content.clone()),
-                            tool: None,
-                        },
-                    });
-                    sequence += 1;
-                }
-            }
+        for (round_idx, round) in turn.model_rounds.iter().enumerate() {
+            // Iterate in streaming order: thinking → text → tools.
+            // The model first thinks, then outputs text (which may reference
+            // tool calls), and finally the tools are detected and executed.
+            // This matches the real-time display order on the tracker.
             for t in &round.thinking_items {
                 if t.is_subagent_item.unwrap_or(false) {
                     continue;
@@ -306,10 +366,33 @@ fn turns_to_chat_messages(
                         order_index: t.order_index,
                         timestamp: t.timestamp,
                         sequence,
+                        round_idx,
                         item: ChatMessageItem {
                             item_type: "thinking".to_string(),
                             content: Some(t.content.clone()),
                             tool: None,
+                            is_subagent: None,
+                        },
+                    });
+                    sequence += 1;
+                }
+            }
+            for t in &round.text_items {
+                if t.is_subagent_item.unwrap_or(false) {
+                    continue;
+                }
+                if !t.content.is_empty() {
+                    text_parts.push(t.content.clone());
+                    ordered.push(OrderedEntry {
+                        order_index: t.order_index,
+                        timestamp: t.timestamp,
+                        sequence,
+                        round_idx,
+                        item: ChatMessageItem {
+                            item_type: "text".to_string(),
+                            content: Some(t.content.clone()),
+                            tool: None,
+                            is_subagent: None,
                         },
                     });
                     sequence += 1;
@@ -332,8 +415,11 @@ fn turns_to_chat_messages(
                     status: status_str.to_string(),
                     duration_ms: t.duration_ms,
                     start_ms: Some(t.start_time),
-                    input_preview: None,
-                    tool_input: if t.tool_name == "AskUserQuestion" {
+                    input_preview: make_slim_params(&t.tool_call.input),
+                    tool_input: if t.tool_name == "AskUserQuestion"
+                        || t.tool_name == "Task"
+                        || t.tool_name == "TodoWrite"
+                    {
                         Some(t.tool_call.input.clone())
                     } else {
                         None
@@ -342,29 +428,34 @@ fn turns_to_chat_messages(
                 tools_flat.push(tool_status.clone());
                 ordered.push(OrderedEntry {
                     order_index: t.order_index,
-                    timestamp: t.start_time,
+                    timestamp: round.start_time,
                     sequence,
+                    round_idx,
                     item: ChatMessageItem {
                         item_type: "tool".to_string(),
                         content: None,
                         tool: Some(tool_status),
+                        is_subagent: None,
                     },
                 });
                 sequence += 1;
             }
         }
 
-        ordered.sort_by(|a, b| match (a.order_index, b.order_index) {
-            (Some(a_idx), Some(b_idx)) => a_idx
-                .cmp(&b_idx)
-                .then_with(|| a.timestamp.cmp(&b.timestamp))
-                .then_with(|| a.sequence.cmp(&b.sequence)),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => a
-                .timestamp
-                .cmp(&b.timestamp)
-                .then_with(|| a.sequence.cmp(&b.sequence)),
+        // Sort by round first (rounds are strictly sequential), then by
+        // order_index within each round.  order_index is per-round (resets
+        // to 0 each round), so it must NOT be compared across rounds.
+        ordered.sort_by(|a, b| {
+            let round_cmp = a.round_idx.cmp(&b.round_idx);
+            if round_cmp != std::cmp::Ordering::Equal {
+                return round_cmp;
+            }
+            match (a.order_index, b.order_index) {
+                (Some(a_idx), Some(b_idx)) => a_idx.cmp(&b_idx),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => a.sequence.cmp(&b.sequence),
+            }
         });
         let items: Vec<ChatMessageItem> = ordered.into_iter().map(|e| e.item).collect();
 
@@ -387,6 +478,7 @@ fn turns_to_chat_messages(
                 Some(thinking_parts.join("\n\n"))
             },
             items: if items.is_empty() { None } else { Some(items) },
+            images: None,
         });
     }
 
@@ -428,6 +520,12 @@ fn strip_user_input_tags(content: &str) -> String {
     if let Some(pos) = s.find("<system_reminder>") {
         return s[..pos].trim().to_string();
     }
+    // Extract original question from enhancer-wrapped content
+    if s.starts_with("User uploaded") {
+        if let Some(pos) = s.find("User's question:\n") {
+            return s[pos + "User's question:\n".len()..].trim().to_string();
+        }
+    }
     s.to_string()
 }
 
@@ -439,6 +537,40 @@ fn resolve_agent_type(mobile_type: Option<&str>) -> &'static str {
         Some("debug") | Some("Debug") => "debug",
         _ => "agentic",
     }
+}
+
+/// Convert legacy `ImageAttachment` to unified `ImageContextData`.
+pub fn images_to_contexts(
+    images: Option<&Vec<ImageAttachment>>,
+) -> Vec<crate::agentic::image_analysis::ImageContextData> {
+    let Some(imgs) = images.filter(|v| !v.is_empty()) else {
+        return Vec::new();
+    };
+    imgs.iter()
+        .map(|img| {
+            let mime_type = img
+                .data_url
+                .split_once(',')
+                .and_then(|(header, _)| {
+                    header
+                        .strip_prefix("data:")
+                        .and_then(|rest| rest.split(';').next())
+                })
+                .unwrap_or("image/png")
+                .to_string();
+
+            crate::agentic::image_analysis::ImageContextData {
+                id: format!("remote_img_{}", uuid::Uuid::new_v4()),
+                image_path: None,
+                data_url: Some(img.data_url.clone()),
+                mime_type,
+                metadata: Some(serde_json::json!({
+                    "name": img.name,
+                    "source": "remote"
+                })),
+            }
+        })
+        .collect()
 }
 
 fn build_message_with_remote_images(content: &str, images: &[ImageAttachment]) -> String {
@@ -500,6 +632,10 @@ struct TrackerState {
     round_index: usize,
     /// Ordered items preserving the interleaved arrival order for real-time display.
     active_items: Vec<ChatMessageItem>,
+    /// Set on structural events (turn start/complete) that change persisted
+    /// messages.  Cleared after the poll handler loads persistence.  Allows
+    /// skipping the expensive disk read during streaming.
+    persistence_dirty: bool,
 }
 
 /// Lightweight event broadcast by the tracker for real-time consumers (e.g. bots).
@@ -544,6 +680,7 @@ impl RemoteSessionStateTracker {
                 active_tools: Vec::new(),
                 round_index: 0,
                 active_items: Vec::new(),
+                persistence_dirty: true,
             }),
             event_tx,
         }
@@ -564,14 +701,17 @@ impl RemoteSessionStateTracker {
 
     pub fn snapshot_active_turn(&self) -> Option<ActiveTurnSnapshot> {
         let s = self.state.read().unwrap();
+        let has_items = !s.active_items.is_empty();
         s.turn_id.as_ref().map(|tid| ActiveTurnSnapshot {
             turn_id: tid.clone(),
             status: s.turn_status.clone(),
-            text: s.accumulated_text.clone(),
-            thinking: s.accumulated_thinking.clone(),
+            // When items exist they already contain the text/thinking content.
+            // Skip the duplicate top-level fields to halve the payload.
+            text: if has_items { String::new() } else { s.accumulated_text.clone() },
+            thinking: if has_items { String::new() } else { s.accumulated_thinking.clone() },
             tools: s.active_tools.clone(),
             round_index: s.round_index,
-            items: if s.active_items.is_empty() { None } else { Some(s.active_items.clone()) },
+            items: if has_items { Some(s.active_items.clone()) } else { None },
         })
     }
 
@@ -583,6 +723,67 @@ impl RemoteSessionStateTracker {
         self.state.read().unwrap().title.clone()
     }
 
+    pub fn turn_status(&self) -> String {
+        self.state.read().unwrap().turn_status.clone()
+    }
+
+    /// Returns true if the turn has ended (completed/failed/cancelled) but
+    /// the tracker state hasn't been cleaned up yet (waiting for persistence).
+    pub fn is_turn_finished(&self) -> bool {
+        let s = self.state.read().unwrap();
+        s.turn_id.is_some()
+            && matches!(
+                s.turn_status.as_str(),
+                "completed" | "failed" | "cancelled"
+            )
+    }
+
+    /// Clear tracker state after the persisted historical message is confirmed
+    /// available. Called by the poll handler to complete the atomic transition.
+    pub fn finalize_completed_turn(&self) {
+        let mut s = self.state.write().unwrap();
+        if matches!(s.turn_status.as_str(), "completed" | "failed" | "cancelled") {
+            s.turn_id = None;
+            s.accumulated_text.clear();
+            s.accumulated_thinking.clear();
+            s.active_tools.clear();
+            s.active_items.clear();
+        }
+    }
+
+    /// Whether the persisted message list may have changed since the last
+    /// poll.  Structural events (turn start / complete) set this flag;
+    /// streaming events (text / thinking chunks) do not.
+    pub fn is_persistence_dirty(&self) -> bool {
+        self.state.read().unwrap().persistence_dirty
+    }
+
+    pub fn mark_persistence_clean(&self) {
+        self.state.write().unwrap().persistence_dirty = false;
+    }
+
+    /// Find the last item of `target_type` with matching `subagent_marker` that
+    /// can be extended, skipping over the complementary text/thinking type.
+    /// Tool items act as boundaries — we never merge across tool items.
+    /// This mirrors the desktop's EventBatcher behaviour where text and thinking
+    /// accumulate independently within a single ModelRound.
+    fn find_mergeable_item(
+        items: &[ChatMessageItem],
+        target_type: &str,
+        subagent_marker: &Option<bool>,
+    ) -> Option<usize> {
+        for i in (0..items.len()).rev() {
+            let item = &items[i];
+            if item.item_type == "tool" {
+                return None;
+            }
+            if item.item_type == target_type && &item.is_subagent == subagent_marker {
+                return Some(i);
+            }
+        }
+        None
+    }
+
     fn upsert_active_tool(
         state: &mut TrackerState,
         tool_id: &str,
@@ -590,6 +791,7 @@ impl RemoteSessionStateTracker {
         status: &str,
         input_preview: Option<String>,
         tool_input: Option<serde_json::Value>,
+        is_subagent: bool,
     ) {
         let resolved_id = if tool_id.is_empty() {
             format!("{}-{}", tool_name, state.active_tools.len())
@@ -597,6 +799,7 @@ impl RemoteSessionStateTracker {
             tool_id.to_string()
         };
         let allow_name_fallback = tool_id.is_empty() && !tool_name.is_empty();
+        let subagent_marker = if is_subagent { Some(true) } else { None };
 
         if let Some(tool) = state
             .active_tools
@@ -631,6 +834,7 @@ impl RemoteSessionStateTracker {
                 item_type: "tool".to_string(),
                 content: None,
                 tool: Some(tool_status),
+                is_subagent: subagent_marker,
             });
             return;
         }
@@ -678,24 +882,22 @@ impl RemoteSessionStateTracker {
 
         match event {
             AE::TextChunk { text, .. } => {
+                let subagent_marker = if is_subagent { Some(true) } else { None };
                 let mut s = self.state.write().unwrap();
-                s.accumulated_text.push_str(text);
-                if let Some(last) = s.active_items.last_mut() {
-                    if last.item_type == "text" {
-                        let c = last.content.get_or_insert_with(String::new);
-                        c.push_str(text);
-                    } else {
-                        s.active_items.push(ChatMessageItem {
-                            item_type: "text".to_string(),
-                            content: Some(text.clone()),
-                            tool: None,
-                        });
-                    }
+                if !is_subagent {
+                    s.accumulated_text.push_str(text);
+                }
+                let extend_idx = Self::find_mergeable_item(&s.active_items, "text", &subagent_marker);
+                if let Some(idx) = extend_idx {
+                    let item = &mut s.active_items[idx];
+                    let c = item.content.get_or_insert_with(String::new);
+                    c.push_str(text);
                 } else {
                     s.active_items.push(ChatMessageItem {
                         item_type: "text".to_string(),
                         content: Some(text.clone()),
                         tool: None,
+                        is_subagent: subagent_marker,
                     });
                 }
                 drop(s);
@@ -707,24 +909,22 @@ impl RemoteSessionStateTracker {
                     .replace("<thinking_end>", "")
                     .replace("</thinking>", "")
                     .replace("<thinking>", "");
+                let subagent_marker = if is_subagent { Some(true) } else { None };
                 let mut s = self.state.write().unwrap();
-                s.accumulated_thinking.push_str(&clean);
-                if let Some(last) = s.active_items.last_mut() {
-                    if last.item_type == "thinking" {
-                        let c = last.content.get_or_insert_with(String::new);
-                        c.push_str(&clean);
-                    } else {
-                        s.active_items.push(ChatMessageItem {
-                            item_type: "thinking".to_string(),
-                            content: Some(clean),
-                            tool: None,
-                        });
-                    }
+                if !is_subagent {
+                    s.accumulated_thinking.push_str(&clean);
+                }
+                let extend_idx = Self::find_mergeable_item(&s.active_items, "thinking", &subagent_marker);
+                if let Some(idx) = extend_idx {
+                    let item = &mut s.active_items[idx];
+                    let c = item.content.get_or_insert_with(String::new);
+                    c.push_str(&clean);
                 } else {
                     s.active_items.push(ChatMessageItem {
                         item_type: "thinking".to_string(),
                         content: Some(clean),
                         tool: None,
+                        is_subagent: subagent_marker,
                     });
                 }
                 drop(s);
@@ -763,18 +963,14 @@ impl RemoteSessionStateTracker {
                                 "preparing",
                                 None,
                                 None,
+                                is_subagent,
                             );
                         }
                         "ConfirmationNeeded" => {
                             let params = val.get("params").cloned();
-                            let input_preview = params.as_ref().map(|v| {
-                                let text = if v.is_string() {
-                                    v.as_str().unwrap_or_default().to_string()
-                                } else {
-                                    serde_json::to_string(v).unwrap_or_default()
-                                };
-                                text.chars().take(160).collect()
-                            });
+                            let input_preview = params
+                                .as_ref()
+                                .and_then(|v| make_slim_params(v));
                             Self::upsert_active_tool(
                                 &mut s,
                                 &tool_id,
@@ -782,19 +978,18 @@ impl RemoteSessionStateTracker {
                                 "pending_confirmation",
                                 input_preview,
                                 params,
+                                is_subagent,
                             );
                         }
                         "Started" => {
                             let params = val.get("params").cloned();
-                            let input_preview = params.as_ref().map(|v| {
-                                let text = if v.is_string() {
-                                    v.as_str().unwrap_or_default().to_string()
-                                } else {
-                                    serde_json::to_string(v).unwrap_or_default()
-                                };
-                                text.chars().take(160).collect()
-                            });
-                            let tool_input = if tool_name == "AskUserQuestion" {
+                            let input_preview = params
+                                .as_ref()
+                                .and_then(|v| make_slim_params(v));
+                            let tool_input = if tool_name == "AskUserQuestion"
+                                || tool_name == "Task"
+                                || tool_name == "TodoWrite"
+                            {
                                 params.clone()
                             } else {
                                 None
@@ -806,6 +1001,7 @@ impl RemoteSessionStateTracker {
                                 "running",
                                 input_preview,
                                 tool_input,
+                                is_subagent,
                             );
                             let _ = self.event_tx.send(TrackerEvent::ToolStarted {
                                 tool_id: tool_id.clone(),
@@ -821,6 +1017,7 @@ impl RemoteSessionStateTracker {
                                 "confirmed",
                                 None,
                                 None,
+                                is_subagent,
                             );
                         }
                         "Rejected" => {
@@ -831,6 +1028,7 @@ impl RemoteSessionStateTracker {
                                 "rejected",
                                 None,
                                 None,
+                                is_subagent,
                             );
                         }
                         "Completed" | "Succeeded" => {
@@ -923,18 +1121,15 @@ impl RemoteSessionStateTracker {
                 s.active_items.clear();
                 s.round_index = 0;
                 s.session_state = "running".to_string();
+                s.persistence_dirty = true;
                 drop(s);
                 self.bump_version();
             }
             AE::DialogTurnCompleted { .. } if is_direct => {
                 let mut s = self.state.write().unwrap();
                 s.turn_status = "completed".to_string();
-                s.turn_id = None;
-                s.accumulated_text.clear();
-                s.accumulated_thinking.clear();
-                s.active_tools.clear();
-                s.active_items.clear();
                 s.session_state = "idle".to_string();
+                s.persistence_dirty = true;
                 drop(s);
                 self.bump_version();
                 let _ = self.event_tx.send(TrackerEvent::TurnCompleted);
@@ -942,8 +1137,8 @@ impl RemoteSessionStateTracker {
             AE::DialogTurnFailed { error, .. } if is_direct => {
                 let mut s = self.state.write().unwrap();
                 s.turn_status = "failed".to_string();
-                s.turn_id = None;
                 s.session_state = "idle".to_string();
+                s.persistence_dirty = true;
                 drop(s);
                 self.bump_version();
                 let _ = self.event_tx.send(TrackerEvent::TurnFailed(error.clone()));
@@ -951,8 +1146,8 @@ impl RemoteSessionStateTracker {
             AE::DialogTurnCancelled { .. } if is_direct => {
                 let mut s = self.state.write().unwrap();
                 s.turn_status = "cancelled".to_string();
-                s.turn_id = None;
                 s.session_state = "idle".to_string();
+                s.persistence_dirty = true;
                 drop(s);
                 self.bump_version();
                 let _ = self.event_tx.send(TrackerEvent::TurnCancelled);
@@ -1052,12 +1247,14 @@ impl RemoteExecutionDispatcher {
     /// Dispatch a SendMessage command: ensure tracker, restore session, start dialog turn.
     /// Returns `(session_id, turn_id)` on success.
     /// If `turn_id` is `None`, one is auto-generated.
+    ///
+    /// All platforms (desktop, mobile, bot) use the same `ImageContextData` format.
     pub async fn send_message(
         &self,
         session_id: &str,
         content: String,
         agent_type: Option<&str>,
-        images: Option<&Vec<ImageAttachment>>,
+        image_contexts: Vec<crate::agentic::image_analysis::ImageContextData>,
         trigger_source: crate::agentic::coordination::DialogTriggerSource,
         turn_id: Option<String>,
     ) -> std::result::Result<(String, String), String> {
@@ -1078,22 +1275,33 @@ impl RemoteExecutionDispatcher {
             .map(|t| resolve_agent_type(Some(t)).to_string())
             .unwrap_or_else(|| "agentic".to_string());
 
-        let full_content = images
-            .map(|imgs| build_message_with_remote_images(&content, imgs))
-            .unwrap_or_else(|| content.clone());
-
         let turn_id =
             turn_id.unwrap_or_else(|| format!("turn_{}", chrono::Utc::now().timestamp_millis()));
-        coordinator
-            .start_dialog_turn(
-                session_id.to_string(),
-                full_content,
-                Some(turn_id.clone()),
-                resolved_agent_type,
-                trigger_source,
-            )
-            .await
-            .map_err(|e| e.to_string())?;
+
+        if image_contexts.is_empty() {
+            coordinator
+                .start_dialog_turn(
+                    session_id.to_string(),
+                    content.clone(),
+                    Some(turn_id.clone()),
+                    resolved_agent_type,
+                    trigger_source,
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+        } else {
+            coordinator
+                .start_dialog_turn_with_image_contexts(
+                    session_id.to_string(),
+                    content.clone(),
+                    image_contexts,
+                    Some(turn_id.clone()),
+                    resolved_agent_type,
+                    trigger_source,
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+        }
 
         Ok((session_id.to_string(), turn_id))
     }
@@ -1312,6 +1520,26 @@ impl RemoteServer {
             };
         }
 
+        // Fast path: during active streaming, only the real-time snapshot
+        // changes — persisted messages stay the same.  Skip the expensive
+        // disk read and return just the snapshot.
+        let needs_persistence = *since_version == 0 || tracker.is_persistence_dirty();
+
+        if !needs_persistence {
+            let active_turn = tracker.snapshot_active_turn();
+            let sess_state = tracker.session_state();
+            let title = tracker.title();
+            return RemoteResponse::SessionPoll {
+                version: current_version,
+                changed: true,
+                session_state: Some(sess_state),
+                title: if title.is_empty() { None } else { Some(title) },
+                new_messages: None,
+                total_msg_count: None,
+                active_turn,
+            };
+        }
+
         let (all_chat_msgs, _) =
             load_chat_messages_from_conversation_persistence(session_id).await;
         let total_msg_count = all_chat_msgs.len();
@@ -1319,35 +1547,48 @@ impl RemoteServer {
         let new_messages: Vec<ChatMessage> =
             all_chat_msgs.into_iter().skip(skip).collect();
 
-        let active_turn = tracker.snapshot_active_turn();
+        let turn_finished = tracker.is_turn_finished();
+        let has_assistant_msg = new_messages.iter().any(|m| m.role == "assistant");
+
+        let active_turn = if turn_finished && has_assistant_msg {
+            tracker.finalize_completed_turn();
+            None
+        } else if turn_finished {
+            let ts = tracker.turn_status();
+            if ts == "completed" {
+                tracker.snapshot_active_turn()
+            } else {
+                tracker.finalize_completed_turn();
+                tracker.mark_persistence_clean();
+                None
+            }
+        } else {
+            tracker.snapshot_active_turn()
+        };
+
+        let (send_msgs, send_total) = if turn_finished && !has_assistant_msg {
+            // Turn is finished but disk doesn't have the completed assistant
+            // message yet — the frontend's immediateSaveDialogTurn hasn't
+            // landed.  Don't send partial data; the snapshot overlay keeps the
+            // user informed.  Next poll will re-read from disk.
+            (None, None)
+        } else {
+            if !new_messages.is_empty() {
+                tracker.mark_persistence_clean();
+            }
+            (Some(new_messages), Some(total_msg_count))
+        };
+
         let sess_state = tracker.session_state();
         let title = tracker.title();
-
-        let active_turn_ask_tool_ids = active_turn
-            .as_ref()
-            .map(|turn| {
-                turn.tools
-                    .iter()
-                    .filter(|tool| tool.name == "AskUserQuestion")
-                    .map(|tool| tool.id.clone())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        let new_message_ask_tool_ids = new_messages
-            .iter()
-            .flat_map(|message| message.items.iter().flatten())
-            .filter_map(|item| item.tool.as_ref())
-            .filter(|tool| tool.name == "AskUserQuestion")
-            .map(|tool| tool.id.clone())
-            .collect::<Vec<_>>();
 
         RemoteResponse::SessionPoll {
             version: current_version,
             changed: true,
             session_state: Some(sess_state),
             title: if title.is_empty() { None } else { Some(title) },
-            new_messages: Some(new_messages),
-            total_msg_count: Some(total_msg_count),
+            new_messages: send_msgs,
+            total_msg_count: send_total,
             active_turn,
         }
     }
@@ -1662,18 +1903,23 @@ impl RemoteServer {
                 content,
                 agent_type: requested_agent_type,
                 images,
+                image_contexts,
             } => {
+                // Unified: prefer image_contexts (new format), fall back to legacy images
+                let resolved_contexts = image_contexts.clone().unwrap_or_else(|| {
+                    images_to_contexts(images.as_ref())
+                });
                 info!(
-                    "Remote send_message: session={session_id}, agent_type={}, images={}",
+                    "Remote send_message: session={session_id}, agent_type={}, image_contexts={}",
                     requested_agent_type.as_deref().unwrap_or("agentic"),
-                    images.as_ref().map_or(0, |v| v.len())
+                    resolved_contexts.len()
                 );
                 match dispatcher
                     .send_message(
                         session_id,
                         content.clone(),
                         requested_agent_type.as_deref(),
-                        images.as_ref(),
+                        resolved_contexts,
                         DialogTriggerSource::RemoteRelay,
                         None,
                     )

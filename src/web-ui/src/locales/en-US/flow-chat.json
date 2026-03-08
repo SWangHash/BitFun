@@ -305,9 +305,15 @@
     "toolCallLabel": "🔧 Tool call: {{name}}"
   },
   "exploreRegion": {
-    "readFiles": "Read {{count}} files",
-    "searchCount": "{{count}} searches",
-    "exploreCount": "{{count}} explorations",
+    "readFiles_one": "Read {{count}} file",
+    "readFiles_other": "Read {{count}} files",
+    "readFiles": "Read {{count}} file(s)",
+    "searchCount_one": "{{count}} search",
+    "searchCount_other": "{{count}} searches",
+    "searchCount": "{{count}} search(es)",
+    "exploreCount_one": "{{count}} exploration",
+    "exploreCount_other": "{{count}} explorations",
+    "exploreCount": "{{count}} exploration(s)",
     "separator": ", ",
     "collapse": "Collapse exploration"
   },

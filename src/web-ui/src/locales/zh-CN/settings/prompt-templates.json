@@ -24,6 +24,12 @@
     "copy": "复制",
     "delete": "删除"
   },
+  "section": {
+    "templateList": {
+      "title": "提示词模板列表",
+      "description": "可创建、收藏与复用的提示词模板。"
+    }
+  },
   "shortcuts": {
     "openPickerReminder": "打开模板选择器："
   },

@@ -38,7 +38,8 @@ export interface ExploreGroupData {
 export type VirtualItem =
   | { type: 'user-message'; data: DialogTurn['userMessage']; turnId: string }
   | { type: 'model-round'; data: ModelRound; turnId: string; isLastRound: boolean }
-  | { type: 'explore-group'; data: ExploreGroupData; turnId: string };
+  | { type: 'explore-group'; data: ExploreGroupData; turnId: string }
+  | { type: 'image-analyzing'; turnId: string };
 
 /**
  * Currently visible turn information
@@ -148,6 +149,11 @@ function sessionToVirtualItems(session: Session | null): VirtualItem[] {
         data: turn.userMessage,
         turnId: turn.id,
       });
+    }
+
+    if (turn.status === 'image_analyzing' && turn.modelRounds.length === 0) {
+      items.push({ type: 'image-analyzing', turnId: turn.id });
+      return;
     }
 
     const nonEmptyRounds = turn.modelRounds.filter(round => round.items && round.items.length > 0);

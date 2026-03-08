@@ -2,12 +2,13 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { RemoteSessionManager } from '../services/RemoteSessionManager';
 import { useMobileStore } from '../services/store';
 import { useTheme } from '../theme';
+import logoIcon from '../assets/Logo-ICON.png';
 
 const PAGE_SIZE = 30;
 
 interface SessionListPageProps {
   sessionMgr: RemoteSessionManager;
-  onSelectSession: (sessionId: string, sessionName?: string) => void;
+  onSelectSession: (sessionId: string, sessionName?: string, isNew?: boolean) => void;
   onOpenWorkspace: () => void;
 }
 
@@ -40,6 +41,29 @@ function agentLabel(agentType: string): string {
   }
 }
 
+function isCoworkAgent(agentType: string): boolean {
+  return agentType === 'cowork' || agentType === 'Cowork';
+}
+
+function SessionTypeIcon({ agentType }: { agentType: string }) {
+  if (isCoworkAgent(agentType)) {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
 const ThemeToggleIcon: React.FC<{ isDark: boolean }> = ({ isDark }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
     {isDark ? (
@@ -57,9 +81,13 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [showNewMenu, setShowNewMenu] = useState(false);
+  
+  const [pullDistance, setPullDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const offsetRef = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
+  const touchStartY = useRef(0);
+  const isPulling = useRef(false);
 
   const loadFirstPage = useCallback(async (workspacePath: string | undefined) => {
     setLoading(true);
@@ -109,6 +137,55 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const refreshData = useCallback(async () => {
+    try {
+      const info = await sessionMgr.getWorkspaceInfo();
+      const ws = info.has_workspace ? info : null;
+      setCurrentWorkspace(ws);
+      const resp = await sessionMgr.listSessions(ws?.path, PAGE_SIZE, 0);
+      setSessions(resp.sessions);
+      setHasMore(resp.has_more);
+      offsetRef.current = resp.sessions.length;
+    } catch { /* ignore */ }
+  }, [sessionMgr, setSessions, setCurrentWorkspace]);
+
+  useEffect(() => {
+    const poll = setInterval(refreshData, 10000);
+    return () => clearInterval(poll);
+  }, [refreshData]);
+
+  const PULL_THRESHOLD = 60;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const el = listRef.current;
+    if (!el || el.scrollTop > 0 || refreshing) return;
+    touchStartY.current = e.touches[0].clientY;
+    isPulling.current = true;
+  }, [refreshing]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPulling.current) return;
+    const delta = e.touches[0].clientY - touchStartY.current;
+    if (delta > 0) {
+      setPullDistance(Math.min(delta * 0.5, 80));
+    } else {
+      isPulling.current = false;
+      setPullDistance(0);
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (!isPulling.current) return;
+    isPulling.current = false;
+    if (pullDistance >= PULL_THRESHOLD) {
+      setRefreshing(true);
+      setPullDistance(PULL_THRESHOLD);
+      await refreshData();
+      setRefreshing(false);
+    }
+    setPullDistance(0);
+  }, [pullDistance, refreshData]);
+
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 150) {
@@ -116,26 +193,14 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     }
   }, [currentWorkspace?.path, loadNextPage]);
 
-  const handleRefresh = async () => {
-    try {
-      const info = await sessionMgr.getWorkspaceInfo();
-      const ws = info.has_workspace ? info : null;
-      setCurrentWorkspace(ws);
-      await loadFirstPage(ws?.path);
-    } catch (e: any) {
-      setError(e.message);
-    }
-  };
-
   const handleCreate = async (agentType: string) => {
     if (creating) return;
     setCreating(true);
-    setShowNewMenu(false);
     try {
       const id = await sessionMgr.createSession(agentType, undefined, currentWorkspace?.path);
       await loadFirstPage(currentWorkspace?.path);
       const label = agentType === 'cowork' || agentType === 'Cowork' ? 'Remote Cowork Session' : 'Remote Code Session';
-      onSelectSession(id, label);
+      onSelectSession(id, label, true);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -143,87 +208,155 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     }
   };
 
+  const workspaceDisplayName = currentWorkspace?.project_name || 'No workspace selected';
   return (
-    <div className="session-list page-transition">
+    <div className="session-list">
       <div className="session-list__header">
-        <h1>BitFun Remote</h1>
+        <div className="session-list__header-brand">
+          <img src={logoIcon} alt="BitFun" className="session-list__logo" />
+          <div className="session-list__header-copy">
+            <span className="session-list__header-kicker">Remote cockpit</span>
+            <h1>BitFun Remote</h1>
+          </div>
+        </div>
         <div className="session-list__header-actions">
           <button className="session-list__theme-btn" onClick={toggleTheme} aria-label="Toggle theme">
             <ThemeToggleIcon isDark={isDark} />
           </button>
-          <div className="session-list__new-wrapper">
-            <button
-              className="session-list__new-btn"
-              onClick={() => setShowNewMenu(!showNewMenu)}
-              disabled={creating}
-              style={{ opacity: creating ? 0.5 : 1 }}
-            >
-              {creating ? '...' : '+ New'}
-            </button>
-            {showNewMenu && (
-              <div className="session-list__new-menu">
-                <button className="session-list__menu-item" onClick={() => handleCreate('code')}>
-                  <span className="session-list__menu-icon">{'</>'}</span>
-                  Code Session
-                </button>
-                <button className="session-list__menu-item" onClick={() => handleCreate('cowork')}>
-                  <span className="session-list__menu-icon">{'<>'}</span>
-                  Cowork Session
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
       <div className="session-list__workspace-bar" onClick={onOpenWorkspace}>
         <span className="session-list__workspace-icon">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4V12C2 12.5523 2.44772 13 3 13H13C13.5523 13 14 12.5523 14 12V6C14 5.44772 13.5523 5 13 5H8L6.5 3H3C2.44772 3 2 3.44772 2 4Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/>
+          </svg>
         </span>
-        <span className="session-list__workspace-name">
-          {currentWorkspace?.project_name || currentWorkspace?.path || 'No workspace'}
-        </span>
+        <div className="session-list__workspace-copy">
+          <span className="session-list__workspace-label">Workspace</span>
+          <span className="session-list__workspace-name">{workspaceDisplayName}</span>
+        </div>
         {currentWorkspace?.git_branch && (
           <span className="session-list__workspace-branch">
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="5" cy="4" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="11" cy="4" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="5" cy="12" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 6V10M11 6V8C11 9.1046 10.1046 10 9 10H5" stroke="currentColor" strokeWidth="1.3"/></svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
             {currentWorkspace.git_branch}
           </span>
         )}
-        <span className="session-list__workspace-switch">Switch ›</span>
+        <span className="session-list__workspace-switch">Switch</span>
       </div>
 
-      <div className="session-list__items" ref={listRef} onScroll={handleScroll}>
-        {loading && sessions.length === 0 && (
-          <div className="session-list__empty">Loading sessions...</div>
-        )}
-        {!loading && sessions.length === 0 && (
-          <div className="session-list__empty">No sessions yet. Create one to get started.</div>
-        )}
-        {sessions.map((s) => (
+      <div
+        className="session-list__items"
+        ref={listRef}
+        onScroll={handleScroll}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {(pullDistance > 0 || refreshing) && (
           <div
-            key={s.session_id}
-            className="session-list__item"
-            onClick={() => onSelectSession(s.session_id, s.name)}
+            className="session-list__pull-indicator"
+            style={{ height: refreshing ? PULL_THRESHOLD : pullDistance }}
           >
-            <div className="session-list__item-top">
-              <div className="session-list__item-name">{s.name || 'Untitled Session'}</div>
-              <span className={`session-list__agent-badge session-list__agent-badge--${s.agent_type}`}>
-                {agentLabel(s.agent_type)}
-              </span>
-            </div>
-            <div className="session-list__item-meta">
-              <span className="session-list__item-time">{formatTime(s.updated_at)}</span>
+            <div className={`session-list__pull-spinner${refreshing || pullDistance >= PULL_THRESHOLD ? ' is-active' : ''}`}>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"
+                style={{ transform: `rotate(${pullDistance * 4}deg)`, transition: refreshing ? 'transform 0s' : undefined }}>
+                <path d="M9 2V5M9 13V16M2 9H5M13 9H16M4.22 4.22L6.34 6.34M11.66 11.66L13.78 13.78M13.78 4.22L11.66 6.34M6.34 11.66L4.22 13.78"
+                  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
             </div>
           </div>
-        ))}
-        {loadingMore && (
-          <div className="session-list__load-more">Loading more...</div>
         )}
+        <section className="session-list__panel">
+          <div className="session-list__section-head">
+            <div>
+              <div className="session-list__section-kicker">Launch</div>
+              <div className="session-list__section-title">Start a new remote flow</div>
+            </div>
+          </div>
+          <div className="session-list__create-row">
+            <button
+              className="session-list__create-btn session-list__create-btn--code"
+              onClick={() => handleCreate('code')}
+              disabled={creating}
+            >
+              <div className="session-list__create-icon">
+                <SessionTypeIcon agentType="code" />
+              </div>
+              <div className="session-list__create-copy">
+                <span className="session-list__create-title">Code Session</span>
+                <span className="session-list__create-desc">Implement, debug, review, and keep momentum.</span>
+              </div>
+              <span className="session-list__create-arrow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </span>
+            </button>
+            <button
+              className="session-list__create-btn session-list__create-btn--cowork"
+              onClick={() => handleCreate('cowork')}
+              disabled={creating}
+            >
+              <div className="session-list__create-icon">
+                <SessionTypeIcon agentType="cowork" />
+              </div>
+              <div className="session-list__create-copy">
+                <span className="session-list__create-title">Cowork Session</span>
+                <span className="session-list__create-desc">Discuss ideas, plan work, and stay collaborative.</span>
+              </div>
+              <span className="session-list__create-arrow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section className="session-list__panel session-list__panel--sessions">
+          <div className="session-list__section-head">
+            <div>
+              <div className="session-list__section-kicker">Recent</div>
+              <div className="session-list__section-title">Session history</div>
+            </div>
+            <div className="session-list__section-meta">{sessions.length} items</div>
+          </div>
+
+          {loading && sessions.length === 0 && (
+            <div className="session-list__empty">Loading sessions...</div>
+          )}
+          {!loading && sessions.length === 0 && (
+            <div className="session-list__empty">No sessions yet. Create one to get started.</div>
+          )}
+
+          <div className="session-list__cards">
+            {sessions.map((s) => (
+              <div
+                key={s.session_id}
+                className="session-list__item"
+                onClick={() => onSelectSession(s.session_id, s.name)}
+              >
+                <div className={`session-list__item-icon session-list__item-icon--${s.agent_type}`}>
+                  <SessionTypeIcon agentType={s.agent_type} />
+                </div>
+                <div className="session-list__item-body">
+                  <div className="session-list__item-top">
+                    <div className="session-list__item-name">{s.name || 'Untitled Session'}</div>
+                    <div className="session-list__item-time">{formatTime(s.updated_at)}</div>
+                  </div>
+                  <div className="session-list__item-meta">
+                    <span className={`session-list__agent-badge session-list__agent-badge--${s.agent_type}`}>
+                      {agentLabel(s.agent_type)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {loadingMore && (
+            <div className="session-list__load-more">Loading more...</div>
+          )}
+        </section>
       </div>
 
-      <button className="session-list__refresh" onClick={handleRefresh} disabled={loading || loadingMore}>
-        {loading ? 'Refreshing...' : 'Refresh'}
-      </button>
     </div>
   );
 };

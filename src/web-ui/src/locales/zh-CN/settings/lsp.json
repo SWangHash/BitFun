@@ -1,6 +1,16 @@
 {
   "title": "LSP 插件管理",
   "subtitle": "管理语言服务器协议插件",
+  "section": {
+    "settings": {
+      "title": "基础设置",
+      "description": "语言服务的运行参数配置。"
+    },
+    "plugins": {
+      "title": "语言插件",
+      "description": "管理已安装的语言服务插件。"
+    }
+  },
   "tabs": {
     "plugins": "插件管理",
     "settings": "设置",

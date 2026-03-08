@@ -57,6 +57,8 @@ impl MessageEnhancer {
             enhanced.push_str("\n");
         }
 
+        enhanced.push_str("The above image analysis has already been performed. Do NOT suggest the user to view or re-analyze the image. Respond directly to the user's question based on the analysis.\n\n");
+
         // 3. Separator
         enhanced.push_str("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
 

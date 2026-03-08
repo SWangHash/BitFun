@@ -5,20 +5,19 @@
 
 .virtual-item-wrapper {
   width: 100%;
-  max-width: 900px; /* A4-like max width. */
-  margin: 0 auto; /* Center horizontally. */
+  max-width: 900px;
+  margin: 0 auto;
   box-sizing: border-box;
-  min-height: 1px; /* Prevent zero-size errors in react-virtuoso. */
-  padding: 0; /* Spacing handled by children. */
+  min-height: 1px;
+  padding: 0;
   
-  // Responsive: medium screens.
   @media (max-width: 1200px) {
     max-width: 800px;
   }
   
-  // Responsive: small screens.
   @media (max-width: 768px) {
     max-width: 100%;
   }
 }
+
 

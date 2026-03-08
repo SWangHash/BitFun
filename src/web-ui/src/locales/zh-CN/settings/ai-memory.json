@@ -1,6 +1,12 @@
 {
   "title": "记忆",
   "subtitle": "管理 AI 记忆",
+  "section": {
+    "memoryList": {
+      "title": "知识记忆列表",
+      "description": "可新建与查看的知识记忆。"
+    }
+  },
   "toolbar": {
     "searchPlaceholder": "搜索记忆...",
     "addTooltip": "添加记忆"

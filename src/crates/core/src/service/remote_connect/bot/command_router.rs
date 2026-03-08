@@ -100,6 +100,7 @@ pub struct ForwardRequest {
     pub content: String,
     pub agent_type: String,
     pub turn_id: String,
+    pub image_contexts: Vec<crate::agentic::image_analysis::ImageContextData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -245,7 +246,15 @@ fn cancel_task_actions(command: impl Into<String>) -> Vec<BotAction> {
 
 // ── Main dispatch ───────────────────────────────────────────────────
 
-pub async fn handle_command(state: &mut BotChatState, cmd: BotCommand) -> HandleResult {
+pub async fn handle_command(
+    state: &mut BotChatState,
+    cmd: BotCommand,
+    images: Vec<super::super::remote_server::ImageAttachment>,
+) -> HandleResult {
+    let image_contexts: Vec<crate::agentic::image_analysis::ImageContextData> =
+        super::super::remote_server::images_to_contexts(
+            if images.is_empty() { None } else { Some(&images) },
+        );
     match cmd {
         BotCommand::Start | BotCommand::Help => {
             if state.paired {
@@ -324,7 +333,7 @@ pub async fn handle_command(state: &mut BotChatState, cmd: BotCommand) -> Handle
             if !state.paired {
                 return not_paired();
             }
-            handle_chat_message(state, &msg).await
+            handle_chat_message(state, &msg, image_contexts).await
         }
     }
 }
@@ -658,9 +667,9 @@ async fn handle_new_session(state: &mut BotChatState, agent_type: &str) -> Handl
             let workspace = ws_path.as_deref().unwrap_or("(unknown)");
             HandleResult {
                 reply: format!(
-                    "Created new {} session: {}\nSession ID: {}\nWorkspace: {}\n\n\
+                    "Created new {} session: {}\nWorkspace: {}\n\n\
                      You can now send messages to interact with the AI agent.",
-                    label, session_name, session_id, workspace
+                    label, session_name, workspace
                 ),
                 actions: vec![],
                 forward_to_session: None,
@@ -724,7 +733,7 @@ async fn handle_number_selection(state: &mut BotChatState, n: usize) -> HandleRe
             )
             .await
         }
-        None => handle_chat_message(state, &n.to_string()).await,
+        None => handle_chat_message(state, &n.to_string(), vec![]).await,
     }
 }
 
@@ -1216,11 +1225,15 @@ async fn handle_next_page(state: &mut BotChatState) -> HandleResult {
                 forward_to_session: None,
             }
         }
-        None => handle_chat_message(state, "0").await,
+        None => handle_chat_message(state, "0", vec![]).await,
     }
 }
 
-async fn handle_chat_message(state: &mut BotChatState, message: &str) -> HandleResult {
+async fn handle_chat_message(
+    state: &mut BotChatState,
+    message: &str,
+    image_contexts: Vec<crate::agentic::image_analysis::ImageContextData>,
+) -> HandleResult {
     if let Some(PendingAction::AskUserQuestion {
         tool_id,
         questions,
@@ -1293,6 +1306,7 @@ async fn handle_chat_message(state: &mut BotChatState, message: &str) -> HandleR
             content: message.to_string(),
             agent_type: "agentic".to_string(),
             turn_id,
+            image_contexts,
         }),
     }
 }
@@ -1328,7 +1342,7 @@ pub async fn execute_forwarded_turn(
             &forward.session_id,
             forward.content,
             Some(&forward.agent_type),
-            None,
+            forward.image_contexts,
             DialogTriggerSource::Bot,
             Some(forward.turn_id),
         )
@@ -1402,7 +1416,11 @@ pub async fn execute_forwarded_turn(
         Ok(mut text) => {
             const MAX_BOT_MSG_LEN: usize = 4000;
             if text.len() > MAX_BOT_MSG_LEN {
-                text.truncate(MAX_BOT_MSG_LEN);
+                let mut end = MAX_BOT_MSG_LEN;
+                while !text.is_char_boundary(end) {
+                    end -= 1;
+                }
+                text.truncate(end);
                 text.push_str("\n\n... (truncated)");
             }
             text

@@ -172,6 +172,7 @@ export class FlowChatManager {
     switchToMode?: string,
     options?: {
       imageContexts?: import('@/infrastructure/api/service-api/ImageAnalysisAPI').ImageContextData[];
+      imageDisplayData?: Array<{ id: string; name: string; dataUrl?: string; imagePath?: string; mimeType?: string }>;
     }
   ): Promise<void> {
     const targetSessionId = sessionId || this.context.flowChatStore.getState().activeSessionId;

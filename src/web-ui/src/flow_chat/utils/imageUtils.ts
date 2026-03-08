@@ -8,6 +8,8 @@ import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('imageUtils');
 
+let clipboardImageCounter = 0;
+
 /**
  * Generate image thumbnail
  * @param file Image file
@@ -277,7 +279,16 @@ export async function createImageContextFromClipboard(
     id: `img-clipboard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     type: 'image',
     imagePath: '', // Clipboard images do not have a path.
-    imageName: file.name || `clipboard-${Date.now()}.${file.type.split('/')[1]}`,
+    imageName: (() => {
+      const raw = file.name || '';
+      const ext = file.type.split('/')[1] || 'png';
+      const genericPattern = /^image\.\w+$/i;
+      if (!raw || genericPattern.test(raw)) {
+        clipboardImageCounter++;
+        return `image-${clipboardImageCounter}.${ext}`;
+      }
+      return raw;
+    })(),
     width: dimensions.width,
     height: dimensions.height,
     fileSize: file.size,

@@ -29,6 +29,7 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 // Scrollbar
@@ -91,9 +92,56 @@ body {
   100% { background-position: 0% 50%; }
 }
 
+// Theme transition
+.theme-transitioning,
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition: background-color 0.4s ease, color 0.4s ease,
+              border-color 0.4s ease, box-shadow 0.4s ease,
+              fill 0.4s ease, stroke 0.4s ease !important;
+}
+
 // Page transition wrapper
 .page-transition {
   animation: fadeIn var(--motion-base) var(--easing-decelerate);
+}
+
+// Nav-stack page transitions (iOS-style push/pop)
+.nav-page {
+  position: absolute;
+  inset: 0;
+  will-change: transform, opacity;
+}
+
+.nav-push-enter {
+  animation: navPushIn 0.35s var(--easing-decelerate) both;
+}
+.nav-push-exit {
+  animation: navPushOut 0.35s var(--easing-accelerate) both;
+}
+.nav-pop-enter {
+  animation: navPopIn 0.25s var(--easing-decelerate) both;
+}
+.nav-pop-exit {
+  animation: navPopOut 0.25s var(--easing-accelerate) both;
+}
+
+@keyframes navPushIn {
+  from { transform: translateX(30%); opacity: 0.4; }
+  to   { transform: translateX(0);   opacity: 1; }
+}
+@keyframes navPushOut {
+  from { transform: translateX(0);    opacity: 1; }
+  to   { transform: translateX(-15%); opacity: 0.3; }
+}
+@keyframes navPopIn {
+  from { transform: translateX(-15%); opacity: 0.3; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes navPopOut {
+  from { transform: translateX(0);   opacity: 1; }
+  to   { transform: translateX(30%); opacity: 0.4; }
 }
 
 // Spinner utility

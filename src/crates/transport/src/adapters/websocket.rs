@@ -51,12 +51,31 @@ impl fmt::Debug for WebSocketTransportAdapter {
 impl TransportAdapter for WebSocketTransportAdapter {
     async fn emit_event(&self, _session_id: &str, event: AgenticEvent) -> anyhow::Result<()> {
         let message = match event {
-            AgenticEvent::DialogTurnStarted { session_id, turn_id, turn_index, .. } => {
+            AgenticEvent::ImageAnalysisStarted { session_id, image_count, user_input, image_metadata } => {
+                json!({
+                    "type": "image-analysis-started",
+                    "sessionId": session_id,
+                    "imageCount": image_count,
+                    "userInput": user_input,
+                    "imageMetadata": image_metadata,
+                })
+            }
+            AgenticEvent::ImageAnalysisCompleted { session_id, success, duration_ms } => {
+                json!({
+                    "type": "image-analysis-completed",
+                    "sessionId": session_id,
+                    "success": success,
+                    "durationMs": duration_ms,
+                })
+            }
+            AgenticEvent::DialogTurnStarted { session_id, turn_id, turn_index, original_user_input, user_message_metadata, .. } => {
                 json!({
                     "type": "dialog-turn-started",
                     "sessionId": session_id,
                     "turnId": turn_id,
                     "turnIndex": turn_index,
+                    "originalUserInput": original_user_input,
+                    "userMessageMetadata": user_message_metadata,
                 })
             }
             AgenticEvent::ModelRoundStarted { session_id, turn_id, round_id, .. } => {

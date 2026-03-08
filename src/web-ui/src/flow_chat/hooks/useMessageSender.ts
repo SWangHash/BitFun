@@ -1,6 +1,11 @@
 /**
  * Message sending hook.
  * Encapsulates session creation, image uploads, and message assembly.
+ *
+ * Image handling is fully delegated to the backend coordinator which
+ * decides whether to pre-analyse via a vision model or attach images
+ * directly.  The frontend only uploads clipboard images and passes
+ * ImageContextData[] through to the backend.
  */
 
 import { useCallback } from 'react';
@@ -33,162 +38,14 @@ interface UseMessageSenderReturn {
   isSending: boolean;
 }
 
-type ImageInputStrategy = 'vision-preanalysis' | 'direct-attach';
-
-interface StrategyDecision {
-  strategy: ImageInputStrategy;
-  modelId: string | null;
-  supportsImageUnderstanding: boolean;
-  reason: string;
-}
-
-interface ImageAnalysisResult {
-  image_id: string;
-  summary: string;
-  detailed_description: string;
-  detected_elements: string[];
-  confidence: number;
-  analysis_time_ms: number;
-}
-
-const ENABLE_DIRECT_ATTACH_WHEN_SUPPORTED = true;
-
-async function resolveSessionModelId(
-  flowChatManager: FlowChatManager,
-  sessionId: string | undefined,
-  agentType?: string
-): Promise<string | null> {
-  const state = flowChatManager.getFlowChatState();
-  const session = sessionId ? state.sessions.get(sessionId) : undefined;
-  const configuredModel = session?.config?.modelName || null;
-  const { configManager } = await import('@/infrastructure/config/services/ConfigManager');
-  const defaultModels = await configManager.getConfig<Record<string, string>>('ai.default_models') || {};
-  const agentModels = await configManager.getConfig<Record<string, string>>('ai.agent_models') || {};
-
-  const resolveAlias = (modelId: string | null): string | null => {
-    if (!modelId) return null;
-    if (modelId === 'primary') {
-      return defaultModels.primary || null;
-    }
-    if (modelId === 'fast') {
-      return defaultModels.fast || defaultModels.primary || null;
-    }
-    if (modelId === 'default') {
-      return defaultModels.primary || null;
-    }
-    return modelId;
-  };
-
-  const effectiveAgentType = (agentType || session?.mode || 'agentic').trim();
-  const configuredFromAgentModels = resolveAlias(
-    effectiveAgentType ? (agentModels[effectiveAgentType] ?? null) : null
-  );
-  if (configuredFromAgentModels) {
-    return configuredFromAgentModels;
-  }
-
-  // Backward-compatibility fallback for historical sessions.
-  const resolvedConfigured = resolveAlias(configuredModel);
-  if (resolvedConfigured) {
-    return resolvedConfigured;
-  }
-
-  const { getDefaultPrimaryModel } = await import('@/infrastructure/config/utils/modelConfigHelpers');
-  return getDefaultPrimaryModel();
-}
-
-async function modelSupportsImageUnderstanding(modelId: string | null): Promise<boolean> {
-  if (!modelId) return false;
-
-  const { configManager } = await import('@/infrastructure/config/services/ConfigManager');
-  const allModels = await configManager.getConfig<any[]>('ai.models') || [];
-  const model = allModels.find(
-    m => m.id === modelId || m.name === modelId || m.model_name === modelId
-  );
-  if (!model || model.enabled === false) return false;
-
-  const capabilities = Array.isArray(model?.capabilities) ? model.capabilities : [];
-  const category = typeof model?.category === 'string' ? model.category : '';
-  return capabilities.includes('image_understanding') || category === 'multimodal';
-}
-
-async function chooseImageInputStrategy(
-  flowChatManager: FlowChatManager,
-  sessionId: string | undefined,
-  agentType?: string
-): Promise<StrategyDecision> {
-  const modelId = await resolveSessionModelId(flowChatManager, sessionId, agentType);
-  const supportsImageUnderstanding = await modelSupportsImageUnderstanding(modelId);
-
-  if (supportsImageUnderstanding && ENABLE_DIRECT_ATTACH_WHEN_SUPPORTED) {
-    return {
-      strategy: 'direct-attach',
-      modelId,
-      supportsImageUnderstanding,
-      reason: 'model_supports_image_understanding',
-    };
-  }
-
-  return {
-    strategy: 'vision-preanalysis',
-    modelId,
-    supportsImageUnderstanding,
-    reason: supportsImageUnderstanding
-      ? 'direct_attach_disabled_by_feature_flag'
-      : 'primary_model_is_text_only',
-  };
-}
-
-async function analyzeImagesBeforeSend(
-  imageContexts: ImageContext[],
-  sessionId: string,
-  userMessage: string
-): Promise<ImageAnalysisResult[]> {
-  if (imageContexts.length === 0) return [];
-
-  const { imageAnalysisAPI } = await import('@/infrastructure/api/service-api/ImageAnalysisAPI');
-  return imageAnalysisAPI.analyzeImages({
-    session_id: sessionId,
-    user_message: userMessage,
-    images: imageContexts.map(ctx => ({
-      id: ctx.id,
-      image_path: ctx.isLocal ? ctx.imagePath : undefined,
-      data_url: !ctx.isLocal ? ctx.dataUrl : undefined,
-      mime_type: ctx.mimeType,
-      metadata: {
-        name: ctx.imageName,
-        width: ctx.width,
-        height: ctx.height,
-        file_size: ctx.fileSize,
-        source: ctx.source,
-      },
-    })),
-  });
-}
-
-function formatImageContextLine(
-  ctx: ImageContext,
-  analysis?: ImageAnalysisResult,
-  strategy?: ImageInputStrategy
-): string {
+function formatImageContextLine(ctx: ImageContext): string {
   const imgName = ctx.imageName || 'Untitled image';
   const imgSize = ctx.fileSize ? ` (${(ctx.fileSize / 1024).toFixed(1)}KB)` : '';
   const sourceLine = ctx.isLocal
     ? `Path: ${ctx.imagePath}`
     : `Image ID: ${ctx.id}`;
 
-  if (strategy === 'direct-attach') {
-    return `[Image: ${imgName}${imgSize}]\n${sourceLine}\nAttached as multimodal image input.`;
-  }
-
-  if (!analysis) {
-    return `[Image: ${imgName}${imgSize}]\n${sourceLine}\nTip: You can use the view_image tool (${ctx.isLocal ? 'image_path' : 'image_id'}).`;
-  }
-
-  const topElements = (analysis.detected_elements || []).slice(0, 5).join(', ');
-  const keyElementsLine = topElements ? `\nPre-analysis key elements: ${topElements}` : '';
-
-  return `[Image: ${imgName}${imgSize}]\n${sourceLine}\nPre-analysis summary: ${analysis.summary}${keyElementsLine}`;
+  return `[Image: ${imgName}${imgSize}]\n${sourceLine}`;
 }
 
 export function useMessageSender(props: UseMessageSenderProps): UseMessageSenderReturn {
@@ -267,59 +124,10 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
         }
       }
 
-      let strategyDecision: StrategyDecision = {
-        strategy: 'vision-preanalysis',
-        modelId: null,
-        supportsImageUnderstanding: false,
-        reason: 'fallback_default_preanalysis',
-      };
-      try {
-        strategyDecision = await chooseImageInputStrategy(
-          flowChatManager,
-          sessionId,
-          currentAgentType || undefined
-        );
-      } catch (error) {
-        log.warn('Failed to resolve image input strategy, using pre-analysis fallback', {
-          sessionId,
-          error: (error as Error)?.message ?? 'unknown',
-        });
-      }
-
-      log.debug('Image input strategy selected', {
-        sessionId,
-        strategy: strategyDecision.strategy,
-        modelId: strategyDecision.modelId,
-        supportsImageUnderstanding: strategyDecision.supportsImageUnderstanding,
-        reason: strategyDecision.reason,
-      });
-
-      let imageAnalyses: ImageAnalysisResult[] = [];
-      if (imageContexts.length > 0) {
-        if (strategyDecision.strategy === 'vision-preanalysis') {
-          try {
-            imageAnalyses = await analyzeImagesBeforeSend(imageContexts, sessionId!, trimmedMessage);
-            log.debug('Image pre-analysis completed', {
-              sessionId,
-              imageCount: imageContexts.length,
-              analysisCount: imageAnalyses.length,
-            });
-          } catch (error) {
-            log.warn('Image pre-analysis failed, continuing with context hints only', {
-              sessionId,
-              imageCount: imageContexts.length,
-              error: (error as Error)?.message ?? 'unknown',
-            });
-          }
-        }
-      }
-
       let fullMessage = trimmedMessage;
       const displayMessage = trimmedMessage;
 
       if (contexts.length > 0) {
-        const analysisByImageId = new Map(imageAnalyses.map(result => [result.image_id, result]));
-
         const fullContextSection = contexts.map(ctx => {
           switch (ctx.type) {
             case 'file':
@@ -328,9 +136,8 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
               return `[Directory: ${ctx.directoryPath}]`;
             case 'code-snippet':
               return `[Code Snippet: ${ctx.filePath}:${ctx.startLine}-${ctx.endLine}]`;
-            case 'image': {
-              return formatImageContextLine(ctx, analysisByImageId.get(ctx.id), strategyDecision.strategy);
-            }
+            case 'image':
+              return formatImageContextLine(ctx);
             case 'terminal-command':
               return `[Command: ${ctx.command}]`;
             case 'mermaid-node':
@@ -349,31 +156,40 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
         fullMessage = `${fullContextSection}\n\n${trimmedMessage}`;
       }
 
+      // Always pass imageContexts to the backend; the coordinator decides
+      // whether to pre-analyse via a vision model or attach directly.
+      const imageContextsForBackend = imageContexts.length > 0
+        ? {
+            imageContexts: imageContexts.map(ctx => ({
+              id: ctx.id,
+              image_path: ctx.isLocal ? ctx.imagePath : undefined,
+              data_url: undefined,
+              mime_type: ctx.mimeType,
+              metadata: {
+                name: ctx.imageName,
+                width: ctx.width,
+                height: ctx.height,
+                file_size: ctx.fileSize,
+                source: ctx.source,
+              },
+            })),
+            imageDisplayData: imageContexts.map(ctx => ({
+              id: ctx.id,
+              name: ctx.imageName || 'Image',
+              dataUrl: ctx.dataUrl,
+              imagePath: ctx.isLocal ? ctx.imagePath : undefined,
+              mimeType: ctx.mimeType,
+            })),
+          }
+        : undefined;
+
       await flowChatManager.sendMessage(
         fullMessage,
         sessionId || undefined,
         displayMessage,
         currentAgentType || 'agentic',
         undefined,
-        strategyDecision.strategy === 'direct-attach'
-          ? {
-              imageContexts: imageContexts.map(ctx => ({
-                id: ctx.id,
-                image_path: ctx.isLocal ? ctx.imagePath : undefined,
-                // Clipboard images are uploaded first and referenced by image_id only
-                // to avoid sending large base64 payloads in the turn request.
-                data_url: undefined,
-                mime_type: ctx.mimeType,
-                metadata: {
-                  name: ctx.imageName,
-                  width: ctx.width,
-                  height: ctx.height,
-                  file_size: ctx.fileSize,
-                  source: ctx.source,
-                },
-              })),
-            }
-          : undefined
+        imageContextsForBackend
       );
 
       onClearContexts();
@@ -385,6 +201,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
         sessionId,
         agentType: currentAgentType || 'agentic',
         contextCount: contexts.length,
+        imageCount: imageContexts.length,
       });
     } catch (error) {
       log.error('Failed to send message', {

@@ -1,13 +1,15 @@
 /**
  * Virtual item renderer.
- * Renders user messages, model rounds, or explore groups by type.
+ * Renders user messages, model rounds, explore groups, or image-analyzing indicators by type.
  */
 
 import React from 'react';
+import { Loader2 } from 'lucide-react';
 import type { VirtualItem } from '../../store/modernFlowChatStore';
 import { UserMessageItem } from './UserMessageItem';
 import { ModelRoundItem } from './ModelRoundItem';
 import { ExploreGroupRenderer } from './ExploreGroupRenderer';
+import { CompactToolCard, CompactToolCardHeader } from '../../tool-cards/CompactToolCard';
 import './VirtualItemRenderer.scss';
 
 interface VirtualItemRendererProps {
@@ -38,9 +40,23 @@ export const VirtualItemRenderer = React.memo<VirtualItemRendererProps>(
               turnId={item.turnId}
             />
           );
+
+        case 'image-analyzing':
+          return (
+            <div className="model-round-item model-round-item--streaming">
+              <CompactToolCard
+                status="running"
+                header={
+                  <CompactToolCardHeader
+                    statusIcon={<Loader2 className="animate-spin" size={12} />}
+                    content="Analyzing image with vision model..."
+                  />
+                }
+              />
+            </div>
+          );
         
         default:
-          // Return a placeholder instead of null to avoid zero-size errors.
           return <div style={{ minHeight: '1px' }} />;
       }
     })();

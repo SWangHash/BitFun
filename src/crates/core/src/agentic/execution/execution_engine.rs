@@ -182,8 +182,6 @@ impl ExecutionEngine {
                                 &err,
                                 is_current_turn_message,
                             ) {
-                                // Degrade only for historical multimodal messages. Current-turn
-                                // image failures should still surface to users.
                                 warn!(
                                     "Failed to rebuild multimodal payload, falling back to text-only message: message_id={}, provider={}, turn_id={:?}, current_turn_id={}, error={}",
                                     msg.id, provider, msg.metadata.turn_id, current_turn_id, err

@@ -111,12 +111,14 @@ export class RelayHttpClient {
       plaintext,
     );
 
+    const body = JSON.stringify({ encrypted_data: encData, nonce: encNonce });
+
     const resp = await fetch(
       `${this.relayUrl}/api/rooms/${this.roomId}/command`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ encrypted_data: encData, nonce: encNonce }),
+        body,
       },
     );
 

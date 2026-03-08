@@ -112,8 +112,8 @@ const LspConfig: React.FC = () => {
         )}
 
         <ConfigPageSection
-          title={t('section.settings.title', { defaultValue: '基础设置' })}
-          description={t('section.settings.description', { defaultValue: '语言服务的运行参数配置。' })}
+          title={t('section.settings.title')}
+          description={t('section.settings.description')}
           extra={saveActions}
         >
           <ConfigPageRow
@@ -129,8 +129,8 @@ const LspConfig: React.FC = () => {
         </ConfigPageSection>
 
         <ConfigPageSection
-          title={t('section.plugins.title', { defaultValue: '语言插件' })}
-          description={t('section.plugins.description', { defaultValue: '管理已安装的语言服务插件。' })}
+          title={t('section.plugins.title')}
+          description={t('section.plugins.description')}
           extra={
             <>
               <IconButton

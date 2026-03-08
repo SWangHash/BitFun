@@ -27,7 +27,7 @@ pub use relay_client::RelayClient;
 pub use remote_server::RemoteServer;
 
 use anyhow::Result;
-use log::{error, info};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -362,7 +362,7 @@ impl RemoteConnectService {
                             if let Some(ref server) = *server_guard {
                                 match server.decrypt_command(&encrypted_data, &nonce) {
                                     Ok((cmd, request_id)) => {
-                                        info!("Remote command: {cmd:?}");
+                                        debug!("Remote command: {cmd:?}");
                                         let response = server.dispatch(&cmd).await;
                                         match server
                                             .encrypt_response(&response, request_id.as_deref())
@@ -385,7 +385,7 @@ impl RemoteConnectService {
                                             }
                                         }
                                     }
-                                    Err(e) => error!("Failed to decrypt command: {e}"),
+                                    Err(e) => warn!("Failed to decrypt command (stale session?): {e}"),
                                 }
                             }
                         } else {

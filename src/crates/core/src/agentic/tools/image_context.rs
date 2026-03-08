@@ -73,13 +73,13 @@ pub fn format_image_context_reference(image: &ImageContextData) -> String {
 
     if let Some(image_path) = &image.image_path {
         format!(
-            "[Image: {}{}]\nPath: {}\nTip: You can use the AnalyzeImage tool with the image_path parameter.",
+            "[Image: {}{}]\nPath: {}",
             image.image_name, size_label, image_path
         )
     } else {
         format!(
-            "[Image: {}{} (from clipboard)]\nImage ID: {}\nTip: You can use the AnalyzeImage tool.\nParameter: image_id=\"{}\"",
-            image.image_name, size_label, image.id, image.id
+            "[Image: {}{} (from clipboard)]\nImage ID: {}",
+            image.image_name, size_label, image.id
         )
     }
 }

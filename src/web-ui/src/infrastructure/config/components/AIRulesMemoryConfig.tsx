@@ -465,8 +465,8 @@ function MemoryPanel() {
   return (
     <div className="bitfun-ai-rules-memory-config__memory-panel">
       <ConfigPageSection
-        title={t('section.knowledgeList.title', { defaultValue: '知识记忆列表' })}
-        description={t('section.knowledgeList.description', { defaultValue: '可新建与查看的知识记忆。' })}
+        title={t('section.memoryList.title')}
+        description={t('section.memoryList.description')}
         extra={scopeTab === 'user' ? addButtonUser : undefined}
       >
         <Tabs type="line" size="small" activeKey={scopeTab} onChange={(k) => setScopeTab(k as ScopeTab)} className="bitfun-ai-rules-memory-config__scope-tabs">

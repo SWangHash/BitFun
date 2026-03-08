@@ -54,11 +54,19 @@ export const darkTheme: Record<string, string> = {
   '--color-info-bg': 'rgba(225, 171, 128, 0.1)',
   '--color-info-border': 'rgba(225, 171, 128, 0.3)',
 
+  '--color-highlight': '#d4a574',
+  '--color-highlight-bg': 'rgba(212, 165, 116, 0.15)',
+  '--color-overlay': 'rgba(0, 0, 0, 0.5)',
+
   '--border-subtle': 'rgba(255, 255, 255, 0.12)',
   '--border-base': 'rgba(255, 255, 255, 0.18)',
   '--border-medium': 'rgba(255, 255, 255, 0.24)',
   '--border-strong': 'rgba(255, 255, 255, 0.32)',
   '--border-prominent': 'rgba(225, 171, 128, 0.50)',
+
+  '--glow-blue': '0 12px 32px rgba(225, 171, 128, 0.25), 0 6px 16px rgba(225, 171, 128, 0.18), 0 3px 8px rgba(0, 0, 0, 0.1)',
+  '--glow-purple': '0 12px 32px rgba(139, 92, 246, 0.25), 0 6px 16px rgba(124, 58, 237, 0.18), 0 3px 8px rgba(0, 0, 0, 0.1)',
+  '--glow-mixed': '0 12px 32px rgba(225, 171, 128, 0.2), 0 6px 16px rgba(139, 92, 246, 0.15), 0 3px 8px rgba(0, 0, 0, 0.1)',
 
   '--shadow-xs': '0 1px 2px rgba(0, 0, 0, 0.9)',
   '--shadow-sm': '0 2px 4px rgba(0, 0, 0, 0.8)',
@@ -104,7 +112,7 @@ export const darkTheme: Record<string, string> = {
   '--easing-smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
 
   '--font-family-sans': "'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', Roboto, sans-serif",
-  '--font-family-mono': "'FiraCode', 'JetBrains Mono', 'SF Mono', 'Consolas', 'Liberation Mono', monospace",
+  '--font-family-mono': "'Menlo', 'SF Mono', 'Cascadia Code', 'Consolas', 'Liberation Mono', 'Courier New', 'Noto Sans Mono CJK SC', 'Noto Sans Mono', monospace",
   '--font-weight-normal': '400',
   '--font-weight-medium': '500',
   '--font-weight-semibold': '600',
@@ -124,6 +132,8 @@ export const darkTheme: Record<string, string> = {
 
   '--opacity-disabled': '0.6',
   '--opacity-hover': '0.8',
+  '--opacity-focus': '0.9',
+  '--opacity-overlay': '0.4',
 
   '--scrollbar-thumb': 'rgba(255, 255, 255, 0.15)',
   '--scrollbar-thumb-hover': 'rgba(255, 255, 255, 0.28)',

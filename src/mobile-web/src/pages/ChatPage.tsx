@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {
   RemoteSessionManager,
   SessionPoller,
@@ -20,32 +20,135 @@ interface ChatPageProps {
   sessionId: string;
   sessionName?: string;
   onBack: () => void;
+  autoFocus?: boolean;
 }
 
 // ─── Markdown ───────────────────────────────────────────────────────────────
 
-const MarkdownContent: React.FC<{ content: string }> = ({ content }) => (
-  <ReactMarkdown
-    remarkPlugins={[remarkGfm]}
-    components={{
-      code({ className, children, ...props }) {
-        const match = /language-(\w+)/.exec(className || '');
-        const codeStr = String(children).replace(/\n$/, '');
-        return match ? (
-          <SyntaxHighlighter style={oneDark} language={match[1]} PreTag="div">
-            {codeStr}
-          </SyntaxHighlighter>
-        ) : (
-          <code className={className} {...props}>
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function copyToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Fallback for insecure contexts (HTTP)
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+  } finally {
+    document.body.removeChild(ta);
+  }
+  return Promise.resolve();
+}
+
+const CopyButton: React.FC<{ code: string }> = ({ code }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await copyToClipboard(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
+  return (
+    <button
+      className={`copy-button${copied ? ' copy-success' : ''}`}
+      onClick={handleCopy}
+      type="button"
+    >
+      {copied ? (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      )}
+    </button>
+  );
+};
+
+const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
+  const { isDark } = useTheme();
+  const syntaxTheme = isDark ? vscDarkPlus : vs;
+
+  const components: React.ComponentProps<typeof ReactMarkdown>['components'] = useMemo(() => ({
+    code({ className, children, ...props }: any) {
+      const match = /language-(\w+)/.exec(className || '');
+      const codeStr = String(children).replace(/\n$/, '');
+      const hasMultipleLines = codeStr.includes('\n');
+      const isCodeBlock = className?.startsWith('language-') || hasMultipleLines;
+
+      if (!isCodeBlock) {
+        return (
+          <code className="inline-code" {...props}>
             {children}
           </code>
         );
-      },
-    }}
-  >
-    {content}
-  </ReactMarkdown>
-);
+      }
+
+      return (
+        <div className="code-block-wrapper">
+          <CopyButton code={codeStr} />
+          <SyntaxHighlighter
+            language={match?.[1] || 'text'}
+            style={syntaxTheme}
+            showLineNumbers={true}
+            customStyle={{
+              margin: 0,
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              lineHeight: '1.5',
+            }}
+            codeTagProps={{
+              style: {
+                fontFamily: 'var(--font-family-mono)',
+              },
+            }}
+            lineNumberStyle={{
+              color: isDark ? '#666' : '#999',
+              paddingRight: '1em',
+              textAlign: 'right' as const,
+              userSelect: 'none' as const,
+              minWidth: '2.5em',
+            }}
+          >
+            {codeStr}
+          </SyntaxHighlighter>
+        </div>
+      );
+    },
+
+    table({ children }: any) {
+      return (
+        <div className="table-wrapper">
+          <table>{children}</table>
+        </div>
+      );
+    },
+
+    blockquote({ children }: any) {
+      return <blockquote className="custom-blockquote">{children}</blockquote>;
+    },
+  }), [syntaxTheme, isDark]);
+
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      {content}
+    </ReactMarkdown>
+  );
+};
 
 // ─── Thinking (ModelThinkingDisplay-style) ───────────────────────────────────
 
@@ -68,7 +171,7 @@ const ThinkingBlock: React.FC<{ thinking: string; streaming?: boolean }> = ({ th
   const charCount = thinking.length;
   const label = streaming && charCount === 0
     ? 'Thinking...'
-    : `Thought for ${charCount} characters`;
+    : `Thought ${charCount} characters`;
 
   return (
     <div className={`chat-thinking ${streaming ? 'chat-thinking--streaming' : ''}`}>
@@ -112,11 +215,311 @@ const TOOL_TYPE_MAP: Record<string, string> = {
   grep: 'Grep',
   create_file: 'Write',
   delete_file: 'Delete',
-  execute_subagent: 'Task',
+  Task: 'Task',
   search: 'Search',
   edit_file: 'Edit',
   web_search: 'Web',
+  TodoWrite: 'Todo',
 };
+
+// ─── TodoWrite card ─────────────────────────────────────────────────────────
+
+const TodoCard: React.FC<{ tool: RemoteToolStatus }> = ({ tool }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const todos: { id?: string; content: string; status: string }[] = useMemo(() => {
+    const src = tool.tool_input;
+    if (!src) return [];
+    const arr = src.todos || src.result?.todos;
+    return Array.isArray(arr) ? arr : [];
+  }, [tool.tool_input]);
+
+  if (todos.length === 0) return null;
+
+  const completed = todos.filter(t => t.status === 'completed').length;
+  const allDone = completed === todos.length;
+  const inProgress = todos.find(t => t.status === 'in_progress');
+
+  const statusIcon = (s: string) => {
+    switch (s) {
+      case 'completed':
+        return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>;
+      case 'in_progress':
+        return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-500)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="var(--color-accent-500)"/></svg>;
+      case 'cancelled':
+        return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-error)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>;
+      default:
+        return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/></svg>;
+    }
+  };
+
+  return (
+    <div className="chat-todo-card">
+      <div className="chat-todo-card__header" onClick={() => setExpanded(!expanded)}>
+        <span className="chat-todo-card__icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>
+          </svg>
+        </span>
+        {allDone && !expanded ? (
+          <span className="chat-todo-card__current chat-todo-card__current--done">All tasks completed</span>
+        ) : inProgress && !expanded ? (
+          <span className="chat-todo-card__current">{inProgress.content}</span>
+        ) : null}
+        <span className="chat-todo-card__right">
+          <span className="chat-todo-card__dots">
+            {todos.map((t, i) => (
+              <span key={t.id || i} className={`chat-todo-card__dot chat-todo-card__dot--${t.status}`} />
+            ))}
+          </span>
+          <span className="chat-todo-card__stats">{completed}/{todos.length}</span>
+        </span>
+        <span className={`chat-todo-card__chevron ${expanded ? 'is-expanded' : ''}`}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </div>
+      {expanded && (
+        <div className="chat-todo-card__list">
+          {todos.map((t, i) => (
+            <div key={t.id || i} className={`chat-todo-card__item chat-todo-card__item--${t.status}`}>
+              {statusIcon(t.status)}
+              <span className="chat-todo-card__item-text">{t.content}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Extract task description and agent type from execute_subagent tool data.
+ * Prefers tool_input (full JSON from backend), falls back to input_preview (truncated).
+ */
+function parseTaskInfo(tool: RemoteToolStatus): { description?: string; agentType?: string } | null {
+  const source = tool.tool_input ?? (() => {
+    try { return JSON.parse(tool.input_preview || ''); } catch { return null; }
+  })();
+  if (!source) return null;
+  return {
+    description: source.description,
+    agentType: source.subagent_type,
+  };
+}
+
+/**
+ * Summarize a subItem for display inside a Task card.
+ */
+function subItemLabel(item: ChatMessageItem): string {
+  if (item.type === 'thinking') {
+    const len = (item.content || '').length;
+    return `Thought ${len} characters`;
+  }
+  if (item.type === 'tool' && item.tool) {
+    const t = item.tool;
+    const preview = t.input_preview ? `: ${t.input_preview}` : '';
+    return `${t.name}${preview}`;
+  }
+  if (item.type === 'text') {
+    const len = (item.content || '').length;
+    return `Text ${len} characters`;
+  }
+  return '';
+}
+
+const TaskToolCard: React.FC<{
+  tool: RemoteToolStatus;
+  now: number;
+  subItems?: ChatMessageItem[];
+  onCancelTool?: (toolId: string) => void;
+}> = ({ tool, now, subItems = [], onCancelTool }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef(0);
+  const [stepsExpanded, setStepsExpanded] = useState(false);
+  const isRunning = tool.status === 'running';
+  const isCompleted = tool.status === 'completed';
+  const isError = tool.status === 'failed' || tool.status === 'error';
+  const showCancel = isRunning && !!onCancelTool;
+  const taskInfo = parseTaskInfo(tool);
+
+  const durationLabel = isCompleted && tool.duration_ms != null
+    ? formatDuration(tool.duration_ms)
+    : isRunning && tool.start_ms
+    ? formatDuration(now - tool.start_ms)
+    : '';
+
+  const statusClass = isRunning ? 'running' : isCompleted ? 'done' : isError ? 'error' : 'pending';
+
+  const subTools = subItems.filter(i => i.type === 'tool' && i.tool);
+  const subToolsDone = subTools.filter(i => i.tool!.status === 'completed').length;
+  const subToolsRunning = subTools.filter(i => i.tool!.status === 'running').length;
+
+  useEffect(() => {
+    if (stepsExpanded && subItems.length > prevCountRef.current && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+    prevCountRef.current = subItems.length;
+  }, [subItems.length, stepsExpanded]);
+
+  return (
+    <div className={`chat-task-card chat-task-card--${statusClass}`}>
+      <div className="chat-task-card__header">
+        <span className="chat-tool-card__icon">
+          {isRunning ? (
+            <span className="chat-tool-card__spinner" />
+          ) : isCompleted ? (
+            <span className="chat-tool-card__check">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </span>
+          ) : isError ? (
+            <span className="chat-tool-card__error-icon">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            </span>
+          ) : (
+            <span className="chat-tool-card__spinner" />
+          )}
+        </span>
+        <span className="chat-tool-card__name">
+          {taskInfo?.description || 'Task'}
+        </span>
+        {taskInfo?.agentType && (
+          <span className="chat-tool-card__type">{taskInfo.agentType}</span>
+        )}
+        {durationLabel && (
+          <span className="chat-tool-card__duration">{durationLabel}</span>
+        )}
+        {showCancel && (
+          <button
+            className="chat-tool-card__cancel"
+            onClick={(e) => { e.stopPropagation(); onCancelTool?.(tool.id); }}
+            aria-label="Cancel"
+          >
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+              <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/>
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {subItems.length > 0 && (
+        <>
+          <div className="chat-task-card__summary" onClick={() => setStepsExpanded(e => !e)}>
+            <span className="chat-task-card__stat">
+              {subTools.length} tool call{subTools.length === 1 ? '' : 's'}
+            </span>
+            <span className="chat-task-card__stat-right">
+              <span className="chat-task-card__stat--done">{subToolsDone} done</span>
+              {subToolsRunning > 0 && <span className="chat-task-card__stat--running">{subToolsRunning} running</span>}
+            </span>
+            <span className={`chat-task-card__chevron ${stepsExpanded ? 'is-expanded' : ''}`}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </span>
+          </div>
+          {stepsExpanded && (
+            <div className="chat-task-card__steps" ref={scrollRef}>
+              {subItems.map((item, idx) => {
+                if (item.type === 'thinking') {
+                  return (
+                    <div key={`sub-think-${idx}`} className="chat-task-card__step chat-task-card__step--thinking">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                      <span>{subItemLabel(item)}</span>
+                    </div>
+                  );
+                }
+                if (item.type === 'tool' && item.tool) {
+                  const t = item.tool;
+                  const isDone = t.status === 'completed';
+                  const isErr = t.status === 'failed' || t.status === 'error';
+                  return (
+                    <div key={`sub-tool-${t.id}-${idx}`} className={`chat-task-card__step chat-task-card__step--tool ${isDone ? 'is-done' : isErr ? 'is-error' : 'is-running'}`}>
+                      {isDone ? (
+                        <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="var(--color-success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      ) : isErr ? (
+                        <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="var(--color-error)" strokeWidth="2" strokeLinecap="round"/></svg>
+                      ) : (
+                        <span className="chat-task-card__step-spinner" />
+                      )}
+                      <span className="chat-task-card__step-name">{t.name}</span>
+                    {(() => {
+                      const p = getToolPreview(t);
+                      return p ? <span className="chat-task-card__step-preview">{p}</span> : null;
+                    })()}
+                      {isDone && t.duration_ms != null && (
+                        <span className="chat-task-card__step-duration">{formatDuration(t.duration_ms)}</span>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Parse tool input_preview (slim JSON from backend) and extract a concise display text.
+ * Backend sends valid JSON with large fields stripped; frontend extracts the key field
+ * and truncates the resulting plain text.
+ */
+function getToolPreview(tool: RemoteToolStatus): string | null {
+  if (!tool.input_preview) return null;
+  try {
+    const params = JSON.parse(tool.input_preview);
+    if (!params || typeof params !== 'object') return null;
+
+    const lastSegment = (p: string) => {
+      const parts = p.replace(/\\/g, '/').split('/');
+      return parts[parts.length - 1] || p;
+    };
+
+    let result: string | null = null;
+
+    const pathVal = params.file_path || params.path;
+    switch (tool.name) {
+      case 'Read':
+      case 'Write':
+      case 'Edit':
+      case 'LS':
+      case 'StrReplace':
+      case 'delete_file':
+        result = pathVal ? lastSegment(pathVal) : null;
+        break;
+      case 'Glob':
+      case 'Grep':
+        result = params.pattern || null;
+        break;
+      case 'Bash':
+      case 'Shell':
+        result = params.description || params.command || null;
+        break;
+      case 'web_search':
+      case 'WebSearch':
+        result = params.search_term || params.query || null;
+        break;
+      case 'WebFetch':
+        result = params.url || null;
+        break;
+      case 'SemanticSearch':
+        result = params.query || null;
+        break;
+      default: {
+        const first = Object.values(params).find(
+          (v): v is string => typeof v === 'string' && v.length > 0 && v.length < 80,
+        );
+        result = first || null;
+      }
+    }
+
+    if (!result) return null;
+    return result.length > 60 ? result.slice(0, 60) + '…' : result;
+  } catch {
+    return null;
+  }
+}
 
 const ToolCard: React.FC<{
   tool: RemoteToolStatus;
@@ -127,15 +530,17 @@ const ToolCard: React.FC<{
   const typeLabel = TOOL_TYPE_MAP[toolKey] || TOOL_TYPE_MAP[tool.name] || 'Tool';
   const isRunning = tool.status === 'running';
   const isCompleted = tool.status === 'completed';
+  const isError = tool.status === 'failed' || tool.status === 'error';
   const showCancel = isRunning && !!onCancelTool;
+  const preview = getToolPreview(tool);
 
   const durationLabel = isCompleted && tool.duration_ms != null
-    ? `${(tool.duration_ms / 1000).toFixed(1)}s`
+    ? formatDuration(tool.duration_ms)
     : isRunning && tool.start_ms
-    ? `${((now - tool.start_ms) / 1000).toFixed(1)}s`
+    ? formatDuration(now - tool.start_ms)
     : '';
 
-  const statusClass = isRunning ? 'running' : isCompleted ? 'done' : 'error';
+  const statusClass = isRunning ? 'running' : isCompleted ? 'done' : isError ? 'error' : 'pending';
 
   return (
     <div className={`chat-tool-card chat-tool-card--${statusClass}`}>
@@ -147,21 +552,72 @@ const ToolCard: React.FC<{
             <span className="chat-tool-card__check">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </span>
-          ) : (
+          ) : isError ? (
             <span className="chat-tool-card__error-icon">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
             </span>
+          ) : (
+            <span className="chat-tool-card__spinner" />
           )}
         </span>
-        <span className="chat-tool-card__name">{tool.name}</span>
+        <span className="chat-tool-card__name">
+          {tool.name}
+          {preview && <span className="chat-tool-card__preview"> {preview}</span>}
+        </span>
         <span className="chat-tool-card__type">{typeLabel}</span>
         {durationLabel && (
           <span className="chat-tool-card__duration">{durationLabel}</span>
         )}
+        {showCancel && (
+          <button
+            className="chat-tool-card__cancel"
+            onClick={(e) => { e.stopPropagation(); onCancelTool?.(tool.id); }}
+            aria-label="Cancel"
+          >
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+              <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/>
+            </svg>
+          </button>
+        )}
       </div>
-      {showCancel && (
-        <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
-          <button className="chat-ask-card__submit" onClick={() => onCancelTool?.(tool.id)}>Cancel tool</button>
+    </div>
+  );
+};
+
+const READ_LIKE_TOOLS = new Set(['Read', 'Grep', 'Glob', 'SemanticSearch']);
+
+const ReadFilesToggle: React.FC<{ tools: RemoteToolStatus[] }> = ({ tools }) => {
+  const [open, setOpen] = useState(false);
+  if (tools.length === 0) return null;
+
+  const doneCount = tools.filter(t => t.status === 'completed').length;
+  const allDone = doneCount === tools.length;
+  const label = allDone
+    ? `Read ${tools.length} file${tools.length === 1 ? '' : 's'}`
+    : `Reading ${tools.length} file${tools.length === 1 ? '' : 's'} (${doneCount} done)`;
+
+  return (
+    <div className={`chat-thinking ${allDone ? '' : 'chat-thinking--streaming'}`}>
+      <button className="chat-thinking__toggle" onClick={() => setOpen(o => !o)}>
+        <span className={`chat-thinking__chevron ${open ? 'is-open' : ''}`}>
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+            <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </span>
+        <span className="chat-thinking__label">{label}</span>
+      </button>
+      {open && (
+        <div className="chat-thinking__content-wrapper at-top at-bottom">
+          <div className="chat-thinking__content">
+            {tools.map(t => {
+              const preview = t.input_preview || '';
+              return (
+                <div key={t.id} style={{ fontSize: '12px', padding: '2px 0', opacity: 0.8 }}>
+                  {t.status === 'completed' ? '✓' : '⋯'} {t.name} {preview}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -177,13 +633,14 @@ const ToolList: React.FC<{
 }> = ({ tools, now, onCancelTool }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    if (tools.length > prevCountRef.current && scrollRef.current) {
+    if (expanded && tools.length > prevCountRef.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
     prevCountRef.current = tools.length;
-  }, [tools.length]);
+  }, [tools.length, expanded]);
 
   if (!tools || tools.length === 0) return null;
 
@@ -202,18 +659,23 @@ const ToolList: React.FC<{
 
   return (
     <div className="chat-tool-list chat-tool-list--collapsed">
-      <div className="chat-tool-list__header">
-        <span className="chat-tool-list__count">{tools.length} tool calls</span>
+      <div className="chat-tool-list__header" onClick={() => setExpanded(e => !e)}>
+        <span className="chat-tool-list__count">{tools.length} tool call{tools.length === 1 ? '' : 's'}</span>
         <span className="chat-tool-list__stats">
           {doneCount > 0 && <span className="chat-tool-list__stat chat-tool-list__stat--done">{doneCount} done</span>}
           {runningCount > 0 && <span className="chat-tool-list__stat chat-tool-list__stat--running">{runningCount} running</span>}
         </span>
+        <span className={`chat-tool-list__chevron ${expanded ? 'is-expanded' : ''}`}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
       </div>
-      <div className="chat-tool-list__scroll" ref={scrollRef}>
-        {tools.map((tc) => (
-          <ToolCard key={tc.id} tool={tc} now={now} onCancelTool={onCancelTool} />
-        ))}
-      </div>
+      {expanded && (
+        <div className="chat-tool-list__scroll" ref={scrollRef}>
+          {tools.map((tc) => (
+            <ToolCard key={tc.id} tool={tc} now={now} onCancelTool={onCancelTool} />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -225,6 +687,75 @@ const TypingDots: React.FC = () => (
     <span /><span /><span />
   </span>
 );
+
+// ─── Typewriter effect (pseudo-streaming) ──────────────────────────────────
+
+function useTypewriter(targetText: string, animate: boolean): string {
+  const [displayText, setDisplayText] = useState(animate ? '' : targetText);
+  const revealedRef = useRef(animate ? 0 : targetText.length);
+  const targetRef = useRef(targetText);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const speedRef = useRef(3);
+
+  useEffect(() => {
+    if (!animate) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      revealedRef.current = targetText.length;
+      targetRef.current = targetText;
+      setDisplayText(targetText);
+      return;
+    }
+
+    targetRef.current = targetText;
+
+    if (targetText.length < revealedRef.current) {
+      revealedRef.current = 0;
+    }
+
+    const delta = targetText.length - revealedRef.current;
+    if (delta > 0) {
+      const FRAME_INTERVAL = 30;
+      const REVEAL_DURATION = 800;
+      const totalFrames = REVEAL_DURATION / FRAME_INTERVAL;
+      speedRef.current = Math.max(Math.ceil(delta / totalFrames), 2);
+
+      if (!timerRef.current) {
+        timerRef.current = setInterval(() => {
+          const target = targetRef.current;
+          const cur = revealedRef.current;
+          if (cur >= target.length) {
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
+            return;
+          }
+          const next = Math.min(cur + speedRef.current, target.length);
+          revealedRef.current = next;
+          setDisplayText(target.slice(0, next));
+        }, FRAME_INTERVAL);
+      }
+    }
+  }, [targetText, animate]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  return displayText;
+}
+
+const TypewriterText: React.FC<{ content: string }> = ({ content }) => {
+  const displayText = useTypewriter(content, true);
+  return <MarkdownContent content={displayText} />;
+};
 
 // ─── AskUserQuestion Card ─────────────────────────────────────────────────
 
@@ -392,6 +923,43 @@ const AskQuestionCard: React.FC<AskQuestionCardProps> = ({ tool, onAnswer }) => 
   );
 };
 
+/**
+ * Collect subagent internal items into the Task item's subItems field.
+ * When a Task tool appears, all subsequent items until the next non-subagent
+ * item (or a completed Task) are its internal output. We attach them as
+ * subItems on the Task ChatMessageItem for nested rendering.
+ */
+function filterSubagentItems(items: ChatMessageItem[]): ChatMessageItem[] {
+  const result: ChatMessageItem[] = [];
+  let currentTaskItem: ChatMessageItem | null = null;
+
+  for (const item of items) {
+    if (item.type === 'tool' && item.tool?.name === 'Task') {
+      const taskCopy: ChatMessageItem = { ...item, subItems: [] };
+      result.push(taskCopy);
+      currentTaskItem = taskCopy;
+      continue;
+    }
+
+    if (item.is_subagent && currentTaskItem) {
+      currentTaskItem.subItems!.push(item);
+      continue;
+    }
+
+    if (item.is_subagent) {
+      continue;
+    }
+
+    // Don't reset currentTaskItem — when the agent calls tools in
+    // parallel (e.g. Explore + 3 Reads), direct tools interleave with
+    // the subagent's internal tools.  Keeping currentTaskItem alive
+    // ensures later is_subagent items still get grouped correctly.
+    result.push(item);
+  }
+
+  return result;
+}
+
 function groupChatItems(items: ChatMessageItem[]) {
   const groups: { type: string; entries: ChatMessageItem[] }[] = [];
   for (const item of items) {
@@ -425,6 +993,7 @@ function renderStandardGroups(
   keyPrefix: string,
   now: number,
   onCancelTool?: (toolId: string) => void,
+  animate?: boolean,
 ) {
   return groups.map((g, gi) => {
     if (g.type === 'thinking') {
@@ -432,14 +1001,56 @@ function renderStandardGroups(
       return <ThinkingBlock key={`${keyPrefix}-thinking-${gi}`} thinking={text} />;
     }
     if (g.type === 'tool') {
-      const tools = g.entries.map(e => e.tool!).filter(Boolean);
-      return <ToolList key={`${keyPrefix}-tool-${gi}`} tools={tools} now={now} onCancelTool={onCancelTool} />;
+      const rendered: React.ReactNode[] = [];
+      let regularBuf: RemoteToolStatus[] = [];
+      let readBuf: RemoteToolStatus[] = [];
+
+      const flushRead = () => {
+        if (readBuf.length > 0) {
+          rendered.push(
+            <ReadFilesToggle key={`${keyPrefix}-read-${gi}-${rendered.length}`} tools={readBuf} />,
+          );
+          readBuf = [];
+        }
+      };
+
+      const flushRegular = () => {
+        if (regularBuf.length > 0) {
+          rendered.push(
+            <ToolList key={`${keyPrefix}-tl-${gi}-${rendered.length}`} tools={regularBuf} now={now} onCancelTool={onCancelTool} />,
+          );
+          regularBuf = [];
+        }
+      };
+
+      const flushAll = () => { flushRead(); flushRegular(); };
+
+      for (const entry of g.entries) {
+        if (entry.tool?.name === 'Task') {
+          flushAll();
+          rendered.push(
+            <TaskToolCard key={`${keyPrefix}-task-${gi}-${rendered.length}`} tool={entry.tool!} now={now} subItems={entry.subItems} onCancelTool={onCancelTool} />,
+          );
+        } else if (entry.tool?.name === 'TodoWrite') {
+          flushAll();
+          rendered.push(<TodoCard key={`${keyPrefix}-todo-${gi}-${rendered.length}`} tool={entry.tool!} />);
+        } else if (entry.tool && READ_LIKE_TOOLS.has(entry.tool.name)) {
+          flushRegular();
+          readBuf.push(entry.tool);
+        } else if (entry.tool) {
+          flushRead();
+          regularBuf.push(entry.tool);
+        }
+      }
+      flushAll();
+
+      return <React.Fragment key={`${keyPrefix}-tool-${gi}`}>{rendered}</React.Fragment>;
     }
     if (g.type === 'text') {
       const text = g.entries.map(e => e.content || '').join('');
       return text ? (
         <div key={`${keyPrefix}-text-${gi}`} className="chat-msg__assistant-content">
-          <MarkdownContent content={text} />
+          {animate ? <TypewriterText content={text} /> : <MarkdownContent content={text} />}
         </div>
       ) : null;
     }
@@ -450,11 +1061,12 @@ function renderStandardGroups(
 // ─── Ordered Items renderer ─────────────────────────────────────────────────
 
 function renderOrderedItems(
-  items: ChatMessageItem[],
+  rawItems: ChatMessageItem[],
   now: number,
   onCancelTool?: (toolId: string) => void,
   onAnswer?: (toolId: string, answers: any) => Promise<void>,
 ) {
+  const items = filterSubagentItems(rawItems);
   const askEntries = items.filter(item => isPendingAskUserQuestion(item.tool));
   if (askEntries.length === 0) {
     return renderStandardGroups(groupChatItems(items), 'ordered', now, onCancelTool);
@@ -485,19 +1097,20 @@ function renderOrderedItems(
 // ─── Active turn items renderer (with AskUserQuestion support) ─────────────
 
 function renderActiveTurnItems(
-  items: ChatMessageItem[],
+  rawItems: ChatMessageItem[],
   now: number,
   sessionMgr: RemoteSessionManager,
   setError: (e: string) => void,
   onAnswer: (toolId: string, answers: any) => Promise<void>,
 ) {
+  const items = filterSubagentItems(rawItems);
   const askEntries = items.filter(item => isPendingAskUserQuestion(item.tool));
   const onCancel = (toolId: string) => {
     sessionMgr.cancelTool(toolId, 'User cancelled').catch(err => { setError(String(err)); });
   };
 
   if (askEntries.length === 0) {
-    return renderStandardGroups(groupChatItems(items), 'active', now, onCancel);
+    return renderStandardGroups(groupChatItems(items), 'active', now, onCancel, true);
   }
 
   const beforeAskItems: ChatMessageItem[] = [];
@@ -515,9 +1128,9 @@ function renderActiveTurnItems(
 
   return (
     <>
-      {renderStandardGroups(groupChatItems(beforeAskItems), 'active-before', now, onCancel)}
+      {renderStandardGroups(groupChatItems(beforeAskItems), 'active-before', now, onCancel, true)}
       {renderQuestionEntries(askEntries, 'active', onAnswer)}
-      {renderStandardGroups(groupChatItems(afterAskItems), 'active-after', now, onCancel)}
+      {renderStandardGroups(groupChatItems(afterAskItems), 'active-after', now, onCancel, true)}
     </>
   );
 }
@@ -525,7 +1138,7 @@ function renderActiveTurnItems(
 // ─── Theme toggle icon ─────────────────────────────────────────────────────
 
 const ThemeToggleIcon: React.FC<{ isDark: boolean }> = ({ isDark }) => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
     {isDark ? (
       <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM3 8a5 5 0 0 1 5-5v10a5 5 0 0 1-5-5Z" fill="currentColor"/>
     ) : (
@@ -546,7 +1159,7 @@ const MODE_OPTIONS: { id: AgentMode; label: string }[] = [
 
 // ─── ChatPage ───────────────────────────────────────────────────────────────
 
-const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName, onBack }) => {
+const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName, onBack, autoFocus }) => {
   const {
     getMessages,
     setMessages,
@@ -564,15 +1177,21 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
   const [agentMode, setAgentMode] = useState<AgentMode>('agentic');
   const [liveTitle, setLiveTitle] = useState(sessionName);
   const [pendingImages, setPendingImages] = useState<{ name: string; dataUrl: string }[]>([]);
-  const [inputFocused, setInputFocused] = useState(false);
+  const [imageAnalyzing, setImageAnalyzing] = useState(false);
+  const [optimisticMsg, setOptimisticMsg] = useState<{
+    id: string; text: string; images: { name: string; data_url: string }[];
+  } | null>(null);
+  const [inputExpanded, setInputExpanded] = useState(!!autoFocus);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputBarRef = useRef<HTMLDivElement>(null);
   const pollerRef = useRef<SessionPoller | null>(null);
 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [expandedMsgIds, setExpandedMsgIds] = useState<Set<string>>(new Set());
 
   const isStreaming = activeTurn != null && activeTurn.status === 'active';
 
@@ -621,14 +1240,39 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
   }, [hasMore, isLoadingMore, getMessages, sessionId, loadMessages]);
 
   // Initial load + start poller
+  const initialScrollDone = useRef(false);
   useEffect(() => {
+    initialScrollDone.current = false;
     loadMessages().then(() => {
       const initialMsgCount = useMobileStore.getState().getMessages(sessionId).length;
+
+      // Scroll to bottom after initial load — use rAF + setTimeout to ensure
+      // the DOM has finished laying out the newly rendered messages.
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+          initialScrollDone.current = true;
+          prevMsgCountRef.current = useMobileStore.getState().getMessages(sessionId).length;
+        }, 50);
+      });
 
       const poller = new SessionPoller(sessionMgr, sessionId, (resp: PollResponse) => {
         if (resp.new_messages && resp.new_messages.length > 0) {
           appendNewMessages(sessionId, resp.new_messages);
         }
+
+        // Detect count mismatch (messages inserted in the middle due to
+        // persistence race).  When the local count doesn't match the server
+        // total, do a full reload to pick up all messages.
+        if (resp.total_msg_count != null) {
+          const localCount = useMobileStore.getState().getMessages(sessionId).length;
+          if (localCount !== resp.total_msg_count) {
+            sessionMgr.getSessionMessages(sessionId, 200).then(fresh => {
+              useMobileStore.getState().setMessages(sessionId, fresh.messages);
+            }).catch(() => {});
+          }
+        }
+
         if (resp.title) {
           setLiveTitle(resp.title);
           updateSessionName(sessionId, resp.title);
@@ -647,37 +1291,80 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
     };
   }, [sessionId, sessionMgr]);
 
+  const prevMsgCountRef = useRef(0);
   useEffect(() => {
-    if (!isLoadingMore) {
+    if (!initialScrollDone.current) return;
+    if (messages.length !== prevMsgCountRef.current) {
+      const isNewAppend = messages.length > prevMsgCountRef.current;
+      prevMsgCountRef.current = messages.length;
+      if (isNewAppend && !isLoadingMore) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [messages.length, isLoadingMore]);
+
+  useEffect(() => {
+    if (!initialScrollDone.current || !isStreaming) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  }, [activeTurn, isStreaming]);
+
+  useEffect(() => {
+    if (optimisticMsg) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, activeTurn, isLoadingMore]);
+  }, [optimisticMsg]);
 
-  // Reload messages when a turn completes so the messages array
-  // contains the final persisted content instead of stale partial data.
-  const prevActiveTurnRef = useRef<ActiveTurnSnapshot | null>(null);
   useEffect(() => {
-    const prev = prevActiveTurnRef.current;
-    prevActiveTurnRef.current = activeTurn;
-    if (prev && !activeTurn) {
-      loadMessages();
-    }
-  }, [activeTurn, loadMessages]);
+    if (!initialScrollDone.current || !isStreaming) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const tid = setInterval(() => {
+      const gap = container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (gap > 10 && gap < 300) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }, 200);
+    return () => clearInterval(tid);
+  }, [isStreaming]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
     const imgs = pendingImages;
-    if ((!text && imgs.length === 0) || isStreaming) return;
+    if ((!text && imgs.length === 0) || isStreaming || imageAnalyzing) return;
     setInput('');
     setPendingImages([]);
+    setInputExpanded(false);
+
+    const hasImages = imgs.length > 0;
+    const imageContexts = hasImages
+      ? imgs.map((img, idx) => {
+          const mimeType = img.dataUrl.split(';')[0]?.replace('data:', '') || 'image/png';
+          return {
+            id: `mobile_img_${Date.now()}_${idx}`,
+            data_url: img.dataUrl,
+            mime_type: mimeType,
+            metadata: { name: img.name, source: 'remote' },
+          };
+        })
+      : undefined;
+
+    if (hasImages) {
+      setOptimisticMsg({
+        id: `opt_${Date.now()}`,
+        text: text || '',
+        images: imgs.map(i => ({ name: i.name, data_url: i.dataUrl })),
+      });
+      setImageAnalyzing(true);
+    }
 
     try {
-      const imagePayload = imgs.length > 0
-        ? imgs.map(i => ({ name: i.name, data_url: i.dataUrl }))
-        : undefined;
-      await sessionMgr.sendMessage(sessionId, text || '(see attached images)', agentMode, imagePayload);
+      await sessionMgr.sendMessage(sessionId, text || '(see attached images)', agentMode, imageContexts);
+      pollerRef.current?.nudge();
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setImageAnalyzing(false);
+      setOptimisticMsg(null);
     }
   }, [input, pendingImages, isStreaming, sessionId, sessionMgr, setError, agentMode]);
 
@@ -685,30 +1372,63 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
     fileInputRef.current?.click();
   }, []);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     const maxImages = 5;
     const remaining = maxImages - pendingImages.length;
     const toProcess = Array.from(files).slice(0, remaining);
 
-    toProcess.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
+    const { compressImageFile } = await import('../services/imageCompressor');
+    for (const file of toProcess) {
+      try {
+        const compressed = await compressImageFile(file);
         setPendingImages((prev) => {
           if (prev.length >= maxImages) return prev;
-          return [...prev, { name: file.name, dataUrl }];
+          return [...prev, { name: compressed.name, dataUrl: compressed.dataUrl }];
         });
-      };
-      reader.readAsDataURL(file);
-    });
+      } catch {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          setPendingImages((prev) => {
+            if (prev.length >= maxImages) return prev;
+            return [...prev, { name: file.name, dataUrl }];
+          });
+        };
+        reader.readAsDataURL(file);
+      }
+    }
     e.target.value = '';
   }, [pendingImages.length]);
 
   const removeImage = useCallback((idx: number) => {
     setPendingImages((prev) => prev.filter((_, i) => i !== idx));
   }, []);
+
+  const expandInput = useCallback(() => {
+    setInputExpanded(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    if (autoFocus) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [autoFocus]);
+
+  useEffect(() => {
+    if (!inputExpanded) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (inputBarRef.current && !inputBarRef.current.contains(e.target as Node)) {
+        if (!input.trim() && pendingImages.length === 0) {
+          setInputExpanded(false);
+        }
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [inputExpanded, input, pendingImages.length]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -730,7 +1450,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
   const displayName = liveTitle || sessionName || 'Session';
 
   return (
-    <div className="chat-page page-transition">
+    <div className="chat-page">
       {/* Header */}
       <div className="chat-page__header">
         <div className="chat-page__header-row">
@@ -741,6 +1461,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
           </button>
           <div className="chat-page__header-center">
             <span className="chat-page__title" title={displayName}>{displayName}</span>
+            {workspaceName && (
+              <div className="chat-page__header-workspace" title={currentWorkspace?.path}>
+                <span className="chat-page__workspace-name">{workspaceName}</span>
+                {gitBranch && (
+                  <span className="chat-page__workspace-branch">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                    {gitBranch}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="chat-page__header-right">
             <button className="chat-page__theme-btn" onClick={toggleTheme} aria-label="Toggle theme">
@@ -748,22 +1479,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
             </button>
           </div>
         </div>
-        {workspaceName && (
-          <div className="chat-page__header-workspace" title={currentWorkspace?.path}>
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <path d="M2 4L8 2L14 4V12L8 14L2 12V4Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-              <path d="M8 2V14" stroke="currentColor" strokeWidth="1.2"/>
-              <path d="M2 4L8 6L14 4" stroke="currentColor" strokeWidth="1.2"/>
-            </svg>
-            <span className="chat-page__workspace-name">{workspaceName}</span>
-            {gitBranch && (
-              <span className="chat-page__workspace-branch">
-                <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="5" cy="4" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="11" cy="4" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="5" cy="12" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 6V10M11 6V8C11 9.1046 10.1046 10 9 10H5" stroke="currentColor" strokeWidth="1.3"/></svg>
-                {gitBranch}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Messages */}
@@ -772,176 +1487,329 @@ const ChatPage: React.FC<ChatPageProps> = ({ sessionMgr, sessionId, sessionName,
           <div className="chat-page__load-more-indicator">Loading older messages…</div>
         )}
 
-        {messages.map((m, _idx) => {
-          if (m.role === 'system' || m.role === 'tool') return null;
+        {(() => {
+          // Find the last user message index to determine which assistant
+          // responses are "old" and can be collapsed.
+          const lastUserIdx = messages.reduceRight(
+            (found, m, i) => (found < 0 && m.role === 'user' ? i : found),
+            -1,
+          );
 
-          if (m.role === 'user') {
-            return (
-              <div key={m.id} className="chat-msg chat-msg--user">
-                <div className="chat-msg__user-card">
-                  <div className="chat-msg__user-avatar">U</div>
-                  <div className="chat-msg__user-content">{m.content}</div>
+          return messages.map((m, idx) => {
+            if (m.role === 'system' || m.role === 'tool') return null;
+
+            if (m.role === 'user') {
+              const userText = m.content
+                .replace(/#img:\S+\s*/g, '')
+                .replace(/\[Image:.*?\]\n(?:Path:.*?\n|Image ID:.*?\n)?/g, '')
+                .trim();
+              return (
+                <div key={m.id} className="chat-msg chat-msg--user">
+                  <div className="chat-msg__user-card">
+                    <div className="chat-msg__user-avatar">U</div>
+                    <div className="chat-msg__user-content">
+                      {userText}
+                      {m.images && m.images.length > 0 && (
+                        <div className="chat-msg__user-images">
+                          {m.images.map((img, imgIdx) => (
+                            <img
+                              key={imgIdx}
+                              src={img.data_url}
+                              alt={img.name}
+                              className="chat-msg__user-image"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+              );
+            }
+
+            const hasItems = m.items && m.items.length > 0;
+            const hasContent = m.thinking || (m.tools && m.tools.length > 0) || m.content;
+            if (!hasItems && !hasContent) return null;
+
+            const isOldResponse = idx < lastUserIdx;
+            const isExpanded = expandedMsgIds.has(m.id);
+
+            if (isOldResponse && !isExpanded) {
+              return (
+                <div key={m.id} className="chat-msg chat-msg--assistant chat-msg--collapsed">
+                  <button
+                    className="chat-msg__response-toggle"
+                    onClick={() => setExpandedMsgIds(prev => {
+                      const next = new Set(prev);
+                      next.add(m.id);
+                      return next;
+                    })}
+                  >
+                    <span className="chat-msg__response-chevron">
+                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                        <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                    <span className="chat-msg__response-label">Show response</span>
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div key={m.id} className="chat-msg chat-msg--assistant">
+                {isOldResponse && isExpanded && (
+                  <button
+                    className="chat-msg__response-toggle"
+                    onClick={() => setExpandedMsgIds(prev => {
+                      const next = new Set(prev);
+                      next.delete(m.id);
+                      return next;
+                    })}
+                  >
+                    <span className="chat-msg__response-chevron is-open">
+                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                        <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                    <span className="chat-msg__response-label">Hide response</span>
+                  </button>
+                )}
+                {hasItems ? (
+                  renderOrderedItems(m.items!, now, undefined, handleAnswerQuestion)
+                ) : (
+                  <>
+                    {m.thinking && <ThinkingBlock thinking={m.thinking} />}
+                    {m.tools && m.tools.length > 0 && <ToolList tools={m.tools} now={now} />}
+                    {m.content && (
+                      <div className="chat-msg__assistant-content">
+                        <MarkdownContent content={m.content} />
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             );
-          }
+          });
+        })()}
 
-          return (
-            <div key={m.id} className="chat-msg chat-msg--assistant">
-              {m.items && m.items.length > 0 ? (
-                renderOrderedItems(m.items, now, undefined, handleAnswerQuestion)
-              ) : (
-                <>
-                  {m.thinking && <ThinkingBlock thinking={m.thinking} />}
-                  {m.tools && m.tools.length > 0 && <ToolList tools={m.tools} now={now} />}
-                  {m.content && (
-                    <div className="chat-msg__assistant-content">
-                      <MarkdownContent content={m.content} />
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Active turn overlay (streaming content from poller) */}
+        {/* Active turn overlay (streaming or completed-pending-persist) */}
         {activeTurn && (() => {
-          if (activeTurn.items && activeTurn.items.length > 0) {
+          const turn = activeTurn;
+          const turnIsActive = turn.status === 'active';
+
+          if (turn.items && turn.items.length > 0) {
             return (
               <div className="chat-msg chat-msg--assistant">
-                {renderActiveTurnItems(activeTurn.items, now, sessionMgr, setError, handleAnswerQuestion)}
-                {activeTurn.status === 'active' && !activeTurn.thinking && !activeTurn.text && activeTurn.tools.length === 0 && (
+                {turnIsActive
+                  ? renderActiveTurnItems(turn.items, now, sessionMgr, setError, handleAnswerQuestion)
+                  : renderOrderedItems(turn.items, now)}
+                {turnIsActive && !turn.thinking && !turn.text && turn.tools.length === 0 && (
                   <div className="chat-msg__assistant-content"><TypingDots /></div>
                 )}
               </div>
             );
           }
 
-          const askTools = activeTurn.tools.filter(
+          const taskTools = turn.tools.filter(t => t.name === 'Task');
+          const hasRunningSubagent = taskTools.some(t => t.status === 'running');
+          const askTools = turn.tools.filter(
             t => t.name === 'AskUserQuestion' && t.status === 'running' && t.tool_input,
           );
           const askToolIds = new Set(askTools.map(t => t.id));
-          const regularTools = activeTurn.tools.filter(t => !askToolIds.has(t.id));
+          const regularTools = turn.tools.filter(t => t.name !== 'Task' && !askToolIds.has(t.id));
+          const subItemsForTask: ChatMessageItem[] = hasRunningSubagent
+            ? [
+                ...(turn.thinking ? [{ type: 'thinking' as const, content: turn.thinking }] : []),
+                ...regularTools.map(t => ({ type: 'tool' as const, tool: t })),
+              ]
+            : [];
+          const onCancel = (toolId: string) => {
+            sessionMgr.cancelTool(toolId, 'User cancelled').catch(err => { setError(String(err)); });
+          };
 
           return (
             <div className="chat-msg chat-msg--assistant">
-              {(activeTurn.thinking || activeTurn.status === 'active') && (
+              {!hasRunningSubagent && (turn.thinking || turnIsActive) && (
                 <ThinkingBlock
-                  thinking={activeTurn.thinking}
-                  streaming={activeTurn.status === 'active' && !activeTurn.thinking && !activeTurn.text}
+                  thinking={turn.thinking}
+                  streaming={turnIsActive && !turn.thinking && !turn.text}
                 />
               )}
-              <ToolList
-                tools={regularTools}
-                now={now}
-                onCancelTool={(toolId) => {
-                  sessionMgr.cancelTool(toolId, 'User cancelled').catch(err => { setError(String(err)); });
-                }}
-              />
-              {askTools.map(at => (
+              {taskTools.map(t => (
+                <TaskToolCard
+                  key={t.id}
+                  tool={t}
+                  now={now}
+                  subItems={t.status === 'running' ? subItemsForTask : undefined}
+                  onCancelTool={onCancel}
+                />
+              ))}
+              {!hasRunningSubagent && regularTools.length > 0 && (
+                <ToolList tools={regularTools} now={now} onCancelTool={onCancel} />
+              )}
+              {turnIsActive && askTools.map(at => (
                 <AskQuestionCard
                   key={at.id}
                   tool={at}
                   onAnswer={handleAnswerQuestion}
                 />
               ))}
-              {activeTurn.text ? (
+              {!hasRunningSubagent && turn.text ? (
                 <div className="chat-msg__assistant-content">
-                  <MarkdownContent content={activeTurn.text} />
+                  {turnIsActive ? <TypewriterText content={turn.text} /> : <MarkdownContent content={turn.text} />}
                 </div>
-              ) : activeTurn.status === 'active' && !activeTurn.thinking && activeTurn.tools.length === 0 ? (
+              ) : turnIsActive && !turn.thinking && turn.tools.length === 0 ? (
                 <div className="chat-msg__assistant-content"><TypingDots /></div>
               ) : null}
             </div>
           );
         })()}
 
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Floating Input Bar */}
-      <div className={`chat-page__input-bar ${inputFocused ? 'is-focused' : ''}`}>
-        <div className="chat-page__input-toolbar">
-          <div className="chat-page__mode-selector">
-            {MODE_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                className={`chat-page__mode-btn${agentMode === opt.id ? ' is-active' : ''}`}
-                onClick={() => setAgentMode(opt.id)}
-                disabled={isStreaming}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {pendingImages.length > 0 && (
-          <div className="chat-page__image-preview-row">
-            {pendingImages.map((img, idx) => (
-              <div key={idx} className="chat-page__image-thumb">
-                <img src={img.dataUrl} alt={img.name} />
-                <button className="chat-page__image-remove" onClick={() => removeImage(idx)}>×</button>
+        {/* Optimistic user message with images (shown immediately before server responds) */}
+        {optimisticMsg && (
+          <div className="chat-msg chat-msg--user">
+            <div className="chat-msg__user-card">
+              <div className="chat-msg__user-avatar">U</div>
+              <div className="chat-msg__user-content">
+                {optimisticMsg.text}
+                {optimisticMsg.images.length > 0 && (
+                  <div className="chat-msg__user-images">
+                    {optimisticMsg.images.map((img, i) => (
+                      <img key={i} src={img.data_url} alt={img.name} className="chat-msg__user-image" />
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
+            </div>
           </div>
         )}
 
-        <div className="chat-page__input-row">
-          <button
-            className="chat-page__attach-btn"
-            onClick={handleImageSelect}
-            disabled={isStreaming || pendingImages.length >= 5}
-            aria-label="Attach image"
-          >
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-              <rect x="2" y="3" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-              <circle cx="7" cy="8" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
-              <path d="M2 14L6 10L9 13L13 9L18 14" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-            multiple
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-          />
-          <textarea
-            ref={inputRef}
-            className="chat-page__input"
-            placeholder="Type a message..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
-            rows={1}
-            disabled={isStreaming}
-          />
-          {isStreaming ? (
-            <button
-              className="chat-page__send is-stop"
-              onClick={handleCancel}
-              aria-label="Stop"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <rect x="2" y="2" width="12" height="12" rx="2" fill="currentColor"/>
-              </svg>
-            </button>
-          ) : (
-            <button
-              className="chat-page__send"
-              onClick={handleSend}
-              disabled={!input.trim() && pendingImages.length === 0}
-            >
-              <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                <path d="M3 10L17 3L10 17V10H3Z" fill="currentColor"/>
-              </svg>
-            </button>
-          )}
+        {/* Image analysis indicator */}
+        {imageAnalyzing && (
+          <div className="chat-msg chat-msg--assistant">
+            <div className="chat-msg__assistant-card">
+              <div className="chat-msg__image-analyzing">
+                <div className="chat-msg__image-analyzing-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                  </svg>
+                </div>
+                <span>Analyzing image with vision model...</span>
+                <TypingDots />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Floating Input Bar — two-stage (matches desktop ChatInput) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
+      <div
+        className={`chat-page__input-wrap ${inputExpanded ? 'is-expanded' : ''}`}
+        ref={inputBarRef}
+      >
+        <div
+          className="chat-page__input-box"
+          onClick={!inputExpanded && !isStreaming ? expandInput : undefined}
+        >
+          {/* Input area */}
+          <div className="chat-page__input-area">
+            {inputExpanded ? (
+              <textarea
+                ref={inputRef}
+                className="chat-page__input"
+                placeholder="How can I help you..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                disabled={isStreaming || imageAnalyzing}
+              />
+            ) : (
+              <span className="chat-page__input-placeholder">
+                {imageAnalyzing ? 'Analyzing image...' : isStreaming ? 'BitFun is working...' : 'How can I help you...'}
+              </span>
+            )}
+          </div>
+
+          {/* Actions bar */}
+          <div className="chat-page__input-actions">
+            <div className="chat-page__input-actions-left">
+              {inputExpanded && pendingImages.length > 0 && (
+                <div className="chat-page__image-preview-row">
+                  {pendingImages.map((img, idx) => (
+                    <div key={idx} className="chat-page__image-thumb">
+                      <img src={img.dataUrl} alt={img.name} />
+                      <button className="chat-page__image-remove" onClick={() => removeImage(idx)}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="chat-page__input-actions-right">
+              {inputExpanded && (
+                <>
+                  <button
+                    className={`chat-page__mode-pill${agentMode !== 'agentic' ? ` chat-page__mode-pill--${agentMode}` : ''}`}
+                    onClick={() => {
+                      const modes: AgentMode[] = ['agentic', 'Plan', 'debug'];
+                      const idx = modes.indexOf(agentMode);
+                      setAgentMode(modes[(idx + 1) % modes.length]);
+                    }}
+                    disabled={isStreaming}
+                  >
+                    {MODE_OPTIONS.find(m => m.id === agentMode)?.label}
+                  </button>
+                  <button
+                    className="chat-page__action-btn"
+                    onClick={handleImageSelect}
+                    disabled={isStreaming || pendingImages.length >= 5}
+                    aria-label="Attach image"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                      <circle cx="9" cy="9" r="2"/>
+                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                    </svg>
+                  </button>
+                </>
+              )}
+              {isStreaming || imageAnalyzing ? (
+                <button className="chat-page__send-btn is-stop" onClick={imageAnalyzing ? undefined : handleCancel} aria-label="Stop" disabled={imageAnalyzing}>
+                  {imageAnalyzing ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'analyzeSpin 2s linear infinite' }}>
+                      <circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2"/>
+                    </svg>
+                  ) : (
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                      <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/>
+                    </svg>
+                  )}
+                </button>
+              ) : (
+                <button
+                  className="chat-page__send-btn"
+                  onClick={inputExpanded ? handleSend : undefined}
+                  disabled={!input.trim() && pendingImages.length === 0}
+                >
+                  <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
+                    <path d="M10 3L10 17M10 3L5 8M10 3L15 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -184,7 +184,7 @@ impl ConversationPersistenceManager {
                 if let Some(turn) = self.load_dialog_turn(session_id, i).await? {
                     turns.push(turn);
                 } else {
-                    warn!("Missing dialog turn: session={}, turn={}", session_id, i);
+                    debug!("Missing dialog turn: session={}, turn={}", session_id, i);
                 }
             }
 

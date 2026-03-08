@@ -35,6 +35,7 @@ export async function sendMessage(
   switchToMode?: string,
   options?: {
     imageContexts?: ImageInputContextData[];
+    imageDisplayData?: Array<{ id: string; name: string; dataUrl?: string; imagePath?: string; mimeType?: string }>;
   }
 ): Promise<void> {
   const session = context.flowChatStore.getState().sessions.get(sessionId);
@@ -55,16 +56,20 @@ export async function sendMessage(
     
     const dialogTurnId = `dialog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
+    const hasImages = (options?.imageContexts?.length ?? 0) > 0;
+
     const dialogTurn: DialogTurn = {
       id: dialogTurnId,
       sessionId: sessionId,
       userMessage: {
         id: `user_${Date.now()}`,
         content: displayMessage || message,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        hasImages,
+        images: options?.imageDisplayData,
       },
       modelRounds: [],
-      status: 'pending',
+      status: hasImages ? 'image_analyzing' : 'pending',
       startTime: Date.now()
     };
 

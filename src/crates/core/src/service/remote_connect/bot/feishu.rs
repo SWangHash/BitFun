@@ -228,6 +228,13 @@ struct PendingPairing {
     created_at: i64,
 }
 
+struct ParsedMessage {
+    chat_id: String,
+    message_id: String,
+    text: String,
+    image_keys: Vec<String>,
+}
+
 impl FeishuBot {
     pub fn new(config: FeishuConfig) -> Self {
         Self {
@@ -305,6 +312,97 @@ impl FeishuBot {
         }
         debug!("Feishu message sent to {chat_id}");
         Ok(())
+    }
+
+    /// Download a user-sent image from a Feishu message using the message resources API.
+    /// The returned data-URL is compressed to at most 1 MB.
+    async fn download_image_as_data_url(&self, message_id: &str, file_key: &str) -> Result<String> {
+        use base64::{engine::general_purpose::STANDARD as B64, Engine};
+
+        let token = match self.get_access_token().await {
+            Ok(t) => t,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+        let client = reqwest::Client::new();
+        let url = format!(
+            "https://open.feishu.cn/open-apis/im/v1/messages/{}/resources/{}?type=image",
+            message_id, file_key
+        );
+        let resp = client
+            .get(&url)
+            .bearer_auth(&token)
+            .send()
+            .await
+            .map_err(|e| {
+                anyhow!("feishu download image: {e}")
+            })?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(anyhow!("feishu image download failed: HTTP {status} — {body}"));
+        }
+
+        let content_type = resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("image/png")
+            .to_string();
+        let raw_bytes = resp.bytes().await?;
+
+        const MAX_BYTES: usize = 1024 * 1024;
+        if raw_bytes.len() <= MAX_BYTES {
+            let b64 = B64.encode(&raw_bytes);
+            return Ok(format!("data:{};base64,{}", content_type, b64));
+        }
+
+        log::info!(
+            "Feishu image exceeds {}KB ({}KB), compressing",
+            MAX_BYTES / 1024,
+            raw_bytes.len() / 1024
+        );
+        match crate::agentic::image_analysis::optimize_image_with_size_limit(
+            raw_bytes.to_vec(),
+            "openai",
+            Some(&content_type),
+            Some(MAX_BYTES),
+        ) {
+            Ok(processed) => {
+                let b64 = B64.encode(&processed.data);
+                Ok(format!("data:{};base64,{}", processed.mime_type, b64))
+            }
+            Err(e) => {
+                log::warn!("Feishu image compression failed, using original: {e}");
+                let b64 = B64.encode(&raw_bytes);
+                Ok(format!("data:{};base64,{}", content_type, b64))
+            }
+        }
+    }
+
+    /// Download multiple images and convert to ImageAttachment list.
+    async fn download_images(
+        &self,
+        message_id: &str,
+        image_keys: &[String],
+    ) -> Vec<super::super::remote_server::ImageAttachment> {
+        let mut attachments = Vec::new();
+        for (i, key) in image_keys.iter().enumerate() {
+            match self.download_image_as_data_url(message_id, key).await {
+                Ok(data_url) => {
+                    attachments.push(super::super::remote_server::ImageAttachment {
+                        name: format!("image_{}.png", i + 1),
+                        data_url,
+                    });
+                }
+                Err(e) => {
+                    warn!("Failed to download Feishu image {key}: {e}");
+                }
+            }
+        }
+        attachments
     }
 
     pub async fn send_action_card(
@@ -498,8 +596,9 @@ impl FeishuBot {
         Ok((url, client_config))
     }
 
-    /// Extract (chat_id, text) from a Feishu text message event.
-    fn parse_message_event(event: &serde_json::Value) -> Option<(String, String)> {
+    /// Parse a Feishu message event into text + image keys.
+    /// Supports `text`, `post` (rich text with images), and `image` message types.
+    fn parse_message_event_full(event: &serde_json::Value) -> Option<ParsedMessage> {
         let event_type = event
             .pointer("/header/event_type")
             .and_then(|v| v.as_str())?;
@@ -507,23 +606,105 @@ impl FeishuBot {
             return None;
         }
 
-        let msg_type = event
-            .pointer("/event/message/message_type")
-            .and_then(|v| v.as_str())?;
-        if msg_type != "text" {
-            return None;
-        }
-
         let chat_id = event
             .pointer("/event/message/chat_id")
             .and_then(|v| v.as_str())?
             .to_string();
+        let message_id = event
+            .pointer("/event/message/message_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let msg_type = event
+            .pointer("/event/message/message_type")
+            .and_then(|v| v.as_str())?;
         let content_str = event
             .pointer("/event/message/content")
             .and_then(|v| v.as_str())?;
         let content: serde_json::Value = serde_json::from_str(content_str).ok()?;
-        let text = content["text"].as_str()?.trim().to_string();
-        Some((chat_id, text))
+
+        match msg_type {
+            "text" => {
+                let text = content["text"].as_str()?.trim().to_string();
+                if text.is_empty() { return None; }
+                Some(ParsedMessage { chat_id, message_id, text, image_keys: vec![] })
+            }
+            "post" => {
+                let (text, image_keys) = Self::extract_from_post(&content);
+                if text.is_empty() && image_keys.is_empty() { return None; }
+                Some(ParsedMessage { chat_id, message_id, text, image_keys })
+            }
+            "image" => {
+                let image_key = content["image_key"].as_str()?.to_string();
+                Some(ParsedMessage {
+                    chat_id,
+                    message_id,
+                    text: String::new(),
+                    image_keys: vec![image_key],
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// Backward-compatible wrapper: returns (chat_id, text) only for text/post with text content.
+    fn parse_message_event(event: &serde_json::Value) -> Option<(String, String)> {
+        let parsed = Self::parse_message_event_full(event)?;
+        if parsed.text.is_empty() { return None; }
+        Some((parsed.chat_id, parsed.text))
+    }
+
+    /// Extract text and image keys from a Feishu `post` (rich-text) message.
+    fn extract_from_post(content: &serde_json::Value) -> (String, Vec<String>) {
+        let root = if content["content"].is_array() {
+            content
+        } else {
+            content
+                .get("zh_cn")
+                .or_else(|| content.get("en_us"))
+                .or_else(|| content.as_object().and_then(|obj| obj.values().next()))
+                .unwrap_or(content)
+        };
+
+        let paragraphs = match root["content"].as_array() {
+            Some(p) => p,
+            None => return (String::new(), vec![]),
+        };
+
+        let mut text_parts: Vec<String> = Vec::new();
+        let mut image_keys: Vec<String> = Vec::new();
+
+        for para in paragraphs {
+            if let Some(elements) = para.as_array() {
+                for elem in elements {
+                    match elem["tag"].as_str().unwrap_or("") {
+                        "text" | "a" => {
+                            if let Some(t) = elem["text"].as_str() {
+                                let trimmed = t.trim();
+                                if !trimmed.is_empty() {
+                                    text_parts.push(trimmed.to_string());
+                                }
+                            }
+                        }
+                        "img" => {
+                            if let Some(key) = elem["image_key"].as_str() {
+                                if !key.is_empty() {
+                                    image_keys.push(key.to_string());
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        let title = root["title"].as_str().unwrap_or("").trim();
+        if !title.is_empty() {
+            text_parts.insert(0, title.to_string());
+        }
+
+        (text_parts.join(" "), image_keys)
     }
 
     /// Extract (chat_id, command) from a Feishu card action callback.
@@ -552,8 +733,21 @@ impl FeishuBot {
         Some((chat_id, command))
     }
 
+    #[cfg(test)]
     fn parse_ws_event(event: &serde_json::Value) -> Option<(String, String)> {
         Self::parse_message_event(event).or_else(|| Self::parse_card_action_event(event))
+    }
+
+    /// Extract chat_id from any im.message.receive_v1 event (regardless of msg_type).
+    fn extract_message_chat_id(event: &serde_json::Value) -> Option<String> {
+        let event_type = event.pointer("/header/event_type").and_then(|v| v.as_str())?;
+        if event_type != "im.message.receive_v1" {
+            return None;
+        }
+        event
+            .pointer("/event/message/chat_id")
+            .and_then(|v| v.as_str())
+            .map(String::from)
     }
 
     /// Handle a single incoming protobuf data frame.
@@ -609,6 +803,11 @@ impl FeishuBot {
                 self.send_message(&chat_id, "Please enter the 6-digit pairing code from BitFun Desktop.")
                     .await.ok();
             }
+        } else if let Some(chat_id) = Self::extract_message_chat_id(&event) {
+            self.send_message(
+                &chat_id,
+                "Only text messages are supported. Please send the 6-digit pairing code as text.",
+            ).await.ok();
         }
         None
     }
@@ -766,10 +965,33 @@ impl FeishuBot {
                                                 let resp = pb::Frame::new_response(&frame, 200);
                                                 let _ = write.write().await.send(WsMessage::Binary(pb::encode_frame(&resp))).await;
 
-                                                if let Some((chat_id, msg_text)) = Self::parse_ws_event(&event) {
+                                                if let Some(parsed) = Self::parse_message_event_full(&event) {
                                                     let bot = self.clone();
                                                     tokio::spawn(async move {
-                                                        bot.handle_incoming_message(&chat_id, &msg_text).await;
+                                                        let images = if parsed.image_keys.is_empty() {
+                                                            vec![]
+                                                        } else {
+                                                            bot.download_images(&parsed.message_id, &parsed.image_keys).await
+                                                        };
+                                                        let text = if parsed.text.is_empty() && !images.is_empty() {
+                                                            "[User sent an image]".to_string()
+                                                        } else {
+                                                            parsed.text
+                                                        };
+                                                        bot.handle_incoming_message(&parsed.chat_id, &text, images).await;
+                                                    });
+                                                } else if let Some((chat_id, cmd)) = Self::parse_card_action_event(&event) {
+                                                    let bot = self.clone();
+                                                    tokio::spawn(async move {
+                                                        bot.handle_incoming_message(&chat_id, &cmd, vec![]).await;
+                                                    });
+                                                } else if let Some(chat_id) = Self::extract_message_chat_id(&event) {
+                                                    let bot = self.clone();
+                                                    tokio::spawn(async move {
+                                                        bot.send_message(
+                                                            &chat_id,
+                                                            "This message type is not supported. Please send text or images.",
+                                                        ).await.ok();
                                                     });
                                                 }
                                             }
@@ -810,7 +1032,12 @@ impl FeishuBot {
         }
     }
 
-    async fn handle_incoming_message(self: &Arc<Self>, chat_id: &str, text: &str) {
+    async fn handle_incoming_message(
+        self: &Arc<Self>,
+        chat_id: &str,
+        text: &str,
+        images: Vec<super::super::remote_server::ImageAttachment>,
+    ) {
         let mut states = self.chat_states.write().await;
         let state = states
             .entry(chat_id.to_string())
@@ -857,7 +1084,7 @@ impl FeishuBot {
         }
 
         let cmd = parse_command(text);
-        let result = handle_command(state, cmd).await;
+        let result = handle_command(state, cmd, images).await;
 
         self.persist_chat_state(chat_id, state).await;
         drop(states);
