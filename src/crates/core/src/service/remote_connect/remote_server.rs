@@ -278,6 +278,61 @@ fn make_slim_params(params: &serde_json::Value) -> Option<String> {
     }
 }
 
+/// Compress a base64 data-URL image to a small thumbnail for mobile display.
+/// Falls back to the original if decoding/compression fails or the image is
+/// already within `max_bytes`.
+fn compress_data_url_for_mobile(data_url: &str, max_bytes: usize) -> String {
+    use base64::engine::general_purpose::STANDARD as BASE64;
+    use base64::Engine;
+    use image::imageops::FilterType;
+
+    const MAX_THUMBNAIL_DIM: u32 = 400;
+
+    let Some(comma_pos) = data_url.find(',') else {
+        return data_url.to_string();
+    };
+    let b64_data = &data_url[comma_pos + 1..];
+
+    if b64_data.len() * 3 / 4 <= max_bytes {
+        return data_url.to_string();
+    }
+
+    let Ok(raw_bytes) = BASE64.decode(b64_data) else {
+        return data_url.to_string();
+    };
+
+    let Ok(img) = image::load_from_memory(&raw_bytes) else {
+        return data_url.to_string();
+    };
+
+    let resized = if img.width() > MAX_THUMBNAIL_DIM || img.height() > MAX_THUMBNAIL_DIM {
+        img.resize(MAX_THUMBNAIL_DIM, MAX_THUMBNAIL_DIM, FilterType::Triangle)
+    } else {
+        img
+    };
+
+    fn encode_jpeg(img: &image::DynamicImage, quality: u8) -> Option<Vec<u8>> {
+        let mut buf = Vec::new();
+        let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, quality);
+        img.write_with_encoder(encoder).ok()?;
+        Some(buf)
+    }
+
+    for quality in [75u8, 60, 45, 30] {
+        if let Some(buf) = encode_jpeg(&resized, quality) {
+            if buf.len() <= max_bytes || quality == 30 {
+                let b64 = BASE64.encode(&buf);
+                return format!("data:image/jpeg;base64,{b64}");
+            }
+        }
+    }
+
+    data_url.to_string()
+}
+
+/// Max thumbnail size per image sent to mobile (100 KB).
+const MOBILE_IMAGE_MAX_BYTES: usize = 100 * 1024;
+
 /// Convert ConversationPersistenceManager turns into mobile ChatMessages.
 /// This is the same data source the desktop frontend uses.
 fn turns_to_chat_messages(
@@ -297,10 +352,11 @@ fn turns_to_chat_messages(
             .map(|arr| {
                 arr.iter()
                     .filter_map(|v| {
-                        Some(ChatImageAttachment {
-                            name: v.get("name")?.as_str()?.to_string(),
-                            data_url: v.get("data_url")?.as_str()?.to_string(),
-                        })
+                        let name = v.get("name")?.as_str()?.to_string();
+                        let raw_url = v.get("data_url")?.as_str()?;
+                        let data_url =
+                            compress_data_url_for_mobile(raw_url, MOBILE_IMAGE_MAX_BYTES);
+                        Some(ChatImageAttachment { name, data_url })
                     })
                     .collect::<Vec<_>>()
             })

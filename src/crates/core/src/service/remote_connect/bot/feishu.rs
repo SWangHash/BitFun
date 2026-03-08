@@ -968,11 +968,26 @@ impl FeishuBot {
                                                 if let Some(parsed) = Self::parse_message_event_full(&event) {
                                                     let bot = self.clone();
                                                     tokio::spawn(async move {
-                                                        let images = if parsed.image_keys.is_empty() {
+                                                        const MAX_IMAGES: usize = 5;
+                                                        let truncated = parsed.image_keys.len() > MAX_IMAGES;
+                                                        let keys_to_use = if truncated {
+                                                            &parsed.image_keys[..MAX_IMAGES]
+                                                        } else {
+                                                            &parsed.image_keys
+                                                        };
+                                                        let images = if keys_to_use.is_empty() {
                                                             vec![]
                                                         } else {
-                                                            bot.download_images(&parsed.message_id, &parsed.image_keys).await
+                                                            bot.download_images(&parsed.message_id, keys_to_use).await
                                                         };
+                                                        if truncated {
+                                                            let msg = format!(
+                                                                "⚠️ Only the first {} images will be processed; the remaining {} were discarded.",
+                                                                MAX_IMAGES,
+                                                                parsed.image_keys.len() - MAX_IMAGES,
+                                                            );
+                                                            bot.send_message(&parsed.chat_id, &msg).await.ok();
+                                                        }
                                                         let text = if parsed.text.is_empty() && !images.is_empty() {
                                                             "[User sent an image]".to_string()
                                                         } else {

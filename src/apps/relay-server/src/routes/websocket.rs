@@ -70,7 +70,8 @@ pub async fn websocket_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
 ) -> Response {
-    ws.on_upgrade(move |socket| handle_socket(socket, state))
+    ws.max_message_size(64 * 1024 * 1024)
+        .on_upgrade(move |socket| handle_socket(socket, state))
 }
 
 async fn handle_socket(socket: WebSocket, state: AppState) {

@@ -282,11 +282,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           dispatchInput({ type: 'SET_VALUE', payload: textContent });
         }
 
-        // Handle image attachments
+        // Handle image attachments (respect max image limit)
+        let imgCount = currentImageCount;
         for (const block of params.content) {
           if (block.type === 'image') {
+            if (imgCount >= CHAT_INPUT_CONFIG.image.maxCount) break;
             try {
-              // Convert base64 to File object
               const mimeType = block.mimeType || 'image/png';
               const binaryString = atob(block.data);
               const bytes = new Uint8Array(binaryString.length);
@@ -297,6 +298,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               const file = new File([blob], `image.${mimeType.split('/')[1] || 'png'}`, { type: mimeType });
               const imageContext = await createImageContextFromClipboard(file);
               addContext(imageContext);
+              imgCount++;
             } catch (err) {
               log.error('Failed to add image from MCP App message', { err });
             }
@@ -328,7 +330,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     return () => {
       globalEventBus.off('mcp-app:message', handleMcpAppMessage);
     };
-  }, [inputState.value, addContext]);
+  }, [inputState.value, addContext, currentImageCount]);
 
   React.useEffect(() => {
     const handleInsertContextTag = (event: Event) => {
@@ -453,6 +455,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const file = customEvent.detail?.file;
       
       if (!file) return;
+
+      if (currentImageCount >= CHAT_INPUT_CONFIG.image.maxCount) {
+        notificationService.warning(t('input.maxImagesWarning', { count: CHAT_INPUT_CONFIG.image.maxCount }), { duration: 3000 });
+        return;
+      }
       
       try {
         const imageContext = await createImageContextFromClipboard(file);
@@ -486,7 +493,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         inputElement.removeEventListener('imagePaste', handleImagePaste);
       }
     };
-  }, [addContext]);
+  }, [addContext, currentImageCount]);
 
   React.useEffect(() => {
     if (!currentSessionId || !workspacePath) {
@@ -747,7 +754,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   }, [handleSendOrCancel, derivedState, transition, templateState.fillState, moveToNextPlaceholder, moveToPrevPlaceholder, exitTemplateMode, slashCommandState, getFilteredModes, selectSlashCommandMode, canSwitchModes]);
   
+  const currentImageCount = useMemo(
+    () => contexts.filter(c => c.type === 'image').length,
+    [contexts],
+  );
+
   const handleImageInput = useCallback(() => {
+    const remaining = CHAT_INPUT_CONFIG.image.maxCount - currentImageCount;
+    if (remaining <= 0) {
+      notificationService.warning(t('input.maxImagesWarning', { count: CHAT_INPUT_CONFIG.image.maxCount }), { duration: 3000 });
+      return;
+    }
+
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = CHAT_INPUT_CONFIG.image.acceptedTypes.join(',');
@@ -757,12 +775,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const files = (e.target as HTMLInputElement).files;
       if (!files || files.length === 0) return;
       
-      if (files.length > CHAT_INPUT_CONFIG.image.maxCount) {
+      const fileArray = Array.from(files).slice(0, remaining);
+      if (files.length > remaining) {
         notificationService.warning(t('input.maxImagesWarning', { count: CHAT_INPUT_CONFIG.image.maxCount }), { duration: 3000 });
-        return;
       }
       
-      const fileArray = Array.from(files);
       let successCount = 0;
       
       for (const file of fileArray) {
@@ -793,7 +810,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     };
     
     input.click();
-  }, [addContext]);
+  }, [addContext, currentImageCount]);
   
   const handleMermaidEditor = useCallback(() => {
     window.dispatchEvent(new CustomEvent('expand-right-panel'));
@@ -915,6 +932,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         acceptedTypes={['file', 'directory', 'image', 'code-snippet', 'mermaid-diagram']}
         className="bitfun-chat-input-drop-zone"
         onContextAdded={(context) => {
+          if (context.type === 'image' && currentImageCount >= CHAT_INPUT_CONFIG.image.maxCount) {
+            notificationService.warning(t('input.maxImagesWarning', { count: CHAT_INPUT_CONFIG.image.maxCount }), { duration: 3000 });
+            return;
+          }
           if (richTextInputRef.current && (richTextInputRef.current as any).insertTag) {
             (richTextInputRef.current as any).insertTag(context);
           }
