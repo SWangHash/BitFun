@@ -11,9 +11,9 @@ use crate::agentic::events::{
     AgenticEvent, EventPriority, EventQueue, EventRouter, EventSubscriber,
 };
 use crate::agentic::execution::{ExecutionContext, ExecutionEngine};
+use crate::agentic::image_analysis::ImageContextData;
 use crate::agentic::session::SessionManager;
 use crate::agentic::tools::pipeline::{SubagentParentInfo, ToolPipeline};
-use crate::agentic::image_analysis::ImageContextData;
 use crate::util::errors::{BitFunError, BitFunResult};
 use log::{debug, error, info, warn};
 use std::sync::Arc;
@@ -147,8 +147,7 @@ impl ConversationCoordinator {
         workspace_path: Option<String>,
     ) -> BitFunResult<Session> {
         let effective_workspace_path = workspace_path.or_else(|| {
-            crate::infrastructure::get_workspace_path()
-                .map(|p| p.to_string_lossy().to_string())
+            crate::infrastructure::get_workspace_path().map(|p| p.to_string_lossy().to_string())
         });
 
         // Persist the workspace binding inside the session config so execution can
@@ -246,17 +245,16 @@ impl ConversationCoordinator {
             terminal_session_id: existing
                 .as_ref()
                 .and_then(|m| m.terminal_session_id.clone()),
-            snapshot_session_id: session
-                .snapshot_session_id
-                .clone()
-                .or_else(|| existing.as_ref().and_then(|m| m.snapshot_session_id.clone())),
+            snapshot_session_id: session.snapshot_session_id.clone().or_else(|| {
+                existing
+                    .as_ref()
+                    .and_then(|m| m.snapshot_session_id.clone())
+            }),
             tags: existing
                 .as_ref()
                 .map(|m| m.tags.clone())
                 .unwrap_or_default(),
-            custom_metadata: existing
-                .as_ref()
-                .and_then(|m| m.custom_metadata.clone()),
+            custom_metadata: existing.as_ref().and_then(|m| m.custom_metadata.clone()),
             todos: existing.as_ref().and_then(|m| m.todos.clone()),
             workspace_path: Some(workspace_path),
         };
@@ -390,8 +388,15 @@ impl ConversationCoordinator {
         agent_type: String,
         trigger_source: DialogTriggerSource,
     ) -> BitFunResult<()> {
-        self.start_dialog_turn_internal(session_id, user_input, None, turn_id, agent_type, trigger_source)
-            .await
+        self.start_dialog_turn_internal(
+            session_id,
+            user_input,
+            None,
+            turn_id,
+            agent_type,
+            trigger_source,
+        )
+        .await
     }
 
     pub async fn start_dialog_turn_with_image_contexts(
@@ -560,11 +565,39 @@ impl ConversationCoordinator {
             }
         };
 
-        let effective_agent_type = if session.agent_type.is_empty() {
-            agent_type
-        } else {
+        let requested_agent_type = agent_type.trim().to_string();
+
+        let effective_agent_type = if !requested_agent_type.is_empty() {
+            requested_agent_type.clone()
+        } else if !session.agent_type.is_empty() {
             session.agent_type.clone()
+        } else {
+            "agentic".to_string()
         };
+
+        debug!(
+            "Resolved dialog turn agent type: session_id={}, turn_id={}, requested_agent_type={}, session_agent_type={}, effective_agent_type={}, trigger_source={:?}",
+            session_id,
+            turn_id.as_deref().unwrap_or(""),
+            if requested_agent_type.is_empty() {
+                "<empty>"
+            } else {
+                requested_agent_type.as_str()
+            },
+            if session.agent_type.is_empty() {
+                "<empty>"
+            } else {
+                session.agent_type.as_str()
+            },
+            effective_agent_type,
+            trigger_source
+        );
+
+        if session.agent_type != effective_agent_type {
+            self.session_manager
+                .update_session_agent_type(&session_id, &effective_agent_type)
+                .await?;
+        }
 
         debug!(
             "Checking session state: session_id={}, state={:?}",
@@ -709,8 +742,14 @@ impl ConversationCoordinator {
         // vision model to pre-analyze them, then enhance the user message with text descriptions.
         // This is the single authoritative code path for all image handling (desktop, remote, bot).
         // If no vision model is configured, the request is rejected with a user-friendly message.
-        let (user_input, image_contexts) =
-            self.pre_analyze_images_if_needed(user_input, image_contexts, &session_id, user_message_metadata.clone()).await?;
+        let (user_input, image_contexts) = self
+            .pre_analyze_images_if_needed(
+                user_input,
+                image_contexts,
+                &session_id,
+                user_message_metadata.clone(),
+            )
+            .await?;
 
         let wrapped_user_input = self
             .wrap_user_input(&effective_agent_type, user_input)
@@ -906,7 +945,10 @@ impl ConversationCoordinator {
                     let is_cancellation = matches!(&e, BitFunError::Cancelled(_));
 
                     if is_cancellation {
-                        info!("Dialog turn cancelled: session={}, turn={}", session_id_clone, turn_id_clone);
+                        info!(
+                            "Dialog turn cancelled: session={}, turn={}",
+                            session_id_clone, turn_id_clone
+                        );
 
                         // The execution engine only emits DialogTurnCancelled when
                         // cancellation is detected between rounds.  If cancellation
@@ -968,11 +1010,7 @@ impl ConversationCoordinator {
                             .await;
 
                         let _ = session_manager
-                            .fail_dialog_turn(
-                                &session_id_clone,
-                                &turn_id_clone,
-                                e.to_string(),
-                            )
+                            .fail_dialog_turn(&session_id_clone, &turn_id_clone, e.to_string())
                             .await;
 
                         let _ = session_manager
