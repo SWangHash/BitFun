@@ -330,10 +330,21 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
       return;
     }
     
-    // Plain text paste
+    // Plain text paste - close any active mention to prevent @ in pasted content from triggering mention mode
+    if (mentionStateRef.current.isActive) {
+      mentionStateRef.current = { isActive: false, query: '', startOffset: 0 };
+      onMentionStateChange?.({ isActive: false, query: '', startOffset: 0 });
+    }
+    
     const text = e.clipboardData.getData('text/plain');
     document.execCommand('insertText', false, text);
-  }, []);
+    
+    // Mark that we just pasted to prevent mention detection in the next input event
+    isComposingRef.current = true;
+    requestAnimationFrame(() => {
+      isComposingRef.current = false;
+    });
+  }, [onMentionStateChange]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const nativeIsComposing = (e.nativeEvent as KeyboardEvent).isComposing;
