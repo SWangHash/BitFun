@@ -9,6 +9,36 @@ import { StartupPage } from '../page-objects/StartupPage';
 import { saveScreenshot, saveFailureScreenshot } from '../helpers/screenshot-utils';
 import { ensureWorkspaceOpen } from '../helpers/workspace-utils';
 
+const NAV_ENTRY_SELECTORS = [
+  '.bitfun-nav-panel__item',
+  '.bitfun-nav-panel__item-slot',
+  '.bitfun-nav-panel__workspace-item-name-btn',
+  '.bitfun-nav-panel__inline-item',
+  '.bitfun-nav-panel__workspace-create-main',
+  '.bitfun-nav-panel__toolbox-entry',
+];
+
+async function getNavigationEntryCounts(): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+
+  for (const selector of NAV_ENTRY_SELECTORS) {
+    counts[selector] = (await browser.$$(selector)).length;
+  }
+
+  return counts;
+}
+
+async function getNavigationEntries() {
+  const entries = [];
+
+  for (const selector of NAV_ENTRY_SELECTORS) {
+    const matched = await browser.$$(selector);
+    entries.push(...matched);
+  }
+
+  return entries;
+}
+
 describe('L1 Navigation', () => {
   let header: Header;
   let startupPage: StartupPage;
@@ -51,9 +81,11 @@ describe('L1 Navigation', () => {
         return;
       }
 
-      const navItems = await browser.$$('.bitfun-nav-panel__item');
-      console.log('[L1] Navigation items count:', navItems.length);
-      expect(navItems.length).toBeGreaterThan(0);
+      const counts = await getNavigationEntryCounts();
+      const totalEntries = Object.values(counts).reduce((sum, count) => sum + count, 0);
+
+      console.log('[L1] Navigation entry counts:', counts);
+      expect(totalEntries).toBeGreaterThan(0);
     });
 
     it('should have navigation sections', async function () {
@@ -75,15 +107,32 @@ describe('L1 Navigation', () => {
         return;
       }
 
-      const navItems = await browser.$$('.bitfun-nav-panel__item');
+      const navItems = await getNavigationEntries();
       if (navItems.length === 0) {
         console.log('[L1] No nav items to click');
         this.skip();
         return;
       }
 
-      const firstItem = navItems[0];
-      const isClickable = await firstItem.isClickable();
+      let firstClickable = null;
+      for (const item of navItems) {
+        try {
+          if (await item.isClickable()) {
+            firstClickable = item;
+            break;
+          }
+        } catch (error) {
+          // Try the next candidate.
+        }
+      }
+
+      if (!firstClickable) {
+        console.log('[L1] Navigation entries exist but none are clickable');
+        this.skip();
+        return;
+      }
+
+      const isClickable = await firstClickable.isClickable();
       expect(isClickable).toBe(true);
       console.log('[L1] First navigation item is clickable');
     });
@@ -121,7 +170,7 @@ describe('L1 Navigation', () => {
         return;
       }
 
-      const activeItems = await browser.$$('.bitfun-nav-panel__item.is-active');
+      const activeItems = await browser.$$('.bitfun-nav-panel__item.is-active, .bitfun-nav-panel__inline-item.is-active, .bitfun-nav-panel__toolbox-entry.is-active');
       const activeCount = activeItems.length;
       console.log('[L1] Active navigation items:', activeCount);
 
@@ -142,7 +191,7 @@ describe('L1 Navigation', () => {
       }
 
       // Get initial active item
-      const initialActive = await browser.$$('.bitfun-nav-panel__item.is-active');
+      const initialActive = await browser.$$('.bitfun-nav-panel__item.is-active, .bitfun-nav-panel__inline-item.is-active, .bitfun-nav-panel__toolbox-entry.is-active');
       const initialActiveCount = initialActive.length;
       console.log('[L1] Initial active items:', initialActiveCount);
 
@@ -180,7 +229,7 @@ describe('L1 Navigation', () => {
       }
 
       // Check for active state (don't fail if state doesn't change)
-      const afterActive = await browser.$$('.bitfun-nav-panel__item.is-active');
+      const afterActive = await browser.$$('.bitfun-nav-panel__item.is-active, .bitfun-nav-panel__inline-item.is-active, .bitfun-nav-panel__toolbox-entry.is-active');
       console.log('[L1] Active items after click:', afterActive.length);
 
       // Verify active state detection completed

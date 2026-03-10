@@ -8,7 +8,7 @@ import { ChatPage } from '../page-objects/ChatPage';
 import { ChatInput } from '../page-objects/components/ChatInput';
 import { Header } from '../page-objects/components/Header';
 import { StartupPage } from '../page-objects/StartupPage';
-import { saveScreenshot, saveFailureScreenshot } from '../helpers/screenshot-utils';
+import { saveScreenshot, saveFailureScreenshot, saveStepScreenshot } from '../helpers/screenshot-utils';
 
 describe('L1 Chat Input Validation', () => {
   let chatPage: ChatPage;
@@ -57,6 +57,10 @@ describe('L1 Chat Input Validation', () => {
         console.log('[L1] Recent workspace opened successfully');
       }
     }
+
+    if (hasWorkspace) {
+      await saveStepScreenshot('l1-chat-input-workspace-ready');
+    }
   });
 
   describe('Input visibility and accessibility', () => {
@@ -82,6 +86,7 @@ describe('L1 Chat Input Validation', () => {
       const isVisible = await chatInput.isVisible();
       expect(isVisible).toBe(true);
       console.log('[L1] Chat input component loaded');
+      await saveStepScreenshot('l1-chat-input-visible');
     });
 
     it('should have placeholder text', async function () {
@@ -132,6 +137,7 @@ describe('L1 Chat Input Validation', () => {
       expect(value).toContain('Line 2');
       expect(value).toContain('Line 3');
       console.log('[L1] Multiline input works');
+      await saveStepScreenshot('l1-chat-input-multiline');
     });
 
     it('should clear input', async function () {
@@ -240,6 +246,7 @@ describe('L1 Chat Input Validation', () => {
       const valueAfter = await chatInput.getValue();
       expect(valueAfter).toBe('');
       console.log('[L1] Input cleared after send');
+      await saveStepScreenshot('l1-chat-input-message-sent');
     });
 
     it('should not send empty message', async function () {
@@ -311,6 +318,7 @@ describe('L1 Chat Input Validation', () => {
       // Main test: input is still functional
       expect(typeof clearedValue).toBe('string');
       console.log('[L1] Rapid sending handled - input still functional');
+      await saveStepScreenshot('l1-chat-input-rapid-send-complete');
     });
   });
 

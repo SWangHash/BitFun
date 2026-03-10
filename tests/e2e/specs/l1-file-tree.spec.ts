@@ -6,7 +6,7 @@
 import { browser, expect, $ } from '@wdio/globals';
 import { Header } from '../page-objects/components/Header';
 import { StartupPage } from '../page-objects/StartupPage';
-import { saveScreenshot, saveFailureScreenshot } from '../helpers/screenshot-utils';
+import { saveScreenshot, saveFailureScreenshot, saveStepScreenshot } from '../helpers/screenshot-utils';
 
 describe('L1 File Tree', () => {
   let header: Header;
@@ -50,6 +50,10 @@ describe('L1 File Tree', () => {
         hasWorkspace = true;
         console.log('[L1] Recent workspace opened successfully');
       }
+
+      if (hasWorkspace) {
+        await saveStepScreenshot('l1-file-tree-workspace-ready');
+      }
     }
 
     // Navigate to file tree view
@@ -80,6 +84,7 @@ describe('L1 File Tree', () => {
               await navItem.click();
               await browser.pause(1500); // Wait for view to switch
               console.log('[L1] Navigated to Files view');
+              await saveStepScreenshot('l1-file-tree-files-view');
               navigated = true;
               break;
             } catch (clickError) {
@@ -289,6 +294,7 @@ describe('L1 File Tree', () => {
           // Verify the expand state actually changed
           expect(afterExpanded).not.toBe(beforeExpanded);
           console.log('[L1] Directory expand/collapse state changed successfully');
+          await saveStepScreenshot('l1-file-tree-directory-toggled');
           break;
         }
       }
@@ -323,6 +329,7 @@ describe('L1 File Tree', () => {
 
         const isSelected = await content.getAttribute('class');
         console.log('[L1] File selected, classes:', isSelected?.includes('selected'));
+        await saveStepScreenshot('l1-file-tree-file-selected');
       }
 
       expect(filePath).toBeDefined();

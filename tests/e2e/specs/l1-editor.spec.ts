@@ -6,7 +6,7 @@
 import { browser, expect, $ } from '@wdio/globals';
 import { Header } from '../page-objects/components/Header';
 import { StartupPage } from '../page-objects/StartupPage';
-import { saveScreenshot, saveFailureScreenshot } from '../helpers/screenshot-utils';
+import { saveScreenshot, saveFailureScreenshot, saveStepScreenshot } from '../helpers/screenshot-utils';
 import { ensureWorkspaceOpen } from '../helpers/workspace-utils';
 
 describe('L1 Editor', () => {
@@ -28,6 +28,8 @@ describe('L1 Editor', () => {
 
     if (!hasWorkspace) {
       console.log('[L1] No workspace available - tests will be skipped');
+    } else {
+      await saveStepScreenshot('l1-editor-workspace-ready');
     }
   });
 
@@ -56,6 +58,7 @@ describe('L1 Editor', () => {
         if (exists) {
           console.log(`[L1] Editor found: ${selector}`);
           editorFound = true;
+          await saveStepScreenshot('l1-editor-visible');
           break;
         }
       }
@@ -215,12 +218,14 @@ describe('L1 Editor', () => {
       await browser.pause(300);
 
       console.log('[L1] Switched to second tab');
+      await saveStepScreenshot('l1-editor-second-tab');
 
       // Click first tab
       await tabs[0].click();
       await browser.pause(300);
 
       console.log('[L1] Switched back to first tab');
+      await saveStepScreenshot('l1-editor-first-tab');
       expect(tabs.length).toBeGreaterThanOrEqual(2);
     });
 

@@ -5,6 +5,7 @@
 
 import { browser, expect, $ } from '@wdio/globals';
 import { openWorkspace } from '../helpers/workspace-helper';
+import { saveStepScreenshot } from '../helpers/screenshot-utils';
 
 describe('L0 Settings Panel', () => {
   let hasWorkspace = false;
@@ -25,6 +26,9 @@ describe('L0 Settings Panel', () => {
 
       console.log('[L0] Workspace opened:', hasWorkspace);
       expect(hasWorkspace).toBe(true);
+      if (hasWorkspace) {
+        await saveStepScreenshot('l0-settings-workspace-ready');
+      }
     });
   });
 
@@ -44,6 +48,7 @@ describe('L0 Settings Panel', () => {
       // Click to open menu
       await moreBtn.click();
       await browser.pause(500);
+      await saveStepScreenshot('l0-settings-menu-opened');
 
       // Find settings menu item
       const menuItems = await $$('.bitfun-nav-panel__footer-menu-item');
@@ -104,6 +109,9 @@ describe('L0 Settings Panel', () => {
 
       console.log('[L0] Settings scene opened:', sceneExists);
       expect(sceneExists).toBe(true);
+      if (sceneExists) {
+        await saveStepScreenshot('l0-settings-panel-opened');
+      }
     });
   });
 

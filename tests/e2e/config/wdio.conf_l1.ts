@@ -232,7 +232,8 @@ export const config: Options.Testrunner = {
 
   /** After test: capture screenshot on failure. */
   afterTest: async function (test, context, { error, passed }) {
-    if (!passed) {
+    const isRealFailure = !passed && !!error;
+    if (isRealFailure) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const screenshotName = `failure-${test.title.replace(/\s+/g, '_')}-${timestamp}.png`;
       

@@ -5,6 +5,7 @@
 
 import { browser, expect, $ } from '@wdio/globals';
 import { openWorkspace } from '../helpers/workspace-helper';
+import { saveStepScreenshot } from '../helpers/screenshot-utils';
 
 describe('L0 Workspace Opening', () => {
   let hasWorkspace = false;
@@ -16,6 +17,7 @@ describe('L0 Workspace Opening', () => {
       const title = await browser.getTitle();
       console.log('[L0] App title:', title);
       expect(title).toBeDefined();
+      await saveStepScreenshot('l0-workspace-app-started');
     });
 
     it('should have valid DOM structure', async () => {
@@ -34,6 +36,9 @@ describe('L0 Workspace Opening', () => {
 
       console.log('[L0] Workspace opened:', hasWorkspace);
       expect(hasWorkspace).toBe(true);
+      if (hasWorkspace) {
+        await saveStepScreenshot('l0-workspace-opened');
+      }
     });
 
     it('should have workspace UI elements', async () => {
@@ -44,6 +49,7 @@ describe('L0 Workspace Opening', () => {
 
       console.log('[L0] Chat input exists:', hasChatInput);
       expect(hasChatInput).toBe(true);
+      await saveStepScreenshot('l0-workspace-chat-ready');
     });
   });
 
