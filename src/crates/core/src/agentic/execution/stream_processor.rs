@@ -552,7 +552,9 @@ impl StreamProcessor {
 
     /// Handle thinking chunk
     async fn handle_thinking_chunk(&self, ctx: &mut StreamContext, thinking_content: String) {
-        ctx.has_effective_output = true;
+        // Thinking-only output does NOT count as "effective" for retry purposes:
+        // if the stream fails after producing only thinking (no text/tool calls),
+        // it is safe to retry because the model will re-think from scratch.
         ctx.full_thinking.push_str(&thinking_content);
         ctx.thinking_chunks_count += 1;
 

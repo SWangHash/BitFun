@@ -455,6 +455,8 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
   useEffect(() => {
     const editor = internalRef.current;
     if (!editor) return;
+
+    if (isComposingRef.current) return;
     
     // Detect template fill mode via placeholder elements
     const hasPlaceholders = editor.querySelector('.rich-text-placeholder') !== null;
@@ -538,11 +540,7 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
   }, [onCompositionStart]);
 
   const handleCompositionEnd = useCallback(() => {
-    // Delay clearing to handle Safari's event ordering where
-    // compositionend fires before the final keydown(Enter)
-    setTimeout(() => {
-      isComposingRef.current = false;
-    }, 0);
+    isComposingRef.current = false;
     onCompositionEnd?.();
     handleInput();
   }, [handleInput, onCompositionEnd]);

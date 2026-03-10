@@ -89,6 +89,77 @@ const CopyButton: React.FC<{ code: string }> = ({ code }) => {
 
 const COMPUTER_LINK_PREFIX = 'computer://';
 
+const CODE_FILE_EXTENSIONS = new Set([
+  'js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs', 'mts', 'cts',
+  'py', 'pyw', 'pyi',
+  'rs', 'go', 'java', 'kt', 'kts', 'scala', 'groovy',
+  'c', 'cpp', 'cc', 'cxx', 'h', 'hpp', 'hxx', 'hh',
+  'cs', 'rb', 'php', 'swift',
+  'vue', 'svelte',
+  'html', 'htm', 'css', 'scss', 'less', 'sass',
+  'json', 'jsonc', 'yaml', 'yml', 'toml', 'xml',
+  'md', 'mdx', 'rst', 'txt',
+  'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
+  'sql', 'graphql', 'gql', 'proto',
+  'lock', 'env', 'ini', 'cfg', 'conf',
+  'cj', 'ets',
+  'editorconfig', 'gitignore',
+  'log',
+]);
+
+const DOWNLOADABLE_EXTENSIONS = new Set([
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+  'odt', 'ods', 'odp', 'rtf', 'pages', 'numbers', 'key',
+  'png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'webp', 'ico', 'tiff', 'tif',
+  'zip', 'tar', 'gz', 'bz2', '7z', 'rar', 'dmg', 'iso', 'xz',
+  'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma',
+  'mp4', 'avi', 'mkv', 'mov', 'webm', 'wmv', 'flv',
+  'csv', 'tsv', 'sqlite', 'db', 'parquet',
+  'epub', 'mobi',
+  'apk', 'ipa', 'exe', 'msi', 'deb', 'rpm',
+  'ttf', 'otf', 'woff', 'woff2',
+]);
+
+/**
+ * Detect local file links: absolute paths, file:// URLs, and relative paths
+ * pointing to downloadable files. Returns the file path or null.
+ *
+ * - Absolute paths (`/Users/.../file.pdf`): use CODE_FILE_EXTENSIONS blacklist
+ * - Relative paths (`report.pptx`, `./output.pdf`): use DOWNLOADABLE_EXTENSIONS whitelist
+ */
+function isLocalFileLink(href: string): string | null {
+  if (!href || href === '/') return null;
+
+  let filePath: string;
+  if (href.startsWith('file://')) {
+    filePath = href.slice(7);
+  } else if (href.includes('://') || href.startsWith('#') || href.startsWith('//')) {
+    return null;
+  } else {
+    filePath = href;
+  }
+
+  if (filePath.startsWith('/')) {
+    const segments = filePath.split('/').filter(Boolean);
+    if (segments.length < 2) return null;
+  }
+
+  const fileName = filePath.split('/').pop() || '';
+  const dotIdx = fileName.lastIndexOf('.');
+  if (dotIdx <= 0) return null;
+
+  const ext = fileName.slice(dotIdx + 1).toLowerCase();
+  if (!ext) return null;
+
+  if (filePath.startsWith('/')) {
+    if (CODE_FILE_EXTENSIONS.has(ext)) return null;
+  } else {
+    if (!DOWNLOADABLE_EXTENSIONS.has(ext)) return null;
+  }
+
+  return filePath;
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -337,6 +408,20 @@ const MarkdownContent: React.FC<MarkdownContentProps> = ({ content, onFileDownlo
         );
       }
 
+      // Local file path (e.g. /Users/.../report.pdf) → FileCard, excluding code files
+      if (onGetFileInfo && onFileDownload) {
+        const localPath = typeof href === 'string' ? isLocalFileLink(href) : null;
+        if (localPath) {
+          return (
+            <FileCard
+              path={localPath}
+              onGetFileInfo={onGetFileInfo}
+              onDownload={onFileDownload}
+            />
+          );
+        }
+      }
+
       // Fallback: render as plain text for computer:// links without handler,
       // or as a regular link for http(s) links.
       if (typeof href === 'string' && (href.startsWith('http://') || href.startsWith('https://'))) {
@@ -373,13 +458,14 @@ const MarkdownContent: React.FC<MarkdownContentProps> = ({ content, onFileDownlo
       remarkPlugins={[remarkGfm]}
       components={components}
       urlTransform={(url) => {
-        // react-markdown v9 strips non-standard protocols by default.
-        // Preserve computer:// so our FileCard renderer receives the href intact.
         if (url.startsWith('computer://')) return url;
-        // Keep default-safe behaviour for everything else.
-        if (/^(https?|mailto|tel):/i.test(url) || url.startsWith('#') || url.startsWith('/')) {
+        if (/^(https?|mailto|tel|file):/i.test(url) || url.startsWith('#') || url.startsWith('/')) {
           return url;
         }
+        // Preserve relative paths without a protocol (e.g. "report.pptx",
+        // "./output.pdf").  Content is from our own AI so javascript:/data:
+        // injection is not a concern; those contain ':' and are blocked above.
+        if (!url.includes(':')) return url;
         return '';
       }}
     >

@@ -848,6 +848,20 @@ impl RemoteSessionStateTracker {
             )
     }
 
+    /// Seed initial turn state when the tracker is created after the
+    /// `DialogTurnStarted` event already fired (e.g. desktop-triggered turns).
+    /// Subsequent streaming events will be captured normally by the subscriber.
+    pub fn initialize_active_turn(&self, turn_id: String) {
+        let mut s = self.state.write().unwrap();
+        if s.turn_id.is_none() {
+            s.turn_id = Some(turn_id);
+            s.turn_status = "active".to_string();
+            s.session_state = "running".to_string();
+        }
+        drop(s);
+        self.bump_version();
+    }
+
     /// Clear tracker state after the persisted historical message is confirmed
     /// available. Called by the poll handler to complete the atomic transition.
     pub fn finalize_completed_turn(&self) {
@@ -1323,6 +1337,13 @@ pub fn get_global_dispatcher() -> Option<Arc<RemoteExecutionDispatcher>> {
 
 impl RemoteExecutionDispatcher {
     /// Ensure a state tracker exists for the given session and return it.
+    ///
+    /// When the tracker is freshly created and the session already has an active
+    /// turn (e.g. a desktop-triggered dialog), the tracker is seeded with the
+    /// turn id so that `snapshot_active_turn()` immediately returns a valid
+    /// snapshot.  Without this, a late-created tracker would miss the
+    /// `DialogTurnStarted` event and the mobile would see no active-turn
+    /// overlay until the turn completes.
     pub fn ensure_tracker(&self, session_id: &str) -> Arc<RemoteSessionStateTracker> {
         if let Some(tracker) = self.state_trackers.get(session_id) {
             return tracker.clone();
@@ -1336,6 +1357,20 @@ impl RemoteExecutionDispatcher {
             let sub_id = format!("remote_tracker_{}", session_id);
             coordinator.subscribe_internal(sub_id, tracker.clone());
             info!("Registered state tracker for session {session_id}");
+
+            let session_mgr = coordinator.get_session_manager();
+            if let Some(session) = session_mgr.get_session(session_id) {
+                if let crate::agentic::core::SessionState::Processing {
+                    current_turn_id, ..
+                } = &session.state
+                {
+                    tracker.initialize_active_turn(current_turn_id.clone());
+                    info!(
+                        "Seeded tracker with existing active turn {} for session {}",
+                        current_turn_id, session_id
+                    );
+                }
+            }
         }
 
         tracker
