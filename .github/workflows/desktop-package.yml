@@ -78,7 +78,7 @@ jobs:
           - os: macos-15
             name: macos-arm64
             target: aarch64-apple-darwin
-            build_command: pnpm --dir src/apps/desktop exec tauri build --target aarch64-apple-darwin --bundles dmg
+            build_command: pnpm run desktop:build:arm64
           - os: macos-15-intel
             name: macos-x64
             target: x86_64-apple-darwin
@@ -96,8 +96,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10.15.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

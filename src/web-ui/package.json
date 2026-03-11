@@ -6,9 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "build:desktop": "tsc && vite build --mode desktop",
-    "build:web": "tsc && vite build --mode web",
+    "build": "vite build",
+    "build:desktop": "vite build --mode desktop",
+    "build:web": "vite build --mode web",
     "preview": "vite preview",
     "type-check": "tsc --noEmit"
   },
