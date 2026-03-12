@@ -3,7 +3,7 @@
  * Used to render Markdown-formatted text
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, Component, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -21,6 +21,39 @@ import './Markdown.scss';
 
 const log = createLogger('Markdown');
 const COMPUTER_LINK_PREFIX = 'computer://';
+
+/** Catches render errors from react-markdown/remark-gfm (e.g. RegExp in transformGfmAutolinkLiterals) and shows plain text fallback. */
+class MarkdownErrorBoundary extends Component<
+  { children: ReactNode; fallbackContent: string },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    log.error('Markdown render error, showing plain text fallback', { message: error.message });
+  }
+
+  componentDidUpdate(prevProps: { fallbackContent: string }) {
+    if (prevProps.fallbackContent !== this.props.fallbackContent && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="markdown-renderer markdown-renderer--fallback" style={{ whiteSpace: 'pre-wrap' }}>
+          {this.props.fallbackContent}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 const FILE_LINK_PREFIX = 'file://';
 const WORKSPACE_FOLDER_PLACEHOLDER = '{{workspaceFolder}}';
 
@@ -514,14 +547,18 @@ export const Markdown = React.memo<MarkdownProps>(({
     isLight
   ]);
   
+  const wrapperClassName = `markdown-renderer ${className} ${isStreaming && contentStr ? 'markdown-renderer--streaming' : ''}`.trim();
+
   return (
-    <div className={`markdown-renderer ${className} ${isStreaming && contentStr ? 'markdown-renderer--streaming' : ''}`}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkAutolinkComputerFileLinks]}
-        components={components}
-      >
-        {markdownContent}
-      </ReactMarkdown>
+    <div className={wrapperClassName}>
+      <MarkdownErrorBoundary fallbackContent={markdownContent}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkAutolinkComputerFileLinks]}
+          components={components}
+        >
+          {markdownContent}
+        </ReactMarkdown>
+      </MarkdownErrorBoundary>
       
       {reproductionSteps && !isStreaming && (
         <ReproductionStepsBlock 
