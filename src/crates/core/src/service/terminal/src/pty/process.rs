@@ -19,6 +19,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 
+#[cfg(windows)]
+use log::debug;
 use log::{error, warn};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use tokio::sync::mpsc;
