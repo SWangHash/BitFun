@@ -247,7 +247,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         const markdownWorkspacePath = markdownEditorData.workspacePath || workspacePath;
         const markdownJumpToLine = markdownEditorData.jumpToLine;
         const markdownJumpToColumn = markdownEditorData.jumpToColumn;
-        
+
         return (
           <div className="bitfun-flexible-panel__markdown-editor">
             {markdownFilePath || markdownInitialContent !== undefined ? (
@@ -435,7 +435,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         const fileName = editorData.fileName || content.title;
         const editorLanguage = editorData.language;
         const editorWorkspacePath = editorData.workspacePath || workspacePath;
-        
+
         return (
           <CodeEditor
             filePath={filePath}

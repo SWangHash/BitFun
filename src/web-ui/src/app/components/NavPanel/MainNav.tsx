@@ -526,8 +526,7 @@ const MainNav: React.FC<MainNavProps> = ({
           aria-label={t('nav.items.persona')}
           title={t('nav.items.persona')}
         >
-          <img className="bitfun-nav-panel__workspace-bot-default" src="/panda_1.png" alt="" />
-          <img className="bitfun-nav-panel__workspace-bot-hover" src="/panda_2.png" alt="" />
+          <img className="bitfun-nav-panel__workspace-bot-logo" src="/Logo-ICON.png" alt="" />
         </button>
         <div className="bitfun-nav-panel__workspace-create-group">
           <button

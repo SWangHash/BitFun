@@ -32,7 +32,7 @@ $_nav-collapsed-width: 80px;
 .bitfun-workspace-body__nav-area {
   display: flex;
   flex-direction: column;
-  width: $_nav-width;
+  width: var(--nav-width, $_nav-width);
   flex-shrink: 0;
   height: 100%;
   overflow: hidden;
@@ -44,6 +44,10 @@ $_nav-collapsed-width: 80px;
     width: 0;
     pointer-events: none;
   }
+}
+
+.bitfun-is-resizing-nav .bitfun-workspace-body__nav-area {
+  transition: none;
 }
 
 .bitfun-workspace-body.is-entering .bitfun-workspace-body__nav-area:not(.is-collapsed) {
@@ -71,6 +75,28 @@ $_nav-collapsed-width: 80px;
   height: 100%;
   cursor: ew-resize;
   z-index: 2;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 100%;
+    background: var(--color-primary);
+    opacity: 0;
+    border-radius: 1px;
+    transition: opacity $motion-fast $easing-standard;
+  }
+
+  &:hover::after {
+    opacity: 0.35;
+  }
+}
+
+.bitfun-is-resizing-nav .bitfun-workspace-body__nav-divider::after {
+  opacity: 0.6;
 }
 
 // ── Right column: rounded scene card (SceneBar + SceneViewport) ───
@@ -128,14 +154,14 @@ $_nav-collapsed-width: 80px;
     opacity: 0;
   }
   to {
-    width: $_nav-width;
+    width: var(--nav-width, $_nav-width);
     opacity: 1;
   }
 }
 
 @keyframes wb-nav-slide-out {
   from {
-    width: $_nav-width;
+    width: var(--nav-width, $_nav-width);
     opacity: 1;
   }
   to {

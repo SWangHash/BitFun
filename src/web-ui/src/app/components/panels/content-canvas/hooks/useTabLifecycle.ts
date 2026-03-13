@@ -14,6 +14,8 @@ import type { EditorGroupId, PanelContent, CreateTabEventDetail } from '../types
 import { TAB_EVENTS } from '../types';
 import { useI18n } from '@/infrastructure/i18n';
 import { drainPendingTabs } from '@/shared/services/pendingTabQueue';
+import { createLogger } from '@/shared/utils/logger';
+const _dbgLog = createLogger('useTabLifecycle');
 interface UseTabLifecycleOptions {
   /** App mode / target canvas */
   mode?: 'agent' | 'project' | 'git';
@@ -252,7 +254,7 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
         const existing = findTabByMetadata({ duplicateCheckKey });
         if (existing) {
           const hasJumpInfo = data?.jumpToRange || data?.jumpToLine || data?.jumpToColumn;
-          
+
           if (replaceExisting || hasJumpInfo) {
             // Update content
             updateTabContent(existing.tab.id, existing.groupId, content);
@@ -269,7 +271,7 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
       
       // Determine target group: use specified group when split enabled, otherwise active group
       const groupId = (enableSplitView && targetGroup) ? targetGroup : (targetGroup || activeGroupId);
-      
+
       // Open all tabs in active state by default (no preview replacement)
       addTab(content, 'active', groupId);
       

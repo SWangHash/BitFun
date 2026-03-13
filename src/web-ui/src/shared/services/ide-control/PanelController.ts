@@ -170,6 +170,19 @@ export class PanelController implements IdeController {
           },
         };
 
+      case 'code-editor':
+      case 'file-viewer':
+      case 'markdown-editor':
+      case 'plan-viewer':
+        return {
+          ...baseDetail,
+          data: {
+            ...baseDetail.data,
+            filePath: config.file_path,
+            workspacePath: config.workspace_path,
+          },
+        };
+
       default:
         return baseDetail;
     }

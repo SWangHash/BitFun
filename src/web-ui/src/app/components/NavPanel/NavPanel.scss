@@ -161,18 +161,10 @@ $_section-header-height: 24px;
       left: 0;
     }
 
-    &-default {
+    &-logo {
       z-index: 1;
-    }
-
-    &-hover {
-      z-index: 2;
-      opacity: 0;
-      transition: opacity $motion-fast $easing-standard;
-    }
-
-    &:hover &-hover {
-      opacity: 1;
+      object-fit: contain !important;
+      padding: 6px;
     }
   }
 

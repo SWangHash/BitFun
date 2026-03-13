@@ -115,7 +115,10 @@ const PlanViewer: React.FC<PlanViewerProps> = ({
   }, []);
 
   const loadFileContent = useCallback(async () => {
-    if (!filePath || isUnmountedRef.current) return;
+    if (!filePath || isUnmountedRef.current) {
+      if (!isUnmountedRef.current) setLoading(false);
+      return;
+    }
 
     if (planBuildStateService.isFileWriting(filePath)) {
       return;

@@ -10,7 +10,7 @@
  *     SceneViewport (flex:1 — active scene content)
  */
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useCurrentWorkspace } from '../../infrastructure/contexts/WorkspaceContext';
 import { NavBar } from '../components/NavBar';
 import NavPanel from '../components/NavPanel/NavPanel';
@@ -18,6 +18,11 @@ import { SceneBar } from '../components/SceneBar';
 import { SceneViewport } from '../scenes';
 import { useApp } from '../hooks/useApp';
 import './WorkspaceBody.scss';
+
+const NAV_DEFAULT_WIDTH = 240;
+const NAV_MIN_WIDTH = 240;
+const NAV_MAX_WIDTH = 480;
+const COLLAPSE_THRESHOLD = 64;
 
 interface WorkspaceBodyProps {
   className?: string;
@@ -42,40 +47,48 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
 }) => {
   const { workspace: currentWorkspace } = useCurrentWorkspace();
   const { state, toggleLeftPanel } = useApp();
-  const collapseDragRef = useRef<{ startX: number; hasCollapsed: boolean } | null>(null);
   const isNavCollapsed = state.layout.leftPanelCollapsed;
+  const [navWidth, setNavWidth] = useState(NAV_DEFAULT_WIDTH);
 
   const handleNavCollapseDragStart = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     if (event.button !== 0 || isNavCollapsed) return;
     event.preventDefault();
 
-    const COLLAPSE_THRESHOLD = 64;
-    collapseDragRef.current = { startX: event.clientX, hasCollapsed: false };
+    const startX = event.clientX;
+    const startWidth = navWidth;
+    let hasCollapsed = false;
+
     document.body.classList.add('bitfun-is-dragging-nav-collapse');
+    document.body.classList.add('bitfun-is-resizing-nav');
 
     const cleanup = () => {
-      collapseDragRef.current = null;
       document.body.classList.remove('bitfun-is-dragging-nav-collapse');
+      document.body.classList.remove('bitfun-is-resizing-nav');
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      const dragState = collapseDragRef.current;
-      if (!dragState || dragState.hasCollapsed) return;
-      const deltaX = moveEvent.clientX - dragState.startX;
-      if (deltaX <= -COLLAPSE_THRESHOLD) {
-        dragState.hasCollapsed = true;
+      if (hasCollapsed) return;
+      const deltaX = moveEvent.clientX - startX;
+      const rawWidth = startWidth + deltaX;
+
+      // Collapse only after the width hits minimum AND continues left by COLLAPSE_THRESHOLD
+      if (rawWidth <= NAV_MIN_WIDTH - COLLAPSE_THRESHOLD) {
+        hasCollapsed = true;
         toggleLeftPanel();
         cleanup();
+        return;
       }
+      const newWidth = Math.min(NAV_MAX_WIDTH, Math.max(NAV_MIN_WIDTH, rawWidth));
+      setNavWidth(newWidth);
     };
 
     const handleMouseUp = () => cleanup();
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
-  }, [isNavCollapsed, toggleLeftPanel]);
+  }, [isNavCollapsed, navWidth, toggleLeftPanel]);
 
   return (
     <div className={`bitfun-workspace-body${isEntering ? ' is-entering' : ''}${isExiting ? ' is-exiting' : ''} ${className}`}>
@@ -86,7 +99,10 @@ const WorkspaceBody: React.FC<WorkspaceBodyProps> = ({
       )}
 
       {/* Left: nav history bar + navigation sidebar — always rendered for slide animation */}
-      <div className={`bitfun-workspace-body__nav-area${isNavCollapsed ? ' is-collapsed' : ''}`}>
+      <div
+        className={`bitfun-workspace-body__nav-area${isNavCollapsed ? ' is-collapsed' : ''}`}
+        style={isNavCollapsed ? undefined : { '--nav-width': `${navWidth}px` } as React.CSSProperties}
+      >
         <NavBar onExpandNav={toggleLeftPanel} onMaximize={onMaximize} />
         <NavPanel className="bitfun-workspace-body__nav-panel" />
         {!isNavCollapsed && (

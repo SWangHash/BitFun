@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { TabBar } from '../tab-bar';
 import { DropZone } from './DropZone';
 import FlexiblePanel from '../../base/FlexiblePanel';
+import { createLogger } from '@/shared/utils/logger';
+const _dbgLog = createLogger('EditorGroup');
 import type { 
   EditorGroupId, 
   EditorGroupState, 
@@ -98,10 +100,11 @@ export const EditorGroup: React.FC<EditorGroupProps> = ({
   
   // Tabs to render (active + cached)
   const tabsToRender = useMemo(() => {
-    return group.tabs.filter(t => 
+    const result = group.tabs.filter(t => 
       !t.isHidden && 
       (t.id === group.activeTabId || cachedTabsRef.current.has(t.id))
     );
+    return result;
   }, [group.tabs, group.activeTabId]);
 
   const handleContentChange = useCallback((content: PanelContent | null) => {

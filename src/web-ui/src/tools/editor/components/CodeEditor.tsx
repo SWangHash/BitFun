@@ -926,7 +926,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 
   // Load file content
   const loadFileContent = useCallback(async () => {
-    if (!filePath) return;
+    if (!filePath) {
+      setLoading(false);
+      return;
+    }
 
     // If Model already has content, skip file loading to avoid overwriting unsaved changes (e.g. switching back to open tab)
     if (modelRef.current && modelRef.current.getValue()) {
@@ -949,7 +952,10 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       setHasChanges(false);
       hasChangesRef.current = false;
       
-      onContentChange?.(fileContent, false);
+      // NOTE: Do NOT call onContentChange here during initial load.
+      // Calling it triggers parent re-render which unmounts this component,
+      // causing an infinite loop. onContentChange should only be called
+      // when user actually edits the content.
       
       // Sync versionId after Model update
       queueMicrotask(() => {
@@ -1124,9 +1130,18 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }, [filePath, hasChanges, monacoReady]);
 
-  // Initial file load
+  // Initial file load - only run once when filePath changes
+  const loadFileContentCalledRef = useRef(false);
   useEffect(() => {
-    loadFileContent();
+    // Reset the flag when filePath changes
+    loadFileContentCalledRef.current = false;
+  }, [filePath]);
+  
+  useEffect(() => {
+    if (!loadFileContentCalledRef.current) {
+      loadFileContentCalledRef.current = true;
+      loadFileContent();
+    }
   }, [loadFileContent]);
 
   // Periodic file modification check

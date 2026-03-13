@@ -109,9 +109,9 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         setTimeout(() => {
           editorRef.current?.setInitialContent?.(fileContent);
         }, 0);
-        if (onContentChangeRef.current) {
-          onContentChangeRef.current(fileContent, false);
-        }
+        // NOTE: Do NOT call onContentChange here during initial load.
+        // Calling it triggers parent re-render which unmounts this component,
+        // causing an infinite loop.
       }
     } catch (err) {
       if (!isUnmountedRef.current) {
@@ -132,18 +132,28 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     }
   }, [filePath, t]);
 
+  // Initial file load - only run once when filePath changes
+  const loadFileContentCalledRef = useRef(false);
+  useEffect(() => {
+    // Reset the flag when filePath changes
+    loadFileContentCalledRef.current = false;
+  }, [filePath]);
+  
   useEffect(() => {
     if (filePath) {
-      loadFileContent();
+      if (!loadFileContentCalledRef.current) {
+        loadFileContentCalledRef.current = true;
+        loadFileContent();
+      }
     } else if (initialContent !== undefined) {
       setContent(initialContent);
       setHasChanges(false);
       setTimeout(() => {
         editorRef.current?.setInitialContent?.(initialContent);
       }, 0);
-      if (onContentChangeRef.current) {
-        onContentChangeRef.current(initialContent, false);
-      }
+      // NOTE: Do NOT call onContentChange here during initial load.
+      // Calling it triggers parent re-render which unmounts this component,
+      // causing an infinite loop.
     }
   }, [filePath, initialContent, loadFileContent]);
 
@@ -195,10 +205,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
   const handleDirtyChange = useCallback((isDirty: boolean) => {
     setHasChanges(isDirty);
-    if (onContentChangeRef.current) {
-      onContentChangeRef.current(content, isDirty);
-    }
-  }, [content]);
+  }, []);
 
   const handleSave = useCallback((_value: string) => {
     saveFileContent();

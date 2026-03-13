@@ -17,7 +17,8 @@ export function getMonacoPath(): string {
   const isDev = import.meta.env.DEV;
   
   if (isDev) {
-    return 'http://localhost:1422/monaco-editor/vs';
+    // In dev mode, use node_modules path served by Vite
+    return '/node_modules/monaco-editor/min/vs';
   } else {
     return './monaco-editor/vs';
   }
