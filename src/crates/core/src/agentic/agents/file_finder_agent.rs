@@ -44,7 +44,7 @@ Examples:
 - "Search for files related to error handling""#
     }
 
-    fn prompt_template_name(&self) -> &str {
+    fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
         "file_finder_agent"
     }
 

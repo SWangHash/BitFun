@@ -479,7 +479,10 @@ impl PersistenceManager {
         }
     }
 
-    async fn rebuild_index_locked(&self, workspace_path: &Path) -> BitFunResult<Vec<SessionMetadata>> {
+    async fn rebuild_index_locked(
+        &self,
+        workspace_path: &Path,
+    ) -> BitFunResult<Vec<SessionMetadata>> {
         let sessions_root = self.ensure_project_sessions_dir(workspace_path).await?;
         let mut metadata_list = Vec::new();
         let mut entries = fs::read_dir(&sessions_root)
@@ -586,7 +589,8 @@ impl PersistenceManager {
     ) -> BitFunResult<()> {
         let lock = self.get_session_index_lock(workspace_path).await;
         let _guard = lock.lock().await;
-        self.upsert_index_entry_locked(workspace_path, metadata).await
+        self.upsert_index_entry_locked(workspace_path, metadata)
+            .await
     }
 
     async fn remove_index_entry(
@@ -596,7 +600,8 @@ impl PersistenceManager {
     ) -> BitFunResult<()> {
         let lock = self.get_session_index_lock(workspace_path).await;
         let _guard = lock.lock().await;
-        self.remove_index_entry_locked(workspace_path, session_id).await
+        self.remove_index_entry_locked(workspace_path, session_id)
+            .await
     }
 
     pub async fn list_session_metadata(
@@ -614,10 +619,11 @@ impl PersistenceManager {
             .read_json_optional::<StoredSessionIndex>(&index_path)
             .await?
         {
-            let has_stale_entry = index
-                .sessions
-                .iter()
-                .any(|metadata| !self.metadata_path(workspace_path, &metadata.session_id).exists());
+            let has_stale_entry = index.sessions.iter().any(|metadata| {
+                !self
+                    .metadata_path(workspace_path, &metadata.session_id)
+                    .exists()
+            });
             if has_stale_entry {
                 warn!(
                     "Session index contains stale entries, rebuilding: {}",
@@ -992,10 +998,7 @@ impl PersistenceManager {
             .load_session_metadata(workspace_path, &turn.session_id)
             .await?
             .ok_or_else(|| {
-                BitFunError::NotFound(format!(
-                    "Session metadata not found: {}",
-                    turn.session_id
-                ))
+                BitFunError::NotFound(format!("Session metadata not found: {}", turn.session_id))
             })?;
 
         self.ensure_turns_dir(workspace_path, &turn.session_id)

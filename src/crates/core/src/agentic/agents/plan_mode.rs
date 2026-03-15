@@ -42,7 +42,7 @@ impl Agent for PlanMode {
         "Clarify request and create an implementation plan before executing the task"
     }
 
-    fn prompt_template_name(&self) -> &str {
+    fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
         "plan_mode"
     }
 

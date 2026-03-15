@@ -56,7 +56,7 @@ impl Agent for CoworkMode {
         "Collaborative mode: clarify first, track progress lightly, verify outcomes"
     }
 
-    fn prompt_template_name(&self) -> &str {
+    fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
         "cowork_mode"
     }
 

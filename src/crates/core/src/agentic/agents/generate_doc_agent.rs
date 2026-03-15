@@ -36,7 +36,7 @@ impl Agent for GenerateDocAgent {
         "Agent for generating documentation such as AGENTS.md, CLAUDE.md, README.md, etc."
     }
 
-    fn prompt_template_name(&self) -> &str {
+    fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
         "generate_doc_agent"
     }
 

@@ -51,16 +51,15 @@ impl Agent for AgenticMode {
         "Full-featured AI assistant with access to all tools for comprehensive software development tasks"
     }
 
-    fn prompt_template_name(&self) -> &str {
-        "agentic_mode"
-    }
-
-    fn prompt_template_name_for_model(&self, model_name: Option<&str>) -> Option<&str> {
-        let model_name = model_name?.trim().to_ascii_lowercase();
+    fn prompt_template_name(&self, model_name: Option<&str>) -> &str {
+        let Some(model_name) = model_name else {
+            return "agentic_mode";
+        };
+        let model_name = model_name.trim().to_ascii_lowercase();
         if model_name.contains("gpt-5") {
-            Some("agentic_mode_gpt5")
+            "agentic_mode_gpt5"
         } else {
-            None
+            "agentic_mode"
         }
     }
 
@@ -81,12 +80,12 @@ mod tests {
     fn selects_gpt5_prompt_template() {
         let agent = AgenticMode::new();
         assert_eq!(
-            agent.prompt_template_name_for_model(Some("gpt-5.1")),
-            Some("agentic_mode_gpt5")
+            agent.prompt_template_name(Some("gpt-5.1")),
+            "agentic_mode_gpt5"
         );
         assert_eq!(
-            agent.prompt_template_name_for_model(Some("GPT-5-CODEX")),
-            Some("agentic_mode_gpt5")
+            agent.prompt_template_name(Some("GPT-5-CODEX")),
+            "agentic_mode_gpt5"
         );
     }
 
@@ -94,9 +93,9 @@ mod tests {
     fn keeps_default_template_for_non_gpt5_models() {
         let agent = AgenticMode::new();
         assert_eq!(
-            agent.prompt_template_name_for_model(Some("claude-sonnet-4")),
-            None
+            agent.prompt_template_name(Some("claude-sonnet-4")),
+            "agentic_mode"
         );
-        assert_eq!(agent.prompt_template_name_for_model(None), None);
+        assert_eq!(agent.prompt_template_name(None), "agentic_mode");
     }
 }

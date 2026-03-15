@@ -55,7 +55,7 @@ impl Agent for CodeReviewAgent {
         r#"Agentic code review agent that can gather context before reviewing. Use this for thorough code reviews that require understanding of the broader codebase. The agent will use Read/Grep/Glob tools to understand function definitions, type structures, and related code before reporting issues."#
     }
 
-    fn prompt_template_name(&self) -> &str {
+    fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
         "code_review"
     }
 

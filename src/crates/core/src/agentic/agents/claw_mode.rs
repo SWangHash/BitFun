@@ -50,7 +50,7 @@ impl Agent for ClawMode {
         "Personal assistant for daily tasks"
     }
 
-    fn prompt_template_name(&self) -> &str {
+    fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
         "claw_mode"
     }
 

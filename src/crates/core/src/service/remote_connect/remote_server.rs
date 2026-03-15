@@ -187,26 +187,29 @@ async fn load_remote_model_catalog(
             capabilities: model
                 .capabilities
                 .into_iter()
-                .map(|capability| match capability {
-                    crate::service::config::types::ModelCapability::TextChat => "text_chat",
-                    crate::service::config::types::ModelCapability::ImageUnderstanding => {
-                        "image_understanding"
+                .map(|capability| {
+                    match capability {
+                        crate::service::config::types::ModelCapability::TextChat => "text_chat",
+                        crate::service::config::types::ModelCapability::ImageUnderstanding => {
+                            "image_understanding"
+                        }
+                        crate::service::config::types::ModelCapability::ImageGeneration => {
+                            "image_generation"
+                        }
+                        crate::service::config::types::ModelCapability::Embedding => "embedding",
+                        crate::service::config::types::ModelCapability::Search => "search",
+                        crate::service::config::types::ModelCapability::CodeSpecialized => {
+                            "code_specialized"
+                        }
+                        crate::service::config::types::ModelCapability::FunctionCalling => {
+                            "function_calling"
+                        }
+                        crate::service::config::types::ModelCapability::SpeechRecognition => {
+                            "speech_recognition"
+                        }
                     }
-                    crate::service::config::types::ModelCapability::ImageGeneration => {
-                        "image_generation"
-                    }
-                    crate::service::config::types::ModelCapability::Embedding => "embedding",
-                    crate::service::config::types::ModelCapability::Search => "search",
-                    crate::service::config::types::ModelCapability::CodeSpecialized => {
-                        "code_specialized"
-                    }
-                    crate::service::config::types::ModelCapability::FunctionCalling => {
-                        "function_calling"
-                    }
-                    crate::service::config::types::ModelCapability::SpeechRecognition => {
-                        "speech_recognition"
-                    }
-                }.to_string())
+                    .to_string()
+                })
                 .collect(),
             enable_thinking_process: model.enable_thinking_process,
             reasoning_effort: model.reasoning_effort,
@@ -2433,38 +2436,47 @@ impl RemoteServer {
                     };
                 }
 
-                let normalized_model_id = if matches!(requested_model_id, "auto" | "default" | "primary" | "fast") {
-                    if requested_model_id == "default" {
-                        "auto".to_string()
+                let normalized_model_id =
+                    if matches!(requested_model_id, "auto" | "default" | "primary" | "fast") {
+                        if requested_model_id == "default" {
+                            "auto".to_string()
+                        } else {
+                            requested_model_id.to_string()
+                        }
                     } else {
-                        requested_model_id.to_string()
-                    }
-                } else {
-                    let Ok(config_service) = get_global_config_service().await else {
-                        return RemoteResponse::Error {
-                            message: "Config service not available".to_string(),
+                        let Ok(config_service) = get_global_config_service().await else {
+                            return RemoteResponse::Error {
+                                message: "Config service not available".to_string(),
+                            };
                         };
-                    };
-                    let ai_config: AIConfig = match config_service.get_config(Some("ai")).await {
-                        Ok(config) => config,
-                        Err(e) => {
-                            return RemoteResponse::Error {
-                                message: format!("Failed to load AI config: {e}"),
+                        let ai_config: AIConfig = match config_service.get_config(Some("ai")).await
+                        {
+                            Ok(config) => config,
+                            Err(e) => {
+                                return RemoteResponse::Error {
+                                    message: format!("Failed to load AI config: {e}"),
+                                }
+                            }
+                        };
+                        match ai_config.resolve_model_reference(requested_model_id) {
+                            Some(resolved) => resolved,
+                            None => {
+                                return RemoteResponse::Error {
+                                    message: format!(
+                                        "Unknown model selection: {requested_model_id}"
+                                    ),
+                                }
                             }
                         }
                     };
-                    match ai_config.resolve_model_reference(requested_model_id) {
-                        Some(resolved) => resolved,
-                        None => {
-                            return RemoteResponse::Error {
-                                message: format!("Unknown model selection: {requested_model_id}"),
-                            }
-                        }
-                    }
-                };
 
-                if coordinator.get_session_manager().get_session(session_id).is_none() {
-                    let Some(workspace_path) = resolve_session_workspace_path(session_id).await else {
+                if coordinator
+                    .get_session_manager()
+                    .get_session(session_id)
+                    .is_none()
+                {
+                    let Some(workspace_path) = resolve_session_workspace_path(session_id).await
+                    else {
                         return RemoteResponse::Error {
                             message: format!(
                                 "Workspace path not available for session: {}",
@@ -2472,7 +2484,10 @@ impl RemoteServer {
                             ),
                         };
                     };
-                    if let Err(e) = coordinator.restore_session(&workspace_path, session_id).await {
+                    if let Err(e) = coordinator
+                        .restore_session(&workspace_path, session_id)
+                        .await
+                    {
                         return RemoteResponse::Error {
                             message: format!("Failed to restore session: {e}"),
                         };

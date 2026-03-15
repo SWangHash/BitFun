@@ -927,10 +927,9 @@ impl SessionManager {
         parent_dialog_turn_id: Option<&str>,
         parent_turn_index: Option<usize>,
     ) -> BitFunResult<()> {
-        let session = self
-            .sessions
-            .get(child_session_id)
-            .ok_or_else(|| BitFunError::NotFound(format!("Session not found: {}", child_session_id)))?;
+        let session = self.sessions.get(child_session_id).ok_or_else(|| {
+            BitFunError::NotFound(format!("Session not found: {}", child_session_id))
+        })?;
 
         let turn_id = format!("btw-turn-{}", request_id);
         let user_message_id = format!("btw-user-{}", request_id);
@@ -994,7 +993,11 @@ impl SessionManager {
             .await?;
 
         if let Some(mut session) = self.sessions.get_mut(child_session_id) {
-            if !session.dialog_turn_ids.iter().any(|existing| existing == &turn_id) {
+            if !session
+                .dialog_turn_ids
+                .iter()
+                .any(|existing| existing == &turn_id)
+            {
                 session.dialog_turn_ids.push(turn_id);
             }
             session.updated_at = SystemTime::now();

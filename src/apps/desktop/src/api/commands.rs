@@ -1032,7 +1032,10 @@ pub async fn cleanup_invalid_workspaces(
                 );
             }
 
-            info!("Invalid workspaces cleaned up: removed_count={}", removed_count);
+            info!(
+                "Invalid workspaces cleaned up: removed_count={}",
+                removed_count
+            );
             Ok(removed_count)
         }
         Err(e) => {

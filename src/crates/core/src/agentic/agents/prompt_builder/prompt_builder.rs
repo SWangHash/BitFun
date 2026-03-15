@@ -24,15 +24,36 @@ const PLACEHOLDER_AGENT_MEMORY: &str = "{AGENT_MEMORY}";
 const PLACEHOLDER_CLAW_WORKSPACE: &str = "{CLAW_WORKSPACE}";
 const PLACEHOLDER_VISUAL_MODE: &str = "{VISUAL_MODE}";
 
-pub struct PromptBuilder {
+#[derive(Debug, Clone)]
+pub struct PromptBuilderContext {
     pub workspace_path: String,
+    pub session_id: Option<String>,
+    pub model_name: Option<String>,
+}
+
+impl PromptBuilderContext {
+    pub fn new(
+        workspace_path: impl Into<String>,
+        session_id: Option<String>,
+        model_name: Option<String>,
+    ) -> Self {
+        Self {
+            workspace_path: workspace_path.into().replace("\\", "/"),
+            session_id,
+            model_name,
+        }
+    }
+}
+
+pub struct PromptBuilder {
+    pub context: PromptBuilderContext,
     pub file_tree_max_entries: usize,
 }
 
 impl PromptBuilder {
-    pub fn new(workspace_path: &str) -> Self {
+    pub fn new(context: PromptBuilderContext) -> Self {
         Self {
-            workspace_path: workspace_path.replace("\\", "/"),
+            context,
             file_tree_max_entries: 200,
         }
     }
@@ -44,7 +65,7 @@ impl PromptBuilder {
         let arch = std::env::consts::ARCH;
 
         let now = chrono::Local::now();
-        let current_date = now.format("%A, %B %d, %Y").to_string();
+        let current_date = now.format("%Y-%m-%d").to_string();
 
         format!(
             r#"# Environment Information
@@ -52,19 +73,22 @@ impl PromptBuilder {
 - Current Working Directory: {}
 - Operating System: {} ({})
 - Architecture: {}
-- Current Date: {}
+- Current Date (YYYY-MM-DD): {}
 </environment_details>
 
 "#,
-            self.workspace_path, os_name, os_family, arch, current_date
+            self.context.workspace_path, os_name, os_family, arch, current_date
         )
     }
 
     /// Get workspace file list
     pub fn get_project_layout(&self) -> String {
-        let (hit_limit, formatted_files_list) =
-            get_formatted_files_list(&self.workspace_path, self.file_tree_max_entries, None)
-                .unwrap_or_else(|e| (false, format!("Error listing directory: {}", e)));
+        let (hit_limit, formatted_files_list) = get_formatted_files_list(
+            &self.context.workspace_path,
+            self.file_tree_max_entries,
+            None,
+        )
+        .unwrap_or_else(|e| (false, format!("Error listing directory: {}", e)));
         let mut project_layout = "# Workspace Layout\n<project_layout>\n".to_string();
         if hit_limit {
             project_layout.push_str(&format!("Below is a snapshot of the current workspace's file structure (showing up to {} entries).\n\n", self.file_tree_max_entries));
@@ -84,7 +108,7 @@ impl PromptBuilder {
     /// - filter: Optional filter, supports `include=category1,category2` or `exclude=category1`
     pub async fn get_project_context(&self, filter: Option<&str>) -> Option<String> {
         let service = ProjectContextService::new();
-        let workspace = Path::new(&self.workspace_path);
+        let workspace = Path::new(&self.context.workspace_path);
 
         match service.build_context_prompt(workspace, filter).await {
             Ok(prompt) if !prompt.is_empty() => {
@@ -142,7 +166,7 @@ These files are maintained by the user and should NOT be modified unless explici
             }
         };
 
-        let workspace_pathbuf = std::path::PathBuf::from(&self.workspace_path);
+        let workspace_pathbuf = std::path::PathBuf::from(&self.context.workspace_path);
         match rules_service
             .build_system_prompt_for(Some(&workspace_pathbuf))
             .await
@@ -224,7 +248,7 @@ Your dedicated operating space is `{}`.
 Prefer doing work inside this workspace and keep it well organized with clear structure, sensible filenames, and minimal clutter.
 Do not read from, modify, create, move, or delete files outside this workspace unless the user has explicitly granted permission for that external action.
 ",
-            self.workspace_path
+            self.context.workspace_path
         )
     }
 
@@ -248,7 +272,7 @@ Do not read from, modify, create, move, or delete files outside this workspace u
 
         // Replace {PERSONA}
         if result.contains(PLACEHOLDER_PERSONA) {
-            let workspace = Path::new(&self.workspace_path);
+            let workspace = Path::new(&self.context.workspace_path);
             let persona = match build_workspace_persona_prompt(workspace).await {
                 Ok(prompt) => prompt.unwrap_or_default(),
                 Err(e) => {
@@ -324,8 +348,13 @@ Do not read from, modify, create, move, or delete files outside this workspace u
 
         // Replace {AGENT_MEMORY}
         if result.contains(PLACEHOLDER_AGENT_MEMORY) {
-            let workspace = Path::new(&self.workspace_path);
-            let agent_memory = match build_workspace_agent_memory_prompt(workspace).await {
+            let workspace = Path::new(&self.context.workspace_path);
+            let agent_memory = match build_workspace_agent_memory_prompt(
+                workspace,
+                self.context.session_id.as_deref(),
+            )
+            .await
+            {
                 Ok(prompt) => prompt,
                 Err(e) => {
                     warn!(

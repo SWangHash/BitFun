@@ -4,7 +4,7 @@
 
 use super::round_executor::RoundExecutor;
 use super::types::{ExecutionContext, ExecutionResult, RoundContext};
-use crate::agentic::agents::get_agent_registry;
+use crate::agentic::agents::{get_agent_registry, PromptBuilderContext};
 use crate::agentic::core::{Message, MessageContent, MessageHelper, Session};
 use crate::agentic::events::{AgenticEvent, EventPriority, EventQueue};
 use crate::agentic::image_analysis::{
@@ -541,11 +541,15 @@ impl ExecutionEngine {
                 .workspace
                 .as_ref()
                 .map(|workspace| workspace.root_path_string());
-            current_agent
-                .get_system_prompt_for_model(
-                    workspace_str.as_deref(),
-                    Some(ai_client.config.model.as_str()),
+            let prompt_context = workspace_str.map(|workspace_path| {
+                PromptBuilderContext::new(
+                    workspace_path,
+                    Some(context.session_id.clone()),
+                    Some(ai_client.config.model.clone()),
                 )
+            });
+            current_agent
+                .get_system_prompt(prompt_context.as_ref())
                 .await?
         };
         debug!("System prompt built, length: {} bytes", system_prompt.len());

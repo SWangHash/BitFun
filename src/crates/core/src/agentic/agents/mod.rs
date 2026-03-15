@@ -30,7 +30,7 @@ pub use explore_agent::ExploreAgent;
 pub use file_finder_agent::FileFinderAgent;
 pub use generate_doc_agent::GenerateDocAgent;
 pub use plan_mode::PlanMode;
-pub use prompt_builder::PromptBuilder;
+pub use prompt_builder::{PromptBuilder, PromptBuilderContext};
 pub use registry::{
     get_agent_registry, AgentCategory, AgentInfo, AgentRegistry, CustomSubagentConfig,
     SubAgentSource,
@@ -55,29 +55,19 @@ pub trait Agent: Send + Sync + 'static {
     /// Description of what the agent does
     fn description(&self) -> &str;
 
-    /// Prompt template name for the agent
-    fn prompt_template_name(&self) -> &str;
-
-    /// Prompt template name override for a specific model.
-    fn prompt_template_name_for_model(&self, _model_name: Option<&str>) -> Option<&str> {
-        None
-    }
+    /// Prompt template name for the agent.
+    fn prompt_template_name(&self, model_name: Option<&str>) -> &str;
 
     fn system_reminder_template_name(&self) -> Option<&str> {
         None // by default, no system reminder
     }
 
     /// Build the system prompt for this agent
-    async fn build_prompt(&self, workspace_path: &str) -> BitFunResult<String> {
-        let prompt_components = PromptBuilder::new(workspace_path);
-
-        let system_prompt_template =
-            get_embedded_prompt(self.prompt_template_name()).ok_or_else(|| {
-                BitFunError::Agent(format!(
-                    "{} not found in embedded files",
-                    self.prompt_template_name()
-                ))
-            })?;
+    async fn build_prompt(&self, context: &PromptBuilderContext) -> BitFunResult<String> {
+        let prompt_components = PromptBuilder::new(context.clone());
+        let template_name = self.prompt_template_name(context.model_name.as_deref());
+        let system_prompt_template = get_embedded_prompt(template_name)
+            .ok_or_else(|| BitFunError::Agent(format!("{} not found in embedded files", template_name)))?;
 
         let prompt = prompt_components
             .build_prompt_from_template(system_prompt_template)
@@ -87,36 +77,17 @@ pub trait Agent: Send + Sync + 'static {
     }
 
     /// Get the system prompt for this agent
-    async fn get_system_prompt(&self, workspace_path: Option<&str>) -> BitFunResult<String> {
-        if let Some(workspace_path) = workspace_path {
-            self.build_prompt(workspace_path).await
-        } else {
-            Err(BitFunError::Agent("Workspace path is required".to_string()))
-        }
-    }
-
-    /// Get the system prompt for this agent with optional model-aware template selection.
-    async fn get_system_prompt_for_model(
+    async fn get_system_prompt(
         &self,
-        workspace_path: Option<&str>,
-        model_name: Option<&str>,
+        context: Option<&PromptBuilderContext>,
     ) -> BitFunResult<String> {
-        let Some(workspace_path) = workspace_path else {
-            return Err(BitFunError::Agent("Workspace path is required".to_string()));
-        };
-
-        let Some(template_name) = self.prompt_template_name_for_model(model_name) else {
-            return self.build_prompt(workspace_path).await;
-        };
-
-        let prompt_components = PromptBuilder::new(workspace_path);
-        let system_prompt_template = get_embedded_prompt(template_name).ok_or_else(|| {
-            BitFunError::Agent(format!("{} not found in embedded files", template_name))
-        })?;
-
-        prompt_components
-            .build_prompt_from_template(system_prompt_template)
-            .await
+        if let Some(context) = context {
+            self.build_prompt(context).await
+        } else {
+            Err(BitFunError::Agent(
+                "Prompt build context is required".to_string(),
+            ))
+        }
     }
 
     /// Get the system reminder for this agent, only used for modes

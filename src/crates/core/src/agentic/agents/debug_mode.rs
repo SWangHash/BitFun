@@ -1,6 +1,6 @@
 //! Debug Mode - Evidence-driven debugging mode
 
-use super::prompt_builder::PromptBuilder;
+use super::prompt_builder::{PromptBuilder, PromptBuilderContext};
 use super::Agent;
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::types::{DebugModeConfig, LanguageDebugTemplate};
@@ -273,12 +273,13 @@ impl Agent for DebugMode {
         "Evidence-driven debugging: form hypotheses, gather runtime evidence with logs, and fix with 100% confidence"
     }
 
-    fn prompt_template_name(&self) -> &str {
+    fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
         "debug_mode"
     }
 
-    async fn build_prompt(&self, workspace_path: &str) -> BitFunResult<String> {
-        let prompt_components = PromptBuilder::new(workspace_path);
+    async fn build_prompt(&self, context: &PromptBuilderContext) -> BitFunResult<String> {
+        let workspace_path = context.workspace_path.as_str();
+        let prompt_components = PromptBuilder::new(context.clone());
         let env_info = prompt_components.get_env_info();
 
         let debug_config = self.get_debug_config().await;

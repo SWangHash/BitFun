@@ -1,5 +1,5 @@
 use crate::agentic::agents::Agent;
-use crate::agentic::agents::PromptBuilder;
+use crate::agentic::agents::{PromptBuilder, PromptBuilderContext};
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::FrontMatterMarkdown;
 use async_trait::async_trait;
@@ -46,12 +46,12 @@ impl Agent for CustomSubagent {
         &self.description
     }
 
-    fn prompt_template_name(&self) -> &str {
+    fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
         ""
     }
 
-    async fn build_prompt(&self, workspace_path: &str) -> BitFunResult<String> {
-        let prompt_builder = PromptBuilder::new(workspace_path);
+    async fn build_prompt(&self, context: &PromptBuilderContext) -> BitFunResult<String> {
+        let prompt_builder = PromptBuilder::new(context.clone());
 
         let prompt = prompt_builder
             .build_prompt_from_template(&self.prompt)
