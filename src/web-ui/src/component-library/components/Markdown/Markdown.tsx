@@ -387,7 +387,7 @@ export const Markdown = React.memo<MarkdownProps>(({
       const normalizedLang = getPrismLanguageFromAlias(language);
       
       return (
-        <div className="code-block-wrapper">
+        <div className={`code-block-wrapper${hasMultipleLines ? '' : ' code-block-wrapper--single-line'}`}>
           <CopyButton code={code} />
           <SyntaxHighlighter
             language={normalizedLang}

@@ -345,7 +345,6 @@ $_section-header-height: 24px;
     &--split-right {
       border-top-right-radius: $size-radius-base;
       border-bottom-right-radius: $size-radius-base;
-      color: color-mix(in srgb, var(--color-accent-500) 84%, var(--color-text-secondary));
 
       &:hover {
         color: var(--color-text-primary);

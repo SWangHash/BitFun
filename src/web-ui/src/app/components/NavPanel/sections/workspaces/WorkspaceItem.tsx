@@ -198,14 +198,14 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
     }
   }, [t, workspace.rootPath]);
 
-  const handleCreateSession = useCallback(async () => {
+  const handleCreateSession = useCallback(async (mode?: 'agentic' | 'Cowork' | 'Claw') => {
     setMenuOpen(false);
     try {
       await flowChatManager.createChatSession(
         {
           workspacePath: workspace.rootPath,
         },
-        workspace.workspaceKind === WorkspaceKind.Assistant ? 'Claw' : undefined
+        mode ?? (workspace.workspaceKind === WorkspaceKind.Assistant ? 'Claw' : undefined)
       );
       await setActiveWorkspace(workspace.id);
     } catch (error) {
@@ -215,6 +215,14 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
       );
     }
   }, [setActiveWorkspace, t, workspace.id, workspace.rootPath, workspace.workspaceKind]);
+
+  const handleCreateCodeSession = useCallback(() => {
+    void handleCreateSession('agentic');
+  }, [handleCreateSession]);
+
+  const handleCreateCoworkSession = useCallback(() => {
+    void handleCreateSession('Cowork');
+  }, [handleCreateSession]);
 
   const handleCreateWorktree = useCallback(async (result: BranchSelectResult) => {
     try {
@@ -327,10 +335,23 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
             role="menu"
             style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
           >
-            <button type="button" className="bitfun-nav-panel__workspace-item-menu-item" onClick={() => { void handleCreateSession(); }}>
-              <Plus size={13} />
-              <span className="bitfun-nav-panel__workspace-item-menu-label">{t('nav.workspaces.actions.newSession')}</span>
-            </button>
+            {workspace.workspaceKind === WorkspaceKind.Assistant ? (
+              <button type="button" className="bitfun-nav-panel__workspace-item-menu-item" onClick={() => { void handleCreateSession(); }}>
+                <Plus size={13} />
+                <span className="bitfun-nav-panel__workspace-item-menu-label">{t('nav.workspaces.actions.newSession')}</span>
+              </button>
+            ) : (
+              <>
+                <button type="button" className="bitfun-nav-panel__workspace-item-menu-item" onClick={handleCreateCodeSession}>
+                  <Plus size={13} />
+                  <span className="bitfun-nav-panel__workspace-item-menu-label">{t('nav.workspaces.actions.newCodeSession')}</span>
+                </button>
+                <button type="button" className="bitfun-nav-panel__workspace-item-menu-item" onClick={handleCreateCoworkSession}>
+                  <Plus size={13} />
+                  <span className="bitfun-nav-panel__workspace-item-menu-label">{t('nav.workspaces.actions.newCoworkSession')}</span>
+                </button>
+              </>
+            )}
             {workspace.workspaceKind !== WorkspaceKind.Assistant && (
               <button
                 type="button"

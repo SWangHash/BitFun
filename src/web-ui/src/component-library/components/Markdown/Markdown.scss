@@ -259,8 +259,8 @@
 
 .markdown-renderer .copy-button {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0.35rem;
+  transform: none;
   right: 0.75rem;
   padding: 0.5rem;
   background: transparent;
@@ -290,12 +290,25 @@
 .markdown-renderer .copy-button:hover {
   background: transparent;
   color: #3b82f6;
-  transform: translateY(-50%) scale(1.1);
+  transform: scale(1.1);
 }
 
 .markdown-renderer .copy-button:active {
-  transform: translateY(-50%) scale(1);
+  transform: scale(1);
   color: #2563eb;
+}
+
+.markdown-renderer .code-block-wrapper--single-line .copy-button {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.markdown-renderer .code-block-wrapper--single-line .copy-button:hover {
+  transform: translateY(-50%) scale(1.1);
+}
+
+.markdown-renderer .code-block-wrapper--single-line .copy-button:active {
+  transform: translateY(-50%) scale(1);
 }
 
 

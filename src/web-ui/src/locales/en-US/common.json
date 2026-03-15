@@ -190,6 +190,8 @@
       "actions": {
         "more": "More actions",
         "newSession": "New session",
+        "newCodeSession": "New Code session",
+        "newCoworkSession": "New Cowork session",
         "newAssistant": "New personal assistant",
         "deleteAssistant": "Delete personal assistant",
         "resetWorkspace": "Reset workspace",

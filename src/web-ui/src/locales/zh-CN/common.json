@@ -190,6 +190,8 @@
       "actions": {
         "more": "更多操作",
         "newSession": "新建会话",
+        "newCodeSession": "新建 Code 会话",
+        "newCoworkSession": "新建 Cowork 会话",
         "newAssistant": "新建个人助理",
         "deleteAssistant": "删除个人助理",
         "resetWorkspace": "重置工作区",
