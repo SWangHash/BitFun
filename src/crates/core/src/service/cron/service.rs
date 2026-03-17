@@ -1,17 +1,20 @@
 //! Scheduled job service.
 
-use super::schedule::{compute_initial_next_run_at_ms, compute_next_run_after_ms, validate_schedule};
+use super::schedule::{
+    compute_initial_next_run_at_ms, compute_next_run_after_ms, validate_schedule,
+};
 use super::store::CronJobStore;
 use super::types::{
     CreateCronJobRequest, CronJob, CronJobPayload, CronJobRunStatus, CronSchedule,
-    DEFAULT_RETRY_DELAY_MS, UpdateCronJobRequest,
+    UpdateCronJobRequest, DEFAULT_RETRY_DELAY_MS,
 };
 use crate::agentic::coordination::{
     DialogQueuePriority, DialogScheduler, DialogSubmissionPolicy, DialogTriggerSource,
 };
+use crate::agentic::core::PromptEnvelope;
 use crate::infrastructure::PathManager;
 use crate::util::errors::{BitFunError, BitFunResult};
-use chrono::Utc;
+use chrono::{Local, SecondsFormat, TimeZone, Utc};
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -97,8 +100,7 @@ impl CronService {
         session_id: Option<&str>,
     ) -> Vec<CronJob> {
         let jobs = self.jobs.read().await;
-        jobs
-            .values()
+        jobs.values()
             .filter(|job| {
                 workspace_path
                     .map(|workspace_path| job.workspace_path == workspace_path)
@@ -242,6 +244,35 @@ impl CronService {
         Ok(existed)
     }
 
+    pub async fn run_job_now(&self, job_id: &str) -> BitFunResult<CronJob> {
+        {
+            let _guard = self.mutation_lock.lock().await;
+            let mut jobs = self.jobs.write().await;
+            let current_ms = now_ms();
+            let job = jobs.get_mut(job_id).ok_or_else(|| {
+                BitFunError::NotFound(format!("Scheduled job not found: {}", job_id))
+            })?;
+
+            if job.state.pending_trigger_at_ms.is_some() {
+                job.state.coalesced_run_count = job.state.coalesced_run_count.saturating_add(1);
+            }
+
+            job.state.pending_trigger_at_ms = Some(current_ms);
+            job.state.last_trigger_at_ms = Some(current_ms);
+            job.state.retry_at_ms = None;
+            job.updated_at_ms = current_ms;
+
+            self.persist_jobs_locked(&jobs).await?;
+            drop(jobs);
+            self.wakeup.notify_one();
+        }
+
+        self.process_job(job_id).await?;
+        self.get_job(job_id).await.ok_or_else(|| {
+            BitFunError::NotFound(format!("Scheduled job not found after run: {}", job_id))
+        })
+    }
+
     pub async fn handle_turn_started(&self, turn_id: &str) -> BitFunResult<()> {
         self.handle_turn_state_change(turn_id, |job, now_ms| {
             job.state.last_run_status = Some(CronJobRunStatus::Running);
@@ -355,7 +386,9 @@ impl CronService {
                 })
                 .collect::<Vec<_>>();
             due.sort_by(|left, right| left.1.cmp(&right.1).then_with(|| left.0.cmp(&right.0)));
-            due.into_iter().map(|(job_id, _)| job_id).collect::<Vec<_>>()
+            due.into_iter()
+                .map(|(job_id, _)| job_id)
+                .collect::<Vec<_>>()
         };
 
         for job_id in due_job_ids {
@@ -386,20 +419,28 @@ impl CronService {
 
             if let Some(next_run_at_ms) = job.state.next_run_at_ms {
                 if next_run_at_ms <= current_ms {
-                    if job.state.active_turn_id.is_some() || job.state.pending_trigger_at_ms.is_some() {
+                    if job.state.active_turn_id.is_some()
+                        || job.state.pending_trigger_at_ms.is_some()
+                    {
                         job.state.last_trigger_at_ms = Some(next_run_at_ms);
                         job.state.coalesced_run_count =
                             job.state.coalesced_run_count.saturating_add(1);
-                        job.state.next_run_at_ms =
-                            compute_next_run_after_ms(&job.schedule, job.created_at_ms, current_ms)?;
+                        job.state.next_run_at_ms = compute_next_run_after_ms(
+                            &job.schedule,
+                            job.created_at_ms,
+                            current_ms,
+                        )?;
                         job.updated_at_ms = current_ms;
                         should_persist = true;
                     } else {
                         job.state.pending_trigger_at_ms = Some(next_run_at_ms);
                         job.state.last_trigger_at_ms = Some(next_run_at_ms);
                         job.state.retry_at_ms = None;
-                        job.state.next_run_at_ms =
-                            compute_next_run_after_ms(&job.schedule, job.created_at_ms, current_ms)?;
+                        job.state.next_run_at_ms = compute_next_run_after_ms(
+                            &job.schedule,
+                            job.created_at_ms,
+                            current_ms,
+                        )?;
                         job.updated_at_ms = current_ms;
                         should_persist = true;
                     }
@@ -420,7 +461,7 @@ impl CronService {
                     turn_id,
                     session_id: job.session_id.clone(),
                     workspace_path: job.workspace_path.clone(),
-                    user_input: job.payload.text.clone(),
+                    user_input: format_scheduled_job_user_input(&job.payload.text, current_ms),
                 });
                 should_attempt_enqueue = true;
             }
@@ -512,10 +553,7 @@ impl CronService {
         self.persist_jobs_locked(&jobs).await
     }
 
-    async fn persist_jobs_locked(
-        &self,
-        jobs: &HashMap<String, CronJob>,
-    ) -> BitFunResult<()> {
+    async fn persist_jobs_locked(&self, jobs: &HashMap<String, CronJob>) -> BitFunResult<()> {
         self.store
             .save_jobs(jobs.values().cloned().collect::<Vec<_>>())
             .await
@@ -632,9 +670,10 @@ fn pending_is_due(job: &CronJob, now_ms: i64) -> bool {
 
 fn next_wakeup_for_job(job: &CronJob) -> Option<i64> {
     let schedule_wakeup = job.state.next_run_at_ms;
-    let retry_wakeup = job.state.pending_trigger_at_ms.map(|pending_trigger_at_ms| {
-        job.state.retry_at_ms.unwrap_or(pending_trigger_at_ms)
-    });
+    let retry_wakeup = job
+        .state
+        .pending_trigger_at_ms
+        .map(|pending_trigger_at_ms| job.state.retry_at_ms.unwrap_or(pending_trigger_at_ms));
 
     match (schedule_wakeup, retry_wakeup) {
         (Some(left), Some(right)) => Some(left.min(right)),
@@ -642,6 +681,22 @@ fn next_wakeup_for_job(job: &CronJob) -> Option<i64> {
         (None, Some(right)) => Some(right),
         (None, None) => None,
     }
+}
+
+fn format_scheduled_job_user_input(payload: &str, current_ms: i64) -> String {
+    let current_time = Local
+        .timestamp_millis_opt(current_ms)
+        .single()
+        .map(|datetime| datetime.to_rfc3339_opts(SecondsFormat::Secs, false))
+        .unwrap_or_else(|| current_ms.to_string());
+
+    let mut envelope = PromptEnvelope::new();
+    envelope.push_system_reminder(format!(
+        "This message was triggered by a scheduled job.\nCurrent time: {}",
+        current_time
+    ));
+    envelope.push_user_query(payload.to_string());
+    envelope.render()
 }
 
 fn scheduled_job_policy() -> DialogSubmissionPolicy {

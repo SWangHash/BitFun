@@ -97,6 +97,9 @@ impl ToolRegistry {
         // TodoWrite tool
         self.register_tool(Arc::new(TodoWriteTool::new()));
 
+        // Cron scheduled jobs tool
+        self.register_tool(Arc::new(CronTool::new()));
+
         // TaskTool, execute subagent
         self.register_tool(Arc::new(TaskTool::new()));
 
@@ -175,6 +178,12 @@ mod tests {
     fn registry_includes_webfetch_tool() {
         let registry = create_tool_registry();
         assert!(registry.get_tool("WebFetch").is_some());
+    }
+
+    #[test]
+    fn registry_includes_cron_tool() {
+        let registry = create_tool_registry();
+        assert!(registry.get_tool("Cron").is_some());
     }
 }
 
