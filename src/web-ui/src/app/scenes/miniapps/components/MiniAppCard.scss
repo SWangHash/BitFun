@@ -54,15 +54,24 @@
     // Running state - green border removed, relies on run-dot indicator
   }
 
-  // ── Header with icon ──
+  // ── Header with icon and title ──
   &__header {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    align-items: center;
+    gap: $size-gap-2;
     padding: $size-gap-3;
     padding-bottom: 0;
     position: relative;
     z-index: 1;
+  }
+
+  &__title-group {
+    display: flex;
+    align-items: baseline;
+    gap: $size-gap-2;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
   }
 
   &__icon-area {
@@ -105,13 +114,6 @@
     overflow: hidden;
     position: relative;
     z-index: 1;
-  }
-
-  &__row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: $size-gap-2;
   }
 
   &__name {

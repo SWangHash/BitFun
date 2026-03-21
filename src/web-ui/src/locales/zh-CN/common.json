@@ -77,8 +77,8 @@
     "items": {
       "sessions": "会话",
       "project": "目录",
-      "persona": "档案",
-      "agents": "智能体",
+      "persona": "助理",
+      "agents": "专业智能体",
       "skills": "技能",
       "tools": "工具",
       "terminal": "Shell",
@@ -87,7 +87,7 @@
       "insights": "洞察"
     },
     "tooltips": {
-      "persona": "智能体档案 — 身份、规则、记忆、知识与能力",
+      "persona": "助理 — 创建与管理所有助理实例",
       "agents": "它能调用哪些 Agent 与 Agent Team",
       "skills": "它懂什么专项知识 — 技能知识文件",
       "tools": "它能用什么工具 — 内置工具与 MCP 服务"
@@ -108,8 +108,8 @@
     "myAgent": {
       "title": "我的智能体",
       "categories": {
-        "identity": "身份",
-        "collaboration": "协作",
+        "agents": "智能体",
+        "extensions": "扩展",
         "analytics": "分析"
       }
     },
@@ -320,6 +320,7 @@
       "openMyAgent": "我的智能体"
     },
     "moreOptions": "更多选项",
+    "multimodalTools": "多模态工具",
     "notifications": "通知"
   },
   "window": {
@@ -760,6 +761,7 @@
     "skills": "技能",
     "miniApps": "小应用",
     "browser": "浏览器",
+    "mermaidEditor": "Mermaid 图表",
     "myAgent": "我的智能体",
     "shell": "Shell"
   },

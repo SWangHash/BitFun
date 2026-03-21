@@ -21,6 +21,8 @@
   },
   "filters": {
     "all": "All",
+    "source": "Source",
+    "kind": "Type",
     "builtin": "Built-in",
     "user": "User",
     "project": "Project",
@@ -120,7 +122,11 @@
     "title": "Core Agents",
     "subtitle": "Built-in core agent modes covering mainstream AI workflows, ready to use out of the box.",
     "empty": "No core agents detected",
-    "roleLabel": "Primary Use · "
+    "roleLabel": "Primary Use · ",
+    "modes": {
+      "agentic": { "role": "Coding specialist agent" },
+      "cowork": { "role": "Office & collaboration agent" }
+    }
   },
   "agentsZone": {
     "title": "Agents Overview",
@@ -182,11 +188,13 @@
     "tools": "Tools",
     "toolsReset": "Reset default",
     "toolsCancel": "Cancel editing",
+    "toolsSave": "Save",
     "toolsEdit": "Manage tools",
     "toolsResetSuccess": "Reset to default tools",
     "toolToggleFailed": "Failed to toggle tool",
     "skills": "Skills",
     "skillsCancel": "Cancel editing",
+    "skillsSave": "Save",
     "skillsEdit": "Manage skills",
     "skillToggleFailed": "Failed to toggle skill",
     "noSkills": "No skills enabled",

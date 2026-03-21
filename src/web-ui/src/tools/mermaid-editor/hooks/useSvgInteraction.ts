@@ -54,6 +54,12 @@ export interface SvgInteractionOptions {
   hasDragged?: boolean;
   /** Reset drag state callback. */
   resetDragState?: () => void;
+  /**
+   * Override the default file navigation behavior (which dispatches agent-create-tab).
+   * Receives the resolved file path, line number, and the full node metadata.
+   * When provided, the default fileTabManager call is skipped entirely.
+   */
+  onFileNavigate?: (filePath: string, line: number, metadata: NodeMetadata) => void;
 }
 
 export interface SvgInteractionReturn {
@@ -161,7 +167,8 @@ export function useSvgInteraction(options: SvgInteractionOptions): SvgInteractio
     onTooltipUpdate,
     onTooltipHide,
     hasDragged, 
-    resetDragState 
+    resetDragState,
+    onFileNavigate,
   } = options;
   
   // Store callbacks in refs to avoid stale closures.
@@ -173,6 +180,7 @@ export function useSvgInteraction(options: SvgInteractionOptions): SvgInteractio
   const hasDraggedRef = useRef(hasDragged);
   const isEditModeRef = useRef(isEditMode);
   const nodeMetadataRef = useRef(nodeMetadata);
+  const onFileNavigateRef = useRef(onFileNavigate);
   
   useEffect(() => {
     onNodeClickRef.current = onNodeClick;
@@ -182,6 +190,7 @@ export function useSvgInteraction(options: SvgInteractionOptions): SvgInteractio
     onTooltipHideRef.current = onTooltipHide;
     hasDraggedRef.current = hasDragged;
     isEditModeRef.current = isEditMode;
+    onFileNavigateRef.current = onFileNavigate;
     nodeMetadataRef.current = nodeMetadata;
   });
 
@@ -329,7 +338,9 @@ export function useSvgInteraction(options: SvgInteractionOptions): SvgInteractio
         const metadata = nodeMetadataRef.current?.[nodeId];
         if (metadata?.file_path) {
           try {
-            if (metadata.node_type === 'directory') {
+            if (onFileNavigateRef.current) {
+              onFileNavigateRef.current(metadata.file_path, metadata.line_number || 1, metadata);
+            } else if (metadata.node_type === 'directory') {
               const { appManager } = await import('@/app/services/AppManager');
               const { globalEventBus } = await import('@/infrastructure/event-bus/EventBus');
               

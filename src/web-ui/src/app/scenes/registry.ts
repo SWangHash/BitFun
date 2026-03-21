@@ -20,6 +20,7 @@ import {
   Boxes,
   UserCircle2,
   Globe,
+  Network,
 } from 'lucide-react';
 import type { SceneTabDef, SceneTabId } from '../components/SceneBar/types';
 
@@ -125,6 +126,15 @@ export const SCENE_TAB_REGISTRY: SceneTabDef[] = [
     label: 'Browser',
     labelKey: 'scenes.browser',
     Icon: Globe,
+    pinned: false,
+    singleton: true,
+    defaultOpen: false,
+  },
+  {
+    id: 'mermaid' as SceneTabId,
+    label: 'Mermaid',
+    labelKey: 'scenes.mermaidEditor',
+    Icon: Network,
     pinned: false,
     singleton: true,
     defaultOpen: false,

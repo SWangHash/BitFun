@@ -113,9 +113,6 @@ impl ToolRegistry {
         self.register_tool(Arc::new(WebSearchTool::new()));
         self.register_tool(Arc::new(WebFetchTool::new()));
 
-        // IDE control tool
-        self.register_tool(Arc::new(IdeControlTool::new()));
-
         // Mermaid interactive chart tool
         self.register_tool(Arc::new(MermaidInteractiveTool::new()));
 
@@ -125,11 +122,8 @@ impl ToolRegistry {
         // Log tool
         self.register_tool(Arc::new(LogTool::new()));
 
-        // Linter tool (LSP diagnosis)
-        self.register_tool(Arc::new(ReadLintsTool::new()));
-
-        // Image analysis / viewing tool (deprecated - use native multimodal support)
-        // self.register_tool(Arc::new(ViewImageTool::new()));
+        // Image analysis / viewing tool
+        self.register_tool(Arc::new(ViewImageTool::new()));
 
         // Git version control tool
         self.register_tool(Arc::new(GitTool::new()));

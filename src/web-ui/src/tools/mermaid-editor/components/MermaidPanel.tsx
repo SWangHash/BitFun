@@ -10,7 +10,7 @@
 import React, { useCallback } from 'react';
 import { MermaidEditor } from './MermaidEditor';
 import { useI18n } from '@/infrastructure/i18n';
-import type { MermaidPanelData } from '../types/MermaidPanelTypes';
+import type { MermaidPanelData, NodeMetadata } from '../types/MermaidPanelTypes';
 import './MermaidPanel.scss';
 
 export interface MermaidPanelProps {
@@ -18,6 +18,8 @@ export interface MermaidPanelProps {
   onDataChange?: (data: MermaidPanelData) => void;
   onInteraction?: (action: string, payload: string) => Promise<void>;
   className?: string;
+  /** Override default file navigation on node click. */
+  onFileNavigate?: (filePath: string, line: number, metadata: NodeMetadata) => void;
 }
 
 export const MermaidPanel: React.FC<MermaidPanelProps> = ({
@@ -25,6 +27,7 @@ export const MermaidPanel: React.FC<MermaidPanelProps> = ({
   onDataChange,
   onInteraction,
   className = '',
+  onFileNavigate,
 }) => {
   const { t } = useI18n('mermaid-editor');
   
@@ -52,6 +55,7 @@ export const MermaidPanel: React.FC<MermaidPanelProps> = ({
         mode={data.mode}
         nodeMetadata={data.interactive_config?.node_metadata}
         enableTooltips={data.interactive_config?.enable_tooltips ?? true}
+        onFileNavigate={onFileNavigate}
       />
     </div>
   );

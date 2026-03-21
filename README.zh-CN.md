@@ -114,6 +114,16 @@ Mini Apps 从对话中涌现，Skills 在社区里更新，Agent 在协作中进
 - [Rust 工具链](https://rustup.rs/)
 - [Tauri 前置依赖](https://v2.tauri.app/start/prerequisites/)（桌面端开发需要）
 
+**Windows 特别说明**：桌面端包含 SSH 远程功能，依赖 OpenSSL。构建前请下载 [FireDaemon OpenSSL 3.5.5 LTS ZIP](https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.5.5.zip)，解压后在 PowerShell 中执行：
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("OPENSSL_DIR", "C:\解压路径\openssl\x64", "User")
+[System.Environment]::SetEnvironmentVariable("OPENSSL_NO_VENDOR", "1", "User")
+[System.Environment]::SetEnvironmentVariable("OPENSSL_STATIC", "1", "User")
+```
+
+执行后重启终端再运行构建命令。
+
 ```bash
 # 安装依赖
 pnpm install

@@ -12,12 +12,14 @@
   min-width: 260px;
   max-width: 400px;
   max-height: 320px;
-  background: linear-gradient(135deg, 
-    var(--color-bg-elevated) 0%, 
-    rgba(30, 30, 35, 0.98) 100%);
-  border: 1px solid rgba(96, 165, 250, 0.25);
+  background: linear-gradient(
+    135deg,
+    var(--color-bg-elevated) 0%,
+    var(--color-bg-tertiary) 100%
+  );
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.35),
     0 4px 16px rgba(0, 0, 0, 0.2),
     0 0 1px rgba(96, 165, 250, 0.3),
@@ -215,6 +217,46 @@
       font-size: 9px;
       font-family: $font-family-mono;
       color: var(--color-text-secondary);
+    }
+  }
+
+  :root[data-theme="light"] &,
+  :root[data-theme-type="light"] &,
+  .light & {
+    // Blur over chat content reads as muddy/dark; use a solid elevated surface
+    background: var(--color-bg-elevated);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: var(--border-subtle);
+    box-shadow:
+      0 4px 18px rgba(15, 23, 42, 0.04),
+      0 1px 3px rgba(15, 23, 42, 0.03),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+
+    &__back-btn {
+      background: rgba(15, 23, 42, 0.04);
+      border-color: rgba(15, 23, 42, 0.08);
+
+      &:hover {
+        background: rgba(15, 23, 42, 0.06);
+      }
+    }
+
+    &__item:hover {
+      background: var(--element-bg-soft);
+    }
+
+    &__item--selected {
+      background: color-mix(in srgb, var(--color-accent-primary) 10%, transparent);
+
+      .file-mention-picker__item-name {
+        color: var(--color-text-primary);
+      }
+    }
+
+    &__footer kbd {
+      background: rgba(15, 23, 42, 0.04);
+      border-color: rgba(15, 23, 42, 0.08);
     }
   }
 }

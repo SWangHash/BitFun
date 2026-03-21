@@ -1135,7 +1135,6 @@ impl ExecutionEngine {
                 "Skill",
                 "Log",
                 "MermaidInteractive",
-                "IdeControl",
             ];
             let num_tools = ordering.len();
             ordering

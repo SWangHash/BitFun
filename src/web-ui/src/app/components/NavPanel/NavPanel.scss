@@ -1349,6 +1349,133 @@ $_section-header-height: 24px;
   position: relative;
 }
 
+// ──────────────────────────────────────────────
+// Multimodal tools picker (Browser + Mermaid)
+// ──────────────────────────────────────────────
+
+@keyframes bitfun-multimodal-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.bitfun-nav-panel__footer-multimodal-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.bitfun-nav-panel__footer-multimodal-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 140px;
+  padding: $size-gap-1;
+  background: var(--color-bg-elevated, #1e1e22);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: $size-radius-base;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.16);
+  z-index: 9999;
+  transform-origin: bottom center;
+  animation: bitfun-multimodal-menu-in 0.14s $easing-decelerate forwards;
+
+}
+
+.bitfun-nav-panel__footer-multimodal-item {
+  display: flex;
+  align-items: center;
+  gap: $size-gap-2;
+  width: 100%;
+  padding: 0 $size-gap-2;
+  height: 30px;
+  border: none;
+  border-radius: $size-radius-sm;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: $font-size-sm;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+  transition: color $motion-fast $easing-standard,
+              background $motion-fast $easing-standard;
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--element-bg-soft);
+
+    .bitfun-nav-panel__footer-multimodal-item-icon {
+      opacity: 1;
+    }
+  }
+
+  &:active {
+    background: var(--element-bg-medium);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent-500);
+    outline-offset: -1px;
+  }
+
+  &.is-active {
+    color: var(--color-text-primary);
+    background: var(--element-bg-soft);
+
+    .bitfun-nav-panel__footer-multimodal-item-icon {
+      color: var(--color-primary);
+      opacity: 1;
+    }
+  }
+}
+
+.bitfun-nav-panel__footer-multimodal-item-icon {
+  flex-shrink: 0;
+  opacity: 0.65;
+  transition: opacity $motion-fast $easing-standard,
+              color $motion-fast $easing-standard;
+}
+
+.bitfun-nav-panel__footer-multimodal-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bitfun-nav-panel__footer-multimodal-item-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+// Active dot badge on main Layers button
+.bitfun-nav-panel__footer-multimodal-dot {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  pointer-events: none;
+}
+
+// Hover-open subtle glow on the main button
+.bitfun-nav-panel__footer-btn--icon.is-hover-open {
+  color: var(--color-text-primary);
+  background: var(--element-bg-soft);
+}
+
 .bitfun-nav-panel__footer-backdrop {
   position: fixed;
   inset: 0;

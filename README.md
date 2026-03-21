@@ -111,6 +111,16 @@ Make sure you have the following prerequisites installed:
 - Rust toolchain (install via [rustup](https://rustup.rs/))
 - [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for desktop development
 
+**Windows only**: The desktop app includes SSH remote support which requires OpenSSL. Before building, download the [FireDaemon OpenSSL 3.5.5 LTS ZIP](https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.5.5.zip), extract it, and set these environment variables in PowerShell:
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("OPENSSL_DIR", "C:\path\to\openssl\x64", "User")
+[System.Environment]::SetEnvironmentVariable("OPENSSL_NO_VENDOR", "1", "User")
+[System.Environment]::SetEnvironmentVariable("OPENSSL_STATIC", "1", "User")
+```
+
+Then restart your terminal before running the build commands.
+
 ```bash
 # Install dependencies
 pnpm install

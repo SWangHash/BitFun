@@ -64,22 +64,22 @@ const MiniAppCard: React.FC<MiniAppCardProps> = ({
       onKeyDown={(e) => e.key === 'Enter' && handleOpenDetails()}
       aria-label={app.name}
     >
-      {/* Header with icon */}
+      {/* Header with icon and title */}
       <div className="miniapp-card__header">
         <div className="miniapp-card__icon-area">
           <div className="miniapp-card__icon">
             {renderMiniAppIcon(app.icon || 'box', 20)}
           </div>
         </div>
-        {isRunning && <span className="miniapp-card__run-dot" />}
-      </div>
-
-      {/* Body: name + description + tags */}
-      <div className="miniapp-card__body">
-        <div className="miniapp-card__row">
+        <div className="miniapp-card__title-group">
           <span className="miniapp-card__name">{app.name}</span>
           <span className="miniapp-card__version">v{app.version}</span>
         </div>
+        {isRunning && <span className="miniapp-card__run-dot" />}
+      </div>
+
+      {/* Body: description + tags */}
+      <div className="miniapp-card__body">
         {app.description ? (
           <div className="miniapp-card__desc">
             <span className="miniapp-card__desc-inner">{app.description}</span>

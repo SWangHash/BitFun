@@ -283,6 +283,33 @@
     color: rgba(100, 180, 255, 0.8);
     flex-shrink: 0;
   }
+
+  :root[data-theme="light"] &,
+  :root[data-theme-type="light"] &,
+  .light & {
+    &__dropdown {
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--border-subtle);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow:
+        0 4px 18px rgba(15, 23, 42, 0.04),
+        0 1px 3px rgba(15, 23, 42, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    }
+
+    &__dropdown-header {
+      border-bottom-color: var(--border-subtle);
+    }
+
+    &__list::-webkit-scrollbar-thumb {
+      background: rgba(15, 23, 42, 0.08);
+
+      &:hover {
+        background: rgba(15, 23, 42, 0.14);
+      }
+    }
+  }
 }
 
 // Dropdown fade-in animation

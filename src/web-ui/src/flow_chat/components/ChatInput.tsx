@@ -5,7 +5,7 @@
 
 import React, { useRef, useCallback, useEffect, useReducer, useState, useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { ArrowUp, Image, Network, ChevronsUp, ChevronsDown, RotateCcw } from 'lucide-react';
+import { ArrowUp, Image, ChevronsUp, ChevronsDown, RotateCcw, Plus, X, Sparkles, Loader2, ChevronRight } from 'lucide-react';
 import { ContextDropZone, useContextStore } from '../../shared/context-system';
 import { useActiveSessionState } from '../hooks/useActiveSessionState';
 import { RichTextInput, type MentionState } from './RichTextInput';
@@ -26,7 +26,6 @@ import { notificationService } from '@/shared/notification-system';
 import { inputReducer, initialInputState } from '../reducers/inputReducer';
 import { modeReducer, initialModeState } from '../reducers/modeReducer';
 import { CHAT_INPUT_CONFIG } from '../constants/chatInputConfig';
-import { MERMAID_INTERACTIVE_EXAMPLE } from '../constants/mermaidExamples';
 import { useMessageSender } from '../hooks/useMessageSender';
 import { useChatInputState } from '../store/chatInputStateStore';
 import { useInputHistoryStore } from '../store/inputHistoryStore';
@@ -36,6 +35,9 @@ import { Tooltip, IconButton } from '@/component-library';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import { openBtwSessionInAuxPane, selectActiveBtwSessionTab } from '../services/openBtwSession';
 import { resolveSessionRelationship } from '../utils/sessionMetadata';
+import { useSceneStore } from '@/app/stores/sceneStore';
+import type { SceneTabId } from '@/app/components/SceneBar/types';
+import type { SkillInfo } from '@/infrastructure/config/types';
 import './ChatInput.scss';
 
 const log = createLogger('ChatInput');
@@ -72,7 +74,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [modeState, dispatchMode] = useReducer(modeReducer, initialModeState);
   
   const richTextInputRef = useRef<HTMLDivElement>(null);
-  const modeDropdownRef = useRef<HTMLDivElement>(null);
+  const agentBoostRef = useRef<HTMLDivElement>(null);
   const isImeComposingRef = useRef(false);
   const lastImeCompositionEndAtRef = useRef(0);
   
@@ -137,6 +139,48 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       ),
     [isAssistantWorkspace, modeState.available]
   );
+
+  /** Code session: only Plan and debug are optional on top of default agentic */
+  const incrementalCodeModes = useMemo(
+    () => switchableModes.filter(m => m.id === 'Plan' || m.id === 'debug'),
+    [switchableModes]
+  );
+
+  const openScene = useSceneStore(s => s.openScene);
+  const [boostPanelSkills, setBoostPanelSkills] = useState<SkillInfo[]>([]);
+  const [boostSkillsLoading, setBoostSkillsLoading] = useState(false);
+
+  const [skillsFlyoutOpen, setSkillsFlyoutOpen] = useState(false);
+  const [skillsFlyoutLeft, setSkillsFlyoutLeft] = useState(false);
+  const [skillsFlyoutUp, setSkillsFlyoutUp] = useState(false);
+  const skillsHostRef = useRef<HTMLDivElement>(null);
+  const skillsTimerRef = useRef<number | null>(null);
+
+  const clearSkillsTimer = useCallback(() => {
+    if (skillsTimerRef.current !== null) {
+      window.clearTimeout(skillsTimerRef.current);
+      skillsTimerRef.current = null;
+    }
+  }, []);
+
+  const openSkillsFlyout = useCallback(() => {
+    clearSkillsTimer();
+    const host = skillsHostRef.current;
+    if (host) {
+      const r = host.getBoundingClientRect();
+      setSkillsFlyoutLeft(r.right + 260 > window.innerWidth - 8);
+      setSkillsFlyoutUp(r.top + 200 > window.innerHeight - 8);
+    }
+    setSkillsFlyoutOpen(true);
+  }, [clearSkillsTimer]);
+
+  const closeSkillsFlyout = useCallback(() => {
+    clearSkillsTimer();
+    skillsTimerRef.current = window.setTimeout(() => {
+      skillsTimerRef.current = null;
+      setSkillsFlyoutOpen(false);
+    }, 150);
+  }, [clearSkillsTimer]);
   
   const setChatInputActive = useChatInputState(state => state.setActive);
   const setChatInputExpanded = useChatInputState(state => state.setExpanded);
@@ -469,7 +513,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (modeDropdownRef.current && !modeDropdownRef.current.contains(event.target as Node)) {
+      if (agentBoostRef.current && !agentBoostRef.current.contains(event.target as Node)) {
         dispatchMode({ type: 'CLOSE_DROPDOWN' });
       }
     };
@@ -482,6 +526,47 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [modeState.dropdownOpen]);
+
+  useEffect(() => {
+    if (!modeState.dropdownOpen) {
+      return;
+    }
+    let cancelled = false;
+    setBoostSkillsLoading(true);
+    (async () => {
+      try {
+        const { configAPI } = await import('@/infrastructure/api');
+        const list = await configAPI.getSkillConfigs({
+          workspacePath: workspacePath || undefined,
+        });
+        if (!cancelled) {
+          setBoostPanelSkills(list.filter(s => s.enabled));
+        }
+      } catch (err) {
+        log.error('Failed to load skills for boost panel', { err });
+        if (!cancelled) setBoostPanelSkills([]);
+      } finally {
+        if (!cancelled) setBoostSkillsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [modeState.dropdownOpen, workspacePath]);
+
+  useEffect(() => {
+    if (!modeState.dropdownOpen) {
+      clearSkillsTimer();
+      setSkillsFlyoutOpen(false);
+    }
+  }, [clearSkillsTimer, modeState.dropdownOpen]);
+
+  useEffect(
+    () => () => {
+      clearSkillsTimer();
+    },
+    [clearSkillsTimer]
+  );
 
   useEffect(() => {
     const handleImagePaste = async (event: Event) => {
@@ -736,18 +821,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   }, [inputState.value, derivedState, transition, sendMessage, addToHistory, effectiveTargetSessionId, setQueuedInput, submitBtwFromInput]);
   
-  const getFilteredModes = useCallback(() => {
-    if (!canSwitchModes) {
-      return [];
-    }
-    if (!slashCommandState.query) {
-      return switchableModes;
-    }
-    return switchableModes.filter(mode =>
-      mode.name.toLowerCase().includes(slashCommandState.query) ||
-      mode.id.toLowerCase().includes(slashCommandState.query)
+  const getFilteredIncrementalModes = useCallback(() => {
+    if (!canSwitchModes) return [];
+    if (!slashCommandState.query) return incrementalCodeModes;
+    return incrementalCodeModes.filter(
+      mode =>
+        mode.name.toLowerCase().includes(slashCommandState.query) ||
+        mode.id.toLowerCase().includes(slashCommandState.query)
     );
-  }, [canSwitchModes, switchableModes, slashCommandState.query]);
+  }, [canSwitchModes, incrementalCodeModes, slashCommandState.query]);
 
   const applyModeChange = useCallback((modeId: string) => {
     dispatchMode({
@@ -823,13 +905,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const getSlashPickerItems = useCallback((): SlashPickerItem[] => {
     const actions = getFilteredActions();
-    const modes: SlashModeItem[] = getFilteredModes().map(mode => ({
+    let modeList = incrementalCodeModes;
+    if (canSwitchModes && slashCommandState.query) {
+      const q = slashCommandState.query;
+      modeList = incrementalCodeModes.filter(
+        mode =>
+          mode.name.toLowerCase().includes(q) ||
+          mode.id.toLowerCase().includes(q)
+      );
+    }
+    const modes: SlashModeItem[] = (canSwitchModes ? modeList : []).map(mode => ({
       kind: 'mode',
       id: mode.id,
       name: mode.name,
     }));
     return [...actions, ...modes];
-  }, [getFilteredActions, getFilteredModes]);
+  }, [canSwitchModes, getFilteredActions, incrementalCodeModes, slashCommandState.query]);
 
   const selectSlashCommandAction = useCallback((actionId: string) => {
     if (isBtwSession) return;
@@ -885,7 +976,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       if (!(slashCommandState.kind === 'modes' && !canSwitchModes)) {
         const items =
           slashCommandState.kind === 'modes'
-            ? getFilteredModes()
+            ? getFilteredIncrementalModes()
             : slashCommandState.kind === 'actions'
               ? getFilteredActions()
               : getSlashPickerItems();
@@ -1078,7 +1169,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       e.preventDefault();
       transition(SessionExecutionEvent.USER_CANCEL);
     }
-  }, [handleSendOrCancel, submitBtwFromInput, derivedState, transition, slashCommandState, getFilteredModes, getFilteredActions, getSlashPickerItems, selectSlashCommandMode, selectSlashCommandAction, canSwitchModes, historyIndex, inputHistory, savedDraft, inputState.value, currentSessionId, isBtwSession, showTargetSwitcher, setInputTarget, t]);
+  }, [handleSendOrCancel, submitBtwFromInput, derivedState, transition, slashCommandState, getFilteredIncrementalModes, getFilteredActions, getSlashPickerItems, selectSlashCommandMode, selectSlashCommandAction, canSwitchModes, historyIndex, inputHistory, savedDraft, inputState.value, currentSessionId, isBtwSession, showTargetSwitcher, setInputTarget, t]);
 
   const handleImeCompositionStart = useCallback(() => {
     isImeComposingRef.current = true;
@@ -1142,27 +1233,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     input.click();
   }, [addContext, currentImageCount]);
   
-  const handleMermaidEditor = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('expand-right-panel'));
-    
-    setTimeout(() => {
-      const event = new CustomEvent('agent-create-tab', {
-        detail: {
-          type: 'mermaid-editor',
-          title: t('input.mermaidDualModeDemo'),
-          data: MERMAID_INTERACTIVE_EXAMPLE,
-          metadata: {
-            duplicateCheckKey: 'mermaid-dual-mode-demo'
-          },
-          checkDuplicate: true,
-          duplicateCheckKey: 'mermaid-dual-mode-demo',
-          replaceExisting: false
-        }
-      });
-      window.dispatchEvent(event);
-    }, 250);
-  }, []);
-  
   const toggleExpand = useCallback(() => {
     dispatchInput({ type: 'TOGGLE_EXPAND' });
   }, []);
@@ -1172,6 +1242,41 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       richTextInputRef.current?.focus();
     });
   }, []);
+
+  const insertSkillIntoInput = useCallback(
+    (skillName: string) => {
+      const line = t('chatInput.insertSkillLine', { name: skillName });
+      dispatchInput({ type: 'ACTIVATE' });
+      const cur = inputState.value;
+      const next = cur.trim() ? `${cur.trimEnd()}\n\n${line}` : line;
+      dispatchInput({ type: 'SET_VALUE', payload: next });
+      clearSkillsTimer();
+      setSkillsFlyoutOpen(false);
+      dispatchMode({ type: 'CLOSE_DROPDOWN' });
+      focusRichTextInputSoon();
+    },
+    [clearSkillsTimer, focusRichTextInputSoon, inputState.value, t]
+  );
+
+  const handleBoostPickImage = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      dispatchMode({ type: 'CLOSE_DROPDOWN' });
+      handleImageInput();
+    },
+    [handleImageInput]
+  );
+
+  const handleOpenSkillsLibrary = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      clearSkillsTimer();
+      setSkillsFlyoutOpen(false);
+      dispatchMode({ type: 'CLOSE_DROPDOWN' });
+      openScene('skills' as SceneTabId);
+    },
+    [clearSkillsTimer, openScene]
+  );
   
   const handleActivate = useCallback((e?: React.MouseEvent) => {
     if (e?.target instanceof HTMLButtonElement || 
@@ -1466,11 +1571,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
                 if (!canSwitchModes) return null;
 
-                const filteredModes = getFilteredModes();
+                const filteredModes = getFilteredIncrementalModes();
                 return (
                   <div className="bitfun-chat-input__slash-command-picker">
                     <div className="bitfun-chat-input__slash-command-header">
-                      <span>{t('chatInput.switchMode')}</span>
+                      <span>{t('chatInput.addModeMenuTitle')}</span>
                       <span className="bitfun-chat-input__slash-command-hint">{t('chatInput.selectHint')}</span>
                     </div>
                     <div className="bitfun-chat-input__slash-command-list">
@@ -1526,59 +1631,174 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             </IconButton>
             <div className="bitfun-chat-input__actions">
               <div className="bitfun-chat-input__actions-left">
-                {canSwitchModes && (
-                  <div 
-                    className="bitfun-chat-input__mode-selector"
-                    ref={modeDropdownRef}
-                  >
+                <div className="bitfun-chat-input__agent-boost" ref={agentBoostRef}>
+                  <Tooltip content={t('chatInput.addBoostTooltip')}>
                     <IconButton
-                      className={`bitfun-chat-input__mode-selector-button${modeState.current !== 'agentic' ? ` bitfun-chat-input__mode-selector-button--${modeState.current}` : ''}`}
+                      className="bitfun-chat-input__agent-boost-add"
                       variant="ghost"
                       size="xs"
-                      onClick={() => dispatchMode({ type: 'TOGGLE_DROPDOWN' })}
-                      tooltip={t('chatInput.currentMode', { mode: t(`chatInput.modeNames.${modeState.current}`, { defaultValue: '' }) || modeState.available.find(m => m.id === modeState.current)?.name || modeState.current })}
+                      aria-haspopup="menu"
+                      aria-expanded={modeState.dropdownOpen}
+                      onClick={e => {
+                        e.stopPropagation();
+                        dispatchMode({ type: 'TOGGLE_DROPDOWN' });
+                      }}
                     >
-                      {t(`chatInput.modeNames.${modeState.current}`, { defaultValue: '' }) || modeState.available.find(m => m.id === modeState.current)?.name || modeState.current}
+                      <Plus size={14} strokeWidth={2.25} />
                     </IconButton>
-                  {modeState.dropdownOpen && (() => {
-                    const modeOrder = ['agentic', 'Claw', 'Plan', 'debug'];
-                    
-                    const sortedModes = [...switchableModes].sort((a, b) => {
-                      const aIndex = modeOrder.indexOf(a.id);
-                      const bIndex = modeOrder.indexOf(b.id);
-                      if (aIndex === -1 && bIndex === -1) return 0;
-                      if (aIndex === -1) return 1;
-                      if (bIndex === -1) return -1;
-                      return aIndex - bIndex;
-                    });
-                    
-                    const renderModeOption = (modeOption: typeof switchableModes[0]) => {
-                      const modeDescription = t(`chatInput.modeDescriptions.${modeOption.id}`, { defaultValue: '' }) || modeOption.description || modeOption.name;
-                      const modeName = t(`chatInput.modeNames.${modeOption.id}`, { defaultValue: '' }) || modeOption.name;
-                      return (
-                      <Tooltip key={modeOption.id} content={modeDescription} placement="left">
+                  </Tooltip>
+
+                  {canSwitchModes && modeState.current !== 'agentic' && (
+                    <div
+                      className={`bitfun-chat-input__agent-capsule bitfun-chat-input__agent-capsule--${modeState.current === 'debug' ? 'debug' : modeState.current}`}
+                    >
+                      <span className="bitfun-chat-input__agent-capsule-label">
+                        {t(`chatInput.modeNames.${modeState.current}`, { defaultValue: '' }) ||
+                          modeState.available.find(m => m.id === modeState.current)?.name ||
+                          modeState.current}
+                      </span>
+                      <button
+                        type="button"
+                        className="bitfun-chat-input__agent-capsule-close"
+                        aria-label={t('chatInput.resetToAgentic')}
+                        onClick={e => {
+                          e.stopPropagation();
+                          applyModeChange('agentic');
+                          dispatchMode({ type: 'CLOSE_DROPDOWN' });
+                        }}
+                      >
+                        <X size={12} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  )}
+
+                  {modeState.dropdownOpen && (
+                    <div className="bitfun-chat-input__mode-dropdown bitfun-chat-input__mode-dropdown--agent-boost">
+                      {canSwitchModes && (
+                        <>
+                          <div className="bitfun-chat-input__boost-section">
+                            {incrementalCodeModes.length > 0 ? (
+                              incrementalCodeModes.map(modeOption => {
+                                const modeDescription =
+                                  t(`chatInput.modeDescriptions.${modeOption.id}`, { defaultValue: '' }) ||
+                                  modeOption.description ||
+                                  modeOption.name;
+                                const modeName =
+                                  t(`chatInput.modeNames.${modeOption.id}`, { defaultValue: '' }) || modeOption.name;
+                                return (
+                                  <Tooltip key={modeOption.id} content={modeDescription} placement="left">
+                                    <div
+                                      className={`bitfun-chat-input__mode-option ${modeState.current === modeOption.id ? 'bitfun-chat-input__mode-option--active' : ''}`}
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        requestModeChange(modeOption.id);
+                                      }}
+                                    >
+                                      <span className="bitfun-chat-input__mode-option-name">{modeName}</span>
+                                      {modeState.current === modeOption.id && (
+                                        <span className="bitfun-chat-input__slash-command-current">{t('chatInput.current')}</span>
+                                      )}
+                                    </div>
+                                  </Tooltip>
+                                );
+                              })
+                            ) : (
+                              <div className="bitfun-chat-input__agent-boost-empty bitfun-chat-input__agent-boost-empty--inline">
+                                {t('chatInput.noIncrementalModes')}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="bitfun-chat-input__boost-section-divider" aria-hidden />
+                        </>
+                      )}
+
+                      <div className="bitfun-chat-input__boost-section">
                         <div
-                          className={`bitfun-chat-input__mode-option ${modeState.current === modeOption.id ? 'bitfun-chat-input__mode-option--active' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            requestModeChange(modeOption.id);
-                          }}
+                          role="button"
+                          tabIndex={0}
+                          className="bitfun-chat-input__boost-context-row"
+                          onClick={handleBoostPickImage}
+                          onKeyDown={e => e.key === 'Enter' && handleBoostPickImage(e as any)}
                         >
-                          <span className="bitfun-chat-input__mode-option-name">{modeName}</span>
-                          {!modeOrder.includes(modeOption.id) && <span className="bitfun-chat-input__mode-option-badge bitfun-chat-input__mode-option-badge--wip">{t('chatInput.wip')}</span>}
+                          <Image size={14} className="bitfun-chat-input__boost-context-icon" aria-hidden />
+                          <span>{t('input.addImage')}</span>
                         </div>
-                      </Tooltip>
-                      );
-                    };
-                    
-                    return (
-                      <div className="bitfun-chat-input__mode-dropdown">
-                        {sortedModes.map(m => renderModeOption(m))}
+
+                        <div
+                          ref={skillsHostRef}
+                          className="bitfun-chat-input__boost-submenu-host"
+                          onMouseEnter={openSkillsFlyout}
+                          onMouseLeave={closeSkillsFlyout}
+                        >
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            className="bitfun-chat-input__boost-submenu-trigger"
+                            aria-haspopup="menu"
+                            aria-expanded={skillsFlyoutOpen}
+                          >
+                            <span className="bitfun-chat-input__boost-submenu-trigger-main">
+                              <Sparkles size={14} className="bitfun-chat-input__boost-context-icon" aria-hidden />
+                              <span>{t('chatInput.boostSkills')}</span>
+                            </span>
+                            <ChevronRight size={14} className="bitfun-chat-input__boost-submenu-chevron" aria-hidden />
+                          </div>
+                          <div
+                            className={[
+                              'bitfun-chat-input__boost-submenu-shell',
+                              skillsFlyoutOpen ? 'bitfun-chat-input__boost-submenu-shell--open' : '',
+                              skillsFlyoutLeft ? 'bitfun-chat-input__boost-submenu-shell--left' : '',
+                              skillsFlyoutUp ? 'bitfun-chat-input__boost-submenu-shell--up' : '',
+                            ].filter(Boolean).join(' ')}
+                            onMouseEnter={openSkillsFlyout}
+                            onMouseLeave={closeSkillsFlyout}
+                          >
+                            <div className="bitfun-chat-input__boost-submenu-panel">
+                              {boostSkillsLoading ? (
+                                <div className="bitfun-chat-input__boost-submenu-loading">
+                                  <Loader2 size={14} className="bitfun-chat-input__boost-submenu-spinner" aria-hidden />
+                                  <span>{t('chatInput.boostSkillsLoading')}</span>
+                                </div>
+                              ) : boostPanelSkills.length === 0 ? (
+                                <div className="bitfun-chat-input__boost-submenu-empty">{t('chatInput.boostSkillsEmpty')}</div>
+                              ) : (
+                                <div className="bitfun-chat-input__boost-submenu-list">
+                                  {boostPanelSkills.map(skill => (
+                                    <div
+                                      key={skill.name}
+                                      role="button"
+                                      tabIndex={0}
+                                      className="bitfun-chat-input__boost-submenu-item"
+                                      title={skill.description || skill.name}
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        insertSkillIntoInput(skill.name);
+                                      }}
+                                      onKeyDown={e => e.key === 'Enter' && insertSkillIntoInput(skill.name)}
+                                    >
+                                      <Sparkles size={12} className="bitfun-chat-input__boost-submenu-item-icon" aria-hidden />
+                                      <span className="bitfun-chat-input__boost-submenu-item-name">{skill.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                className="bitfun-chat-input__boost-submenu-manage"
+                                onClick={handleOpenSkillsLibrary}
+                                onKeyDown={e => e.key === 'Enter' && handleOpenSkillsLibrary(e as any)}
+                              >
+                                {t('chatInput.openSkillsLibrary')}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    );
-                  })()}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
 
                 <ModelSelector
                   currentMode={modeState.current}
@@ -1602,26 +1822,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     </span>
                   </>
                 )}
-                
-                <IconButton
-                  className="bitfun-chat-input__action-button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={handleImageInput}
-                  tooltip={t('input.addImage')}
-                >
-                  <Image size={12} />
-                </IconButton>
-                
-                <IconButton
-                  className="bitfun-chat-input__action-button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={handleMermaidEditor}
-                  tooltip={t('input.openMermaidEditor')}
-                >
-                  <Network size={12} />
-                </IconButton>
                 
                 {renderActionButton()}
               </div>

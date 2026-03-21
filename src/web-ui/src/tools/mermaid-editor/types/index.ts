@@ -16,6 +16,11 @@ export interface MermaidEditorProps {
   nodeMetadata?: Record<string, NodeMetadata>;
   /** Whether to show tooltips. */
   enableTooltips?: boolean;
+  /**
+   * Override default file navigation on node click.
+   * When provided, this is called instead of dispatching agent-create-tab.
+   */
+  onFileNavigate?: (filePath: string, line: number, metadata: NodeMetadata) => void;
 }
 
 export interface MermaidEditorState {

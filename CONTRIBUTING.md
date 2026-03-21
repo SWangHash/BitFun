@@ -17,6 +17,24 @@ Be respectful, kind, and constructive. We welcome contributors of all background
 - Rust toolchain (install via [rustup](https://rustup.rs/))
 - [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for desktop development
 
+#### Windows: OpenSSL Setup
+
+The desktop app includes SSH remote support, which requires OpenSSL. On Windows, you need to provide pre-built OpenSSL binaries and set environment variables before building.
+
+1. Download the [FireDaemon OpenSSL 3.5.5 LTS ZIP (x86+x64+ARM64)](https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.5.5.zip)
+2. Extract to a directory, e.g. `C:\Users\<you>\openssl`
+3. Set the following **user environment variables** (persist across terminal sessions):
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("OPENSSL_DIR", "C:\Users\<you>\openssl\x64", "User")
+[System.Environment]::SetEnvironmentVariable("OPENSSL_NO_VENDOR", "1", "User")
+[System.Environment]::SetEnvironmentVariable("OPENSSL_STATIC", "1", "User")
+```
+
+4. Restart your terminal (or IDE) for the variables to take effect.
+
+> **Alternative**: Install [Strawberry Perl](https://strawberryperl.com/) to let Cargo build OpenSSL from source automatically — no environment variables needed.
+
 ### Install dependencies
 
 ```bash

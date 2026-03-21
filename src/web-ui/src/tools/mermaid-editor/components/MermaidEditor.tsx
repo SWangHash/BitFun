@@ -165,6 +165,7 @@ export const MermaidEditor: React.FC<MermaidEditorProps> = React.memo(({
   mode,
   nodeMetadata,
   enableTooltips = true,
+  onFileNavigate,
 }) => {
   const { t } = useI18n('mermaid-editor');
   
@@ -586,6 +587,7 @@ export const MermaidEditor: React.FC<MermaidEditorProps> = React.memo(({
             onError={setError}
             onRender={() => setError(null)}
             onZoomChange={setZoomLevel}
+            onFileNavigate={onFileNavigate}
           />
           
           {(error || isFixing) && (

@@ -116,5 +116,62 @@
     "sessionTitleDesc":   "Auto-generate titles for new sessions",
     "welcomeAnalysis":    "Welcome AI Analysis",
     "welcomeAnalysisDesc": "Analyze project status on open"
+  },
+
+  "nursery": {
+    "backToGallery": "Nursery",
+
+    "gallery": {
+      "title":              "Nursery",
+      "subtitle":           "Manage all your assistant instances",
+      "newAssistant":       "New Assistant",
+      "assistantsTitle":    "Hatched Assistants",
+      "assistantsSubtitle": "Click a card to configure"
+    },
+
+    "template": {
+      "tag":          "Global Default",
+      "title":        "Hatch Template",
+      "subtitle":     "New assistants inherit these settings",
+      "configure":    "Configure",
+      "tokenTitle":   "Context Usage Estimate",
+      "tokenSystemPrompt": "System Prompt",
+      "tokenToolInjection": "Tool Injection",
+      "tokenRules":   "Rules",
+      "tokenMemories": "Memories",
+      "tokenTotal":   "Default Total",
+      "stats": {
+        "primaryDefault": "Primary model",
+        "fastDefault":    "Fast model",
+        "tools":          "{{count}} tools",
+        "skills":         "{{count}} skills"
+      },
+      "groupCountEmpty": "None",
+      "builtinToolsSection": "Built-in tools",
+      "mcpToolsSection": "MCP tools",
+      "mcpEmptyTitle": "No MCP servers connected",
+      "mcpEmptyHint": "Add MCP servers in Settings to see their tools here.",
+      "mcpServerNoTools": "No tools available from this server"
+    },
+
+    "tabs": {
+      "identity":    "Identity",
+      "personality": "Personality",
+      "ability":     "Ability",
+      "memory":      "Memory"
+    },
+
+    "card": {
+      "unnamed":    "Unnamed Assistant",
+      "noVibe":     "An assistant waiting to be defined",
+      "configure":  "Click to configure",
+      "tokenTitle": "Context usage estimate"
+    },
+
+    "assistant": {
+      "inheritGroup":   "Inherit from Template",
+      "inheritPrimary": "Inherit from template (primary)",
+      "inheritFast":    "Inherit from template (fast)"
+    }
   }
 }

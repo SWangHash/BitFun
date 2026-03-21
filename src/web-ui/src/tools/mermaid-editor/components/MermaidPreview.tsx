@@ -28,6 +28,8 @@ export interface MermaidPreviewProps {
   /** Edge click callback in edit mode. */
   onEdgeClick?: (edgeInfo: EdgeInfo, event?: MouseEvent) => void;
   onZoomChange?: (zoomLevel: number) => void;
+  /** Override the default file-open behavior for node navigation. */
+  onFileNavigate?: (filePath: string, line: number, metadata: import('../types/MermaidPanelTypes').NodeMetadata) => void;
 }
 
 export interface MermaidPreviewRef {
@@ -131,6 +133,7 @@ export const MermaidPreview = React.memo(forwardRef<MermaidPreviewRef, MermaidPr
   onNodeClick,
   onEdgeClick,
   onZoomChange,
+  onFileNavigate,
 }, ref) => {
   const { t } = useI18n('mermaid-editor');
   
@@ -170,6 +173,7 @@ export const MermaidPreview = React.memo(forwardRef<MermaidPreviewRef, MermaidPr
     enableTooltips,
     onNodeClick,
     onEdgeClick,
+    onFileNavigate,
     onTooltipShow: enableTooltips ? (data: TooltipData, position: { x: number; y: number }) => {
       setTooltipData(data);
       setTooltipPosition(position);

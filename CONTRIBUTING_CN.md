@@ -17,6 +17,24 @@
 - Rust toolchain（通过 rustup 安装）
 - 桌面端开发需准备 Tauri 依赖
 
+#### Windows：OpenSSL 配置
+
+桌面端包含 SSH 远程功能，该功能依赖 OpenSSL。在 Windows 上需要提供预编译的 OpenSSL 并设置环境变量，才能正常编译。
+
+1. 下载 [FireDaemon OpenSSL 3.5.5 LTS ZIP（x86+x64+ARM64）](https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.5.5.zip)
+2. 解压到任意目录，例如 `C:\Users\<用户名>\openssl`
+3. 在 PowerShell 中执行以下命令，将环境变量**永久写入用户环境**：
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("OPENSSL_DIR", "C:\Users\<用户名>\openssl\x64", "User")
+[System.Environment]::SetEnvironmentVariable("OPENSSL_NO_VENDOR", "1", "User")
+[System.Environment]::SetEnvironmentVariable("OPENSSL_STATIC", "1", "User")
+```
+
+4. 重启终端（或 IDE）使环境变量生效。
+
+> **备选方案**：安装 [Strawberry Perl](https://strawberryperl.com/)，Cargo 会自动从源码编译 OpenSSL，无需配置环境变量。
+
 ### 安装依赖
 
 ```bash

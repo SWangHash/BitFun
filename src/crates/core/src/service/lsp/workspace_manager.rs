@@ -1366,7 +1366,7 @@ impl WorkspaceLspManager {
         lsp.get_document_symbols(&server_language, uri).await
     }
 
-    /// Gets diagnostics for a file (used by the `ReadLints` tool).
+    /// Gets diagnostics for a file (e.g. for UI or other callers).
     /// Returns cached diagnostics without triggering new LSP requests.
     pub async fn get_diagnostics(&self, uri: &str) -> Result<Vec<serde_json::Value>> {
         let lsp = self.lsp_manager.read().await;

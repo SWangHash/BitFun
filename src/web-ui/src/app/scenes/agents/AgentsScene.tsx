@@ -45,13 +45,9 @@ import './AgentsScene.scss';
 
 const EXAMPLE_TEAM_IDS = new Set(MOCK_AGENT_TEAMS.map((team) => team.id));
 
-const CORE_AGENT_IDS = new Set(['Claw', 'agentic', 'Cowork']);
+const HIDDEN_AGENT_IDS = new Set(['Claw']);
 
-const CORE_AGENT_META: Record<string, CoreAgentMeta> = {
-  Claw:    { role: '个人助理',       accentColor: '#f59e0b', accentBg: 'rgba(245,158,11,0.10)' },
-  agentic: { role: '编码专业智能体', accentColor: '#6366f1', accentBg: 'rgba(99,102,241,0.10)' },
-  Cowork:  { role: '办公智能体',     accentColor: '#14b8a6', accentBg: 'rgba(20,184,166,0.10)' },
-};
+const CORE_AGENT_IDS = new Set(['agentic', 'Cowork']);
 
 const AgentTeamEditorView: React.FC = () => {
   const { t } = useTranslation('scenes/agents');
@@ -128,6 +124,19 @@ const AgentsHomeView: React.FC = () => {
     t,
   });
 
+  const coreAgentMeta = useMemo((): Record<string, CoreAgentMeta> => ({
+    agentic: {
+      role: t('coreAgentsZone.modes.agentic.role'),
+      accentColor: '#6366f1',
+      accentBg: 'rgba(99,102,241,0.10)',
+    },
+    Cowork: {
+      role: t('coreAgentsZone.modes.cowork.role'),
+      accentColor: '#14b8a6',
+      accentBg: 'rgba(20,184,166,0.10)',
+    },
+  }), [t]);
+
   const filteredTeams = useMemo(() => agentTeams.filter((team) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -136,11 +145,16 @@ const AgentsHomeView: React.FC = () => {
 
   const coreAgents = useMemo(() => allAgents.filter((agent) => CORE_AGENT_IDS.has(agent.id)), [allAgents]);
 
+  const visibleAgents = useMemo(
+    () => filteredAgents.filter((agent) => !HIDDEN_AGENT_IDS.has(agent.id) && !CORE_AGENT_IDS.has(agent.id)),
+    [filteredAgents],
+  );
+
   const handleCreateTeam = useCallback(() => {
     const id = `agent-team-${Date.now()}`;
     addAgentTeam({
       id,
-      name: t('teamsZone.newTeamName', '新团队'),
+      name: t('teamsZone.newTeamName'),
       icon: 'users',
       description: '',
       strategy: 'collaborative',
@@ -154,14 +168,14 @@ const AgentsHomeView: React.FC = () => {
   }, []);
 
   const levelFilters = [
-    { key: 'builtin', label: t('filters.builtin', '内置'), count: counts.builtin },
-    { key: 'user', label: t('filters.user', '用户'), count: counts.user },
-    { key: 'project', label: t('filters.project', '项目'), count: counts.project },
+    { key: 'builtin', label: t('filters.builtin'), count: counts.builtin },
+    { key: 'user', label: t('filters.user'), count: counts.user },
+    { key: 'project', label: t('filters.project'), count: counts.project },
   ] as const;
 
   const typeFilters = [
-    { key: 'mode', label: t('filters.mode', 'Agent'), count: counts.mode },
-    { key: 'subagent', label: t('filters.subagent', 'Sub-Agent'), count: counts.subagent },
+    { key: 'mode', label: t('filters.mode'), count: counts.mode },
+    { key: 'subagent', label: t('filters.subagent'), count: counts.subagent },
   ] as const;
 
   const renderSkeletons = (prefix: string) => (
@@ -317,7 +331,7 @@ const AgentsHomeView: React.FC = () => {
                   key={agent.id}
                   agent={agent}
                   index={index}
-                  meta={CORE_AGENT_META[agent.id] ?? { role: agent.name, accentColor: '#6366f1', accentBg: 'rgba(99,102,241,0.10)' }}
+                  meta={coreAgentMeta[agent.id] ?? { role: agent.name, accentColor: '#6366f1', accentBg: 'rgba(99,102,241,0.10)' }}
                   skillCount={agent.agentKind === 'mode' ? (getModeConfig(agent.id)?.available_skills?.length ?? 0) : 0}
                   onOpenDetails={openAgentDetails}
                 />
@@ -335,7 +349,7 @@ const AgentsHomeView: React.FC = () => {
               <div className="bitfun-agents-scene__agent-filters">
                 <div className="bitfun-agents-scene__agent-filter-group">
                   <span className="bitfun-agents-scene__agent-filter-label">
-                    {t('filters.source', '来源')}
+                    {t('filters.source')}
                   </span>
                   {levelFilters.map(({ key, label, count }) => (
                     <button
@@ -354,7 +368,7 @@ const AgentsHomeView: React.FC = () => {
                 </div>
                 <div className="bitfun-agents-scene__agent-filter-group">
                   <span className="bitfun-agents-scene__agent-filter-label">
-                    {t('filters.kind', '类型')}
+                    {t('filters.kind')}
                   </span>
                   {typeFilters.map(({ key, label, count }) => (
                     <button
@@ -380,22 +394,22 @@ const AgentsHomeView: React.FC = () => {
                 <Plus size={15} />
                 <span>{t('page.newAgent')}</span>
               </button>
-              <span className="gallery-zone-count">{filteredAgents.length}</span>
+              <span className="gallery-zone-count">{visibleAgents.length}</span>
             </>
           )}
         >
           {loading ? renderSkeletons('agent') : null}
 
-          {!loading && filteredAgents.length === 0 ? (
+          {!loading && visibleAgents.length === 0 ? (
             <GalleryEmpty
               icon={<Bot size={32} strokeWidth={1.5} />}
               message={allAgents.length === 0 ? t('agentsZone.empty.noAgents') : t('agentsZone.empty.noMatch')}
             />
           ) : null}
 
-          {!loading && filteredAgents.length > 0 ? (
+          {!loading && visibleAgents.length > 0 ? (
             <GalleryGrid minCardWidth={360}>
-              {filteredAgents.map((agent, index) => (
+              {visibleAgents.map((agent, index) => (
                 <AgentCard
                   key={agent.id}
                   agent={agent}
@@ -475,16 +489,16 @@ const AgentsHomeView: React.FC = () => {
               {selectedAgent.agentKind === 'mode' ? <Cpu size={10} /> : <Bot size={10} />}
               {getAgentBadge(t, selectedAgent.agentKind, selectedAgent.subagentSource).label}
             </Badge>
-            {!selectedAgent.enabled ? <Badge variant="neutral">{t('agentCard.badges.disabled', '已禁用')}</Badge> : null}
+            {!selectedAgent.enabled ? <Badge variant="neutral">{t('agentCard.badges.disabled')}</Badge> : null}
             {selectedAgent.model ? <Badge variant="neutral">{selectedAgent.model}</Badge> : null}
           </>
         ) : null}
         description={selectedAgent?.description}
         meta={selectedAgent ? (
           <>
-            <span>{t('agentCard.meta.tools', '{{count}} 个工具', { count: selectedAgent.toolCount ?? selectedAgentTools.length })}</span>
+            <span>{t('agentCard.meta.tools', { count: selectedAgent.toolCount ?? selectedAgentTools.length })}</span>
             {selectedAgent.agentKind === 'mode' ? (
-              <span>{t('agentCard.meta.skills', '{{count}} 个 Skills', { count: selectedAgentSkills.length })}</span>
+              <span>{t('agentCard.meta.skills', { count: selectedAgentSkills.length })}</span>
             ) : null}
           </>
         ) : null}
@@ -519,7 +533,7 @@ const AgentsHomeView: React.FC = () => {
                 <div className="agent-card__section-head">
                   <div className="agent-card__section-title">
                     <Wrench size={12} />
-                    <span>{t('agentsOverview.tools', '工具')}</span>
+                    <span>{t('agentsOverview.tools')}</span>
                     <span className="agent-card__section-count">
                       {selectedAgent.agentKind === 'mode'
                         ? `${(toolsEditing ? (pendingTools ?? selectedAgentTools) : selectedAgentTools).length}/${availableTools.length}`
@@ -533,7 +547,7 @@ const AgentsHomeView: React.FC = () => {
                           <IconButton
                             size="small"
                             variant="ghost"
-                            tooltip={t('agentsOverview.toolsReset', '重置默认')}
+                            tooltip={t('agentsOverview.toolsReset')}
                             onClick={async () => {
                               await handleResetTools(selectedAgent.id);
                               setToolsEditing(false);
@@ -550,7 +564,7 @@ const AgentsHomeView: React.FC = () => {
                               setPendingTools(null);
                             }}
                           >
-                            {t('agentsOverview.toolsCancel', '取消')}
+                            {t('agentsOverview.toolsCancel')}
                           </Button>
                           <Button
                             variant="primary"
@@ -579,7 +593,7 @@ const AgentsHomeView: React.FC = () => {
                               }
                             }}
                           >
-                            {t('agentsOverview.toolsSave', '保存')}
+                            {t('agentsOverview.toolsSave')}
                           </Button>
                         </>
                       ) : (
@@ -591,7 +605,7 @@ const AgentsHomeView: React.FC = () => {
                             setToolsEditing(true);
                           }}
                         >
-                          {t('agentsOverview.toolsEdit', '管理工具')}
+                          {t('agentsOverview.toolsEdit')}
                         </Button>
                       )}
                     </div>
@@ -649,7 +663,7 @@ const AgentsHomeView: React.FC = () => {
                 <div className="agent-card__section-head">
                   <div className="agent-card__section-title">
                     <Puzzle size={12} />
-                    <span>{t('agentsOverview.skills', 'Skills')}</span>
+                    <span>{t('agentsOverview.skills')}</span>
                     <span className="agent-card__section-count">
                       {`${(skillsEditing ? (pendingSkills ?? selectedAgentSkills) : selectedAgentSkills).length}/${availableSkills.length}`}
                     </span>
@@ -665,7 +679,7 @@ const AgentsHomeView: React.FC = () => {
                             setPendingSkills(null);
                           }}
                         >
-                          {t('agentsOverview.skillsCancel', '取消')}
+                          {t('agentsOverview.skillsCancel')}
                         </Button>
                         <Button
                           variant="primary"
@@ -694,7 +708,7 @@ const AgentsHomeView: React.FC = () => {
                             }
                           }}
                         >
-                          {t('agentsOverview.skillsSave', '保存')}
+                          {t('agentsOverview.skillsSave')}
                         </Button>
                       </>
                     ) : (
@@ -706,7 +720,7 @@ const AgentsHomeView: React.FC = () => {
                           setSkillsEditing(true);
                         }}
                       >
-                        {t('agentsOverview.skillsEdit', '管理 Skills')}
+                        {t('agentsOverview.skillsEdit')}
                       </Button>
                     )}
                   </div>
@@ -750,7 +764,7 @@ const AgentsHomeView: React.FC = () => {
                   <div className="agent-card__chip-grid">
                     {selectedAgentSkillItems.length === 0 ? (
                       <span className="agent-card__empty-inline">
-                        {t('agentsOverview.noSkills', '未启用任何 Skill')}
+                        {t('agentsOverview.noSkills')}
                       </span>
                     ) : (
                       selectedAgentSkillItems.map((skill) => (
@@ -778,7 +792,7 @@ const AgentsHomeView: React.FC = () => {
         title={selectedTeam?.name ?? ''}
         badges={selectedTeam ? (
           <>
-            {EXAMPLE_TEAM_IDS.has(selectedTeam.id) ? <Badge variant="neutral">{t('teamCard.badges.example', '示例')}</Badge> : null}
+            {EXAMPLE_TEAM_IDS.has(selectedTeam.id) ? <Badge variant="neutral">{t('teamCard.badges.example')}</Badge> : null}
             <Badge variant="neutral">
               {selectedTeam.strategy === 'collaborative'
                 ? t('composer.strategy.collaborative')
@@ -787,7 +801,7 @@ const AgentsHomeView: React.FC = () => {
                   : t('composer.strategy.free')}
             </Badge>
             {selectedTeam.shareContext ? (
-              <Badge variant="success">{t('teamCard.badges.sharedContext', '共享上下文')}</Badge>
+              <Badge variant="success">{t('teamCard.badges.sharedContext')}</Badge>
             ) : null}
           </>
         ) : null}
@@ -808,7 +822,7 @@ const AgentsHomeView: React.FC = () => {
       >
         {selectedAgentTeamMembers.length > 0 ? (
           <div className="agent-team-card__section">
-            <div className="agent-team-card__section-title">{t('teamCard.sections.members', '成员')}</div>
+            <div className="agent-team-card__section-title">{t('teamCard.sections.members')}</div>
             <div className="agent-team-card__member-list">
               {selectedAgentTeamMembers.map((agent) => {
                 const member = selectedTeam?.members.find((item) => item.agentId === agent.id);
@@ -834,7 +848,7 @@ const AgentsHomeView: React.FC = () => {
 
         {selectedTeamTopCaps.length > 0 ? (
           <div className="agent-team-card__section">
-            <div className="agent-team-card__section-title">{t('teamCard.sections.capabilities', '能力')}</div>
+            <div className="agent-team-card__section-title">{t('teamCard.sections.capabilities')}</div>
             <div className="agent-team-card__cap-chips">
               {selectedTeamTopCaps.map((cap) => (
                 <span

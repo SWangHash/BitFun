@@ -298,6 +298,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
         
         if (mermaidData.mode || mermaidData.interactive_config || mermaidData.mermaid_code) {
           return (
+            <div className="bitfun-flexible-panel__mermaid-container">
             <React.Suspense fallback={<div>{t('flexiblePanel.loading.mermaidPanel')}</div>}>
               <MermaidErrorBoundary>
                 <MermaidPanel
@@ -363,11 +364,13 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
                 />
               </MermaidErrorBoundary>
             </React.Suspense>
+            </div>
           );
         } else {
           if (!mermaidEditorProps) return null;
 
           return (
+            <div className="bitfun-flexible-panel__mermaid-container">
             <React.Suspense fallback={<div>{t('flexiblePanel.loading.mermaidEditor')}</div>}>
               <MermaidErrorBoundary>
                 <MermaidEditor
@@ -377,6 +380,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
                 />
               </MermaidErrorBoundary>
             </React.Suspense>
+            </div>
           );
         }
 

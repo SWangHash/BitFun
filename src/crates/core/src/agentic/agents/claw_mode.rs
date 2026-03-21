@@ -19,7 +19,6 @@ impl ClawMode {
                 "Grep".to_string(),
                 "Glob".to_string(),
                 "WebSearch".to_string(),
-                "IdeControl".to_string(),
                 "MermaidInteractive".to_string(),
                 "Skill".to_string(),
                 "Git".to_string(),

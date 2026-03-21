@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { Settings, Info, MoreVertical, PictureInPicture2, SquareTerminal, Smartphone, Globe } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { Settings, Info, MoreVertical, PictureInPicture2, SquareTerminal, Smartphone, Globe, Network, Layers } from 'lucide-react';
 import { Tooltip, Modal } from '@/component-library';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { useSceneManager } from '../../../hooks/useSceneManager';
@@ -17,6 +17,7 @@ import {
   setRemoteConnectDisclaimerAgreed,
   RemoteConnectDisclaimerContent,
 } from '../../RemoteConnectDialog/RemoteConnectDisclaimer';
+import { MERMAID_INTERACTIVE_EXAMPLE } from '@/flow_chat/constants/mermaidExamples';
 
 const PersistentFooterActions: React.FC = () => {
   const { t } = useI18n('common');
@@ -32,12 +33,18 @@ const PersistentFooterActions: React.FC = () => {
     const activeTab = s.primaryGroup.tabs.find((t) => t.id === s.primaryGroup.activeTabId);
     return activeTab?.content.type === 'browser';
   });
+  const isMermaidPanelActiveInCanvas = useCanvasStore((s) => {
+    const activeTab = s.primaryGroup.tabs.find((t) => t.id === s.primaryGroup.activeTabId);
+    return activeTab?.content.type === 'mermaid-editor';
+  });
   const { enableToolbarMode } = useToolbarModeContext();
   const { hasWorkspace } = useCurrentWorkspace();
   const { warning } = useNotification();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
+  const [multimodalOpen, setMultimodalOpen] = useState(false);
+  const multimodalHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showAbout, setShowAbout] = useState(false);
   const [showRemoteConnect, setShowRemoteConnect] = useState(false);
   const [showRemoteDisclaimer, setShowRemoteDisclaimer] = useState(false);
@@ -88,6 +95,37 @@ const PersistentFooterActions: React.FC = () => {
       openScene('browser');
     }
   }, [activeTabId, openScene, t]);
+
+  const handleOpenMermaidEditor = useCallback(() => {
+    const title = t('scenes.mermaidEditor');
+    const detail = {
+      type: 'mermaid-editor' as const,
+      title,
+      data: { ...MERMAID_INTERACTIVE_EXAMPLE, title },
+      metadata: {
+        duplicateCheckKey: 'mermaid-dual-mode-demo',
+      },
+      checkDuplicate: true,
+      duplicateCheckKey: 'mermaid-dual-mode-demo',
+      replaceExisting: false,
+    };
+
+    if (activeTabId === 'session') {
+      window.dispatchEvent(new CustomEvent('agent-create-tab', { detail }));
+    } else {
+      openScene('mermaid');
+    }
+  }, [activeTabId, openScene, t]);
+
+  const handleMultimodalEnter = useCallback(() => {
+    if (multimodalHoverTimerRef.current) clearTimeout(multimodalHoverTimerRef.current);
+    multimodalHoverTimerRef.current = setTimeout(() => setMultimodalOpen(true), 100);
+  }, []);
+
+  const handleMultimodalLeave = useCallback(() => {
+    if (multimodalHoverTimerRef.current) clearTimeout(multimodalHoverTimerRef.current);
+    multimodalHoverTimerRef.current = setTimeout(() => setMultimodalOpen(false), 180);
+  }, []);
 
   const handleShowAbout = () => {
     closeMenu();
@@ -212,17 +250,67 @@ const PersistentFooterActions: React.FC = () => {
             </button>
           </Tooltip>
 
-          <Tooltip content={t('scenes.browser')} placement="right">
-            <button
-              type="button"
-              className={`bitfun-nav-panel__footer-btn bitfun-nav-panel__footer-btn--icon${(activeTabId === 'browser' || (activeTabId === 'session' && isBrowserPanelActiveInCanvas)) ? ' is-active' : ''}`}
-              aria-label={t('scenes.browser')}
-              aria-pressed={activeTabId === 'browser' || (activeTabId === 'session' && isBrowserPanelActiveInCanvas)}
-              onClick={handleOpenBrowser}
-            >
-              <Globe size={15} />
-            </button>
-          </Tooltip>
+        <div
+          className="bitfun-nav-panel__footer-multimodal-wrap"
+          onMouseEnter={handleMultimodalEnter}
+          onMouseLeave={handleMultimodalLeave}
+        >
+          {(() => {
+            const isBrowserActive = activeTabId === 'browser' || (activeTabId === 'session' && isBrowserPanelActiveInCanvas);
+            const isMermaidActive = activeTabId === 'mermaid' || (activeTabId === 'session' && isMermaidPanelActiveInCanvas);
+            const isAnyActive = isBrowserActive || isMermaidActive;
+            return (
+              <>
+                <Tooltip content={t('nav.multimodalTools')} placement="right" disabled={multimodalOpen}>
+                  <button
+                    type="button"
+                    className={`bitfun-nav-panel__footer-btn bitfun-nav-panel__footer-btn--icon${isAnyActive ? ' is-active' : ''}${multimodalOpen ? ' is-hover-open' : ''}`}
+                    aria-label={t('nav.multimodalTools')}
+                    aria-expanded={multimodalOpen}
+                    aria-haspopup="menu"
+                  >
+                    <Layers size={15} />
+                    {isAnyActive && (
+                      <span className="bitfun-nav-panel__footer-multimodal-dot" aria-hidden />
+                    )}
+                  </button>
+                </Tooltip>
+
+                {multimodalOpen && (
+                  <div
+                    className="bitfun-nav-panel__footer-multimodal-menu"
+                    role="menu"
+                    aria-label={t('nav.multimodalTools')}
+                  >
+                    <button
+                      type="button"
+                      className={`bitfun-nav-panel__footer-multimodal-item${isBrowserActive ? ' is-active' : ''}`}
+                      role="menuitem"
+                      aria-pressed={isBrowserActive}
+                      onClick={handleOpenBrowser}
+                    >
+                      <Globe size={13} className="bitfun-nav-panel__footer-multimodal-item-icon" />
+                      <span className="bitfun-nav-panel__footer-multimodal-item-label">{t('scenes.browser')}</span>
+                      {isBrowserActive && <span className="bitfun-nav-panel__footer-multimodal-item-dot" aria-hidden />}
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`bitfun-nav-panel__footer-multimodal-item${isMermaidActive ? ' is-active' : ''}`}
+                      role="menuitem"
+                      aria-pressed={isMermaidActive}
+                      onClick={handleOpenMermaidEditor}
+                    >
+                      <Network size={13} className="bitfun-nav-panel__footer-multimodal-item-icon" />
+                      <span className="bitfun-nav-panel__footer-multimodal-item-label">{t('scenes.mermaidEditor')}</span>
+                      {isMermaidActive && <span className="bitfun-nav-panel__footer-multimodal-item-dot" aria-hidden />}
+                    </button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
         </div>
 
         <div className="bitfun-nav-panel__footer-right">
