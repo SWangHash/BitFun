@@ -167,11 +167,14 @@ export const ModernFlowChatContainer: React.FC<ModernFlowChatContainerProps> = (
       return;
     }
 
-    autoPinnedSessionIdRef.current = sessionId;
-    setPendingHeaderTurnId(latestTurnId);
+    const resolvedLatestTurnId = latestTurnId;
+    const resolvedSessionId = sessionId;
+
+    autoPinnedSessionIdRef.current = resolvedSessionId;
+    setPendingHeaderTurnId(resolvedLatestTurnId);
 
     const frameId = requestAnimationFrame(() => {
-      const accepted = virtualListRef.current?.pinTurnToTop(latestTurnId, {
+      const accepted = virtualListRef.current?.pinTurnToTop(resolvedLatestTurnId, {
         behavior: 'auto',
         pinMode: 'sticky-latest',
       }) ?? false;
@@ -191,6 +194,7 @@ export const ModernFlowChatContainer: React.FC<ModernFlowChatContainerProps> = (
     if (!turnId) return;
 
     const isLatestTurn = turnSummaries[turnSummaries.length - 1]?.turnId === turnId;
+
     const accepted = virtualListRef.current?.pinTurnToTop(turnId, {
       behavior: 'smooth',
       pinMode: isLatestTurn ? 'sticky-latest' : 'transient',
@@ -244,7 +248,12 @@ export const ModernFlowChatContainer: React.FC<ModernFlowChatContainerProps> = (
               }}
             />
           ) : (
-            <VirtualMessageList ref={virtualListRef} />
+            <VirtualMessageList
+              // Remount per session so Virtuoso does not reuse the previous
+              // viewport before the new session's auto-pin settles.
+              key={activeSession?.sessionId ?? 'virtual-message-list'}
+              ref={virtualListRef}
+            />
           )}
         </div>
       </div>
