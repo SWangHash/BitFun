@@ -96,23 +96,22 @@ describe('L0 Theme', () => {
       await settingsItem!.click();
       await browser.pause(2000);
 
-      // Navigate to theme tab (settings opens to models tab by default)
+      // Navigate to Basics tab (language + theme + logging; settings opens to models by default)
       const navItems = await $$('.bitfun-settings-nav__item');
       console.log(`[L0] Found ${navItems.length} settings nav items`);
 
-      let themeTab = null;
+      let basicsTab = null;
       for (const item of navItems) {
         const text = await item.getText();
-        // Theme tab is labeled "外观" (Appearance) in Chinese
-        if (text.includes('外观') || text.toLowerCase().includes('theme') || text.includes('主题')) {
-          themeTab = item;
-          console.log(`[L0] Found theme tab: "${text}"`);
+        if (text.includes('基础') || text.toLowerCase().includes('basics')) {
+          basicsTab = item;
+          console.log(`[L0] Found basics tab: "${text}"`);
           break;
         }
       }
 
-      if (themeTab) {
-        await themeTab.click();
+      if (basicsTab) {
+        await basicsTab.click();
         await browser.pause(2000); // Wait for lazy load
       }
 

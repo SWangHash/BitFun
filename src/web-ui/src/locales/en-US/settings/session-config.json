@@ -1,29 +1,16 @@
 {
   "title": "Session Config",
-  "subtitle": "Configure session creation behavior and smart features",
-  "sections": {
-    "defaultMode": {
-      "title": "Default Mode for New Sessions",
-      "description": "The session type created by default when clicking the \"New Session\" button in the nav panel",
-      "code": "Code",
-      "codeDesc": "Standard AI coding session with code generation, debugging and tool calling",
-      "cowork": "Cowork",
-      "coworkDesc": "Collaborative session designed for multi-party cooperative work"
-    },
-    "smartFeatures": {
-      "title": "Smart Features"
-    }
-  },
+  "subtitle": "Session-related AI features and tool execution behavior",
   "features": {
     "sessionTitle": {
       "title": "Auto Session Title",
       "subtitle": "AI automatically generates concise titles for new conversations",
       "warning": "Session title will use first 20 characters of user message"
-    },
-    "welcomeAnalysis": {
-      "title": "Welcome Page Analysis",
-      "subtitle": "Analyze work status and provide action suggestions"
     }
+  },
+  "toolExecution": {
+    "sectionTitle": "Tool execution behavior",
+    "sectionDescription": "Confirmation and timeout settings when tools run in a session."
   },
   "model": {
     "label": "Model",

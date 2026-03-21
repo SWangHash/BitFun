@@ -2,7 +2,9 @@
   "title": "调试配置",
   "subtitle": "日志和语言调试模板配置",
   "sections": {
-    "settings": "基础设置",
+    "combined": "调试模式设置",
+    "combinedDescription": "配置调试Agent的日志路径、Ingest 服务端口，以及各语言的代码插桩模板。",
+    "settings": "调试设置",
     "templates": "语言调试模板"
   },
   "languageLabels": {
@@ -39,6 +41,7 @@
       "endPlaceholder": "结束标记"
     },
     "notes": "注意事项",
+    "configure": "配置模板",
     "reset": "重置为默认模板",
     "noteItems": {
       "javascript": {

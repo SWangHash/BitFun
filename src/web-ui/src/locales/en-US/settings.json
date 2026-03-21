@@ -1,43 +1,38 @@
 {
   "title": "Settings",
   "configCenter": {
+    "title": "Settings",
     "selectConfig": "Select Configuration",
+    "searchPlaceholder": "Search settings…",
+    "searchNoResults": "No matching settings",
+    "searchClear": "Clear search",
+    "tabDescriptions": {
+      "basics": "Language, theme, logging, and terminal shell.",
+      "models": "AI models, API keys, providers, and proxy.",
+      "sessionConfig": "Session behavior, tools, and timeouts.",
+      "aiContext": "Rules and memory for AI context.",
+      "mcpTools": "MCP servers and tool integrations.",
+      "editor": "Editor font, display, and formatting.",
+      "lsp": "Language servers and code intelligence."
+    },
     "categories": {
       "general": "General",
       "smartCapabilities": "Smart Configuration",
       "devkit": "Dev Kit"
     },
     "tabs": {
-      "theme": "Appearance",
+      "basics": "Basics",
       "models": "Models",
       "sessionConfig": "Session Config",
       "aiRules": "Rules",
       "aiMemory": "Memory",
       "aiContext": "Rules & Memory",
       "skills": "Skills",
-      "mcpTools": "MCP & Tools",
+      "mcpTools": "MCP",
       "agents": "Agents",
       "editor": "Editor",
-      "lsp": "LSP",
-      "debug": "Debug",
-      "logging": "Logging",
-      "terminal": "Terminal"
+      "lsp": "LSP"
     }
-  },
-  "theme": {
-    "title": "Appearance",
-    "subtitle": "Select theme and language",
-    "language": "Language",
-    "themes": "Themes",
-    "importTheme": "Import Theme",
-    "importing": "Importing...",
-    "builtIn": "Built-in",
-    "custom": "Custom",
-    "export": "Export",
-    "delete": "Delete",
-    "confirmDelete": "Are you sure you want to delete theme \"{{name}}\"?",
-    "importSuccess": "Theme imported successfully!",
-    "importFailed": "Failed to import theme. Please check the file format."
   },
   "general": {
     "title": "General",

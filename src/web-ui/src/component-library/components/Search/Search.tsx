@@ -14,6 +14,8 @@ export interface SearchProps {
   onChange?: (value: string) => void;
   onSearch?: (value: string) => void;
   onClear?: () => void;
+  /** Fired before built-in key handling; call `preventDefault` to skip Enter/Escape behavior. */
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   onFocus?: () => void;
   onBlur?: () => void;
   size?: 'small' | 'medium' | 'large';
@@ -30,6 +32,10 @@ export interface SearchProps {
   searchButtonText?: string;
   showSearchButton?: boolean;
   suffixContent?: React.ReactNode;
+  /** Overrides default aria-label on the input. */
+  inputAriaLabel?: string;
+  ariaControls?: string;
+  ariaExpanded?: boolean;
 }
 
 export const Search = forwardRef<HTMLInputElement, SearchProps>(({
@@ -40,6 +46,7 @@ export const Search = forwardRef<HTMLInputElement, SearchProps>(({
   onChange,
   onSearch,
   onClear,
+  onKeyDown: onKeyDownProp,
   onFocus: onFocusProp,
   onBlur: onBlurProp,
   size = 'medium',
@@ -56,6 +63,9 @@ export const Search = forwardRef<HTMLInputElement, SearchProps>(({
   searchButtonText,
   showSearchButton = false,
   suffixContent,
+  inputAriaLabel,
+  ariaControls,
+  ariaExpanded,
 }, ref) => {
   const { t } = useI18n('components');
   
@@ -104,8 +114,8 @@ export const Search = forwardRef<HTMLInputElement, SearchProps>(({
     }
   }, [inputValue, onSearch, disabled, loading]);
 
-  const handleClear = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleClear = useCallback((e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
     setInputValue('');
     onChange?.('');
     onClear?.();
@@ -113,18 +123,22 @@ export const Search = forwardRef<HTMLInputElement, SearchProps>(({
   }, [onChange, onClear]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    onKeyDownProp?.(e);
+    if (e.defaultPrevented) {
+      return;
+    }
     if (e.key === 'Enter' && enterToSearch) {
       e.preventDefault();
       handleSearch();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       if (inputValue) {
-        handleClear(e as any);
+        handleClear(e);
       } else {
         inputRef.current?.blur();
       }
     }
-  }, [inputValue, enterToSearch, handleSearch, handleClear]);
+  }, [inputValue, enterToSearch, handleSearch, handleClear, onKeyDownProp]);
 
   const handleFocus = useCallback(() => {
     setIsFocused(true);
@@ -225,7 +239,9 @@ export const Search = forwardRef<HTMLInputElement, SearchProps>(({
           onKeyDown={handleKeyDown}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          aria-label={t('search.placeholder')}
+          aria-label={inputAriaLabel ?? t('search.placeholder')}
+          aria-controls={ariaControls}
+          aria-expanded={ariaExpanded}
         />
 
         {clearable && inputValue && !loading && !disabled && (

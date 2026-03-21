@@ -1,12 +1,10 @@
 
 export { default as AIModelConfig } from './AIModelConfig';
-export { ThemeConfig } from './ThemeConfig';
 export { default as AIRulesMemoryConfig } from './AIRulesMemoryConfig';
 export { default as MCPResourceBrowser } from './MCPResourceBrowser';
 export { default as McpToolsConfig } from './McpToolsConfig';
 export { default as EditorConfig } from './EditorConfig';
-export { default as TerminalConfig } from './TerminalConfig';
-export { default as LoggingConfig } from './LoggingConfig';
+export { default as BasicsConfig } from './BasicsConfig';
 
 
 export { default as DefaultModelConfig } from './DefaultModelConfig';

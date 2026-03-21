@@ -35,14 +35,12 @@ import { useMiniAppCatalogSync } from '../../scenes/miniapps/hooks/useMiniAppCat
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { compareSessionsForDisplay } from '@/flow_chat/utils/sessionOrdering';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
-import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
 import { WorkspaceKind } from '@/shared/types';
 import { useSSHRemoteContext, SSHConnectionDialog, RemoteFileBrowser } from '@/features/ssh-remote';
 
-const DEFAULT_MODE_CONFIG_KEY = 'app.session_config.default_mode';
 const NAV_DISPLAY_MODE_STORAGE_KEY = 'bitfun.nav.displayMode';
 import './NavPanel.scss';
 
@@ -272,7 +270,6 @@ const MainNav: React.FC<MainNavProps> = ({
     return workspaceSessions[0]?.sessionId;
   }, [resolvedAssistantWorkspace]);
 
-  const [defaultSessionMode, setDefaultSessionMode] = useState<'code' | 'cowork'>('code');
   const [navDisplayMode, setNavDisplayMode] = useState<NavDisplayMode>(getInitialNavDisplayMode);
   const [isModeSwitching, setIsModeSwitching] = useState(false);
   const [modeLogoSrc, setModeLogoSrc] = useState('/panda_1.png');
@@ -280,25 +277,6 @@ const MainNav: React.FC<MainNavProps> = ({
   const [isScheduledJobsDialogOpen, setIsScheduledJobsDialogOpen] = useState(false);
   const modeSwitchTimerRef = useRef<number | null>(null);
   const modeSwitchSwapTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    configManager.getConfig<'code' | 'cowork'>(DEFAULT_MODE_CONFIG_KEY).then(mode => {
-      if (mode === 'code' || mode === 'cowork') {
-        setDefaultSessionMode(mode);
-        setSessionMode(mode);
-      }
-    }).catch(() => {});
-
-    const unwatch = configManager.watch(DEFAULT_MODE_CONFIG_KEY, () => {
-      configManager.getConfig<'code' | 'cowork'>(DEFAULT_MODE_CONFIG_KEY).then(mode => {
-        if (mode === 'code' || mode === 'cowork') {
-          setDefaultSessionMode(mode);
-          setSessionMode(mode);
-        }
-      }).catch(() => {});
-    });
-    return () => unwatch();
-  }, [setSessionMode]);
 
   useEffect(() => () => {
     if (modeSwitchTimerRef.current !== null) {
@@ -346,18 +324,12 @@ const MainNav: React.FC<MainNavProps> = ({
     try {
       await flowChatManager.createChatSession(
         {},
-        mode ?? (
-          isAssistantWorkspaceActive
-          ? 'Claw'
-          : defaultSessionMode === 'cowork'
-            ? 'Cowork'
-            : 'agentic'
-        )
+        mode ?? (isAssistantWorkspaceActive ? 'Claw' : 'agentic')
       );
     } catch (err) {
       log.error('Failed to create session', err);
     }
-  }, [openScene, switchLeftPanelTab, defaultSessionMode, isAssistantWorkspaceActive]);
+  }, [openScene, switchLeftPanelTab, isAssistantWorkspaceActive]);
 
   const handleCreateCodeSession = useCallback(() => {
     setSessionMode('code');
@@ -897,9 +869,7 @@ const MainNav: React.FC<MainNavProps> = ({
                               tab === 'sessions'
                                 ? isAssistantWorkspaceActive
                                   ? t('nav.sessions.newClawSession')
-                                  : defaultSessionMode === 'cowork'
-                                    ? t('nav.sessions.newCoworkSession')
-                                    : t('nav.sessions.newCodeSession')
+                                  : t('nav.sessions.newCodeSession')
                                 : undefined
                             }
                             onActionClick={tab === 'sessions' ? handleCreateSession : undefined}

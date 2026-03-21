@@ -113,9 +113,7 @@
     "visualMode":         "Visual Mode",
     "visualModeDesc":     "Show visual feedback during execution",
     "sessionTitle":       "Auto-name Sessions",
-    "sessionTitleDesc":   "Auto-generate titles for new sessions",
-    "welcomeAnalysis":    "Welcome AI Analysis",
-    "welcomeAnalysisDesc": "Analyze project status on open"
+    "sessionTitleDesc":   "Auto-generate titles for new sessions"
   },
 
   "nursery": {

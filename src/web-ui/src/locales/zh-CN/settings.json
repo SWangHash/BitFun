@@ -1,43 +1,38 @@
 {
   "title": "设置",
   "configCenter": {
+    "title": "设置",
     "selectConfig": "选择配置项",
+    "searchPlaceholder": "搜索配置…",
+    "searchNoResults": "没有匹配的配置",
+    "searchClear": "清除搜索",
+    "tabDescriptions": {
+      "basics": "语言、主题、日志与终端 Shell。",
+      "models": "AI 模型、API 密钥、供应商与代理。",
+      "sessionConfig": "会话行为、工具与超时。",
+      "aiContext": "规则与记忆等 AI 上下文。",
+      "mcpTools": "MCP 服务器与工具集成。",
+      "editor": "编辑器字体、显示与格式化。",
+      "lsp": "语言服务与代码智能。"
+    },
     "categories": {
       "general": "通用",
       "smartCapabilities": "智慧化配置",
       "devkit": "开发套件"
     },
     "tabs": {
-      "theme": "外观",
+      "basics": "基础",
       "models": "模型",
       "sessionConfig": "会话配置",
       "aiRules": "规则",
       "aiMemory": "记忆",
       "aiContext": "规则 & 记忆",
       "skills": "技能",
-      "mcpTools": "MCP & 工具",
+      "mcpTools": "MCP",
       "agents": "智能体",
       "editor": "编辑器",
-      "lsp": "语言服务",
-      "debug": "调试",
-      "logging": "日志",
-      "terminal": "终端"
+      "lsp": "语言服务"
     }
-  },
-  "theme": {
-    "title": "外观",
-    "subtitle": "选择主题和语言",
-    "language": "语言 / Language",
-    "themes": "主题",
-    "importTheme": "导入主题",
-    "importing": "导入中...",
-    "builtIn": "内置",
-    "custom": "自定义",
-    "export": "导出",
-    "delete": "删除",
-    "confirmDelete": "确定要删除主题 \"{{name}}\"？",
-    "importSuccess": "主题导入成功！",
-    "importFailed": "主题导入失败，请检查文件格式"
   },
   "general": {
     "title": "通用",

@@ -14,27 +14,21 @@ const AIModelConfig        = lazy(() => import('../../../infrastructure/config/c
 const SessionConfig        = lazy(() => import('../../../infrastructure/config/components/SessionConfig'));
 const AIRulesMemoryConfig  = lazy(() => import('../../../infrastructure/config/components/AIRulesMemoryConfig'));
 const McpToolsConfig       = lazy(() => import('../../../infrastructure/config/components/McpToolsConfig'));
-const LspConfig            = lazy(() => import('../../../infrastructure/config/components/LspConfig'));
-const DebugConfig          = lazy(() => import('../../../infrastructure/config/components/DebugConfig'));
-const LoggingConfig        = lazy(() => import('../../../infrastructure/config/components/LoggingConfig'));
-const TerminalConfig       = lazy(() => import('../../../infrastructure/config/components/TerminalConfig'));
+// const LspConfig            = lazy(() => import('../../../infrastructure/config/components/LspConfig'));
 const EditorConfig         = lazy(() => import('../../../infrastructure/config/components/EditorConfig'));
-const ThemeConfigComponent = lazy(() => import('../../../infrastructure/config/components/ThemeConfig').then(m => ({ default: m.ThemeConfig })));
+const BasicsConfig         = lazy(() => import('../../../infrastructure/config/components/BasicsConfig'));
 const SettingsScene: React.FC = () => {
   const activeTab = useSettingsStore(s => s.activeTab);
 
   let Content: React.LazyExoticComponent<React.ComponentType> | null = null;
 
   switch (activeTab) {
-    case 'theme':            Content = ThemeConfigComponent; break;
+    case 'basics':           Content = BasicsConfig;         break;
     case 'models':           Content = AIModelConfig;        break;
     case 'session-config':   Content = SessionConfig;        break;
     case 'ai-context':       Content = AIRulesMemoryConfig; break;
     case 'mcp-tools':        Content = McpToolsConfig;      break;
-    case 'lsp':              Content = LspConfig;            break;
-    case 'debug':            Content = DebugConfig;          break;
-    case 'logging':          Content = LoggingConfig;        break;
-    case 'terminal':         Content = TerminalConfig;       break;
+    // case 'lsp':              Content = LspConfig;            break;
     case 'editor':           Content = EditorConfig;         break;
   }
 

@@ -17,10 +17,6 @@
       "subtitle": "新对话时AI自动生成简洁标题",
       "warning": "会话标题将使用用户消息的前20个字符"
     },
-    "welcomeAnalysis": {
-      "title": "欢迎页智能分析",
-      "subtitle": "分析工作状态并提供操作建议"
-    },
     "compression": {
       "title": "上下文压缩",
       "subtitle": "智能压缩长对话上下文"

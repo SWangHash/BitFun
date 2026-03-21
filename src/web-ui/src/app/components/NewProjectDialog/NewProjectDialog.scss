@@ -21,26 +21,6 @@
     text-align: center;
     position: relative;
     overflow: hidden;
-    
-    // Background glow effect
-    &::before {
-      content: '';
-      position: absolute;
-      top: -80%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 250px;
-      height: 150px;
-      background: radial-gradient(ellipse, rgba(34, 197, 94, 0.08) 0%, transparent 70%);
-      filter: blur(30px);
-      pointer-events: none;
-      animation: new-project-glow 10s ease-in-out infinite;
-    }
-  }
-
-  @keyframes new-project-glow {
-    0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.8; }
-    50% { transform: translateX(-50%) scale(1.1); opacity: 1; }
   }
 
   &__icon-wrapper {

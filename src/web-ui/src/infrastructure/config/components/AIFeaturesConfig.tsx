@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Switch, ConfigPageLoading } from '@/component-library';
 import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigPageRow } from './common';
-import { aiExperienceConfigService } from '../services/AIExperienceConfigService';
+import { aiExperienceConfigService, type AIExperienceSettings } from '../services/AIExperienceConfigService';
 import { configManager } from '../services/ConfigManager';
 import { useNotification, notificationService } from '@/shared/notification-system';
 import type { AIModelConfig } from '../types';
@@ -13,18 +13,6 @@ import { createLogger } from '@/shared/utils/logger';
 import './AIFeaturesConfig.scss';
 
 const log = createLogger('AIFeaturesConfig');
-
-
-interface AIExperienceSettings {
-  enable_session_title_generation: boolean;
-  enable_welcome_panel_ai_analysis: boolean;
-}
-
-const defaultSettings: AIExperienceSettings = {
-  enable_session_title_generation: true,
-  enable_welcome_panel_ai_analysis: true,
-};
-
 
 interface FeatureConfig {
   id: string;
@@ -39,11 +27,6 @@ const FEATURE_CONFIGS: FeatureConfig[] = [
     settingKey: 'enable_session_title_generation',
     agentName: 'startchat-func-agent',
   },
-  {
-    id: 'welcomeAnalysis',
-    settingKey: 'enable_welcome_panel_ai_analysis',
-    agentName: 'startchat-func-agent',  
-  },
 ];
 
 const AIFeaturesConfig: React.FC = () => {
@@ -51,7 +34,9 @@ const AIFeaturesConfig: React.FC = () => {
   const notification = useNotification();
   
   
-  const [settings, setSettings] = useState<AIExperienceSettings>(defaultSettings);
+  const [settings, setSettings] = useState<AIExperienceSettings>(() =>
+    aiExperienceConfigService.getSettings()
+  );
   const [isLoading, setIsLoading] = useState(true);
   
   
@@ -81,7 +66,7 @@ const AIFeaturesConfig: React.FC = () => {
       setFuncAgentModels(funcAgentModelsData);
     } catch (error) {
       log.error('Failed to load data', error);
-      setSettings(defaultSettings);
+      setSettings(aiExperienceConfigService.getSettings());
     } finally {
       setIsLoading(false);
     }

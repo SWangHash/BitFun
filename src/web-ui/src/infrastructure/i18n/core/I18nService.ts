@@ -44,13 +44,11 @@ import zhCNSettingsAiModel from '../../../locales/zh-CN/settings/ai-model.json';
 import zhCNSettingsAgenticTools from '../../../locales/zh-CN/settings/agentic-tools.json';
 import zhCNSettingsMcp from '../../../locales/zh-CN/settings/mcp.json';
 import zhCNSettingsMcpTools from '../../../locales/zh-CN/settings/mcp-tools.json';
-import zhCNSettingsTheme from '../../../locales/zh-CN/settings/theme.json';
+import zhCNSettingsBasics from '../../../locales/zh-CN/settings/basics.json';
 import zhCNSettingsAiFeatures from '../../../locales/zh-CN/settings/ai-features.json';
 import zhCNSettingsSessionConfig from '../../../locales/zh-CN/settings/session-config.json';
 import zhCNSettingsLsp from '../../../locales/zh-CN/settings/lsp.json';
-import zhCNSettingsTerminal from '../../../locales/zh-CN/settings/terminal.json';
 import zhCNSettingsDebug from '../../../locales/zh-CN/settings/debug.json';
-import zhCNSettingsLogging from '../../../locales/zh-CN/settings/logging.json';
 import zhCNSettingsEditor from '../../../locales/zh-CN/settings/editor.json';
 import zhCNSettingsSkills from '../../../locales/zh-CN/settings/skills.json';
 import zhCNSettingsAiRules from '../../../locales/zh-CN/settings/ai-rules.json';
@@ -83,13 +81,11 @@ import enUSSettingsAiModel from '../../../locales/en-US/settings/ai-model.json';
 import enUSSettingsAgenticTools from '../../../locales/en-US/settings/agentic-tools.json';
 import enUSSettingsMcp from '../../../locales/en-US/settings/mcp.json';
 import enUSSettingsMcpTools from '../../../locales/en-US/settings/mcp-tools.json';
-import enUSSettingsTheme from '../../../locales/en-US/settings/theme.json';
+import enUSSettingsBasics from '../../../locales/en-US/settings/basics.json';
 import enUSSettingsAiFeatures from '../../../locales/en-US/settings/ai-features.json';
 import enUSSettingsSessionConfig from '../../../locales/en-US/settings/session-config.json';
 import enUSSettingsLsp from '../../../locales/en-US/settings/lsp.json';
-import enUSSettingsTerminal from '../../../locales/en-US/settings/terminal.json';
 import enUSSettingsDebug from '../../../locales/en-US/settings/debug.json';
-import enUSSettingsLogging from '../../../locales/en-US/settings/logging.json';
 import enUSSettingsEditor from '../../../locales/en-US/settings/editor.json';
 import enUSSettingsSkills from '../../../locales/en-US/settings/skills.json';
 import enUSSettingsAiRules from '../../../locales/en-US/settings/ai-rules.json';
@@ -129,13 +125,11 @@ const resources = {
     'settings/agentic-tools': zhCNSettingsAgenticTools,
     'settings/mcp': zhCNSettingsMcp,
     'settings/mcp-tools': zhCNSettingsMcpTools,
-    'settings/theme': zhCNSettingsTheme,
+    'settings/basics': zhCNSettingsBasics,
     'settings/ai-features': zhCNSettingsAiFeatures,
     'settings/session-config': zhCNSettingsSessionConfig,
     'settings/lsp': zhCNSettingsLsp,
-    'settings/terminal': zhCNSettingsTerminal,
     'settings/debug': zhCNSettingsDebug,
-    'settings/logging': zhCNSettingsLogging,
     'settings/editor': zhCNSettingsEditor,
     'settings/skills': zhCNSettingsSkills,
     'settings/ai-rules': zhCNSettingsAiRules,
@@ -169,13 +163,11 @@ const resources = {
     'settings/agentic-tools': enUSSettingsAgenticTools,
     'settings/mcp': enUSSettingsMcp,
     'settings/mcp-tools': enUSSettingsMcpTools,
-    'settings/theme': enUSSettingsTheme,
+    'settings/basics': enUSSettingsBasics,
     'settings/ai-features': enUSSettingsAiFeatures,
     'settings/session-config': enUSSettingsSessionConfig,
     'settings/lsp': enUSSettingsLsp,
-    'settings/terminal': enUSSettingsTerminal,
     'settings/debug': enUSSettingsDebug,
-    'settings/logging': enUSSettingsLogging,
     'settings/editor': enUSSettingsEditor,
     'settings/skills': enUSSettingsSkills,
     'settings/ai-rules': enUSSettingsAiRules,
@@ -232,12 +224,10 @@ export class I18nService {
           'settings/agentic-tools',
           'settings/mcp',
           'settings/mcp-tools',
-          'settings/theme',
+          'settings/basics',
           'settings/ai-features',
           'settings/lsp',
-          'settings/terminal',
           'settings/debug',
-          'settings/logging',
           'settings/editor',
           'settings/skills',
           'settings/ai-rules',

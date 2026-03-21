@@ -6,18 +6,15 @@ import { createLogger } from '@/shared/utils/logger';
 const log = createLogger('AIExperienceConfig');
 
 export interface AIExperienceSettings {
-   
   enable_session_title_generation: boolean;
-  
-   
-  enable_welcome_panel_ai_analysis: boolean;
+  enable_visual_mode: boolean;
 }
 
 const CONFIG_PATH = 'app.ai_experience';
 
 const defaultSettings: AIExperienceSettings = {
   enable_session_title_generation: true,
-  enable_welcome_panel_ai_analysis: false,
+  enable_visual_mode: false,
 };
 
  
@@ -95,12 +92,6 @@ export class AIExperienceConfigService {
     return this.getSettings().enable_session_title_generation;
   }
 
-   
-  isWelcomePanelAIAnalysisEnabled(): boolean {
-    return this.getSettings().enable_welcome_panel_ai_analysis;
-  }
-
-   
   addChangeListener(listener: (settings: AIExperienceSettings) => void): () => void {
     this.listeners.add(listener);
     

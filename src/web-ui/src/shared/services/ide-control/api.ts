@@ -14,6 +14,8 @@ import {
 } from './types';
 import { PanelContent, TabData } from '@/app/components/panels/base/types';
 import type { LineRange } from '@/component-library/components/Markdown';
+import { normalizeSettingsTab } from '@/app/scenes/settings/settingsConfig';
+
 const panelController = new PanelController();
 
  
@@ -240,7 +242,7 @@ export const quickActions = {
   openSettings: (section?: string) => {
     import('@/app/scenes/settings/settingsStore').then(({ useSettingsStore }) => {
       if (section) {
-        useSettingsStore.getState().setActiveTab(section as import('@/app/scenes/settings/settingsConfig').ConfigTab);
+        useSettingsStore.getState().setActiveTab(normalizeSettingsTab(section));
       }
     });
     window.dispatchEvent(new CustomEvent('scene:open', { detail: { sceneId: 'settings' } }));

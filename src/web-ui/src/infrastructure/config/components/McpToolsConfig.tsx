@@ -1,6 +1,7 @@
 /**
- * McpToolsConfig — single settings page combining MCP servers and Tools (execution + list).
- * Uses settings/mcp-tools for page title/subtitle, settings/mcp for MCP section, settings/agentic-tools for Tools section.
+ * McpToolsConfig — MCP servers only.
+ * Tool execution behavior lives on Session Config.
+ * Uses settings/mcp-tools for page title/subtitle, settings/mcp for the MCP section.
  */
 
 import React, { useRef, useState, useEffect } from 'react';
@@ -15,35 +16,21 @@ import {
   Clock,
   AlertTriangle,
   MinusCircle,
-  XCircle,
 } from 'lucide-react';
-import { Button, Textarea, IconButton, Switch, NumberInput } from '@/component-library';
+import { Button, Textarea, IconButton } from '@/component-library';
 import {
   ConfigPageHeader,
   ConfigPageLayout,
   ConfigPageContent,
   ConfigPageSection,
-  ConfigPageRow,
   ConfigCollectionItem,
 } from './common';
-import { useNotification, notificationService } from '@/shared/notification-system';
+import { useNotification } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { MCPAPI, MCPServerInfo } from '../../api/service-api/MCPAPI';
-import { toolAPI } from '../../api/service-api/ToolAPI';
-import { configManager } from '../services/ConfigManager';
 import './McpToolsConfig.scss';
 
 const log = createLogger('McpToolsConfig');
-
-// ─── Tool types (from AgenticToolsConfig) ───────────────────────────────────
-interface ToolInfo {
-  name: string;
-  description: string;
-  input_schema: any;
-  is_readonly: boolean;
-  is_concurrency_safe: boolean;
-  needs_permissions: boolean;
-}
 
 // ─── MCP error classifier (from MCPConfig) ────────────────────────────────────
 interface ErrorInfo {
@@ -152,7 +139,6 @@ function createErrorClassifier(t: (key: string, options?: any) => any) {
 const McpToolsConfig: React.FC = () => {
   const { t: tPage } = useTranslation('settings/mcp-tools');
   const { t: tMcp } = useTranslation('settings/mcp');
-  const { t: tTools } = useTranslation('settings/agentic-tools');
 
   const notification = useNotification();
   const classifyError = createErrorClassifier(tMcp);
@@ -170,16 +156,6 @@ const McpToolsConfig: React.FC = () => {
     column?: number;
     position?: number;
   } | null>(null);
-
-  // ─── Tools state ────────────────────────────────────────────────────────────
-  const [tools, setTools] = useState<ToolInfo[]>([]);
-  const [toolsLoading, setToolsLoading] = useState(true);
-  const [toolsError, setToolsError] = useState<string | null>(null);
-  const [expandedToolNames, setExpandedToolNames] = useState<Set<string>>(new Set());
-  const [skipToolConfirmation, setSkipToolConfirmation] = useState(false);
-  const [executionTimeout, setExecutionTimeout] = useState('');
-  const [confirmationTimeout, setConfirmationTimeout] = useState('');
-  const [configLoading, setConfigLoading] = useState(false);
 
   const tryFormatJson = (input: string): string | null => {
     try {
@@ -532,157 +508,6 @@ const McpToolsConfig: React.FC = () => {
       : tMcp('server.runtime.system', { defaultValue: 'system' });
   };
 
-  // ─── Tools effects & handlers ───────────────────────────────────────────────
-  const loadTools = async () => {
-    try {
-      setToolsLoading(true);
-      setToolsError(null);
-      const toolsData = await toolAPI.getAllToolsInfo();
-      setTools(toolsData);
-    } catch (err) {
-      log.error('Failed to load tools', err);
-      setToolsError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setToolsLoading(false);
-    }
-  };
-
-  const loadToolConfig = async () => {
-    try {
-      const [skipConfirm, execTimeout, confirmTimeout] = await Promise.all([
-        configManager.getConfig<boolean>('ai.skip_tool_confirmation'),
-        configManager.getConfig<number | null>('ai.tool_execution_timeout_secs'),
-        configManager.getConfig<number | null>('ai.tool_confirmation_timeout_secs'),
-      ]);
-      setSkipToolConfirmation(skipConfirm || false);
-      setExecutionTimeout(execTimeout != null ? String(execTimeout) : '');
-      setConfirmationTimeout(confirmTimeout != null ? String(confirmTimeout) : '');
-    } catch (err) {
-      log.error('Failed to load config', err);
-    }
-  };
-
-  useEffect(() => {
-    loadTools();
-    loadToolConfig();
-  }, []);
-
-  const handleSkipConfirmationChange = async (checked: boolean) => {
-    setSkipToolConfirmation(checked);
-    setConfigLoading(true);
-    try {
-      await configManager.setConfig('ai.skip_tool_confirmation', checked);
-      notificationService.success(
-        checked ? tTools('messages.autoExecuteEnabled') : tTools('messages.autoExecuteDisabled'),
-        { duration: 2000 }
-      );
-      const { globalEventBus } = await import('@/infrastructure/event-bus');
-      globalEventBus.emit('mode:config:updated');
-    } catch (err) {
-      log.error('Failed to save config', err);
-      notificationService.error(
-        `${tTools('messages.saveFailed')}: ` + (err instanceof Error ? err.message : String(err))
-      );
-      setSkipToolConfirmation(!checked);
-    } finally {
-      setConfigLoading(false);
-    }
-  };
-
-  const handleTimeoutChange = async (type: 'execution' | 'confirmation', value: string) => {
-    const configKey =
-      type === 'execution' ? 'ai.tool_execution_timeout_secs' : 'ai.tool_confirmation_timeout_secs';
-    const trimmedValue = value.trim();
-    if (trimmedValue !== '') {
-      const numValue = parseInt(trimmedValue, 10);
-      if (isNaN(numValue) || numValue < 0) return;
-    }
-    if (type === 'execution') setExecutionTimeout(trimmedValue);
-    else setConfirmationTimeout(trimmedValue);
-    const numValue = trimmedValue === '' ? null : parseInt(trimmedValue, 10);
-    try {
-      await configManager.setConfig(configKey, numValue);
-    } catch (err) {
-      log.error('Failed to save timeout config', { type, error: err });
-      notificationService.error(tTools('messages.saveFailed'));
-    }
-  };
-
-  const toggleToolExpanded = (toolName: string) => {
-    setExpandedToolNames((prev) => {
-      const next = new Set(prev);
-      if (next.has(toolName)) next.delete(toolName);
-      else next.add(toolName);
-      return next;
-    });
-  };
-
-  const formatSchema = (schema: any): string => {
-    try {
-      return JSON.stringify(schema, null, 2);
-    } catch {
-      return String(schema);
-    }
-  };
-
-  const renderToolBadge = (tool: ToolInfo) => (
-    <>
-      <span
-        className={`bitfun-mcp-tools__badge bitfun-mcp-tools__badge--${
-          tool.is_readonly ? 'readonly' : 'writable'
-        }`}
-      >
-        {tool.is_readonly ? tTools('badges.readonly') : tTools('badges.writable')}
-      </span>
-      {tool.is_concurrency_safe && (
-        <span className="bitfun-mcp-tools__badge bitfun-mcp-tools__badge--concurrent">
-          {tTools('badges.concurrent')}
-        </span>
-      )}
-      {tool.needs_permissions && (
-        <span className="bitfun-mcp-tools__badge bitfun-mcp-tools__badge--permission">
-          {tTools('badges.permission')}
-        </span>
-      )}
-    </>
-  );
-
-  const renderToolDetails = (tool: ToolInfo) => (
-    <>
-      <div className="bitfun-collection-details__field">{tool.description}</div>
-      <div className="bitfun-mcp-tools__properties">
-        <span className="bitfun-mcp-tools__property">
-          {tool.is_readonly ? (
-            <CheckCircle size={12} className="bitfun-mcp-tools__icon-check" />
-          ) : (
-            <XCircle size={12} className="bitfun-mcp-tools__icon-cross" />
-          )}
-          {tTools('properties.readonlyMode')}
-        </span>
-        <span className="bitfun-mcp-tools__property">
-          {tool.is_concurrency_safe ? (
-            <CheckCircle size={12} className="bitfun-mcp-tools__icon-check" />
-          ) : (
-            <XCircle size={12} className="bitfun-mcp-tools__icon-cross" />
-          )}
-          {tTools('properties.concurrencySafe')}
-        </span>
-        <span className="bitfun-mcp-tools__property">
-          {tool.needs_permissions ? (
-            <CheckCircle size={12} className="bitfun-mcp-tools__icon-check" />
-          ) : (
-            <XCircle size={12} className="bitfun-mcp-tools__icon-cross" />
-          )}
-          {tTools('properties.needsPermission')}
-        </span>
-      </div>
-      <div>
-        <div className="bitfun-collection-details__label">{tTools('schema.title')}</div>
-        <pre className="bitfun-collection-details__pre">{formatSchema(tool.input_schema)}</pre>
-      </div>
-    </>
-  );
-
   const mcpSectionExtra = (
     <>
       <IconButton
@@ -808,57 +633,6 @@ const McpToolsConfig: React.FC = () => {
       <ConfigPageHeader title={tPage('title')} subtitle={tPage('subtitle')} />
 
       <ConfigPageContent>
-        <ConfigPageSection
-          title={tTools('section.config.title')}
-          description={tTools('section.config.description')}
-        >
-          <ConfigPageRow
-            label={tTools('config.autoExecute')}
-            description={tTools('config.autoExecuteDesc')}
-          >
-            <Switch
-              checked={skipToolConfirmation}
-              onChange={(e) => handleSkipConfirmationChange(e.target.checked)}
-              disabled={configLoading}
-              size="medium"
-            />
-          </ConfigPageRow>
-
-          <ConfigPageRow
-            label={tTools('config.confirmTimeout')}
-            description={tTools('config.confirmTimeoutDesc')}
-          >
-            <NumberInput
-              value={confirmationTimeout === '' ? 0 : parseInt(confirmationTimeout, 10)}
-              onChange={(val) =>
-                handleTimeoutChange('confirmation', val === 0 ? '' : String(val))
-              }
-              min={0}
-              max={3600}
-              step={5}
-              unit={tTools('config.seconds')}
-              size="small"
-              variant="compact"
-            />
-          </ConfigPageRow>
-
-          <ConfigPageRow
-            label={tTools('config.executionTimeout')}
-            description={tTools('config.executionTimeoutDesc')}
-          >
-            <NumberInput
-              value={executionTimeout === '' ? 0 : parseInt(executionTimeout, 10)}
-              onChange={(val) => handleTimeoutChange('execution', val === 0 ? '' : String(val))}
-              min={0}
-              max={3600}
-              step={5}
-              unit={tTools('config.seconds')}
-              size="small"
-              variant="compact"
-            />
-          </ConfigPageRow>
-        </ConfigPageSection>
-
         {/* MCP section */}
         <ConfigPageSection
           title={tMcp('section.serverList.title')}
@@ -944,49 +718,6 @@ const McpToolsConfig: React.FC = () => {
                 badge={renderServerBadge(server)}
                 control={renderServerControl(server)}
                 details={renderServerDetails(server)}
-              />
-            ))}
-        </ConfigPageSection>
-
-        {/* Tools section: list */}
-        <ConfigPageSection
-          title={tTools('section.list.title')}
-          description={tTools('section.list.description', { count: tools.length })}
-        >
-          {toolsLoading && (
-            <div className="bitfun-collection-empty">
-              <p>{tTools('messages.loading')}</p>
-            </div>
-          )}
-
-          {!toolsLoading && toolsError && (
-            <div className="bitfun-collection-empty">
-              <p>
-                {tTools('messages.loadFailed')}: {toolsError}
-              </p>
-              <button className="bitfun-mcp-tools__retry-btn" onClick={loadTools}>
-                {tTools('messages.retry')}
-              </button>
-            </div>
-          )}
-
-          {!toolsLoading && !toolsError && tools.length === 0 && (
-            <div className="bitfun-collection-empty">
-              <p>{tTools('messages.noTools')}</p>
-            </div>
-          )}
-
-          {!toolsLoading &&
-            !toolsError &&
-            tools.map((tool) => (
-              <ConfigCollectionItem
-                key={tool.name}
-                label={tool.name}
-                badge={renderToolBadge(tool)}
-                control={<></>}
-                details={renderToolDetails(tool)}
-                expanded={expandedToolNames.has(tool.name)}
-                onToggle={() => toggleToolExpanded(tool.name)}
               />
             ))}
         </ConfigPageSection>

@@ -6,20 +6,21 @@
  */
 
 export type ConfigTab =
-  | 'theme'
+  | 'basics'
   | 'models'
   | 'session-config'
   | 'ai-context'
   | 'mcp-tools'
-  | 'lsp'
-  | 'debug'
-  | 'logging'
-  | 'terminal'
+  // | 'lsp' // temporarily hidden from config center
   | 'editor';
 
 export interface ConfigTabDef {
   id: ConfigTab;
   labelKey: string;
+  /** i18n key under settings namespace for tab description (search + discoverability). */
+  descriptionKey?: string;
+  /** Language-neutral extra tokens matched by search (ASCII recommended). */
+  keywords?: string[];
 }
 
 export interface ConfigCategoryDef {
@@ -33,30 +34,114 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
     id: 'general',
     nameKey: 'configCenter.categories.general',
     tabs: [
-      { id: 'theme',   labelKey: 'configCenter.tabs.theme'   },
-      { id: 'models',  labelKey: 'configCenter.tabs.models'  },
+      {
+        id: 'basics',
+        labelKey: 'configCenter.tabs.basics',
+        descriptionKey: 'configCenter.tabDescriptions.basics',
+        keywords: [
+          'language',
+          'locale',
+          'i18n',
+          'theme',
+          'appearance',
+          'logging',
+          'log',
+          'terminal',
+          'shell',
+          'pwsh',
+          'powershell',
+        ],
+      },
+      {
+        id: 'models',
+        labelKey: 'configCenter.tabs.models',
+        descriptionKey: 'configCenter.tabDescriptions.models',
+        keywords: [
+          'api',
+          'api key',
+          'provider',
+          'openai',
+          'claude',
+          'gpt',
+          'base url',
+          'proxy',
+          'model',
+          'temperature',
+          'token',
+        ],
+      },
     ],
   },
   {
     id: 'smartCapabilities',
     nameKey: 'configCenter.categories.smartCapabilities',
     tabs: [
-      { id: 'session-config',    labelKey: 'configCenter.tabs.sessionConfig'   },
-      { id: 'ai-context',        labelKey: 'configCenter.tabs.aiContext'       },
-      { id: 'mcp-tools',         labelKey: 'configCenter.tabs.mcpTools'        },
+      {
+        id: 'session-config',
+        labelKey: 'configCenter.tabs.sessionConfig',
+        descriptionKey: 'configCenter.tabDescriptions.sessionConfig',
+        keywords: [
+          'session',
+          'chat',
+          'streaming',
+          'tool',
+          'timeout',
+          'confirmation',
+          'history',
+        ],
+      },
+      {
+        id: 'ai-context',
+        labelKey: 'configCenter.tabs.aiContext',
+        descriptionKey: 'configCenter.tabDescriptions.aiContext',
+        keywords: ['rules', 'memory', 'context', 'rag', 'knowledge'],
+      },
+      {
+        id: 'mcp-tools',
+        labelKey: 'configCenter.tabs.mcpTools',
+        descriptionKey: 'configCenter.tabDescriptions.mcpTools',
+        keywords: ['mcp', 'server', 'plugin', 'stdio', 'sse', 'tools'],
+      },
     ],
   },
   {
     id: 'devkit',
     nameKey: 'configCenter.categories.devkit',
     tabs: [
-      { id: 'editor',  labelKey: 'configCenter.tabs.editor'  },
-      // { id: 'lsp',     labelKey: 'configCenter.tabs.lsp'     },
-      { id: 'debug',   labelKey: 'configCenter.tabs.debug'   },
-      { id: 'terminal',labelKey: 'configCenter.tabs.terminal'},
-      { id: 'logging', labelKey: 'configCenter.tabs.logging' },
+      {
+        id: 'editor',
+        labelKey: 'configCenter.tabs.editor',
+        descriptionKey: 'configCenter.tabDescriptions.editor',
+        keywords: [
+          'font',
+          'indent',
+          'tab',
+          'minimap',
+          'word wrap',
+          'line number',
+          'format',
+          'save',
+        ],
+      },
+      // LSP / language server settings — temporarily hidden from nav
+      // {
+      //   id: 'lsp',
+      //   labelKey: 'configCenter.tabs.lsp',
+      //   descriptionKey: 'configCenter.tabDescriptions.lsp',
+      //   keywords: ['lsp', 'language server', 'typescript', 'intellisense'],
+      // },
     ],
   },
 ];
 
 export const DEFAULT_SETTINGS_TAB: ConfigTab = 'models';
+
+const KNOWN_TABS: ConfigTab[] = SETTINGS_CATEGORIES.flatMap((c) => c.tabs.map((t) => t.id));
+
+/** Map removed or renamed tabs; used by deep links and IDE actions. */
+export function normalizeSettingsTab(section: string): ConfigTab {
+  if (section === 'theme' || section === 'logging' || section === 'terminal') return 'basics';
+  if (section === 'lsp') return DEFAULT_SETTINGS_TAB;
+  if ((KNOWN_TABS as readonly string[]).includes(section)) return section as ConfigTab;
+  return DEFAULT_SETTINGS_TAB;
+}

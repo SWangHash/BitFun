@@ -1,0 +1,121 @@
+{
+  "title": "Basics",
+  "subtitle": "Interface language, theme, logging, and terminal",
+  "appearance": {
+    "title": "Appearance",
+    "hint": "Interface language and visual theme",
+    "language": "Language",
+    "themes": "Themes",
+    "importTheme": "Import Theme",
+    "importing": "Importing...",
+    "builtIn": "Built-in",
+    "custom": "Custom",
+    "export": "Export",
+    "delete": "Delete",
+    "confirmDelete": "Are you sure you want to delete theme \"{{name}}\"?",
+    "importSuccess": "Theme imported successfully!",
+    "importFailed": "Failed to import theme. Please check the file format.",
+    "languageRowHint": "Choose one language pack as the active UI language.",
+    "themeRowHint": "Pick an installed theme or manage custom themes.",
+    "presets": {
+      "bitfun-dark": {
+        "name": "Dark",
+        "description": "Default dark theme"
+      },
+      "bitfun-light": {
+        "name": "Light",
+        "description": "Light theme - Elegant and refined, soft blue-gray tones"
+      },
+      "bitfun-midnight": {
+        "name": "Midnight",
+        "description": "Midnight gray dark theme - Professional and elegant, inspired by JetBrains IDE"
+      },
+      "bitfun-china-style": {
+        "name": "Ink Charm",
+        "description": "Chinese style theme - Rice paper and ink, blue and vermilion, warm and elegant"
+      },
+      "bitfun-china-night": {
+        "name": "Ink Night",
+        "description": "Chinese dark theme - Starlit ink night, moonlight like water, serene and elegant"
+      },
+      "bitfun-cyber": {
+        "name": "Cyber",
+        "description": "Tech-style theme - Deep black hole, neon future, ultimate tech aesthetics"
+      },
+      "bitfun-slate": {
+        "name": "Slate",
+        "description": "Slate gray geometric theme - Deep immersion, high contrast grayscale aesthetics"
+      }
+    }
+  },
+  "logging": {
+    "sections": {
+      "logging": "Logging",
+      "loggingHint": "Log level and directory for this session",
+      "level": "Log Level",
+      "path": "Startup Log Path"
+    },
+    "level": {
+      "description": "Controls log verbosity in real time. Changes apply immediately."
+    },
+    "path": {
+      "description": "Directory where log files for this run are written."
+    },
+    "levels": {
+      "trace": "Trace",
+      "debug": "Debug",
+      "info": "Info",
+      "warn": "Warn",
+      "error": "Error",
+      "off": "Off"
+    },
+    "actions": {
+      "refreshTooltip": "Refresh runtime status",
+      "openFolder": "Open Folder",
+      "openFolderTooltip": "Open log folder in file explorer"
+    },
+    "messages": {
+      "loading": "Loading...",
+      "loadFailed": "Failed to load logging configuration",
+      "saveFailed": "Failed to save logging level",
+      "levelUpdated": "Logging level updated",
+      "refreshed": "Runtime status refreshed",
+      "openedFolder": "Log folder opened",
+      "openFailed": "Failed to open log folder",
+      "pathUnavailable": "Log folder path is unavailable"
+    }
+  },
+  "terminal": {
+    "sections": {
+      "terminal": "Terminal",
+      "terminalHint": "Default shell and new terminal behavior",
+      "defaultTerminal": "Default Terminal"
+    },
+    "controls": {
+      "refreshTooltip": "Refresh available terminals",
+      "autoDetect": "Auto Detect (Recommended)",
+      "description": "Default shell type for new terminals",
+      "placeholder": "Select default terminal",
+      "noShells": "No available terminals detected"
+    },
+    "warnings": {
+      "cmd": "CMD does not support shell integration. AI commands will execute via PowerShell.",
+      "gitBash": "Git Bash with oh-my-zsh may cause shell integration to fail. If issues occur, switch to PowerShell."
+    },
+    "recommendations": {
+      "pwsh": {
+        "prefix": "We recommend installing",
+        "name": "PowerShell Core",
+        "suffix": "for better cross-platform experience and modern features",
+        "link": "Download"
+      }
+    },
+    "messages": {
+      "loading": "Loading...",
+      "loadFailed": "Failed to load configuration",
+      "updated": "Default terminal updated",
+      "saveFailed": "Failed to save configuration",
+      "refreshed": "Available terminals list refreshed"
+    }
+  }
+}

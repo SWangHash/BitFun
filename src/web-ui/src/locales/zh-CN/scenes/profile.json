@@ -113,9 +113,7 @@
     "visualMode":         "可视化模式",
     "visualModeDesc":     "执行时显示可视化反馈",
     "sessionTitle":       "会话自动命名",
-    "sessionTitleDesc":   "新会话自动生成标题",
-    "welcomeAnalysis":    "欢迎页智能分析",
-    "welcomeAnalysisDesc": "打开项目时分析状态"
+    "sessionTitleDesc":   "新会话自动生成标题"
   },
 
   "nursery": {

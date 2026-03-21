@@ -2,7 +2,9 @@
   "title": "Debug Config",
   "subtitle": "Log and language debug template configuration",
   "sections": {
-    "settings": "Basic Settings",
+    "combined": "Debug Mode Settings",
+    "combinedDescription": "Configure the debug agent's log path, ingest server port, and language-specific code instrumentation templates.",
+    "settings": "Debug Settings",
     "templates": "Language Debug Templates"
   },
   "languageLabels": {
@@ -39,6 +41,7 @@
       "endPlaceholder": "End marker"
     },
     "notes": "Notes",
+    "configure": "Configure",
     "reset": "Reset to Default Templates",
     "noteItems": {
       "javascript": {

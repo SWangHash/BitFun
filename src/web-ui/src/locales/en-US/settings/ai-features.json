@@ -17,10 +17,6 @@
       "subtitle": "AI automatically generates concise titles for new conversations",
       "warning": "Session title will use first 20 characters of user message"
     },
-    "welcomeAnalysis": {
-      "title": "Welcome Page Analysis",
-      "subtitle": "Analyze work status and provide action suggestions"
-    },
     "compression": {
       "title": "Context Compression",
       "subtitle": "Intelligently compress long conversation context"

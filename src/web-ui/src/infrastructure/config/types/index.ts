@@ -35,7 +35,7 @@ export interface AppLoggingConfig {
 }
 
 export interface AppSessionConfig {
-  default_mode: 'code' | 'cowork';
+  // Reserved; legacy `default_mode` in saved JSON is ignored by the app.
 }
 
 export interface SidebarConfig {
@@ -55,10 +55,7 @@ export interface NotificationConfig {
 }
 
 export interface AIExperienceConfig {
-   
   enable_session_title_generation: boolean;
-   
-  enable_welcome_panel_ai_analysis: boolean;
 
   /** Whether to enable visual mode (use Mermaid diagrams to illustrate complex logic and flows). */
   enable_visual_mode: boolean;
@@ -515,7 +512,6 @@ export type ConfigPath =
   | 'app.auto_update'
   | 'app.telemetry'
   | 'app.session_config'
-  | 'app.session_config.default_mode'
   | 'app.sidebar'
   | 'app.sidebar.width'
   | 'app.sidebar.collapsed'

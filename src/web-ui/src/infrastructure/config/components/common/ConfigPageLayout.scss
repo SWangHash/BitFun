@@ -15,18 +15,28 @@
   font-family: var(--font-family-sans);
   /* Shared layout contract for settings pages in wide scenes. */
   --config-page-content-inline-padding: clamp(16px, 2.2vw, 28px);
-  --config-page-content-bottom-padding: var(--size-gap-6, 24px);
+  --config-page-content-bottom-padding: var(--size-gap-12, 48px);
   --config-page-content-max-width: 600px;
+  /* Vertical gap between top-level sections (ConfigPageSection blocks) inside ConfigPageContent. */
+  --config-page-section-gap: var(--size-gap-10, 40px);
   container-type: inline-size;
   container-name: config-panel;
 }
 
+.bitfun-config-page-layout__scroll-end-spacer {
+  flex-shrink: 0;
+  width: 100%;
+  height: var(--config-page-content-bottom-padding);
+  pointer-events: none;
+}
 
 .bitfun-config-page-content {
-  flex: 1;
+  /* flex-shrink: 0 — do NOT shrink below natural content height.
+   * This ensures the flex layout positions the scroll-end spacer AFTER
+   * the actual content, not at the flex-allocated truncated position. */
+  flex-shrink: 0;
   overflow: visible;
-  padding: 0 var(--config-page-content-inline-padding) var(--config-page-content-bottom-padding);
-  min-height: 0;
+  padding: 0 var(--config-page-content-inline-padding);
 }
 
 .bitfun-config-page-content__inner {
@@ -34,7 +44,7 @@
   margin-inline: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--size-gap-6, 24px);
+  gap: var(--config-page-section-gap);
 }
 
 .bitfun-config-page-section {
@@ -152,8 +162,9 @@
 @container config-panel (max-width: 900px) {
   .bitfun-config-page-layout {
     --config-page-content-inline-padding: var(--size-gap-4, 16px);
-    --config-page-content-bottom-padding: var(--size-gap-5, 20px);
+    --config-page-content-bottom-padding: var(--size-gap-10, 40px);
     --config-page-content-max-width: 100%;
+    --config-page-section-gap: var(--size-gap-8, 32px);
   }
 }
 
