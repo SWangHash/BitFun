@@ -6,6 +6,8 @@
 @use '../../component-library/styles/_extended-mixins' as mixins;
 
 .code-preview {
+  --markdown-font-mono: "Fira Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+
   position: relative;
   width: 100%;
   background: transparent;
@@ -29,6 +31,13 @@
         white-space: pre-wrap !important;
         word-break: break-word !important;
         cursor: text;
+        font-family: var(--markdown-font-mono, "Fira Code", "JetBrains Mono", Consolas, "Courier New", monospace) !important;
+        font-weight: 400 !important;
+
+        // Prism themes mark many tokens bold; match markdown body / code blocks (regular weight).
+        span[style] {
+          font-weight: 400 !important;
+        }
         
         > span[style] {
           &:hover {
@@ -112,6 +121,10 @@
   .code-preview__content {
     .linenumber {
       color: var(--color-text-muted, #94a3b8) !important;
+    }
+
+    pre code > span[style]:hover {
+      background-color: rgba(0, 0, 0, 0.06) !important;
     }
   }
 }

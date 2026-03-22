@@ -1060,9 +1060,9 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
                 <Input
                   ref={inlineAiInputRef}
                   variant="filled"
-                  inputSize="large"
+                  inputSize="medium"
                   className="m-editor-inline-ai__composer-input"
-                  prefix={<PenLine size={16} strokeWidth={1.8} />}
+                  prefix={<PenLine size={14} strokeWidth={1.75} />}
                   value={inlineAiState.query}
                   onChange={(event) => {
                     const nextValue = event.target.value;
@@ -1114,7 +1114,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
                         disabled={!canSubmitInlinePrompt}
                         aria-label={t('editor.meditor.inlineAi.askSubmit')}
                       >
-                        <ArrowUp size={15} strokeWidth={2.2} />
+                        <ArrowUp size={13} strokeWidth={2.1} />
                       </button>
                     </div>
                   )}
@@ -1134,7 +1134,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
                   }}
                 >
                   <span className="m-editor-inline-ai__quick-action-icon">
-                    <PenLine size={16} strokeWidth={1.8} />
+                    <PenLine size={14} strokeWidth={1.75} />
                   </span>
                   <span>{t('editor.meditor.inlineAi.continueMode')}</span>
                 </button>
@@ -1146,7 +1146,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
                   }}
                 >
                   <span className="m-editor-inline-ai__quick-action-icon">
-                    <FileText size={16} strokeWidth={1.8} />
+                    <FileText size={14} strokeWidth={1.75} />
                   </span>
                   <span>{t('editor.meditor.inlineAi.summaryAction')}</span>
                 </button>
@@ -1158,7 +1158,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
                   }}
                 >
                   <span className="m-editor-inline-ai__quick-action-icon">
-                    <ListTodo size={16} strokeWidth={1.8} />
+                    <ListTodo size={14} strokeWidth={1.75} />
                   </span>
                   <span>{t('editor.meditor.inlineAi.todoAction')}</span>
                 </button>

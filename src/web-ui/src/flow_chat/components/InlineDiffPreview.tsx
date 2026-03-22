@@ -12,10 +12,11 @@
 
 import React, { useMemo, memo, useRef, useCallback, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { diffLines, Change } from 'diff';
 import { getPrismLanguage } from '@/infrastructure/language-detection';
+import { useTheme } from '@/infrastructure/theme';
 import { createLogger } from '@/shared/utils/logger';
+import { buildCodePreviewPrismStyle, CODE_PREVIEW_FONT_FAMILY } from './codePreviewPrismTheme';
 import './InlineDiffPreview.scss';
 
 const log = createLogger('InlineDiffPreview');
@@ -169,29 +170,6 @@ function applyContextCollapsing(diffLines: DiffLine[], contextLines: number): Di
 }
 
 /**
- * Custom theme styles (kept in sync with CodePreview).
- */
-const customStyle = {
-  ...vscDarkPlus,
-  'pre[class*="language-"]': {
-    ...vscDarkPlus['pre[class*="language-"]'],
-    margin: 0,
-    padding: 0,
-    background: 'transparent',
-    fontSize: '12px',
-    lineHeight: '1.6',
-    fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace",
-  },
-  'code[class*="language-"]': {
-    ...vscDarkPlus['code[class*="language-"]'],
-    background: 'transparent',
-    fontSize: '12px',
-    lineHeight: '1.6',
-    fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace",
-  },
-};
-
-/**
  * InlineDiffPreview component.
  */
 export const InlineDiffPreview: React.FC<InlineDiffPreviewProps> = memo(({
@@ -207,6 +185,9 @@ export const InlineDiffPreview: React.FC<InlineDiffPreviewProps> = memo(({
   contextLines = 3,
   onLineClick,
 }) => {
+  const { isLight } = useTheme();
+  const prismStyle = useMemo(() => buildCodePreviewPrismStyle(isLight), [isLight]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [highlightedLine, setHighlightedLine] = useState<number | null>(null);
   
@@ -285,7 +266,7 @@ export const InlineDiffPreview: React.FC<InlineDiffPreviewProps> = memo(({
         <span className="diff-line__content">
           <SyntaxHighlighter
             language={detectedLanguage}
-            style={customStyle}
+            style={prismStyle}
             customStyle={{
               margin: 0,
               padding: 0,
@@ -294,8 +275,9 @@ export const InlineDiffPreview: React.FC<InlineDiffPreviewProps> = memo(({
             }}
             codeTagProps={{
               style: {
-                fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace",
+                fontFamily: CODE_PREVIEW_FONT_FAMILY,
                 fontSize: '12px',
+                fontWeight: 400,
               }
             }}
             PreTag="span"
@@ -305,7 +287,7 @@ export const InlineDiffPreview: React.FC<InlineDiffPreviewProps> = memo(({
         </span>
       </div>
     );
-  }, [detectedLanguage, showLineNumbers, lineNumberMode, showPrefix, highlightedLine, handleLineClick]);
+  }, [detectedLanguage, prismStyle, showLineNumbers, lineNumberMode, showPrefix, highlightedLine, handleLineClick]);
   
   if (!originalContent && !modifiedContent) {
     return (

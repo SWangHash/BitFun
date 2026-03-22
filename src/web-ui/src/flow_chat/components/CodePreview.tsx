@@ -13,8 +13,9 @@
 
 import React, { useMemo, memo, useRef, useEffect, useState, useCallback } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getPrismLanguage } from '@/infrastructure/language-detection';
+import { useTheme } from '@/infrastructure/theme';
+import { buildCodePreviewPrismStyle, CODE_PREVIEW_FONT_FAMILY } from './codePreviewPrismTheme';
 import './CodePreview.scss';
 
 export interface CodePreviewProps {
@@ -47,29 +48,6 @@ function detectLanguageFromPath(filePath: string): string {
 }
 
 /**
- * Custom theme derived from vscDarkPlus with project-specific tweaks.
- */
-const customStyle = {
-  ...vscDarkPlus,
-  'pre[class*="language-"]': {
-    ...vscDarkPlus['pre[class*="language-"]'],
-    margin: 0,
-    padding: 0,
-    background: 'transparent',
-    fontSize: '12px',
-    lineHeight: '1.6',
-    fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace",
-  },
-  'code[class*="language-"]': {
-    ...vscDarkPlus['code[class*="language-"]'],
-    background: 'transparent',
-    fontSize: '12px',
-    lineHeight: '1.6',
-    fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace",
-  },
-};
-
-/**
  * CodePreview component with streaming-friendly syntax highlighting.
  */
 export const CodePreview: React.FC<CodePreviewProps> = memo(({
@@ -83,6 +61,9 @@ export const CodePreview: React.FC<CodePreviewProps> = memo(({
   maxHeight = 400,
   onLineClick,
 }) => {
+  const { isLight } = useTheme();
+  const prismStyle = useMemo(() => buildCodePreviewPrismStyle(isLight), [isLight]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const prevContentLengthRef = useRef(0);
   
@@ -151,7 +132,7 @@ export const CodePreview: React.FC<CodePreviewProps> = memo(({
       >
         <SyntaxHighlighter
           language={detectedLanguage}
-          style={customStyle}
+          style={prismStyle}
           showLineNumbers={showLineNumbers}
           wrapLines={true}
           wrapLongLines={true}
@@ -164,9 +145,10 @@ export const CodePreview: React.FC<CodePreviewProps> = memo(({
           }}
           codeTagProps={{
             style: {
-              fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace",
+              fontFamily: CODE_PREVIEW_FONT_FAMILY,
               fontSize: '12px',
               lineHeight: '1.6',
+              fontWeight: 400,
             }
           }}
           lineNumberStyle={{
@@ -175,7 +157,7 @@ export const CodePreview: React.FC<CodePreviewProps> = memo(({
             textAlign: 'right',
             userSelect: 'none',
             color: 'var(--color-text-muted, #666)',
-            opacity: 0.6,
+            opacity: isLight ? 0.88 : 0.6,
           }}
         >
           {content}

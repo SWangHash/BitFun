@@ -270,9 +270,6 @@ const PersistentFooterActions: React.FC = () => {
                     aria-haspopup="menu"
                   >
                     <Layers size={15} />
-                    {isAnyActive && (
-                      <span className="bitfun-nav-panel__footer-multimodal-dot" aria-hidden />
-                    )}
                   </button>
                 </Tooltip>
 
@@ -291,7 +288,6 @@ const PersistentFooterActions: React.FC = () => {
                     >
                       <Globe size={13} className="bitfun-nav-panel__footer-multimodal-item-icon" />
                       <span className="bitfun-nav-panel__footer-multimodal-item-label">{t('scenes.browser')}</span>
-                      {isBrowserActive && <span className="bitfun-nav-panel__footer-multimodal-item-dot" aria-hidden />}
                     </button>
 
                     <button
@@ -303,7 +299,6 @@ const PersistentFooterActions: React.FC = () => {
                     >
                       <Network size={13} className="bitfun-nav-panel__footer-multimodal-item-icon" />
                       <span className="bitfun-nav-panel__footer-multimodal-item-label">{t('scenes.mermaidEditor')}</span>
-                      {isMermaidActive && <span className="bitfun-nav-panel__footer-multimodal-item-dot" aria-hidden />}
                     </button>
                   </div>
                 )}
