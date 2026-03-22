@@ -3,7 +3,7 @@
  * Shows internal model reasoning.
  *
  * Single DOM structure for both streaming and completed states.
- * Streaming: expanded, muted text with ink-fade shimmer.
+ * Expanded: max-height with scroll; streaming uses slightly brighter muted text.
  * Completed: auto-collapses via CSS grid-template-rows animation.
  */
 
@@ -88,32 +88,36 @@
   line-height: 1.4;
   font-family: var(--tool-card-font-mono);
   word-break: break-word;
-  white-space: pre-wrap;
   color: var(--tool-card-text-muted);
   padding: 10px 12px;
   background: transparent;
   border: none;
   border-radius: 6px;
   margin-top: 0;
-  max-height: none;
-  overflow-y: visible;
+  /* Cap height when expanded so long thinking stays compact; scroll inside */
+  max-height: 300px;
+  overflow-y: auto;
+  min-height: 0;
   cursor: text;
   user-select: text;
 }
 
-/* During streaming, constrain height and auto-scroll */
 .flow-thinking-item.streaming .thinking-content {
   color: #9ca3af;
-  max-height: 300px;
-  overflow-y: auto;
 }
 
 /* Content wrapper with fade gradients */
 .thinking-content-wrapper {
   position: relative;
   min-height: 0; /* Required for the 0fr grid trick */
+  /*
+   * Match FlowChat list surface (--color-bg-flowchat === scene), not app chrome primary.
+   * Use a solid fill + mask fade so we never interpolate theme colors with `transparent` in sRGB
+   * (that pulls toward black and looks wrong on near-black themes).
+   */
+  --thinking-scroll-fade-base: var(--color-bg-flowchat, var(--color-bg-scene, var(--color-bg-primary)));
 
-  /* Top fade gradient */
+  /* Top fade */
   &::before {
     content: '';
     position: absolute;
@@ -126,16 +130,16 @@
     opacity: 0;
     transition: opacity 0.2s ease;
 
-    background: linear-gradient(
-      to bottom,
-      var(--color-bg-primary, #121214) 0%,
-      color-mix(in srgb, var(--color-bg-primary, #121214) 80%, transparent) 40%,
-      color-mix(in srgb, var(--color-bg-primary, #121214) 40%, transparent) 70%,
-      transparent 100%
-    );
+    background: var(--thinking-scroll-fade-base);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 22%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 22%, transparent 100%);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
   }
 
-  /* Bottom fade gradient */
+  /* Bottom fade */
   &::after {
     content: '';
     position: absolute;
@@ -148,13 +152,13 @@
     opacity: 0;
     transition: opacity 0.2s ease;
 
-    background: linear-gradient(
-      to top,
-      var(--color-bg-primary, #121214) 0%,
-      color-mix(in srgb, var(--color-bg-primary, #121214) 80%, transparent) 40%,
-      color-mix(in srgb, var(--color-bg-primary, #121214) 40%, transparent) 70%,
-      transparent 100%
-    );
+    background: var(--thinking-scroll-fade-base);
+    -webkit-mask-image: linear-gradient(to top, #000 0%, #000 22%, transparent 100%);
+    mask-image: linear-gradient(to top, #000 0%, #000 22%, transparent 100%);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
   }
 
   /* Show gradients when content scrolls */
@@ -176,10 +180,150 @@
   }
 }
 
-.thinking-line {
-  padding: 1px 0;
-  color: var(--tool-card-text-secondary);
-  line-height: 1;
+/* Markdown body: keep muted monospace look (overrides default .markdown-renderer) */
+.thinking-content .markdown-renderer.thinking-markdown {
+  --markdown-font-mono: var(--tool-card-font-mono);
+
+  font-family: var(--tool-card-font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--tool-card-text-muted);
+  animation: none;
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--tool-card-font-mono);
+    font-weight: 600;
+    color: var(--tool-card-text-secondary);
+    margin-top: 0.65rem;
+    margin-bottom: 0.35rem;
+    letter-spacing: normal;
+    border: none;
+    padding: 0;
+  }
+
+  h1 {
+    font-size: 0.95rem;
+  }
+
+  h2 {
+    font-size: 0.9rem;
+  }
+
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-size: 0.85rem;
+  }
+
+  p,
+  li {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--tool-card-text-muted);
+  }
+
+  p {
+    margin-bottom: 0.35rem;
+  }
+
+  strong {
+    font-weight: 600;
+    color: var(--tool-card-text-secondary);
+  }
+
+  em {
+    color: var(--tool-card-text-muted);
+  }
+
+  a {
+    color: var(--text-tertiary, #6b7280);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  a:hover {
+    color: var(--text-secondary, #9ca3af);
+  }
+
+  ul,
+  ol {
+    margin: 0.25rem 0 0.35rem;
+    padding-left: 1.25rem;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid color-mix(in srgb, var(--tool-card-text-muted) 25%, transparent);
+    margin: 0.5rem 0;
+  }
+
+  blockquote,
+  .custom-blockquote {
+    margin: 0.35rem 0;
+    padding: 0.25rem 0 0.25rem 0.6rem;
+    border-left: 2px solid color-mix(in srgb, var(--tool-card-text-muted) 35%, transparent);
+    color: var(--tool-card-text-muted);
+    background: transparent;
+  }
+
+  blockquote p {
+    margin-bottom: 0.25rem;
+    color: inherit;
+  }
+
+  .inline-code {
+    font-family: var(--tool-card-font-mono);
+    font-size: 0.85em;
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--tool-card-text-muted) 12%, transparent);
+    color: var(--tool-card-text-secondary);
+  }
+
+  .code-block-wrapper {
+    margin: 0.35rem 0;
+    border-radius: 6px;
+    border: 1px solid color-mix(in srgb, var(--tool-card-text-muted) 18%, transparent);
+    background: color-mix(in srgb, var(--tool-card-text-muted) 8%, transparent);
+  }
+
+  .code-block-wrapper pre[class*='language-'],
+  .code-block-wrapper pre[style] {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    border-radius: 6px !important;
+  }
+
+  .code-block-wrapper .copy-button {
+    transform: scale(0.85);
+    transform-origin: top right;
+  }
+
+  .table-wrapper {
+    margin: 0.35rem 0;
+    font-size: 11px;
+  }
+
+  .table-wrapper th,
+  .table-wrapper td {
+    color: var(--tool-card-text-muted);
+    border-color: color-mix(in srgb, var(--tool-card-text-muted) 22%, transparent);
+  }
+
+  .table-wrapper th {
+    color: var(--tool-card-text-secondary);
+    background: color-mix(in srgb, var(--tool-card-text-muted) 6%, transparent);
+  }
+
+  .table-wrapper tbody tr:nth-child(2n) {
+    background: color-mix(in srgb, var(--tool-card-text-muted) 5%, transparent);
+  }
 }
 
 /* Streaming indicator with ink fade */

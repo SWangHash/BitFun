@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import type { FlowThinkingItem } from '../types/flow-chat';
 import { useTypewriter } from '../hooks/useTypewriter';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { Markdown } from '@/component-library/components/Markdown/Markdown';
 import './ModelThinkingDisplay.scss';
 
 interface ModelThinkingDisplayProps {
@@ -125,11 +126,11 @@ export const ModelThinkingDisplay: React.FC<ModelThinkingDisplayProps> = ({ thin
             className={`thinking-content expanded`}
             onScroll={checkScrollState}
           >
-            {renderedContent.split('\n').map((line: string, index: number) => (
-              <div key={index} className="thinking-line">
-                {line || '\u00A0'}
-              </div>
-            ))}
+            <Markdown
+              content={renderedContent}
+              isStreaming={isActive}
+              className="thinking-markdown"
+            />
           </div>
         </div>
       </div>
