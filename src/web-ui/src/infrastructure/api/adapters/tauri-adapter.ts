@@ -79,7 +79,11 @@ export class TauriTransportAdapter implements ITransportAdapter {
 
     listen<T>(event, (e) => {
       if (!isUnlistened) {
-        callback(e.payload);
+        try {
+          callback(e.payload);
+        } catch (error) {
+          log.error('Error in event listener callback', { event, error });
+        }
       }
     }).then(fn => {
       if (isUnlistened) {

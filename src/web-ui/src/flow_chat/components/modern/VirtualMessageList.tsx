@@ -1040,11 +1040,17 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef>((_, ref) => 
     resizeObserverRef.current.observe(resizeTarget);
 
     mutationObserverRef.current?.disconnect();
+    let mutationPending = false;
     mutationObserverRef.current = new MutationObserver(() => {
-      scheduleHeightMeasure(2);
-      scheduleVisibleTurnMeasure(2);
-      schedulePinReservationReconcile(2);
-      scheduleFollowToLatestWithViewportState('mutation-observer');
+      if (mutationPending) return;
+      mutationPending = true;
+      Promise.resolve().then(() => {
+        mutationPending = false;
+        scheduleHeightMeasure(2);
+        scheduleVisibleTurnMeasure(2);
+        schedulePinReservationReconcile(2);
+        scheduleFollowToLatestWithViewportState('mutation-observer');
+      });
     });
     mutationObserverRef.current.observe(scrollerElement, {
       subtree: true,

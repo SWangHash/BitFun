@@ -137,16 +137,17 @@ export function mapBackendStateToFrontend(backendState: any): SessionExecutionSt
 
 /**
  * Initialize global event listeners
+ * Returns a cleanup function that removes all registered listeners
  */
 export async function initializeEventListeners(
   context: FlowChatContext,
   onTodoWriteResult: (sessionId: string, turnId: string, result: any) => void
-): Promise<void> {
+): Promise<() => void> {
   const { listen } = await import('@tauri-apps/api/event');
-  await listen('backend-event-toolexecutionprogress', (event: any) => {
+  const unlistenProgress = await listen('backend-event-toolexecutionprogress', (event: any) => {
     handleToolExecutionProgress(event.payload);
   });
-  await listen('backend-event-toolterminalready', (event: any) => {
+  const unlistenTerminalReady = await listen('backend-event-toolterminalready', (event: any) => {
     const eventData = (event.payload as any)?.value || event.payload;
     handleToolTerminalReady(eventData);
   });
@@ -206,6 +207,12 @@ export async function initializeEventListeners(
   };
 
   await agenticEventListener.startListening(callbacks);
+
+  return () => {
+    unlistenProgress();
+    unlistenTerminalReady();
+    agenticEventListener.stopListening();
+  };
 }
 
 /**
@@ -407,6 +414,8 @@ function handleImageAnalysisStarted(context: FlowChatContext, event: ImageAnalys
   stateMachineManager.transition(sessionId, SessionExecutionEvent.START, {
     taskId: sessionId,
     dialogTurnId: tempTurnId,
+  }).catch(error => {
+    log.error('State machine transition failed on image analysis start', { sessionId, error });
   });
 
   log.info('Image analysis started: created temp turn for remote', {
@@ -545,6 +554,8 @@ function handleDialogTurnStarted(context: FlowChatContext, event: any): void {
       stateMachineManager.transition(sessionId, SessionExecutionEvent.START, {
         taskId: sessionId,
         dialogTurnId: turnId,
+      }).catch(error => {
+        log.error('State machine transition failed on dialog turn start', { sessionId, error });
       });
     }
     return;
@@ -605,6 +616,8 @@ function handleTextChunk(context: FlowChatContext, event: any): void {
     if (currentState === SessionExecutionState.PROCESSING) {
       stateMachineManager.transition(sessionId, SessionExecutionEvent.TEXT_CHUNK_RECEIVED, {
         content: text,
+      }).catch(error => {
+        log.error('State machine transition failed on text chunk', { sessionId, error });
       });
     }
   }
@@ -781,6 +794,8 @@ function handleToolEvent(
         turnId,
         toolEvent
       }, onTodoWriteResult);
+    }).catch(error => {
+      log.error('Failed to load SubagentModule or route tool event', { sessionId, turnId, error });
     });
   } else {
     processToolEvent(context, sessionId, turnId, toolEvent, undefined, onTodoWriteResult);
@@ -819,6 +834,8 @@ function handleModelRoundStart(context: FlowChatContext, event: any): void {
   if (currentState === SessionExecutionState.PROCESSING) {
     stateMachineManager.transition(sessionId, SessionExecutionEvent.MODEL_ROUND_START, {
       modelRoundId: roundId,
+    }).catch(error => {
+      log.error('State machine transition failed on model round start', { sessionId, error });
     });
   }
 
@@ -1043,7 +1060,9 @@ function handleDialogTurnComplete(
 
   const currentState = stateMachineManager.getCurrentState(sessionId);
   if (currentState === SessionExecutionState.PROCESSING) {
-    stateMachineManager.transition(sessionId, SessionExecutionEvent.STREAM_COMPLETE);
+    stateMachineManager.transition(sessionId, SessionExecutionEvent.STREAM_COMPLETE).catch(error => {
+      log.error('State machine transition failed on stream complete', { sessionId, error });
+    });
   } else {
     log.debug('Skipping STREAM_COMPLETE transition', { currentState, sessionId });
   }
@@ -1138,8 +1157,12 @@ function handleDialogTurnFailed(context: FlowChatContext, event: any): void {
   if (currentState === SessionExecutionState.PROCESSING) {
     stateMachineManager.transition(sessionId, SessionExecutionEvent.ERROR_OCCURRED, {
       error: error || 'Execution failed'
+    }).catch(err => {
+      log.error('State machine transition failed on error occurred', { sessionId, error: err });
     });
-    stateMachineManager.transition(sessionId, SessionExecutionEvent.RESET);
+    stateMachineManager.transition(sessionId, SessionExecutionEvent.RESET).catch(err => {
+      log.error('State machine transition failed on reset', { sessionId, error: err });
+    });
   }
   
   notificationService.error(error || 'Execution failed', {
@@ -1221,7 +1244,9 @@ function handleDialogTurnCancelled(
   // external source (mobile remote), the machine is still PROCESSING.
   const currentState = stateMachineManager.getCurrentState(sessionId);
   if (currentState === SessionExecutionState.PROCESSING) {
-    stateMachineManager.transition(sessionId, SessionExecutionEvent.STREAM_COMPLETE);
+    stateMachineManager.transition(sessionId, SessionExecutionEvent.STREAM_COMPLETE).catch(error => {
+      log.error('State machine transition failed on cancelled stream complete', { sessionId, error });
+    });
   }
 }
 

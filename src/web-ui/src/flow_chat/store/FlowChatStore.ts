@@ -82,7 +82,13 @@ export class FlowChatStore {
     this.state = newState;
     
     if (!this.silentMode) {
-      this.listeners.forEach(listener => listener(newState));
+      this.listeners.forEach(listener => {
+        try {
+          listener(newState);
+        } catch (error) {
+          console.error('[FlowChatStore] Listener threw an error, skipping:', error);
+        }
+      });
     }
   }
   
@@ -104,7 +110,13 @@ export class FlowChatStore {
    * Manually notify all listeners (call after batch updates complete)
    */
   public notifyListeners(): void {
-    this.listeners.forEach(listener => listener(this.state));
+    this.listeners.forEach(listener => {
+      try {
+        listener(this.state);
+      } catch (error) {
+        console.error('[FlowChatStore] Listener threw an error during notifyListeners, skipping:', error);
+      }
+    });
   }
   
   public beginSilentMode(): void {

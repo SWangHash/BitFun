@@ -45,6 +45,7 @@ export class FlowChatManager {
   private context: FlowChatContext;
   private agentService: AgentService;
   private eventListenerInitialized = false;
+  private eventListenerCleanup: (() => void) | null = null;
 
   private constructor() {
     this.context = {
@@ -159,12 +160,20 @@ export class FlowChatManager {
       return;
     }
 
-    await initializeEventListeners(
+    this.eventListenerCleanup = await initializeEventListeners(
       this.context,
       (sessionId, turnId, result) => this.handleTodoWriteResult(sessionId, turnId, result)
     );
     
     this.eventListenerInitialized = true;
+  }
+
+  public cleanupEventListeners(): void {
+    if (this.eventListenerCleanup) {
+      this.eventListenerCleanup();
+      this.eventListenerCleanup = null;
+      this.eventListenerInitialized = false;
+    }
   }
 
   private processBatchedEvents(events: Array<{ key: string; payload: any }>): void {
