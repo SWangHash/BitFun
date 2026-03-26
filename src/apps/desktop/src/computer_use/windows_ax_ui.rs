@@ -60,7 +60,7 @@ pub fn locate_ui_element_center(query: &UiElementLocateQuery) -> BitFunResult<Ui
     };
 
     let hwnd = unsafe { GetForegroundWindow() };
-    if hwnd.0 == 0 {
+    if hwnd.is_invalid() {
         return Err(BitFunError::tool(
             "No foreground window (GetForegroundWindow returned null).".to_string(),
         ));

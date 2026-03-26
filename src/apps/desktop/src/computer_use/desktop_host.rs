@@ -878,7 +878,7 @@ end tell"#])
 
         unsafe {
             let mut pt = POINT::default();
-            let pointer = if GetCursorPos(&mut pt).as_bool() {
+            let pointer = if GetCursorPos(&mut pt).is_ok() {
                 Some(ComputerUsePointerGlobal {
                     x: pt.x as f64,
                     y: pt.y as f64,
@@ -888,7 +888,7 @@ end tell"#])
             };
 
             let hwnd = GetForegroundWindow();
-            let foreground = if hwnd.0 == 0 {
+            let foreground = if hwnd.is_invalid() {
                 None
             } else {
                 let mut pid: u32 = 0;
