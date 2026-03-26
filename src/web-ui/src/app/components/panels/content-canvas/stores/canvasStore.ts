@@ -1083,19 +1083,24 @@ export const useProjectCanvasStore = createCanvasStoreHook();
 export const useGitCanvasStore = createCanvasStoreHook();
 export const usePanelViewCanvasStore = createCanvasStoreHook();
 
-const pickStoreByMode = (mode: CanvasStoreMode) => {
-  if (mode === 'project') return useProjectCanvasStore;
-  if (mode === 'git') return useGitCanvasStore;
-  if (mode === 'panel-view') return usePanelViewCanvasStore;
-  return useAgentCanvasStore;
-};
+const selectWholeCanvasStore = (state: CanvasStore) => state;
 
 export function useCanvasStore(): CanvasStore;
 export function useCanvasStore<T>(selector: (state: CanvasStore) => T): T;
 export function useCanvasStore<T>(selector?: (state: CanvasStore) => T): T | CanvasStore {
   const mode = useContext(CanvasStoreModeContext);
-  const useScopedStore = pickStoreByMode(mode);
-  return selector ? useScopedStore(selector) : useScopedStore();
+  const resolvedSelector = (selector ?? selectWholeCanvasStore) as (state: CanvasStore) => T | CanvasStore;
+
+  // Keep hook order stable across mode switches by subscribing to each scoped store.
+  const agentValue = useAgentCanvasStore(resolvedSelector);
+  const projectValue = useProjectCanvasStore(resolvedSelector);
+  const gitValue = useGitCanvasStore(resolvedSelector);
+  const panelViewValue = usePanelViewCanvasStore(resolvedSelector);
+
+  if (mode === 'project') return projectValue;
+  if (mode === 'git') return gitValue;
+  if (mode === 'panel-view') return panelViewValue;
+  return agentValue;
 }
 
 // ==================== Selector Hooks ====================

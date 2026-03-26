@@ -7,6 +7,7 @@ import React from 'react';
 import { getToolCardConfig, getToolCardComponent } from '../tool-cards';
 import type { FlowToolItem } from '../types/flow-chat';
 import { createLogger } from '@/shared/utils/logger';
+import { FlowToolCardErrorBoundary } from './FlowToolCardErrorBoundary';
 
 const log = createLogger('FlowToolCard');
 
@@ -54,16 +55,22 @@ export const FlowToolCard: React.FC<FlowToolCardProps> = React.memo(({
 
   return (
     <div className={`flow-tool-card-wrapper ${className}`}>
-      <CardComponent
+      <FlowToolCardErrorBoundary
         toolItem={toolItem}
-        config={config}
-        onConfirm={handleConfirm}
-        onReject={handleReject}
-        onOpenInEditor={onOpenInEditor}
-        onOpenInPanel={onOpenInPanel}
-        onExpand={handleExpand}
+        displayName={config.displayName}
         sessionId={sessionId}
-      />
+      >
+        <CardComponent
+          toolItem={toolItem}
+          config={config}
+          onConfirm={handleConfirm}
+          onReject={handleReject}
+          onOpenInEditor={onOpenInEditor}
+          onOpenInPanel={onOpenInPanel}
+          onExpand={handleExpand}
+          sessionId={sessionId}
+        />
+      </FlowToolCardErrorBoundary>
     </div>
   );
 }, (prevProps, nextProps) => {
