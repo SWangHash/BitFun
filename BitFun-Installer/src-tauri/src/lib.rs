@@ -9,6 +9,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_launch_context,
             commands::get_default_install_path,
+            commands::get_initial_install_path,
             commands::get_disk_space,
             commands::validate_install_path,
             commands::start_installation,

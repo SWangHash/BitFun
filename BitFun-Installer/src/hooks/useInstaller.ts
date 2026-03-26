@@ -106,7 +106,7 @@ export function useInstaller(): UseInstallerReturn {
       }
 
       try {
-        const path = await invoke<string>('get_default_install_path');
+        const path = await invoke<string>('get_initial_install_path');
         if (mounted) {
           setOptions((prev) => ({ ...prev, installPath: path }));
         }

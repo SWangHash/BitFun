@@ -27,6 +27,7 @@ struct WindowsInstallState {
 const MIN_WINDOWS_APP_EXE_BYTES: u64 = 5 * 1024 * 1024;
 const PAYLOAD_MANIFEST_FILE: &str = "payload-manifest.json";
 const INSTALL_MANIFEST_FILE: &str = ".bitfun-install-manifest.json";
+const INSTALLER_STATE_FILE: &str = "installer-state.json";
 const EMBEDDED_PAYLOAD_ZIP: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/embedded_payload.zip"));
 
@@ -60,6 +61,12 @@ pub struct InstallPathValidation {
     pub install_path: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct InstallerState {
+    last_install_path: String,
+}
+
 /// Get the default installation path.
 #[tauri::command]
 pub fn get_default_install_path() -> String {
@@ -80,6 +87,17 @@ pub fn get_default_install_path() -> String {
     };
 
     base.join("BitFun").to_string_lossy().to_string()
+}
+
+/// Last successful install path if still valid, otherwise platform default.
+#[tauri::command]
+pub fn get_initial_install_path() -> String {
+    if let Some(saved) = read_last_install_path() {
+        if let Ok(resolved) = prepare_install_target(Path::new(&saved)) {
+            return resolved.to_string_lossy().to_string();
+        }
+    }
+    get_default_install_path()
 }
 
 /// Get available disk space for the given path.
@@ -399,6 +417,8 @@ pub async fn start_installation(window: Window, options: InstallOptions) -> Resu
         rollback_installation(&install_path, install_dir_was_absent);
         return Err(err);
     }
+
+    persist_last_install_path(&install_path);
 
     Ok(())
 }
@@ -1135,6 +1155,48 @@ fn ensure_app_config_path() -> Result<PathBuf, String> {
     std::fs::create_dir_all(&config_root)
         .map_err(|e| format!("Failed to create BitFun config directory: {}", e))?;
     Ok(config_root.join("app.json"))
+}
+
+fn installer_state_path() -> Result<PathBuf, String> {
+    let app_config_file = ensure_app_config_path()?;
+    let parent = app_config_file
+        .parent()
+        .ok_or_else(|| "Invalid app config path".to_string())?;
+    Ok(parent.join(INSTALLER_STATE_FILE))
+}
+
+fn read_last_install_path() -> Option<String> {
+    let state_path = installer_state_path().ok()?;
+    if !state_path.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(&state_path).ok()?;
+    let state: InstallerState = serde_json::from_str(&content).ok()?;
+    let trimmed = state.last_install_path.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(trimmed.to_string())
+}
+
+fn persist_last_install_path(install_path: &Path) {
+    let Ok(state_path) = installer_state_path() else {
+        log::warn!("Could not resolve installer state path");
+        return;
+    };
+    let state = InstallerState {
+        last_install_path: install_path.to_string_lossy().to_string(),
+    };
+    let body = match serde_json::to_string_pretty(&state) {
+        Ok(b) => b,
+        Err(e) => {
+            log::warn!("Failed to serialize installer state: {}", e);
+            return;
+        }
+    };
+    if let Err(e) = std::fs::write(&state_path, body) {
+        log::warn!("Failed to write installer state: {}", e);
+    }
 }
 
 fn read_saved_app_language() -> Option<String> {
