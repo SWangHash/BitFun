@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import { immer } from 'zustand/middleware/immer';
 import type { Session, DialogTurn, ModelRound, FlowItem, FlowToolItem } from '../types/flow-chat';
 import { isCollapsibleTool, READ_TOOL_NAMES, SEARCH_TOOL_NAMES } from '../tool-cards';
@@ -278,11 +279,11 @@ export const useModernFlowChatStore = create<ModernFlowChatState>()(
     visibleTurnInfo: null,
 
     setActiveSession: (session) => {
+      const items = sessionToVirtualItems(session);
       set((state) => {
         state.activeSession = session;
+        state.virtualItems = items;
       });
-
-      get().updateVirtualItems();
     },
 
     updateVirtualItems: () => {
@@ -327,9 +328,9 @@ export const useVisibleTurnInfo = () =>
  * Get actions (does not trigger re-render)
  */
 export const useFlowChatActions = () =>
-  useModernFlowChatStore(state => ({
+  useModernFlowChatStore(useShallow(state => ({
     setActiveSession: state.setActiveSession,
     updateVirtualItems: state.updateVirtualItems,
     setVisibleTurnInfo: state.setVisibleTurnInfo,
     clear: state.clear,
-  }));
+  })));

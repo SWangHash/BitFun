@@ -24,40 +24,46 @@ export function syncSessionToModernStore(sessionId: string): void {
 
   const modernStore = useModernFlowChatStore.getState();
   modernStore.setActiveSession(session);
-  
-  setTimeout(() => {
-    modernStore.updateVirtualItems();
-  }, 0);
 }
 
 /**
  * Start auto sync
  * Listens to old Store changes and automatically syncs to new Store
  *
- * Performance optimization: relies on FlowChatStore's immutable updates, each update creates a new session reference
+ * Performance optimization: relies on FlowChatStore's immutable updates, each update creates a new session reference.
+ * Uses reference comparison to skip redundant syncs — if the active session object hasn't changed, no work is done.
  */
 export function startAutoSync(): () => void {
+  let lastSyncedSessionId: string | null = null;
+  let lastSyncedSession: object | null = null;
+
   const unsubscribe = flowChatStore.subscribe((state) => {
     const modernStore = useModernFlowChatStore.getState();
-    
+
     if (state.activeSessionId) {
       const session = state.sessions.get(state.activeSessionId);
-      if (session) {
+      if (session && (session !== lastSyncedSession || state.activeSessionId !== lastSyncedSessionId)) {
+        lastSyncedSessionId = state.activeSessionId;
+        lastSyncedSession = session;
         modernStore.setActiveSession(session);
       }
-    } else {
+    } else if (lastSyncedSessionId !== null) {
+      lastSyncedSessionId = null;
+      lastSyncedSession = null;
       modernStore.clear();
     }
   });
-  
+
   const currentState = flowChatStore.getState();
   if (currentState.activeSessionId) {
     const session = currentState.sessions.get(currentState.activeSessionId);
     if (session) {
+      lastSyncedSessionId = currentState.activeSessionId;
+      lastSyncedSession = session;
       const modernStore = useModernFlowChatStore.getState();
       modernStore.setActiveSession(session);
     }
   }
-  
+
   return unsubscribe;
 }

@@ -6,7 +6,7 @@
  * - Toolbar mode: compact floating bar
  */
 
-import React, { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useMemo, ReactNode } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { PhysicalSize, PhysicalPosition } from '@tauri-apps/api/dpi';
 import { currentMonitor } from '@tauri-apps/api/window';
@@ -303,7 +303,7 @@ export const ToolbarModeProvider: React.FC<ToolbarModeProviderProps> = ({ childr
     setToolbarState(prev => ({ ...prev, ...updates }));
   }, []);
   
-  const value: ToolbarModeContextType = {
+  const value: ToolbarModeContextType = useMemo(() => ({
     isToolbarMode,
     isExpanded,
     isPinned,
@@ -314,8 +314,20 @@ export const ToolbarModeProvider: React.FC<ToolbarModeProviderProps> = ({ childr
     setPinned,
     togglePinned,
     toolbarState,
-    updateToolbarState
-  };
+    updateToolbarState,
+  }), [
+    isToolbarMode,
+    isExpanded,
+    isPinned,
+    enableToolbarMode,
+    disableToolbarMode,
+    toggleToolbarMode,
+    toggleExpanded,
+    setPinned,
+    togglePinned,
+    toolbarState,
+    updateToolbarState,
+  ]);
   
   return (
     <ToolbarModeContext.Provider value={value}>

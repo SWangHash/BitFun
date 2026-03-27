@@ -20,7 +20,7 @@ export interface ExploreGroupRendererProps {
   turnId: string;
 }
 
-export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = ({
+export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = React.memo(({
   data,
   turnId,
 }) => {
@@ -216,7 +216,7 @@ export const ExploreGroupRenderer: React.FC<ExploreGroupRendererProps> = ({
       </div>
     </div>
   );
-};
+});
 
 /**
  * Explore item renderer inside the explore region.

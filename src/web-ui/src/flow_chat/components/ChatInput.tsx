@@ -11,7 +11,7 @@ import { useActiveSessionState } from '../hooks/useActiveSessionState';
 import { RichTextInput, type MentionState } from './RichTextInput';
 import { FileMentionPicker } from './FileMentionPicker';
 import { globalEventBus } from '../../infrastructure/event-bus';
-import { useSessionDerivedState, useSessionStateMachineActions, useSessionStateMachine } from '../hooks/useSessionStateMachine';
+import { useSessionDerivedState, useSessionStateMachineActions } from '../hooks/useSessionStateMachine';
 import { SessionExecutionEvent } from '../state-machine/types';
 import TokenUsageIndicator from './TokenUsageIndicator';
 import { ModelSelector } from './ModelSelector';
@@ -126,7 +126,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     inputState.value.trim()
   );
   const { transition, setQueuedInput } = useSessionStateMachineActions(effectiveTargetSessionId);
-  const stateMachine = useSessionStateMachine(effectiveTargetSessionId);
 
   const { workspace, workspacePath } = useCurrentWorkspace();
   
@@ -503,7 +502,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [isAssistantWorkspace, modeState.current]);
 
   React.useEffect(() => {
-    const queuedInput = stateMachine?.context?.queuedInput;
+    const queuedInput = derivedState?.queuedInput;
     if (!queuedInput?.trim() || !effectiveTargetSessionId) {
       return;
     }
@@ -527,7 +526,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    stateMachine?.context?.queuedInput,
+    derivedState?.queuedInput,
     effectiveTargetSessionId,
   ]);
 

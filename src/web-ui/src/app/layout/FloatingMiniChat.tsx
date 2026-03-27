@@ -77,7 +77,15 @@ export const FloatingMiniChat: React.FC = () => {
     return { isStreaming };
   }, [flowChatState]);
 
-  const handleOpen = useCallback(() => setIsOpen(true), []);
+  const handleOpen = useCallback(() => {
+    // Sync the active session into modernFlowChatStore so the panel shows
+    // up-to-date content (it may have been streaming while the panel was closed).
+    const state = flowChatStore.getState();
+    if (state.activeSessionId) {
+      syncSessionToModernStore(state.activeSessionId);
+    }
+    setIsOpen(true);
+  }, []);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
@@ -277,9 +285,11 @@ export const FloatingMiniChat: React.FC = () => {
           </Tooltip>
         </div>
 
-        {/* FlowChat body */}
+        {/* FlowChat body — only mounted while the panel is open to avoid
+            running a second VirtualMessageList and store sync in the background
+            while the agent is actively streaming in another scene. */}
         <div className="bitfun-fmc__body">
-          <ModernFlowChatContainer />
+          {isOpen && <ModernFlowChatContainer />}
         </div>
 
         {/* Input bar */}

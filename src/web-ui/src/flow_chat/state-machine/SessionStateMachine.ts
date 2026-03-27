@@ -44,6 +44,8 @@ function createInitialContext(): SessionStateMachineContext {
 }
 
 export class SessionStateMachineImpl {
+  private static readonly MAX_HISTORY_LENGTH = 100;
+
   private sessionId: string;
   private currentState: SessionExecutionState;
   private context: SessionStateMachineContext;
@@ -57,14 +59,16 @@ export class SessionStateMachineImpl {
   }
 
   getSnapshot(): SessionStateMachine {
+    const { pendingToolConfirmations, ...rest } = this.context;
+    const clonedRest = structuredClone(rest);
     return {
       sessionId: this.sessionId,
       currentState: this.currentState,
-      context: JSON.parse(JSON.stringify({
-        ...this.context,
-        pendingToolConfirmations: Array.from(this.context.pendingToolConfirmations),
-      })),
-      transitionHistory: [...this.transitionHistory],
+      context: {
+        ...clonedRest,
+        pendingToolConfirmations: new Set(pendingToolConfirmations),
+      },
+      transitionHistory: this.transitionHistory.slice(-SessionStateMachineImpl.MAX_HISTORY_LENGTH),
     };
   }
 
@@ -130,6 +134,10 @@ export class SessionStateMachineImpl {
 
     this.updateContext(event, payload);
 
+    if (this.transitionHistory.length > SessionStateMachineImpl.MAX_HISTORY_LENGTH * 2) {
+      this.transitionHistory = this.transitionHistory.slice(-SessionStateMachineImpl.MAX_HISTORY_LENGTH);
+    }
+
     this.transitionHistory.push({
       from: fromState,
       event,
@@ -141,7 +149,12 @@ export class SessionStateMachineImpl {
 
     await this.runSideEffects(event, payload);
 
-    this.notifyListeners();
+    // TEXT_CHUNK_RECEIVED is a self-loop (PROCESSING→PROCESSING / FINISHING→FINISHING)
+    // that only increments stats.textCharsGenerated. Skip the expensive snapshot clone
+    // and listener broadcast to avoid per-chunk overhead during streaming.
+    if (event !== SessionExecutionEvent.TEXT_CHUNK_RECEIVED) {
+      this.notifyListeners();
+    }
 
     return true;
   }

@@ -145,7 +145,8 @@ export interface SessionDerivedState {
   canCancel: boolean;
   canSendNewMessage: boolean;
   hasQueuedInput: boolean;
-  
+  queuedInput: string | null;
+
   hasError: boolean;
   errorType: 'network' | 'model' | 'permission' | 'unknown' | null;
   canRetry: boolean;

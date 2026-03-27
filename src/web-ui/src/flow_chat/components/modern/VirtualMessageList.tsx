@@ -1044,7 +1044,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef>((_, ref) => 
     mutationObserverRef.current = new MutationObserver(() => {
       if (mutationPending) return;
       mutationPending = true;
-      Promise.resolve().then(() => {
+      requestAnimationFrame(() => {
         mutationPending = false;
         scheduleHeightMeasure(2);
         scheduleVisibleTurnMeasure(2);
@@ -1885,7 +1885,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef>((_, ref) => 
         // content before sticky pin logic can finish.
         initialTopMostItemIndex={latestUserMessageIndex}
 
-        overscan={{ main: 1200, reverse: 1200 }}
+        overscan={{ main: 600, reverse: 600 }}
 
         atBottomThreshold={50}
         atBottomStateChange={handleAtBottomStateChange}
@@ -1894,7 +1894,7 @@ export const VirtualMessageList = forwardRef<VirtualMessageListRef>((_, ref) => 
 
         defaultItemHeight={200}
 
-        increaseViewportBy={{ top: 1200, bottom: 1200 }}
+        increaseViewportBy={{ top: 600, bottom: 600 }}
 
         scrollerRef={handleScrollerRef}
 

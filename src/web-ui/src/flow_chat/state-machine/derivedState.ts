@@ -95,6 +95,7 @@ export function deriveSessionState(
         currentState === SessionExecutionState.FINISHING ||
         currentState === SessionExecutionState.ERROR) &&
         draftTrimmed.length > 0),
+    queuedInput: context.queuedInput ?? null,
     
     hasError: isError,
     errorType: context.errorMessage ? detectErrorType(context.errorMessage) : null,
