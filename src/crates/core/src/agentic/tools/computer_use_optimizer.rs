@@ -104,7 +104,47 @@ impl ComputerUseOptimizer {
                 is_loop: true,
                 pattern_length: 0,
                 repetitions: 0,
-                suggestion: "Screen state unchanged after multiple actions. Try a different approach or use accessibility tree instead of vision.".to_string(),
+                suggestion: "Screen state unchanged after multiple actions. Try: 1) Use `key_chord` (Enter, Escape, Tab) instead of mouse, 2) Use `click_element` or `move_to_text` for precise targeting instead of screenshot drill, 3) Verify app is focused.".to_string(),
+            };
+        }
+
+        // Check for excessive mouse usage without keyboard
+        if self.check_excessive_mouse_usage() {
+            return LoopDetectionResult {
+                is_loop: true,
+                pattern_length: 0,
+                repetitions: 0,
+                suggestion: "Detected heavy mouse usage without keyboard. Consider: 1) Use `key_chord` with Enter/Escape/Tab/Space instead of clicking buttons, 2) Use `move_to_text` (OCR) instead of screenshot-based targeting, 3) Use `click_element` (accessibility tree) when possible.".to_string(),
+            };
+        }
+
+        // Check for screenshot → mouse_move → click pattern without using precise coordinates
+        if self.check_screenshot_mouse_pattern() {
+            return LoopDetectionResult {
+                is_loop: true,
+                pattern_length: 0,
+                repetitions: 0,
+                suggestion: "Detected screenshot + mouse move pattern. Use `move_to_text` for visible text or `click_element` for accessibility elements instead of estimating from JPEG. Use `global_center_x/y` from prior tool results with `use_screen_coordinates: true`.".to_string(),
+            };
+        }
+
+        // Check for repeated move_to_text failures without trying keyboard navigation
+        if self.check_repeated_move_to_text_failures() {
+            return LoopDetectionResult {
+                is_loop: true,
+                pattern_length: 0,
+                repetitions: 0,
+                suggestion: "Detected repeated move_to_text failures. Try: 1) Use `key_chord` with Tab/Shift+Tab to navigate focus instead of OCR, 2) Try a shorter substring in `move_to_text`, 3) Verify you're targeting the correct window/app.".to_string(),
+            };
+        }
+
+        // Check for screenshot → mouse_move loop without any clicks or progress
+        if self.check_screenshot_mouse_loop() {
+            return LoopDetectionResult {
+                is_loop: true,
+                pattern_length: 0,
+                repetitions: 0,
+                suggestion: "Detected screenshot → mouse_move loop without progress. Stop guessing coordinates! Try: 1) Use `key_chord` with Tab to navigate focus, 2) Use `move_to_text` with a visible text target, 3) Verify the correct app is focused.".to_string(),
             };
         }
 
@@ -143,7 +183,7 @@ impl ComputerUseOptimizer {
                 pattern_length: pattern_len,
                 repetitions: reps,
                 suggestion: format!(
-                    "Detected repeating pattern of {} actions (repeated {} times). Try: 1) Use accessibility tree (click_element/locate) instead of vision, 2) Use keyboard shortcuts instead of mouse, 3) Take a fresh screenshot to verify current state.",
+                    "Detected repeating pattern of {} actions (repeated {} times). Try: 1) Use `key_chord` (Enter/Escape/Tab/Space) instead of mouse clicks, 2) Use `click_element` (accessibility tree) or `move_to_text` (OCR) instead of vision-based targeting, 3) Take a fresh screenshot to verify current state.",
                     pattern_len, reps
                 ),
             })
@@ -164,6 +204,103 @@ impl ComputerUseOptimizer {
         } else {
             false
         }
+    }
+
+    /// Detect excessive mouse usage without any keyboard actions
+    fn check_excessive_mouse_usage(&self) -> bool {
+        let recent: Vec<_> = self.action_history.iter().rev().take(10).collect();
+        if recent.len() < 10 {
+            return false;
+        }
+
+        let mouse_actions = ["click", "mouse_move", "scroll", "drag", "pointer_move_rel"];
+        let has_keyboard = recent.iter().any(|r| 
+            r.action_type == "key_chord" || r.action_type == "type_text"
+        );
+        
+        let mouse_count = recent.iter().filter(|r| 
+            mouse_actions.contains(&r.action_type.as_str())
+        ).count();
+
+        // If 8+ of last 10 actions are mouse and no keyboard usage
+        !has_keyboard && mouse_count >= 8
+    }
+
+    /// Detect screenshot → mouse_move → click pattern without precise coordinates
+    fn check_screenshot_mouse_pattern(&self) -> bool {
+        let recent: Vec<_> = self.action_history.iter().rev().take(12).collect();
+        if recent.len() < 9 {
+            return false;
+        }
+
+        let mut screenshot_count = 0;
+        let mut mouse_move_count = 0;
+        let mut has_move_to_text = false;
+        let mut has_click_element = false;
+
+        for action in &recent {
+            match action.action_type.as_str() {
+                "screenshot" => screenshot_count += 1,
+                "mouse_move" => mouse_move_count += 1,
+                "move_to_text" => has_move_to_text = true,
+                "click_element" => has_click_element = true,
+                _ => {}
+            }
+        }
+
+        // If we have many screenshots + mouse moves but no move_to_text/click_element
+        screenshot_count >= 3 && mouse_move_count >= 2 && !has_move_to_text && !has_click_element
+    }
+
+    /// Detect repeated move_to_text failures without trying keyboard navigation
+    fn check_repeated_move_to_text_failures(&self) -> bool {
+        let recent: Vec<_> = self.action_history.iter().rev().take(8).collect();
+        if recent.len() < 5 {
+            return false;
+        }
+
+        let mut move_to_text_failures = 0;
+        let mut has_keyboard = false;
+
+        for action in &recent {
+            if action.action_type == "move_to_text" && !action.success {
+                move_to_text_failures += 1;
+            }
+            if action.action_type == "key_chord" {
+                has_keyboard = true;
+            }
+        }
+
+        // 3+ move_to_text failures and no keyboard attempts
+        move_to_text_failures >= 3 && !has_keyboard
+    }
+
+    /// Detect screenshot → mouse_move loop without any clicks or progress
+    fn check_screenshot_mouse_loop(&self) -> bool {
+        let recent: Vec<_> = self.action_history.iter().rev().take(10).collect();
+        if recent.len() < 6 {
+            return false;
+        }
+
+        let mut screenshot_count = 0;
+        let mut mouse_move_count = 0;
+        let mut has_click = false;
+        let mut has_keyboard = false;
+        let mut has_move_to_text = false;
+
+        for action in &recent {
+            match action.action_type.as_str() {
+                "screenshot" => screenshot_count += 1,
+                "mouse_move" => mouse_move_count += 1,
+                "click" => has_click = true,
+                "key_chord" | "type_text" => has_keyboard = true,
+                "move_to_text" => has_move_to_text = true,
+                _ => {}
+            }
+        }
+
+        // Many screenshots + mouse moves, but no clicks/keyboard/move_to_text
+        screenshot_count >= 3 && mouse_move_count >= 2 && !has_click && !has_keyboard && !has_move_to_text
     }
 
     /// Get action history for backtracking

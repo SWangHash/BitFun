@@ -87,7 +87,8 @@ export const SSHRemoteProvider: React.FC<SSHRemoteProviderProps> = ({ children }
   const [showFileBrowser, setShowFileBrowser] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [remoteFileBrowserInitialPath, setRemoteFileBrowserInitialPath] = useState('~');
+  /** Fallback only when home cannot be resolved (never use literal `~` for SFTP). */
+  const [remoteFileBrowserInitialPath, setRemoteFileBrowserInitialPath] = useState('/tmp');
   // Per-workspace connection statuses (keyed by connectionId)
   const [workspaceStatuses, setWorkspaceStatuses] = useState<Record<string, ConnectionStatus>>({});
   const heartbeatInterval = useRef<number | null>(null);
@@ -272,8 +273,9 @@ export const SSHRemoteProvider: React.FC<SSHRemoteProviderProps> = ({ children }
       for (const [, workspace] of toReconnect) {
         const isAlreadyOpened = openedRemote.some(
           ws =>
+            ws.connectionId === workspace.connectionId &&
             normalizeRemoteWorkspacePath(ws.rootPath) ===
-            normalizeRemoteWorkspacePath(workspace.remotePath)
+              normalizeRemoteWorkspacePath(workspace.remotePath)
         );
 
         // Check if SSH is already live
@@ -342,7 +344,7 @@ export const SSHRemoteProvider: React.FC<SSHRemoteProviderProps> = ({ children }
           log.warn('Auto-reconnect failed, removing workspace from sidebar', {
             connectionId: workspace.connectionId,
           });
-          await workspaceManager.removeRemoteWorkspace(workspace.connectionId).catch(() => {});
+          await workspaceManager.removeRemoteWorkspace(workspace.connectionId, workspace.remotePath).catch(() => {});
         }
       }
     } catch (e) {
@@ -397,9 +399,17 @@ export const SSHRemoteProvider: React.FC<SSHRemoteProviderProps> = ({ children }
 
       if (result.success && result.connectionId) {
         log.info('SSH connection successful', { connectionId: result.connectionId });
-        const home = result.serverInfo?.homeDir?.trim();
+        let home = result.serverInfo?.homeDir?.trim();
+        if (!home && result.connectionId) {
+          try {
+            const info = await sshApi.getServerInfo(result.connectionId);
+            home = info?.homeDir?.trim();
+          } catch {
+            /* non-desktop or probe skipped */
+          }
+        }
         setRemoteFileBrowserInitialPath(
-          home && home.length > 0 ? normalizeRemoteWorkspacePath(home) : '~'
+          home && home.length > 0 ? normalizeRemoteWorkspacePath(home) : '/tmp'
         );
         setStatus('connected');
         setIsConnected(true);
@@ -453,7 +463,7 @@ export const SSHRemoteProvider: React.FC<SSHRemoteProviderProps> = ({ children }
     setRemoteWorkspace(null);
     setIsConnected(false);
     setShowFileBrowser(false);
-    setRemoteFileBrowserInitialPath('~');
+    setRemoteFileBrowserInitialPath('/tmp');
 
     if (currentRemoteWorkspace) {
       setWorkspaceStatus(currentRemoteWorkspace.connectionId, 'disconnected');

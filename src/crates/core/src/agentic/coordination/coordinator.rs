@@ -121,68 +121,32 @@ impl ConversationCoordinator {
         let workspace_path = config.workspace_path.as_ref()?;
         let path_buf = PathBuf::from(workspace_path);
 
-        let remote_id = config
-            .remote_connection_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
+        let identity = crate::service::remote_ssh::workspace_state::resolve_workspace_session_identity(
+            workspace_path,
+            config.remote_connection_id.as_deref(),
+            config.remote_ssh_host.as_deref(),
+        )
+        .await?;
 
-        // Remote tool routing must not be inferred from path alone: the same string can be a
-        // client path (e.g. macOS `/Users/...`) or a POSIX path on an SSH host. Only treat the
-        // workspace as remote when the session was created with an explicit SSH connection id.
-        let Some(rid) = remote_id else {
-            return Some(WorkspaceBinding::new(None, path_buf));
-        };
-
-        let path_norm =
-            crate::service::remote_ssh::workspace_state::normalize_remote_workspace_path(
-                workspace_path,
-            );
-        let host_from_config = config
-            .remote_ssh_host
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
-
-        let entry =
-            crate::service::remote_ssh::workspace_state::lookup_remote_connection_with_hint(
+        if let Some(rid) = identity.remote_connection_id.as_deref() {
+            let connection_name = crate::service::remote_ssh::workspace_state::lookup_remote_connection_with_hint(
                 workspace_path,
                 Some(rid),
             )
-            .await;
-
-        let local_session_path = if let Some(ref e) = entry {
-            if !e.ssh_host.trim().is_empty() {
-                crate::service::remote_ssh::workspace_state::remote_workspace_session_mirror_dir(
-                    &e.ssh_host,
-                    &e.remote_root,
-                )
-            } else {
-                crate::service::remote_ssh::workspace_state::unresolved_remote_session_storage_dir(
-                    rid, &path_norm,
-                )
-            }
-        } else if let Some(h) = host_from_config {
-            crate::service::remote_ssh::workspace_state::remote_workspace_session_mirror_dir(
-                h, &path_norm,
-            )
-        } else {
-            crate::service::remote_ssh::workspace_state::unresolved_remote_session_storage_dir(
-                rid, &path_norm,
-            )
-        };
-
-        let connection_name = entry
+            .await
             .map(|e| e.connection_name)
             .unwrap_or_else(|| rid.to_string());
 
-        Some(WorkspaceBinding::new_remote(
-            None,
-            path_buf,
-            rid.to_string(),
-            connection_name,
-            local_session_path,
-        ))
+            return Some(WorkspaceBinding::new_remote(
+                None,
+                path_buf,
+                rid.to_string(),
+                connection_name,
+                identity,
+            ));
+        }
+
+        Some(WorkspaceBinding::new(None, path_buf))
     }
 
     /// Build `WorkspaceServices` from a resolved `WorkspaceBinding`.
@@ -438,8 +402,11 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             )
             .await?;
 
-        self.sync_session_metadata_to_workspace(&session, workspace_path.clone())
-            .await;
+        // SessionManager::create_session_with_id_and_creator already persists the
+        // session into the effective workspace session storage path. Avoid writing
+        // a second copy here using the raw workspace path, because remote workspaces
+        // resolve to a different effective storage path and double-writing can leave
+        // metadata/turn files split across two locations.
 
         self.emit_event(AgenticEvent::SessionCreated {
             session_id: session.session_id.clone(),
@@ -449,102 +416,6 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         })
         .await;
         Ok(session)
-    }
-
-    async fn sync_session_metadata_to_workspace(&self, session: &Session, workspace_path: String) {
-        use crate::agentic::persistence::PersistenceManager;
-        use crate::infrastructure::PathManager;
-        use crate::service::session::{SessionMetadata, SessionStatus};
-
-        let path_manager = match PathManager::new() {
-            Ok(pm) => Arc::new(pm),
-            Err(e) => {
-                warn!("Failed to initialize PathManager for session metadata sync: {e}");
-                return;
-            }
-        };
-
-        let binding = Self::build_workspace_binding(&session.config).await;
-        let workspace_path_buf = binding
-            .as_ref()
-            .map(|b| b.session_storage_path().to_path_buf())
-            .unwrap_or_else(|| PathBuf::from(&workspace_path));
-
-        let persistence_manager = match PersistenceManager::new(path_manager) {
-            Ok(manager) => manager,
-            Err(e) => {
-                warn!("Failed to initialize PersistenceManager for session metadata sync: {e}");
-                return;
-            }
-        };
-
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-
-        let existing = match persistence_manager
-            .load_session_metadata(&workspace_path_buf, &session.session_id)
-            .await
-        {
-            Ok(meta) => meta,
-            Err(e) => {
-                debug!(
-                    "Failed to load existing session metadata before sync: session_id={}, error={}",
-                    session.session_id, e
-                );
-                None
-            }
-        };
-
-        let metadata = SessionMetadata {
-            session_id: session.session_id.clone(),
-            session_name: session.session_name.clone(),
-            agent_type: session.agent_type.clone(),
-            created_by: session
-                .created_by
-                .clone()
-                .or_else(|| existing.as_ref().and_then(|m| m.created_by.clone())),
-            model_name: existing
-                .as_ref()
-                .map(|m| m.model_name.clone())
-                .filter(|name| !name.is_empty())
-                .unwrap_or_else(|| "default".to_string()),
-            created_at: existing.as_ref().map(|m| m.created_at).unwrap_or(now_ms),
-            last_active_at: now_ms,
-            turn_count: existing.as_ref().map(|m| m.turn_count).unwrap_or(0),
-            message_count: existing.as_ref().map(|m| m.message_count).unwrap_or(0),
-            tool_call_count: existing.as_ref().map(|m| m.tool_call_count).unwrap_or(0),
-            status: existing
-                .as_ref()
-                .map(|m| m.status.clone())
-                .unwrap_or(SessionStatus::Active),
-            terminal_session_id: existing
-                .as_ref()
-                .and_then(|m| m.terminal_session_id.clone()),
-            snapshot_session_id: session.snapshot_session_id.clone().or_else(|| {
-                existing
-                    .as_ref()
-                    .and_then(|m| m.snapshot_session_id.clone())
-            }),
-            tags: existing
-                .as_ref()
-                .map(|m| m.tags.clone())
-                .unwrap_or_default(),
-            custom_metadata: existing.as_ref().and_then(|m| m.custom_metadata.clone()),
-            todos: existing.as_ref().and_then(|m| m.todos.clone()),
-            workspace_path: Some(workspace_path),
-        };
-
-        if let Err(e) = persistence_manager
-            .save_session_metadata(&workspace_path_buf, &metadata)
-            .await
-        {
-            warn!(
-                "Failed to sync session metadata to workspace: session_id={}, error={}",
-                session.session_id, e
-            );
-        }
     }
 
     /// Ensure the completed/failed/cancelled turn is persisted to the workspace
@@ -567,9 +438,10 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         status: crate::service::session::TurnStatus,
         user_message_metadata: Option<serde_json::Value>,
     ) {
+        use crate::agentic::core::SessionConfig;
         use crate::agentic::persistence::PersistenceManager;
         use crate::infrastructure::PathManager;
-        use crate::service::session::{DialogTurnData, UserMessageData};
+        use crate::service::session::{DialogTurnData, SessionMetadata, SessionStatus, UserMessageData};
 
         let path_manager = match PathManager::new() {
             Ok(pm) => std::sync::Arc::new(pm),
@@ -603,6 +475,42 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
+
+        if let Ok(None) = persistence_manager
+            .load_session_metadata(&workspace_path_buf, session_id)
+            .await
+        {
+            let metadata = SessionMetadata {
+                session_id: session_id.to_string(),
+                session_name: "Recovered Session".to_string(),
+                agent_type: "agentic".to_string(),
+                created_by: None,
+                model_name: "default".to_string(),
+                created_at: now_ms,
+                last_active_at: now_ms,
+                turn_count: 0,
+                message_count: 0,
+                tool_call_count: 0,
+                status: SessionStatus::Active,
+                terminal_session_id: None,
+                snapshot_session_id: None,
+                tags: Vec::new(),
+                custom_metadata: None,
+                todos: None,
+                workspace_path: Some(workspace_path.to_string()),
+                workspace_hostname: None,
+            };
+            if let Err(e) = persistence_manager
+                .save_session_metadata(&workspace_path_buf, &metadata)
+                .await
+            {
+                warn!(
+                    "Failed to create fallback session metadata during turn finalization: session_id={}, error={}",
+                    session_id, e
+                );
+                return;
+            }
+        }
 
         let mut turn_data = DialogTurnData::new(
             turn_id.to_string(),

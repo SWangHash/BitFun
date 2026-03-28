@@ -1161,6 +1161,24 @@ end tell"#])
         }
     }
 
+    /// Square region in global logical coordinates for raw OCR preview crops around `(cx, cy)`.
+    fn ocr_region_square_around_point(
+        cx: f64,
+        cy: f64,
+        half: u32,
+    ) -> BitFunResult<OcrRegionNative> {
+        let hh = half as f64;
+        let x0 = (cx - hh).floor() as i32;
+        let y0 = (cy - hh).floor() as i32;
+        let w = half.saturating_mul(2).max(1);
+        Ok(OcrRegionNative {
+            x0,
+            y0,
+            width: w,
+            height: w,
+        })
+    }
+
     /// Capture **raw** display pixels (no pointer/SoM overlay), cropped to `region` intersected with the chosen display.
     ///
     /// `region` and [`DisplayInfo::width`]/[`height`] are **global logical points** (CG / AX). The framebuffer
@@ -2122,6 +2140,58 @@ impl ComputerUseHost for DesktopComputerUseHost {
                 bounds_height: m.bounds_height,
             })
             .collect())
+    }
+
+    async fn accessibility_hit_at_global_point(
+        &self,
+        gx: f64,
+        gy: f64,
+    ) -> BitFunResult<Option<bitfun_core::agentic::tools::computer_use_host::OcrAccessibilityHit>>
+    {
+        #[cfg(target_os = "macos")]
+        {
+            let hit = tokio::task::spawn_blocking(move || {
+                crate::computer_use::macos_ax_ui::accessibility_hit_at_global_point(gx, gy)
+            })
+            .await
+            .map_err(|e| BitFunError::tool(e.to_string()))?;
+            return Ok(hit);
+        }
+        #[cfg(target_os = "windows")]
+        {
+            return tokio::task::spawn_blocking(move || {
+                crate::computer_use::windows_ax_ui::accessibility_hit_at_global_point(gx, gy)
+            })
+            .await
+            .map_err(|e| BitFunError::tool(e.to_string()))?;
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = (gx, gy);
+            Ok(None)
+        }
+        #[cfg(not(any(
+            target_os = "macos",
+            target_os = "windows",
+            target_os = "linux"
+        )))]
+        {
+            let _ = (gx, gy);
+            Ok(None)
+        }
+    }
+
+    async fn ocr_preview_crop_jpeg(
+        &self,
+        gx: f64,
+        gy: f64,
+        half_extent_native: u32,
+    ) -> BitFunResult<Vec<u8>> {
+        let region = Self::ocr_region_square_around_point(gx, gy, half_extent_native)?;
+        let shot = tokio::task::spawn_blocking(move || Self::screenshot_raw_native_region(region))
+            .await
+            .map_err(|e| BitFunError::tool(e.to_string()))??;
+        Ok(shot.bytes)
     }
 
     fn last_screenshot_refinement(&self) -> Option<ComputerUseScreenshotRefinement> {

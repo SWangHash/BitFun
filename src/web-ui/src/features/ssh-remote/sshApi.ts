@@ -11,6 +11,7 @@ import type {
   RemoteWorkspace,
   SSHConfigLookupResult,
   SSHConfigEntry,
+  ServerInfo,
 } from './types';
 
 // API adapter for Tauri/Server Mode compatibility
@@ -66,6 +67,13 @@ export const sshApi = {
    */
   async isConnected(connectionId: string): Promise<boolean> {
     return api.invoke<boolean>('ssh_is_connected', { connectionId });
+  },
+
+  /**
+   * Server info for an active connection; may probe `echo ~` / `$HOME` if `homeDir` was missing.
+   */
+  async getServerInfo(connectionId: string): Promise<ServerInfo | null> {
+    return api.invoke<ServerInfo | null>('ssh_get_server_info', { connectionId });
   },
 
   /**

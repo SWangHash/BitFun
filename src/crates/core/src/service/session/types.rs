@@ -73,9 +73,14 @@ pub struct SessionMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub todos: Option<serde_json::Value>,
 
-    /// Workspace path this session belongs to (set at creation time)
+    /// Workspace path this session belongs to (normalized source workspace root, not mirror dir)
     #[serde(skip_serializing_if = "Option::is_none", alias = "workspace_path")]
     pub workspace_path: Option<String>,
+
+    /// Unified hostname for workspace identity: `localhost` for local workspaces,
+    /// SSH host for remote workspaces.
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "workspace_hostname")]
+    pub workspace_hostname: Option<String>,
 }
 
 /// Session status
@@ -442,6 +447,7 @@ impl SessionMetadata {
             custom_metadata: None,
             todos: None,
             workspace_path: None,
+            workspace_hostname: None,
         }
     }
 

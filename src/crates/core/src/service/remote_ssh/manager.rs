@@ -905,27 +905,22 @@ impl SSHConnectionManager {
         }
         log::info!("Authentication successful for user {}", config.username);
 
-        // Get server info (prefer full probe; fall back to $HOME only so SFTP `~` works when uname fails)
+        // Resolve remote home to an absolute path (SFTP does not expand `~`; never rely on literal `~` in UI).
         let mut server_info = Self::get_server_info_internal(&handle).await;
         if server_info
             .as_ref()
             .map(|s| s.home_dir.trim().is_empty())
             .unwrap_or(true)
         {
-            if let Ok((stdout, _, status)) = Self::execute_command_internal(&handle, "echo $HOME").await {
-                if status == 0 {
-                    let home = stdout.trim().to_string();
-                    if !home.is_empty() {
-                        match &mut server_info {
-                            Some(si) => si.home_dir = home,
-                            None => {
-                                server_info = Some(ServerInfo {
-                                    os_type: "unknown".to_string(),
-                                    hostname: "unknown".to_string(),
-                                    home_dir: home,
-                                });
-                            }
-                        }
+            if let Some(home) = Self::probe_remote_home_dir(&handle).await {
+                match &mut server_info {
+                    Some(si) => si.home_dir = home,
+                    None => {
+                        server_info = Some(ServerInfo {
+                            os_type: "unknown".to_string(),
+                            hostname: "unknown".to_string(),
+                            home_dir: home,
+                        });
                     }
                 }
             }
@@ -954,9 +949,8 @@ impl SSHConnectionManager {
         })
     }
 
-    /// Get server information
+    /// Get server information (partial lines allowed so we can still fill `home_dir` via [`Self::probe_remote_home_dir`]).
     async fn get_server_info_internal(handle: &Handle<SSHHandler>) -> Option<ServerInfo> {
-        // Try to get server info via SSH session
         let (stdout, _stderr, exit_status) = Self::execute_command_internal(handle, "uname -s && hostname && echo $HOME")
             .await
             .ok()?;
@@ -966,15 +960,40 @@ impl SSHConnectionManager {
         }
 
         let lines: Vec<&str> = stdout.trim().lines().collect();
-        if lines.len() < 3 {
+        if lines.is_empty() {
             return None;
         }
 
         Some(ServerInfo {
             os_type: lines[0].to_string(),
-            hostname: lines[1].to_string(),
-            home_dir: lines[2].to_string(),
+            hostname: lines.get(1).unwrap_or(&"").to_string(),
+            home_dir: lines.get(2).unwrap_or(&"").to_string(),
         })
+    }
+
+    /// Resolve remote home directory via SSH `exec` (tilde and `$HOME` are expanded by the remote shell).
+    async fn probe_remote_home_dir(handle: &Handle<SSHHandler>) -> Option<String> {
+        const PROBES: &[&str] = &[
+            "sh -c 'echo ~'",
+            "echo $HOME",
+            "bash -lc 'echo ~'",
+            "bash -c 'echo ~'",
+            "sh -c 'getent passwd \"$(id -un)\" 2>/dev/null | cut -d: -f6'",
+        ];
+        for cmd in PROBES {
+            let Ok((stdout, _, status)) = Self::execute_command_internal(handle, cmd).await else {
+                continue;
+            };
+            if status != 0 {
+                continue;
+            }
+            let first = stdout.trim().lines().next().unwrap_or("").trim();
+            if first.is_empty() || first == "~" {
+                continue;
+            }
+            return Some(first.to_string());
+        }
+        None
     }
 
     /// Execute a command on the remote server
@@ -1052,6 +1071,47 @@ impl SSHConnectionManager {
     pub async fn get_server_info(&self, connection_id: &str) -> Option<ServerInfo> {
         let guard = self.connections.read().await;
         guard.get(connection_id).and_then(|c| c.server_info.clone())
+    }
+
+    /// If `home_dir` is missing, run [`Self::probe_remote_home_dir`] and persist it on the connection.
+    pub async fn resolve_remote_home_if_missing(&self, connection_id: &str) -> Option<ServerInfo> {
+        let need_probe = {
+            let guard = self.connections.read().await;
+            match guard.get(connection_id) {
+                None => return None,
+                Some(conn) => conn
+                    .server_info
+                    .as_ref()
+                    .map(|s| s.home_dir.trim().is_empty())
+                    .unwrap_or(true),
+            }
+        };
+        if !need_probe {
+            return self.get_server_info(connection_id).await;
+        }
+        let handle = {
+            let guard = self.connections.read().await;
+            guard.get(connection_id)?.handle.clone()
+        };
+        let Some(home) = Self::probe_remote_home_dir(&handle).await else {
+            return self.get_server_info(connection_id).await;
+        };
+        {
+            let mut guard = self.connections.write().await;
+            if let Some(conn) = guard.get_mut(connection_id) {
+                match conn.server_info.as_mut() {
+                    Some(si) => si.home_dir = home.clone(),
+                    None => {
+                        conn.server_info = Some(ServerInfo {
+                            os_type: "unknown".to_string(),
+                            hostname: "unknown".to_string(),
+                            home_dir: home,
+                        });
+                    }
+                }
+            }
+        }
+        self.get_server_info(connection_id).await
     }
 
     /// Get connection configuration

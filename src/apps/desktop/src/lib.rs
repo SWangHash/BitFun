@@ -672,6 +672,7 @@ pub async fn run() {
             api::ssh_api::ssh_disconnect,
             api::ssh_api::ssh_disconnect_all,
             api::ssh_api::ssh_is_connected,
+            api::ssh_api::ssh_get_server_info,
             api::ssh_api::ssh_get_config,
             api::ssh_api::ssh_list_config_hosts,
             api::ssh_api::remote_read_file,

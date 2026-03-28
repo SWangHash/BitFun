@@ -347,7 +347,20 @@ impl WorkspaceInfo {
             metadata: HashMap::new(),
         };
 
-        if !is_remote {
+        if is_remote {
+            if let Some(ssh_host) = options.remote_ssh_host.as_ref().filter(|s| !s.trim().is_empty()) {
+                workspace.metadata.insert(
+                    "sshHost".to_string(),
+                    serde_json::Value::String(ssh_host.trim().to_string()),
+                );
+            }
+            if let Some(conn_id) = options.remote_connection_id.as_ref().filter(|s| !s.trim().is_empty()) {
+                workspace.metadata.insert(
+                    "connectionId".to_string(),
+                    serde_json::Value::String(conn_id.trim().to_string()),
+                );
+            }
+        } else {
             workspace.metadata.insert(
                 "sshHost".to_string(),
                 serde_json::Value::String(LOCAL_WORKSPACE_SSH_HOST.to_string()),
@@ -981,6 +994,20 @@ impl WorkspaceManager {
                 };
                 if let Some(display_name) = &options.display_name {
                     workspace.name = display_name.clone();
+                }
+                if options.workspace_kind == WorkspaceKind::Remote {
+                    if let Some(ssh_host) = options.remote_ssh_host.as_ref().filter(|s| !s.trim().is_empty()) {
+                        workspace.metadata.insert(
+                            "sshHost".to_string(),
+                            serde_json::Value::String(ssh_host.trim().to_string()),
+                        );
+                    }
+                    if let Some(conn_id) = options.remote_connection_id.as_ref().filter(|s| !s.trim().is_empty()) {
+                        workspace.metadata.insert(
+                            "connectionId".to_string(),
+                            serde_json::Value::String(conn_id.trim().to_string()),
+                        );
+                    }
                 }
                 workspace.load_identity().await;
                 workspace.load_worktree().await;

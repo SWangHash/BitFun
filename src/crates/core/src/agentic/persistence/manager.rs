@@ -6,6 +6,9 @@ use crate::agentic::core::{
     strip_prompt_markup, CompressionState, Message, MessageContent, Session, SessionConfig,
     SessionState, SessionSummary,
 };
+use crate::service::remote_ssh::workspace_state::{
+    resolve_workspace_session_identity, LOCAL_WORKSPACE_SSH_HOST,
+};
 use crate::infrastructure::PathManager;
 use crate::service::session::{
     DialogTurnData, SessionMetadata, SessionStatus, SessionTranscriptExport,
@@ -578,6 +581,36 @@ impl PersistenceManager {
             .or_else(|| existing.map(|value| value.model_name.clone()))
             .unwrap_or_else(|| "default".to_string());
 
+        let resolved_identity = session
+            .config
+            .workspace_path
+            .as_deref()
+            .and_then(|workspace_root| {
+                futures::executor::block_on(resolve_workspace_session_identity(
+                    workspace_root,
+                    session.config.remote_connection_id.as_deref(),
+                    session.config.remote_ssh_host.as_deref(),
+                ))
+            });
+
+        let workspace_root = resolved_identity
+            .as_ref()
+            .map(|identity| identity.workspace_path.clone())
+            .or_else(|| session.config.workspace_path.clone())
+            .or_else(|| existing.and_then(|value| value.workspace_path.clone()))
+            .unwrap_or_else(|| workspace_path.to_string_lossy().to_string());
+        let workspace_hostname = resolved_identity
+            .as_ref()
+            .map(|identity| identity.hostname.clone())
+            .or_else(|| existing.and_then(|value| value.workspace_hostname.clone()))
+            .or_else(|| {
+                if session.config.remote_connection_id.is_some() {
+                    session.config.remote_ssh_host.clone()
+                } else {
+                    Some(LOCAL_WORKSPACE_SSH_HOST.to_string())
+                }
+            });
+
         SessionMetadata {
             session_id: session.session_id.clone(),
             session_name: session.session_name.clone(),
@@ -605,7 +638,8 @@ impl PersistenceManager {
             tags: existing.map(|value| value.tags.clone()).unwrap_or_default(),
             custom_metadata: existing.and_then(|value| value.custom_metadata.clone()),
             todos: existing.and_then(|value| value.todos.clone()),
-            workspace_path: Some(workspace_path.to_string_lossy().to_string()),
+            workspace_path: Some(workspace_root),
+            workspace_hostname: workspace_hostname,
         }
     }
 
@@ -1517,7 +1551,13 @@ impl PersistenceManager {
             .map(|value| value.config.clone())
             .unwrap_or_default();
         if config.workspace_path.is_none() {
-            config.workspace_path = Some(workspace_path.to_string_lossy().to_string());
+            config.workspace_path = metadata.workspace_path.clone();
+        }
+        if config.remote_ssh_host.is_none() {
+            config.remote_ssh_host = metadata
+                .workspace_hostname
+                .clone()
+                .filter(|host| host != LOCAL_WORKSPACE_SSH_HOST && host != "_unresolved");
         }
         if config.model_id.is_none() && !metadata.model_name.is_empty() {
             config.model_id = Some(metadata.model_name.clone());
@@ -1565,7 +1605,7 @@ impl PersistenceManager {
             .unwrap_or(StoredSessionStateFile {
                 schema_version: SESSION_SCHEMA_VERSION,
                 config: SessionConfig {
-                    workspace_path: Some(workspace_path.to_string_lossy().to_string()),
+                    workspace_path: None,
                     ..Default::default()
                 },
                 snapshot_session_id: None,
@@ -1667,7 +1707,12 @@ impl PersistenceManager {
         metadata.last_active_at = turn
             .end_time
             .unwrap_or_else(|| Self::system_time_to_unix_ms(SystemTime::now()));
-        metadata.workspace_path = Some(workspace_path.to_string_lossy().to_string());
+        metadata.workspace_path = metadata.workspace_path.clone().or_else(|| {
+            turns
+                .first()
+                .and_then(|_| None::<String>)
+                .or_else(|| Some(workspace_path.to_string_lossy().to_string()))
+        });
         self.save_session_metadata(workspace_path, &metadata).await
     }
 

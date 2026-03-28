@@ -33,6 +33,8 @@ export interface SessionMetadata {
   workspacePath?: string;
   remoteConnectionId?: string;
   remoteSshHost?: string;
+  /** Backend unified workspace identity field: localhost for local, SSH host for remote. */
+  workspaceHostname?: string;
 }
 
 export type SessionStatus = 'active' | 'archived' | 'completed';

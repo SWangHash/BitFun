@@ -1047,10 +1047,33 @@ impl WorkspaceService {
         if let Some(data) = workspace_data {
             let mut manager = self.manager.write().await;
 
-            *manager.get_workspaces_mut() = data.workspaces;
-            manager.set_opened_workspace_ids(data.opened_workspace_ids.clone());
-            manager.set_recent_workspaces(data.recent_workspaces);
-            manager.set_recent_assistant_workspaces(data.recent_assistant_workspaces);
+            let mut workspaces = data.workspaces;
+            // Filter out legacy remote workspaces that don't have the required metadata (sshHost and connectionId)
+            workspaces.retain(|_id, ws| {
+                if ws.workspace_kind == WorkspaceKind::Remote {
+                    // Check if this remote workspace has the required metadata
+                    let has_ssh_host = ws.metadata.get("sshHost").and_then(|v| v.as_str()).map_or(false, |s| !s.trim().is_empty());
+                    let has_connection_id = ws.metadata.get("connectionId").and_then(|v| v.as_str()).map_or(false, |s| !s.trim().is_empty());
+                    if !has_ssh_host || !has_connection_id {
+                        // Skip this legacy remote workspace
+                        info!("Skipping legacy remote workspace without required metadata: id={}, root_path={}", _id, ws.root_path.display());
+                        return false;
+                    }
+                }
+                true
+            });
+
+            *manager.get_workspaces_mut() = workspaces;
+            // Also filter opened/recent lists to remove references to removed legacy workspaces
+            let filtered_opened_ids: Vec<String> = data.opened_workspace_ids.clone().into_iter().filter(|id| manager.get_workspaces().contains_key(id)).collect();
+            manager.set_opened_workspace_ids(filtered_opened_ids);
+            
+            let filtered_recent: Vec<String> = data.recent_workspaces.clone().into_iter().filter(|id| manager.get_workspaces().contains_key(id)).collect();
+            manager.set_recent_workspaces(filtered_recent);
+            
+            let filtered_recent_assistant: Vec<String> = data.recent_assistant_workspaces.clone().into_iter().filter(|id| manager.get_workspaces().contains_key(id)).collect();
+            manager.set_recent_assistant_workspaces(filtered_recent_assistant);
+            
             let id_remap = manager.migrate_local_workspace_ids_to_stable_storage();
 
             let raw_current = data

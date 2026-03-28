@@ -6,7 +6,7 @@ use tauri::State;
 
 use bitfun_core::service::remote_ssh::{
     SSHConnectionConfig, SSHConnectionResult, SavedConnection, RemoteTreeNode,
-    SSHConfigLookupResult, SSHConfigEntry,
+    SSHConfigLookupResult, SSHConfigEntry, ServerInfo,
 };
 use crate::api::app_state::SSHServiceError;
 use crate::AppState;
@@ -117,6 +117,15 @@ pub async fn ssh_is_connected(
     let is_connected = manager.is_connected(&connection_id).await;
     log::info!("ssh_is_connected: connection_id={}, is_connected={}", connection_id, is_connected);
     Ok(is_connected)
+}
+
+#[tauri::command]
+pub async fn ssh_get_server_info(
+    state: State<'_, AppState>,
+    connection_id: String,
+) -> Result<Option<ServerInfo>, String> {
+    let manager = state.get_ssh_manager_async().await?;
+    Ok(manager.resolve_remote_home_if_missing(&connection_id).await)
 }
 
 #[tauri::command]

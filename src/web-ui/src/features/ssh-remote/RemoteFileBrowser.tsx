@@ -26,7 +26,7 @@ import './RemoteFileBrowser.scss';
 
 interface RemoteFileBrowserProps {
   connectionId: string;
-  /** Defaults to `~` (remote home) to avoid listing `/` on restricted hosts. */
+  /** Defaults to `/tmp` if parent does not pass a resolved absolute home (avoid literal `~` for SFTP). */
   initialPath?: string;
   /** Used by the Home button; defaults to `initialPath`. */
   homePath?: string;
@@ -82,7 +82,7 @@ function isTauriDesktop(): boolean {
 
 export const RemoteFileBrowser: React.FC<RemoteFileBrowserProps> = ({
   connectionId,
-  initialPath = '~',
+  initialPath = '/tmp',
   homePath,
   onSelect,
   onCancel,

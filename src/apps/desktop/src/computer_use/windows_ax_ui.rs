@@ -1,11 +1,14 @@
 //! Windows UI Automation (UIA) tree walk for stable screen coordinates.
 
 use crate::computer_use::ui_locate_common;
-use bitfun_core::agentic::tools::computer_use_host::{UiElementLocateQuery, UiElementLocateResult};
+use bitfun_core::agentic::tools::computer_use_host::{
+    OcrAccessibilityHit, UiElementLocateQuery, UiElementLocateResult,
+};
 use bitfun_core::util::errors::{BitFunError, BitFunResult};
 use std::collections::VecDeque;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
 use windows::Win32::UI::Accessibility::{CUIAutomation, IUIAutomation, IUIAutomationElement, IUIAutomationTreeWalker};
+use windows::Win32::Foundation::POINT;
 use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
 fn bstr_to_string(b: windows_core::BSTR) -> String {
@@ -157,4 +160,60 @@ pub fn locate_ui_element_center(query: &UiElementLocateQuery) -> BitFunResult<Ui
             });
         }
     }
+}
+
+/// Hit-test UIA at global screen coordinates (OCR `move_to_text` disambiguation).
+pub fn accessibility_hit_at_global_point(gx: f64, gy: f64) -> BitFunResult<Option<OcrAccessibilityHit>> {
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+    }
+    let automation: IUIAutomation = unsafe {
+        CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER).map_err(|e| {
+            BitFunError::tool(format!("UI Automation (CoCreateInstance): {}.", e))
+        })?
+    };
+    let pt = POINT {
+        x: gx.round() as i32,
+        y: gy.round() as i32,
+    };
+    let elem = unsafe { automation.ElementFromPoint(pt) };
+    let elem = match elem {
+        Ok(e) => e,
+        Err(_) => return Ok(None),
+    };
+    let name = unsafe { elem.CurrentName().ok().map(bstr_to_string).unwrap_or_default() };
+    let ident = unsafe {
+        elem.CurrentAutomationId()
+            .ok()
+            .map(bstr_to_string)
+            .unwrap_or_default()
+    };
+    let role = localized_control_type_string(&elem);
+    let parent_context = if let Ok(walker) = unsafe { automation.ControlViewWalker() } {
+        unsafe { walker.GetParentElement(&elem) }
+            .ok()
+            .and_then(|parent| {
+                let pn = unsafe { parent.CurrentName().ok().map(bstr_to_string).unwrap_or_default() };
+                let pr = localized_control_type_string(&parent);
+                let s = format!("{}: {}", pr, pn);
+                if s == ": " || s.trim().is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            })
+    } else {
+        None
+    };
+    let desc = format!(
+        "role={} name={:?} id={:?} parent={:?}",
+        role, name, ident, parent_context
+    );
+    Ok(Some(OcrAccessibilityHit {
+        role: if role.is_empty() { None } else { Some(role) },
+        title: if name.is_empty() { None } else { Some(name) },
+        identifier: if ident.is_empty() { None } else { Some(ident) },
+        parent_context,
+        description: desc,
+    }))
 }

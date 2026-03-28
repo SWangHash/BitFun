@@ -454,9 +454,9 @@ class WorkspaceManager {
     }
   }
 
-  public async removeRemoteWorkspace(connectionId: string): Promise<void> {
+  public async removeRemoteWorkspace(connectionId: string, remotePath?: string): Promise<void> {
     try {
-      const workspace = this.findRemoteWorkspaceByConnectionId(connectionId);
+      const workspace = this.findRemoteWorkspace(connectionId, remotePath);
       if (!workspace) {
         return;
       }
@@ -480,18 +480,26 @@ class WorkspaceManager {
 
       this.emit({ type: 'workspace:active-changed', workspace: currentWorkspace });
     } catch (error) {
-      log.error('Failed to remove remote workspace', { connectionId, error });
+      log.error('Failed to remove remote workspace', { connectionId, remotePath, error });
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.updateState({ error: errorMessage }, { type: 'workspace:error', error: errorMessage });
       throw error;
     }
   }
 
-  private findRemoteWorkspaceByConnectionId(connectionId: string): WorkspaceInfo | undefined {
+  private findRemoteWorkspace(connectionId: string, remotePath?: string): WorkspaceInfo | undefined {
+    const normalizedRemotePath = remotePath ? normalizeRemoteWorkspacePath(remotePath) : null;
     for (const [, ws] of this.state.openedWorkspaces) {
-      if (ws.connectionId === connectionId && ws.workspaceKind === WorkspaceKind.Remote) {
-        return ws;
+      if (ws.workspaceKind !== WorkspaceKind.Remote) {
+        continue;
       }
+      if (ws.connectionId !== connectionId) {
+        continue;
+      }
+      if (normalizedRemotePath && normalizeRemoteWorkspacePath(ws.rootPath) !== normalizedRemotePath) {
+        continue;
+      }
+      return ws;
     }
     return undefined;
   }

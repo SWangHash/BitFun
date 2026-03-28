@@ -263,6 +263,21 @@ pub struct UiElementLocateResult {
     pub other_matches: Vec<String>,
 }
 
+/// Hit-tested accessibility node at a global screen point (OCR disambiguation).
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct OcrAccessibilityHit {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identifier: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_context: Option<String>,
+    /// One-line summary for the model (role, title, parent).
+    pub description: String,
+}
+
 #[async_trait]
 pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
     async fn permission_snapshot(&self) -> BitFunResult<ComputerUsePermissionSnapshot>;
@@ -298,6 +313,28 @@ pub trait ComputerUseHost: Send + Sync + std::fmt::Debug {
         let _ = (text_query, region_native);
         Err(BitFunError::tool(
             "OCR text recognition is not available on this host.".to_string(),
+        ))
+    }
+
+    /// Best-effort accessibility element at a global screen point (native hit-test).
+    /// Desktop uses AX (macOS) / UIA (Windows). Returns `None` when unavailable or on miss.
+    async fn accessibility_hit_at_global_point(
+        &self,
+        _gx: f64,
+        _gy: f64,
+    ) -> BitFunResult<Option<OcrAccessibilityHit>> {
+        Ok(None)
+    }
+
+    /// JPEG crop (no pointer overlay) around `(gx, gy)` for OCR candidate previews.
+    async fn ocr_preview_crop_jpeg(
+        &self,
+        _gx: f64,
+        _gy: f64,
+        _half_extent_native: u32,
+    ) -> BitFunResult<Vec<u8>> {
+        Err(BitFunError::tool(
+            "OCR preview crops are not available on this host.".to_string(),
         ))
     }
 

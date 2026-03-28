@@ -1,3 +1,4 @@
+use crate::service::remote_ssh::workspace_state::WorkspaceSessionIdentity;
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -20,18 +21,29 @@ pub struct WorkspaceBinding {
     /// the path on the remote server (e.g. `/root/project`).
     pub root_path: PathBuf,
     pub backend: WorkspaceBackend,
-    /// Local path used for session persistence when the workspace is remote.
-    /// For local workspaces this is `None` (we use `root_path` directly).
-    pub local_session_path: Option<PathBuf>,
+    /// Unified identity for session persistence. Local and remote workspaces
+    /// share the same model; the only semantic difference is hostname.
+    pub session_identity: WorkspaceSessionIdentity,
 }
 
 impl WorkspaceBinding {
     pub fn new(workspace_id: Option<String>, root_path: PathBuf) -> Self {
+        let workspace_path = root_path.to_string_lossy().to_string();
+        let session_identity = crate::service::remote_ssh::workspace_state::workspace_session_identity(
+            &workspace_path,
+            None,
+            None,
+        )
+        .unwrap_or(WorkspaceSessionIdentity {
+            hostname: crate::service::remote_ssh::workspace_state::LOCAL_WORKSPACE_SSH_HOST.to_string(),
+            workspace_path,
+            remote_connection_id: None,
+        });
         Self {
             workspace_id,
             root_path,
             backend: WorkspaceBackend::Local,
-            local_session_path: None,
+            session_identity,
         }
     }
 
@@ -40,7 +52,7 @@ impl WorkspaceBinding {
         root_path: PathBuf,
         connection_id: String,
         connection_name: String,
-        local_session_path: PathBuf,
+        session_identity: WorkspaceSessionIdentity,
     ) -> Self {
         Self {
             workspace_id,
@@ -49,7 +61,7 @@ impl WorkspaceBinding {
                 connection_id,
                 connection_name,
             },
-            local_session_path: Some(local_session_path),
+            session_identity,
         }
     }
 
@@ -73,9 +85,8 @@ impl WorkspaceBinding {
     }
 
     /// The path to use for session persistence.
-    /// Remote workspaces store sessions locally; local workspaces use root_path.
     pub fn session_storage_path(&self) -> &Path {
-        self.local_session_path.as_deref().unwrap_or(&self.root_path)
+        Path::new(&self.session_identity.workspace_path)
     }
 }
 

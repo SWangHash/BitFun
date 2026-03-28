@@ -1583,7 +1583,8 @@ export class FlowChatStore {
             mode: validatedAgentType,
             workspacePath: (metadata as any).workspacePath || workspacePath,
             remoteConnectionId: metadata.remoteConnectionId || remoteConnectionId,
-            remoteSshHost: metadata.remoteSshHost || remoteSshHost,
+            remoteSshHost:
+              metadata.remoteSshHost || metadata.workspaceHostname || remoteSshHost,
             parentSessionId: relationship.parentSessionId,
             sessionKind: relationship.sessionKind,
             btwThreads: [],

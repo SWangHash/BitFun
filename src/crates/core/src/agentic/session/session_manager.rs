@@ -87,35 +87,27 @@ impl SessionManager {
     }
 
     /// Resolve the effective storage path for a session's workspace.
-    /// Remote workspaces use [`get_effective_session_path`] (same as coordinator / session Tauri APIs).
     async fn effective_workspace_path_from_config(config: &SessionConfig) -> Option<PathBuf> {
         let workspace_path = config.workspace_path.as_ref()?;
-        let path_buf = PathBuf::from(workspace_path);
-
-        let remote_id = config
-            .remote_connection_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
-
-        let Some(rid) = remote_id else {
-            return Some(path_buf);
-        };
-
-        let host_from_config = config
-            .remote_ssh_host
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
-
-        Some(
-            crate::service::remote_ssh::workspace_state::get_effective_session_path(
-                workspace_path.as_str(),
-                Some(rid),
-                host_from_config,
-            )
-            .await,
+        let identity = crate::service::remote_ssh::workspace_state::resolve_workspace_session_identity(
+            workspace_path,
+            config.remote_connection_id.as_deref(),
+            config.remote_ssh_host.as_deref(),
         )
+        .await?;
+
+        if identity.hostname == crate::service::remote_ssh::workspace_state::LOCAL_WORKSPACE_SSH_HOST {
+            Some(PathBuf::from(identity.workspace_path))
+        } else if identity.hostname == "_unresolved" {
+            Some(
+                crate::service::remote_ssh::workspace_state::unresolved_remote_session_storage_dir(
+                    identity.remote_connection_id.as_deref().unwrap_or_default(),
+                    &identity.workspace_path,
+                ),
+            )
+        } else {
+            Some(identity.session_storage_path())
+        }
     }
 
     #[allow(dead_code)]

@@ -13,6 +13,98 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+/// Unified workspace identity used to resolve session persistence for both
+/// local and remote workspaces. The only semantic difference is `hostname`:
+/// local workspaces use [`LOCAL_WORKSPACE_SSH_HOST`], while remote workspaces
+/// use the SSH host from connection metadata.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WorkspaceSessionIdentity {
+    pub hostname: String,
+    pub workspace_path: String,
+    pub remote_connection_id: Option<String>,
+}
+
+impl WorkspaceSessionIdentity {
+    pub fn is_remote(&self) -> bool {
+        self.hostname != LOCAL_WORKSPACE_SSH_HOST
+    }
+
+    pub fn session_storage_path(&self) -> PathBuf {
+        if self.is_remote() {
+            remote_workspace_session_mirror_dir(&self.hostname, &self.workspace_path)
+        } else {
+            PathBuf::from(&self.workspace_path)
+        }
+    }
+}
+
+/// Build a unified session identity for local or remote workspaces.
+///
+/// Local: `hostname=localhost`, `workspace_path=canonical local root`
+/// Remote: `hostname=ssh_host`, `workspace_path=normalized remote root`
+pub fn workspace_session_identity(
+    workspace_path: &str,
+    remote_connection_id: Option<&str>,
+    remote_ssh_host: Option<&str>,
+) -> Option<WorkspaceSessionIdentity> {
+    let remote_connection_id = remote_connection_id
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+
+    if let Some(connection_id) = remote_connection_id {
+        let hostname = remote_ssh_host
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)?;
+        return Some(WorkspaceSessionIdentity {
+            hostname,
+            workspace_path: normalize_remote_workspace_path(workspace_path),
+            remote_connection_id: Some(connection_id),
+        });
+    }
+
+    let local_root = normalize_local_workspace_root_for_stable_id(Path::new(workspace_path)).ok()?;
+    Some(WorkspaceSessionIdentity {
+        hostname: LOCAL_WORKSPACE_SSH_HOST.to_string(),
+        workspace_path: local_root,
+        remote_connection_id: None,
+    })
+}
+
+/// Resolve a session identity while tolerating temporarily unresolved remote hosts.
+/// If the remote host is unknown, fall back to the dedicated unresolved session tree.
+pub async fn resolve_workspace_session_identity(
+    workspace_path: &str,
+    remote_connection_id: Option<&str>,
+    remote_ssh_host: Option<&str>,
+) -> Option<WorkspaceSessionIdentity> {
+    let remote_connection_id = remote_connection_id
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    if let Some(connection_id) = remote_connection_id {
+        if let Some(host) = remote_ssh_host.map(str::trim).filter(|s| !s.is_empty()) {
+            return workspace_session_identity(workspace_path, Some(connection_id), Some(host));
+        }
+
+        if let Some(entry) = lookup_remote_connection_with_hint(workspace_path, Some(connection_id)).await {
+            return Some(WorkspaceSessionIdentity {
+                hostname: entry.ssh_host,
+                workspace_path: entry.remote_root,
+                remote_connection_id: Some(entry.connection_id),
+            });
+        }
+
+        return Some(WorkspaceSessionIdentity {
+            hostname: "_unresolved".to_string(),
+            workspace_path: normalize_remote_workspace_path(workspace_path),
+            remote_connection_id: Some(connection_id.to_string()),
+        });
+    }
+
+    workspace_session_identity(workspace_path, None, None)
+}
 /// SSH host label for **local disk** workspaces (`Normal` / `Assistant`).
 /// Remote workspaces use the SSH config host instead. Together with a normalized absolute
 /// root path this forms a globally unique workspace scope: `{host}:{path}`.
@@ -517,23 +609,22 @@ pub async fn get_effective_session_path(
     remote_connection_id: Option<&str>,
     remote_ssh_host: Option<&str>,
 ) -> std::path::PathBuf {
-    if let Some(manager) = get_remote_workspace_manager() {
-        manager
-            .get_effective_session_path(workspace_path, remote_connection_id, remote_ssh_host)
-            .await
-    } else {
-        let path_norm = normalize_remote_workspace_path(workspace_path);
-        if let (Some(_), Some(host)) = (
-            remote_connection_id.map(str::trim).filter(|s| !s.is_empty()),
-            remote_ssh_host.map(str::trim).filter(|s| !s.is_empty()),
-        ) {
-            return remote_workspace_session_mirror_dir(host, &path_norm);
+    if let Some(identity) = resolve_workspace_session_identity(
+        workspace_path,
+        remote_connection_id,
+        remote_ssh_host,
+    )
+    .await
+    {
+        if identity.hostname == "_unresolved" {
+            if let Some(connection_id) = identity.remote_connection_id.as_deref() {
+                return unresolved_remote_session_storage_dir(connection_id, &identity.workspace_path);
+            }
         }
-        if let Some(rid) = remote_connection_id.map(str::trim).filter(|s| !s.is_empty()) {
-            return unresolved_remote_session_storage_dir(rid, &path_norm);
-        }
-        std::path::PathBuf::from(workspace_path)
+        return identity.session_storage_path();
     }
+
+    std::path::PathBuf::from(workspace_path)
 }
 
 /// Check if a specific path belongs to any registered remote workspace.
