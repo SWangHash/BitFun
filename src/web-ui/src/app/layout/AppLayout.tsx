@@ -189,7 +189,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
         let sessionId: string | undefined;
         const { flowChatStore } = await import('@/flow_chat/store/FlowChatStore');
-        if (!hasHistoricalSessions || !flowChatStore.getState().activeSessionId) {
+        if (!hasHistoricalSessions) {
           const initialSessionMode =
             currentWorkspace.workspaceKind === WorkspaceKind.Assistant
               ? 'Claw'

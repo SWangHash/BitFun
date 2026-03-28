@@ -564,7 +564,7 @@ impl PersistenceManager {
         }
     }
 
-    fn build_session_metadata(
+    async fn build_session_metadata(
         &self,
         workspace_path: &Path,
         session: &Session,
@@ -581,17 +581,18 @@ impl PersistenceManager {
             .or_else(|| existing.map(|value| value.model_name.clone()))
             .unwrap_or_else(|| "default".to_string());
 
-        let resolved_identity = session
-            .config
-            .workspace_path
-            .as_deref()
-            .and_then(|workspace_root| {
-                futures::executor::block_on(resolve_workspace_session_identity(
-                    workspace_root,
-                    session.config.remote_connection_id.as_deref(),
-                    session.config.remote_ssh_host.as_deref(),
-                ))
-            });
+        let resolved_identity = if let Some(workspace_root) =
+            session.config.workspace_path.as_deref()
+        {
+            resolve_workspace_session_identity(
+                workspace_root,
+                session.config.remote_connection_id.as_deref(),
+                session.config.remote_ssh_host.as_deref(),
+            )
+            .await
+        } else {
+            None
+        };
 
         let workspace_root = resolved_identity
             .as_ref()
@@ -1513,8 +1514,9 @@ impl PersistenceManager {
         let existing_metadata = self
             .load_session_metadata(workspace_path, &session.session_id)
             .await?;
-        let metadata =
-            self.build_session_metadata(workspace_path, session, existing_metadata.as_ref());
+        let metadata = self
+            .build_session_metadata(workspace_path, session, existing_metadata.as_ref())
+            .await;
         self.save_session_metadata(workspace_path, &metadata)
             .await?;
 

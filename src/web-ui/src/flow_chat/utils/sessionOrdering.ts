@@ -1,5 +1,5 @@
 import type { Session } from '../types/flow-chat';
-import { normalizeRemoteWorkspacePath } from '@/shared/utils/pathUtils';
+import { isSamePath, normalizeRemoteWorkspacePath } from '@/shared/utils/pathUtils';
 
 /** Extract `host` from our saved form `ssh-{user}@{host}:{port}` (used when metadata omits `remoteSshHost`). */
 function hostFromSshConnectionId(connectionId: string): string | null {
@@ -29,8 +29,10 @@ export function sessionBelongsToWorkspaceNavRow(
   remoteConnectionId?: string | null,
   remoteSshHost?: string | null
 ): boolean {
-  const wp = normalizeRemoteWorkspacePath(workspacePath);
-  const sp = normalizeRemoteWorkspacePath(session.workspacePath || workspacePath);
+  const sessionRoot = session.workspacePath || workspacePath;
+  const pathsMatch =
+    isSamePath(sessionRoot, workspacePath) ||
+    normalizeRemoteWorkspacePath(sessionRoot) === normalizeRemoteWorkspacePath(workspacePath);
 
   const wsConn = remoteConnectionId?.trim() ?? '';
   const sessConn = session.remoteConnectionId?.trim() ?? '';
@@ -41,18 +43,18 @@ export function sessionBelongsToWorkspaceNavRow(
 
   if (wsHostEff.length > 0) {
     // Host match alone is insufficient (same server, different remote folders).
-    if (sessHost === wsHostEff && sp === wp) {
+    if (sessHost === wsHostEff && pathsMatch) {
       return true;
     }
-    if (sessConnHost === wsHostEff && sp === wp) {
+    if (sessConnHost === wsHostEff && pathsMatch) {
       return true;
     }
     if (sessConnHost && wsConnHost && sessConnHost === wsConnHost) {
-      return sp === wp;
+      return pathsMatch;
     }
   }
 
-  if (sp !== wp) return false;
+  if (!pathsMatch) return false;
 
   if (wsConn.length > 0 || sessConn.length > 0) {
     return sessConn === wsConn;

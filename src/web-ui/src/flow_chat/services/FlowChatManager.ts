@@ -95,7 +95,6 @@ export class FlowChatManager {
         remoteSshHost?: string;
       }) => {
         const sp = session.workspacePath || workspacePath;
-        if (sp !== workspacePath) return false;
         return sessionBelongsToWorkspaceNavRow(
           {
             workspacePath: sp,
@@ -124,12 +123,6 @@ export class FlowChatManager {
           : undefined) || sortedWorkspaceSessions[0];
 
         if (!latestSession) {
-          this.context.currentWorkspacePath = workspacePath;
-          return hasHistoricalSessions;
-        }
-
-        // If no session matches preferred mode, keep activeSessionId unset for caller to create one.
-        if (preferredMode && latestSession.mode !== preferredMode) {
           this.context.currentWorkspacePath = workspacePath;
           return hasHistoricalSessions;
         }
