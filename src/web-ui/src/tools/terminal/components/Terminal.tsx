@@ -190,6 +190,8 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({
   const wasVisibleRef = useRef(false);
   const lastBackendSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const autoFocusRef = useRef(autoFocus);
+  const terminalIdRef = useRef(terminalId);
+  const sessionIdRef = useRef(sessionId);
   const onDataRef = useRef(onData);
   const onBinaryRef = useRef(onBinary);
   const onTitleChangeRef = useRef(onTitleChange);
@@ -215,6 +217,8 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({
   const initialFontWeightsRef = useRef(initialFontWeights);
 
   autoFocusRef.current = autoFocus;
+  terminalIdRef.current = terminalId;
+  sessionIdRef.current = sessionId;
   onDataRef.current = onData;
   onBinaryRef.current = onBinary;
   onTitleChangeRef.current = onTitleChange;
@@ -581,9 +585,9 @@ const Terminal = forwardRef<TerminalRef, TerminalProps>(({
               'Terminal.tsx:intersectionObserver',
               'Terminal visibility restore completed',
               {
-                terminalId,
-                sessionId,
-                autoFocus,
+                terminalId: terminalIdRef.current,
+                sessionId: sessionIdRef.current,
+                autoFocus: autoFocusRef.current,
                 durationMs:
                   Math.round(
                     ((typeof performance !== 'undefined' ? performance.now() : Date.now()) -

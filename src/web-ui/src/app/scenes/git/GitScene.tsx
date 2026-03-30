@@ -42,12 +42,11 @@ const GitScene: React.FC<GitSceneProps> = ({
     layers: ['basic', 'status'],
   });
 
-  if (!isActive) {
-    return <div className="bitfun-git-scene" aria-hidden="true" />;
-  }
-
   const repoLoading = statusLoading && !isRepository;
-  const handleRefresh = useCallback(() => refresh({ force: true, layers: ['basic', 'status'], reason: 'manual' }), [refresh]);
+  const handleRefresh = useCallback(
+    () => refresh({ force: true, layers: ['basic', 'status'], reason: 'manual' }),
+    [refresh]
+  );
 
   useEffect(() => {
     if (repoLoading || statusLoading) {
@@ -72,6 +71,22 @@ const GitScene: React.FC<GitSceneProps> = ({
   const handleInitGitRepository = useCallback(() => {
     globalEventBus.emit('fill-chat-input', { content: t('init.chatPrompt') });
   }, [t]);
+
+  const renderView = useCallback(() => {
+    switch (activeView) {
+      case 'branches':
+        return <BranchesView workspacePath={workspacePath} />;
+      case 'graph':
+        return <GraphView workspacePath={workspacePath} />;
+      case 'working-copy':
+      default:
+        return <WorkingCopyView workspacePath={workspacePath} isActive={isActive} />;
+    }
+  }, [activeView, isActive, workspacePath]);
+
+  if (!isActive) {
+    return <div className="bitfun-git-scene" aria-hidden="true" />;
+  }
 
   if (!repoLoading && !isRepository) {
     return (
@@ -127,18 +142,6 @@ const GitScene: React.FC<GitSceneProps> = ({
       </div>
     );
   }
-
-  const renderView = () => {
-    switch (activeView) {
-      case 'branches':
-        return <BranchesView workspacePath={workspacePath} />;
-      case 'graph':
-        return <GraphView workspacePath={workspacePath} />;
-      case 'working-copy':
-      default:
-        return <WorkingCopyView workspacePath={workspacePath} isActive={isActive} />;
-    }
-  };
 
   return <div className="bitfun-git-scene">{renderView()}</div>;
 };
