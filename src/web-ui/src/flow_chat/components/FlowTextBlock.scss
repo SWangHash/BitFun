@@ -19,6 +19,55 @@
     font-size: inherit;
   }
 
+  /* Inline `code`: no chip background in chat (code blocks unchanged). */
+  .markdown-renderer .inline-code {
+    background: transparent;
+    border: none;
+    padding: 0.1em 0.2em;
+  }
+
+  .markdown-renderer .inline-code:hover {
+    background: transparent;
+    border: none;
+  }
+
+  /* Tighter code fence toolbar than global Markdown.scss (flow chat only). */
+  .markdown-renderer .code-block-toolbar {
+    min-height: 1.625rem;
+    padding: 0.2rem 0.45rem 0.2rem 0.6rem;
+  }
+
+  .markdown-renderer .code-block-lang {
+    font-size: 0.625rem;
+    line-height: 1.2;
+  }
+
+  .markdown-renderer .code-block-wrapper .copy-button {
+    width: 26px;
+    height: 26px;
+    padding: 0.2rem;
+    transition:
+      transform 0.15s ease,
+      opacity 0.2s ease;
+  }
+
+  .markdown-renderer .code-block-wrapper .copy-button:hover {
+    background: transparent;
+    color: var(--color-text-muted);
+    transform: scale(1.08);
+  }
+
+  .markdown-renderer .code-block-wrapper .copy-button:active {
+    background: transparent;
+    color: var(--color-text-muted);
+    transform: scale(1.02);
+  }
+
+  .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover {
+    color: #22c55e;
+    transform: scale(1.08);
+  }
+
   .text-content {
     color: var(--color-text-primary);
     line-height: 1.6;
@@ -48,6 +97,45 @@
   }
   
   &.streaming {
+  }
+}
+
+/* Light theme: copy button icon color (scoped to flow chat). */
+:root[data-theme='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover,
+:root[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover,
+[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover,
+.light .flow-text-block .markdown-renderer .code-block-wrapper .copy-button:hover {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover,
+:root[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover,
+[data-theme-type='light'] .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover,
+.light .flow-text-block .markdown-renderer .code-block-wrapper .copy-button.copy-success:hover {
+  color: #1a7f37;
+}
+
+:root[data-theme='light'] .flow-text-block .markdown-renderer .inline-code,
+:root[data-theme-type='light'] .flow-text-block .markdown-renderer .inline-code,
+[data-theme-type='light'] .flow-text-block .markdown-renderer .inline-code,
+.light .flow-text-block .markdown-renderer .inline-code {
+  background: transparent;
+  border: none;
+}
+
+:root[data-theme='light'] .flow-text-block .markdown-renderer .inline-code:hover,
+:root[data-theme-type='light'] .flow-text-block .markdown-renderer .inline-code:hover,
+[data-theme-type='light'] .flow-text-block .markdown-renderer .inline-code:hover,
+.light .flow-text-block .markdown-renderer .inline-code:hover {
+  background: transparent;
+  border: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .flow-text-block .markdown-renderer .inline-code,
+  .flow-text-block .markdown-renderer .inline-code:hover {
+    background: transparent;
+    border: none;
   }
 }
 

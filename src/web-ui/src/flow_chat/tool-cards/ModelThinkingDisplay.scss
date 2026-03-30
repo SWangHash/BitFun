@@ -286,9 +286,10 @@
   .inline-code {
     font-family: var(--tool-card-font-mono);
     font-size: 0.85em;
-    padding: 0.1em 0.35em;
-    border-radius: 3px;
-    background: color-mix(in srgb, var(--tool-card-text-muted) 12%, transparent);
+    padding: 0.1em 0.2em;
+    border-radius: 0;
+    background: transparent;
+    border: none;
     color: var(--tool-card-text-secondary);
   }
 
@@ -297,6 +298,16 @@
     border-radius: 6px;
     border: 1px solid color-mix(in srgb, var(--tool-card-text-muted) 18%, transparent);
     background: color-mix(in srgb, var(--tool-card-text-muted) 8%, transparent);
+  }
+
+  .code-block-toolbar {
+    min-height: 1.5rem;
+    padding: 0.15rem 0.4rem 0.15rem 0.5rem;
+  }
+
+  .code-block-lang {
+    font-size: 0.6rem;
+    line-height: 1.15;
   }
 
   .code-block-wrapper pre[class*='language-'],
@@ -309,6 +320,25 @@
   .code-block-wrapper .copy-button {
     transform: scale(0.85);
     transform-origin: top right;
+    transition:
+      transform 0.15s ease,
+      opacity 0.2s ease;
+  }
+
+  .code-block-wrapper .copy-button:hover {
+    background: transparent !important;
+    color: var(--color-text-muted);
+    transform: scale(0.93);
+  }
+
+  .code-block-wrapper .copy-button:active {
+    background: transparent !important;
+    transform: scale(0.88);
+  }
+
+  .code-block-wrapper .copy-button.copy-success:hover {
+    color: #22c55e;
+    transform: scale(0.93);
   }
 
   .table-wrapper {
