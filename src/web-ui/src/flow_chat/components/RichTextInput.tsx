@@ -5,6 +5,7 @@
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import type { ContextItem } from '../../shared/types/context';
+import { getRichTextExternalSyncAction } from './richTextInputSync';
 import './RichTextInput.scss';
 
 /** @ mention state */
@@ -121,7 +122,6 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
   const isComposingRef = useRef(false);
   const lastContextIdsRef = useRef<Set<string>>(new Set());
   const mentionStateRef = useRef<MentionState>({ isActive: false, query: '', startOffset: 0 });
-  const isLocalChangeRef = useRef(false);
 
   // Create tag element with pill style
   const createTagElement = useCallback((context: ContextItem): HTMLSpanElement => {
@@ -395,7 +395,6 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
     );
     const visibleContexts = contexts.filter(context => visibleContextIds.has(context.id));
 
-    isLocalChangeRef.current = true;
     onChange(textContent, visibleContexts);
     
     // Ensure detection runs after DOM updates
@@ -599,14 +598,9 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
   }, [insertTagAtCursor, insertTagReplacingMention, openMention, onMentionStateChange, internalRef]);
 
   // Initialize and sync value changes from external sources.
-  // Skip syncing when the change originated from local user input
-  // to avoid resetting the cursor position.
+  // This editor is effectively controlled by comparing the parent's value
+  // with the current DOM content, rather than tracking a "skip next sync" flag.
   useEffect(() => {
-    if (isLocalChangeRef.current) {
-      isLocalChangeRef.current = false;
-      return;
-    }
-
     const editor = internalRef.current;
     if (!editor) return;
 
@@ -620,15 +614,18 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
     }
     
     const currentContent = extractTextContent();
+    const syncAction = getRichTextExternalSyncAction(value, currentContent);
     
-    // If value is empty, clear editor content
-    if (!value && currentContent !== '') {
+    if (syncAction === 'noop') {
+      return;
+    }
+
+    if (syncAction === 'clear') {
       editor.textContent = '';
       return;
     }
     
-    // External updates require syncing
-    if (value && value !== currentContent) {
+    if (syncAction === 'replace') {
       editor.textContent = value;
       
       // Restore cursor to the end
