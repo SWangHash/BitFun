@@ -5,10 +5,8 @@
 
 use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::BitFunResult;
-use crate::util::front_matter_markdown::FrontMatterMarkdown;
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
-use serde_yaml::Value;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
@@ -122,64 +120,7 @@ fn safe_join(root: &Path, relative: &Path) -> BitFunResult<PathBuf> {
 
 async fn desired_file_content(
     file: &include_dir::File<'_>,
-    dest_path: &Path,
+    _dest_path: &Path,
 ) -> BitFunResult<Vec<u8>> {
-    let source = file.contents();
-    if !is_skill_markdown(file.path()) {
-        return Ok(source.to_vec());
-    }
-
-    let source_text = match std::str::from_utf8(source) {
-        Ok(v) => v,
-        Err(_) => return Ok(source.to_vec()),
-    };
-
-    let enabled = if let Ok(existing) = fs::read_to_string(dest_path).await {
-        // Preserve user-selected state when file already exists.
-        extract_enabled_flag(&existing).unwrap_or(true)
-    } else {
-        // On first install, respect bundled default (if present), otherwise enable by default.
-        extract_enabled_flag(source_text).unwrap_or(true)
-    };
-
-    let merged = merge_skill_markdown_enabled(source_text, enabled)?;
-    Ok(merged.into_bytes())
-}
-
-fn is_skill_markdown(path: &Path) -> bool {
-    path.file_name()
-        .and_then(|n| n.to_str())
-        .map(|n| n.eq_ignore_ascii_case("SKILL.md"))
-        .unwrap_or(false)
-}
-
-fn extract_enabled_flag(markdown: &str) -> Option<bool> {
-    let (metadata, _) = FrontMatterMarkdown::load_str(markdown).ok()?;
-    metadata.get("enabled").and_then(|v| v.as_bool())
-}
-
-fn merge_skill_markdown_enabled(markdown: &str, enabled: bool) -> BitFunResult<String> {
-    let (mut metadata, body) = FrontMatterMarkdown::load_str(markdown)
-        .map_err(|e| crate::util::errors::BitFunError::tool(format!("Invalid SKILL.md: {}", e)))?;
-
-    let map = metadata.as_mapping_mut().ok_or_else(|| {
-        crate::util::errors::BitFunError::tool(
-            "Invalid SKILL.md: metadata is not a mapping".to_string(),
-        )
-    })?;
-
-    if enabled {
-        map.remove(&Value::String("enabled".to_string()));
-    } else {
-        map.insert(Value::String("enabled".to_string()), Value::Bool(false));
-    }
-
-    let yaml = serde_yaml::to_string(&metadata).map_err(|e| {
-        crate::util::errors::BitFunError::tool(format!("Failed to serialize SKILL.md: {}", e))
-    })?;
-    Ok(format!(
-        "---\n{}\n---\n\n{}",
-        yaml.trim_end(),
-        body.trim_start()
-    ))
+    Ok(file.contents().to_vec())
 }

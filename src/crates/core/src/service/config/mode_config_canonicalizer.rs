@@ -53,8 +53,8 @@ fn normalize_tools(tools: Vec<String>, valid_tools: &HashSet<String>) -> Vec<Str
         .collect()
 }
 
-fn normalize_skills(skills: Option<Vec<String>>) -> Option<Vec<String>> {
-    skills.map(dedupe_preserving_order)
+fn normalize_skill_keys(keys: Vec<String>) -> Vec<String> {
+    dedupe_preserving_order(keys)
 }
 
 pub fn resolve_effective_tools(
@@ -95,7 +95,7 @@ fn stored_mode_from_enabled_tools(
     mode_id: &str,
     enabled: bool,
     enabled_tools: Vec<String>,
-    available_skills: Option<Vec<String>>,
+    disabled_user_skills: Vec<String>,
     default_tools: &[String],
     valid_tools: &HashSet<String>,
 ) -> Option<ModeConfig> {
@@ -123,7 +123,7 @@ fn stored_mode_from_enabled_tools(
         enabled,
         added_tools,
         removed_tools,
-        available_skills,
+        disabled_user_skills,
         &default_tools,
         valid_tools,
     )
@@ -134,14 +134,14 @@ fn stored_mode_from_overrides(
     enabled: bool,
     added_tools: Vec<String>,
     removed_tools: Vec<String>,
-    available_skills: Option<Vec<String>>,
+    disabled_user_skills: Vec<String>,
     default_tools: &[String],
     valid_tools: &HashSet<String>,
 ) -> Option<ModeConfig> {
     let default_set: HashSet<String> = default_tools.iter().cloned().collect();
     let mut added_tools = normalize_tools(added_tools, valid_tools);
     let mut removed_tools = normalize_tools(removed_tools, valid_tools);
-    let available_skills = normalize_skills(available_skills);
+    let disabled_user_skills = normalize_skill_keys(disabled_user_skills);
 
     added_tools.retain(|tool| !default_set.contains(tool));
     removed_tools.retain(|tool| default_set.contains(tool));
@@ -149,7 +149,11 @@ fn stored_mode_from_overrides(
     let removed_set: HashSet<String> = removed_tools.iter().cloned().collect();
     added_tools.retain(|tool| !removed_set.contains(tool));
 
-    if enabled && added_tools.is_empty() && removed_tools.is_empty() && available_skills.is_none() {
+    if enabled
+        && added_tools.is_empty()
+        && removed_tools.is_empty()
+        && disabled_user_skills.is_empty()
+    {
         return None;
     }
 
@@ -158,7 +162,7 @@ fn stored_mode_from_overrides(
         added_tools,
         removed_tools,
         enabled,
-        available_skills,
+        disabled_user_skills,
     })
 }
 
@@ -171,14 +175,16 @@ fn build_mode_view(
     let default_tools = normalize_tools(default_tools, valid_tools);
     let enabled_tools = resolve_effective_tools(&default_tools, mode_config, valid_tools);
     let enabled = mode_config.map(|config| config.enabled).unwrap_or(true);
-    let available_skills = mode_config.and_then(|config| config.available_skills.clone());
+    let disabled_user_skills = mode_config
+        .map(|config| normalize_skill_keys(config.disabled_user_skills.clone()))
+        .unwrap_or_default();
 
     ModeConfigView {
         mode_id: mode_id.to_string(),
         enabled_tools,
         default_tools,
         enabled,
-        available_skills,
+        disabled_user_skills,
     }
 }
 
@@ -207,7 +213,7 @@ fn canonicalize_mode_config(
         stored.enabled,
         stored.added_tools,
         stored.removed_tools,
-        stored.available_skills,
+        stored.disabled_user_skills,
         default_tools,
         valid_tools,
     ))
@@ -289,31 +295,31 @@ pub async fn persist_mode_config_from_value(mode_id: &str, config: Value) -> Bit
         resolve_effective_tools(default_tools, current, &valid_tools)
     };
 
-    let available_skills = if config
+    let disabled_user_skills = if config
         .as_object()
-        .map(|obj| obj.contains_key("available_skills"))
+        .map(|obj| obj.contains_key("disabled_user_skills"))
         .unwrap_or(false)
     {
-        match config.get("available_skills") {
-            Some(Value::Null) | None => None,
-            Some(value) => Some(
-                serde_json::from_value::<Vec<String>>(value.clone()).map_err(|error| {
-                    BitFunError::config(format!(
-                        "Invalid available_skills for mode '{}': {}",
-                        mode_id, error
-                    ))
-                })?,
-            ),
+        match config.get("disabled_user_skills") {
+            Some(Value::Null) | None => Vec::new(),
+            Some(value) => serde_json::from_value::<Vec<String>>(value.clone()).map_err(|error| {
+                BitFunError::config(format!(
+                    "Invalid disabled_user_skills for mode '{}': {}",
+                    mode_id, error
+                ))
+            })?,
         }
     } else {
-        current.and_then(|item| item.available_skills.clone())
+        current
+            .map(|item| item.disabled_user_skills.clone())
+            .unwrap_or_default()
     };
 
     if let Some(canonical) = stored_mode_from_enabled_tools(
         mode_id,
         enabled,
         enabled_tools,
-        available_skills,
+        disabled_user_skills,
         default_tools,
         &valid_tools,
     ) {

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, RefreshCw, FolderOpen, X, Download, CheckCircle2, TrendingUp } from 'lucide-react';
-import { Switch, Select, Input, Button, Search, IconButton, ConfirmDialog, Card, CardBody, Tooltip } from '@/component-library';
+import { Select, Input, Button, Search, IconButton, ConfirmDialog, Card, CardBody, Tooltip } from '@/component-library';
 import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigCollectionItem } from './common';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useNotification } from '@/shared/notification-system';
@@ -139,7 +139,7 @@ const SkillsConfig: React.FC = () => {
     if (!skill) return;
     try {
       await configAPI.deleteSkill({
-        skillName: skill.name,
+        skillKey: skill.key,
         workspacePath: workspacePath || undefined,
       });
       notification.success(t('messages.deleteSuccess', { name: skill.name }));
@@ -148,21 +148,6 @@ const SkillsConfig: React.FC = () => {
       notification.error(t('messages.deleteFailed', { error: err instanceof Error ? err.message : String(err) }));
     } finally {
       setDeleteConfirm({ show: false, skill: null });
-    }
-  };
-
-  const handleToggle = async (skill: SkillInfo) => {
-    const newEnabled = !skill.enabled;
-    try {
-      await configAPI.setSkillEnabled({
-        skillName: skill.name,
-        enabled: newEnabled,
-        workspacePath: workspacePath || undefined,
-      });
-      notification.success(t('messages.toggleSuccess', { name: skill.name, status: newEnabled ? t('messages.enabled') : t('messages.disabled') }));
-      await loadSkills(true);
-    } catch (err) {
-      notification.error(t('messages.toggleFailed', { error: err instanceof Error ? err.message : String(err) }));
     }
   };
 
@@ -296,11 +281,6 @@ const SkillsConfig: React.FC = () => {
     );
     const control = (
       <>
-        <Switch
-          checked={skill.enabled}
-          onChange={(e) => { e.stopPropagation(); handleToggle(skill); }}
-          size="small"
-        />
         <button
           type="button"
           className="bitfun-collection-btn bitfun-collection-btn--danger"
@@ -322,14 +302,13 @@ const SkillsConfig: React.FC = () => {
     );
     return (
       <ConfigCollectionItem
-        key={skill.name}
+        key={skill.key}
         label={skill.name}
         badge={badge}
         control={control}
         details={details}
-        disabled={!skill.enabled}
-        expanded={expandedSkillIds.has(skill.name)}
-        onToggle={() => toggleSkillExpanded(skill.name)}
+        expanded={expandedSkillIds.has(skill.key)}
+        onToggle={() => toggleSkillExpanded(skill.key)}
       />
     );
   };

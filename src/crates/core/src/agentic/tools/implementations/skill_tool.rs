@@ -69,20 +69,32 @@ Important:
                         .map(|w| w.root_path_string())
                         .unwrap_or_default();
                     registry
-                        .get_enabled_skills_xml_for_remote_workspace(fs, &root)
+                        .get_resolved_skills_xml_for_remote_workspace(
+                            fs,
+                            &root,
+                            ctx.agent_type.as_deref(),
+                        )
                         .await
                 } else {
                     registry
-                        .get_enabled_skills_xml_for_workspace(ctx.workspace_root())
+                        .get_resolved_skills_xml_for_workspace(
+                            ctx.workspace_root(),
+                            ctx.agent_type.as_deref(),
+                        )
                         .await
                 }
             }
             Some(ctx) => {
                 registry
-                    .get_enabled_skills_xml_for_workspace(ctx.workspace_root())
+                    .get_resolved_skills_xml_for_workspace(
+                        ctx.workspace_root(),
+                        ctx.agent_type.as_deref(),
+                    )
                     .await
             }
-            None => registry.get_enabled_skills_xml().await,
+            None => registry
+                .get_resolved_skills_xml_for_workspace(None, None)
+                .await,
         };
 
         self.render_description(available_skills.join("\n"))
@@ -195,16 +207,29 @@ impl Tool for SkillTool {
                     .map(|w| w.root_path_string())
                     .unwrap_or_default();
                 registry
-                    .find_and_load_skill_for_remote_workspace(skill_name, ws_fs, &root)
+                    .find_and_load_skill_for_remote_workspace(
+                        skill_name,
+                        ws_fs,
+                        &root,
+                        context.agent_type.as_deref(),
+                    )
                     .await?
             } else {
                 registry
-                    .find_and_load_skill_for_workspace(skill_name, context.workspace_root())
+                    .find_and_load_skill_for_workspace(
+                        skill_name,
+                        context.workspace_root(),
+                        context.agent_type.as_deref(),
+                    )
                     .await?
             }
         } else {
             registry
-                .find_and_load_skill_for_workspace(skill_name, context.workspace_root())
+                .find_and_load_skill_for_workspace(
+                    skill_name,
+                    context.workspace_root(),
+                    context.agent_type.as_deref(),
+                )
                 .await?
         };
 

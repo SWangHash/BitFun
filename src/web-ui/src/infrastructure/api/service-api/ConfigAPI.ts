@@ -3,6 +3,7 @@
 import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
 import type {
+  ModeSkillInfo,
   ModeConfigItem,
   RuntimeLoggingInfo,
   SkillInfo,
@@ -17,9 +18,16 @@ export interface GetSkillConfigsParams {
   workspacePath?: string;
 }
 
-export interface SetSkillEnabledParams {
-  skillName: string;
-  enabled: boolean;
+export interface GetModeSkillConfigsParams {
+  modeId: string;
+  forceRefresh?: boolean;
+  workspacePath?: string;
+}
+
+export interface SetModeSkillDisabledParams {
+  modeId: string;
+  skillKey: string;
+  disabled: boolean;
   workspacePath?: string;
 }
 
@@ -30,7 +38,7 @@ export interface AddSkillParams {
 }
 
 export interface DeleteSkillParams {
-  skillName: string;
+  skillKey: string;
   workspacePath?: string;
 }
 
@@ -245,15 +253,29 @@ export class ConfigAPI {
   }
 
    
-  async setSkillEnabled({
-    skillName,
-    enabled,
+  async getModeSkillConfigs({
+    modeId,
+    forceRefresh,
     workspacePath,
-  }: SetSkillEnabledParams): Promise<string> {
+  }: GetModeSkillConfigsParams): Promise<ModeSkillInfo[]> {
     try {
-      return await api.invoke('set_skill_enabled', { skillName, enabled, workspacePath });
+      return await api.invoke('get_mode_skill_configs', { modeId, forceRefresh, workspacePath });
     } catch (error) {
-      throw createTauriCommandError('set_skill_enabled', error, { skillName, enabled, workspacePath });
+      throw createTauriCommandError('get_mode_skill_configs', error, { modeId, forceRefresh, workspacePath });
+    }
+  }
+
+   
+  async setModeSkillDisabled({
+    modeId,
+    skillKey,
+    disabled,
+    workspacePath,
+  }: SetModeSkillDisabledParams): Promise<string> {
+    try {
+      return await api.invoke('set_mode_skill_disabled', { modeId, skillKey, disabled, workspacePath });
+    } catch (error) {
+      throw createTauriCommandError('set_mode_skill_disabled', error, { modeId, skillKey, disabled, workspacePath });
     }
   }
 
@@ -281,13 +303,13 @@ export class ConfigAPI {
 
    
   async deleteSkill({
-    skillName,
+    skillKey,
     workspacePath,
   }: DeleteSkillParams): Promise<string> {
     try {
-      return await api.invoke('delete_skill', { skillName, workspacePath });
+      return await api.invoke('delete_skill', { skillKey, workspacePath });
     } catch (error) {
-      throw createTauriCommandError('delete_skill', error, { skillName, workspacePath });
+      throw createTauriCommandError('delete_skill', error, { skillKey, workspacePath });
     }
   }
 

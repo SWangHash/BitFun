@@ -360,6 +360,17 @@ impl PathManager {
         self.project_root(workspace_path).join("config.json")
     }
 
+    /// Get project internal config directory: {project}/.bitfun/config/
+    pub fn project_internal_config_dir(&self, workspace_path: &Path) -> PathBuf {
+        self.project_root(workspace_path).join("config")
+    }
+
+    /// Get project mode skills file: {project}/.bitfun/config/mode_skills.json
+    pub fn project_mode_skills_file(&self, workspace_path: &Path) -> PathBuf {
+        self.project_internal_config_dir(workspace_path)
+            .join("mode_skills.json")
+    }
+
     /// Get project .gitignore file: {project}/.bitfun/.gitignore
     pub fn project_gitignore_file(&self, workspace_path: &Path) -> PathBuf {
         self.project_root(workspace_path).join(".gitignore")
@@ -488,6 +499,7 @@ impl PathManager {
     pub async fn initialize_project_directories(&self, workspace_path: &Path) -> BitFunResult<()> {
         let dirs = vec![
             self.project_root(workspace_path),
+            self.project_internal_config_dir(workspace_path),
             self.project_agents_dir(workspace_path),
             self.project_rules_dir(workspace_path),
             self.project_snapshots_dir(workspace_path),

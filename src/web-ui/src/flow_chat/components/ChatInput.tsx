@@ -630,7 +630,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           workspacePath: workspacePath || undefined,
         });
         if (!cancelled) {
-          setBoostPanelSkills(list.filter(s => s.enabled));
+          setBoostPanelSkills(list);
         }
       } catch (err) {
         log.error('Failed to load skills for boost panel', { err });

@@ -3,7 +3,6 @@
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::front_matter_markdown::FrontMatterMarkdown;
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 
 /// Skill location
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,8 +25,11 @@ impl SkillLocation {
 
 /// Complete skill information (for API return)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SkillInfo {
-    /// Skill name (read from SKILL.md, used as unique identifier)
+    /// Runtime-unique identifier derived from source slot + directory name.
+    pub key: String,
+    /// Skill name (read from SKILL.md, used by the model to invoke the skill)
     pub name: String,
     /// Description (read from SKILL.md)
     pub description: String,
@@ -35,8 +37,10 @@ pub struct SkillInfo {
     pub path: String,
     /// Level (project-level/user-level)
     pub level: SkillLocation,
-    /// Whether enabled
-    pub enabled: bool,
+    /// Source slot that discovered this skill.
+    pub source_slot: String,
+    /// Directory name under the slot's `skills/` root.
+    pub dir_name: String,
 }
 
 impl SkillInfo {
@@ -60,16 +64,30 @@ impl SkillInfo {
     }
 }
 
+/// Skill information annotated for a specific mode.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModeSkillInfo {
+    #[serde(flatten)]
+    pub skill: SkillInfo,
+    /// True when this skill key is explicitly disabled in the current mode's config.
+    pub disabled_by_mode: bool,
+    /// True when this skill is the one actually selected for runtime after applying
+    /// mode disables and same-name priority resolution.
+    pub selected_for_runtime: bool,
+}
+
 /// Skill data (contains content, for execution)
 #[derive(Debug, Clone)]
 pub struct SkillData {
+    pub key: String,
     pub name: String,
     pub description: String,
     pub content: String,
     pub location: SkillLocation,
     pub path: String,
-    /// Whether enabled (read from enabled field in SKILL.md, defaults to true if not present)
-    pub enabled: bool,
+    pub source_slot: String,
+    pub dir_name: String,
 }
 
 impl SkillData {
@@ -83,7 +101,6 @@ impl SkillData {
         let (metadata, body) = FrontMatterMarkdown::load_str(content)
             .map_err(|e| BitFunError::tool(format!("Invalid SKILL.md format: {}", e)))?;
 
-        // Extract fields from YAML metadata
         let name = metadata
             .get("name")
             .and_then(|v| v.as_str())
@@ -100,67 +117,22 @@ impl SkillData {
                 BitFunError::tool("Missing required field 'description' in SKILL.md".to_string())
             })?;
 
-        // enabled field defaults to true if not present
-        let enabled = metadata
-            .get("enabled")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(true);
-
         let skill_content = if with_content { body } else { String::new() };
+        let dir_name = std::path::Path::new(&path)
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or_else(|| BitFunError::tool(format!("Invalid skill path: {}", path)))?
+            .to_string();
 
         Ok(SkillData {
+            key: String::new(),
             name,
             description,
             content: skill_content,
             location,
             path,
-            enabled,
+            source_slot: String::new(),
+            dir_name,
         })
-    }
-
-    /// Set enabled status and save to SKILL.md file
-    ///
-    /// If enabled is true, remove enabled field (use default value)
-    /// If enabled is false, write enabled: false
-    pub fn set_enabled_and_save(skill_md_path: &str, enabled: bool) -> BitFunResult<()> {
-        let (mut metadata, body) = FrontMatterMarkdown::load(skill_md_path)
-            .map_err(|e| BitFunError::tool(format!("Failed to load SKILL.md: {}", e)))?;
-
-        // Get mutable mapping of metadata
-        let map = metadata.as_mapping_mut().ok_or_else(|| {
-            BitFunError::tool("Invalid SKILL.md: metadata is not a mapping".to_string())
-        })?;
-
-        if enabled {
-            // When enabling, remove enabled field (use default value)
-            map.remove(&Value::String("enabled".to_string()));
-        } else {
-            // When disabling, write enabled: false
-            map.insert(Value::String("enabled".to_string()), Value::Bool(false));
-        }
-
-        FrontMatterMarkdown::save(skill_md_path, &metadata, &body)
-            .map_err(|e| BitFunError::tool(format!("Failed to save SKILL.md: {}", e)))?;
-
-        Ok(())
-    }
-
-    /// Convert to XML description
-    pub fn to_xml_desc(&self) -> String {
-        format!(
-            r#"<skill>
-<name>
-{}
-</name>
-<description>
-{}
-</description>
-<location>
-{}
-</location>
-</skill>
-"#,
-            self.name, self.description, self.path
-        )
     }
 }

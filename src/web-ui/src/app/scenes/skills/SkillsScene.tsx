@@ -245,7 +245,7 @@ const SkillsScene: React.FC = () => {
                           title: isDownloading
                             ? t('market.item.downloading')
                             : (isInstalled ? t('market.item.installedTooltip') : t('market.item.downloadProject')),
-                          disabled: isDownloading || !market.hasWorkspace || isInstalled,
+                          disabled: isDownloading || !market.hasWorkspace || market.isRemoteWorkspace || isInstalled,
                           tone: isInstalled ? 'success' : 'primary',
                           onClick: () => market.handleDownload(skill),
                         },
@@ -374,7 +374,7 @@ const SkillsScene: React.FC = () => {
               {/* Installed rows */}
               {!installed.loading && !installed.error && pagedInstalledSkills.map((skill, index) => (
               <div
-                key={skill.name}
+                key={skill.key}
                 className="skills-split__installed-row"
                 style={{ '--row-index': index } as React.CSSProperties}
                 onClick={() => setSelectedDetail({ type: 'installed', skill })}
@@ -500,6 +500,7 @@ const SkillsScene: React.FC = () => {
             disabled={
               market.downloadingPackage === selectedMarketSkill.installId
               || !market.hasWorkspace
+              || market.isRemoteWorkspace
               || installedSkillNames.has(selectedMarketSkill.name)
             }
           >
@@ -572,9 +573,9 @@ const SkillsScene: React.FC = () => {
             options={[
               { label: t('form.level.user'), value: 'user' },
               {
-                label: `${t('form.level.project')}${installed.hasWorkspace ? '' : t('form.level.projectDisabled')}`,
+                label: `${t('form.level.project')}${installed.hasWorkspace && !installed.isRemoteWorkspace ? '' : t('form.level.projectDisabled')}`,
                 value: 'project',
-                disabled: !installed.hasWorkspace,
+                disabled: !installed.hasWorkspace || installed.isRemoteWorkspace,
               },
             ]}
             value={installed.formLevel}
