@@ -10,6 +10,28 @@ const log = createLogger('MonacoThemeSync');
 
 const SEMANTIC_HIGHLIGHTING_RULES = BitFunDarkTheme.rules;
 
+function getBitfunLightMonacoTheme(): monaco.editor.IStandaloneThemeData {
+  return {
+    base: 'vs',
+    inherit: true,
+    rules: SEMANTIC_HIGHLIGHTING_RULES,
+    colors: convertColorsToHex({
+      'focusBorder': '#00000000',
+      'contrastBorder': '#00000000',
+      'diffEditor.insertedTextBorder': '#00000000',
+      'diffEditor.removedTextBorder': '#00000000',
+
+      'editor.selectionBackground': 'rgba(15, 23, 42, 0.14)',
+      'editor.selectionForeground': '#1e293b',
+      'editor.inactiveSelectionBackground': 'rgba(15, 23, 42, 0.09)',
+      'editor.selectionHighlightBackground': 'rgba(15, 23, 42, 0.10)',
+      'editor.selectionHighlightBorder': 'rgba(15, 23, 42, 0.22)',
+      'editor.wordHighlightBackground': 'rgba(15, 23, 42, 0.07)',
+      'editor.wordHighlightStrongBackground': 'rgba(15, 23, 42, 0.11)',
+    }),
+  };
+}
+
  
 function convertToHexColor(color: string): string {
   if (!color) return color;
@@ -85,28 +107,8 @@ export class MonacoThemeSync {
         if (theme.type === 'dark') {
           targetThemeId = 'bitfun-dark';
         } else {
-          
           targetThemeId = 'bitfun-light';
-          
-          monaco.editor.defineTheme('bitfun-light', {
-            base: 'vs',
-            inherit: true,
-            rules: SEMANTIC_HIGHLIGHTING_RULES,
-            colors: convertColorsToHex({
-              'focusBorder': '#00000000',
-              'contrastBorder': '#00000000',
-              'diffEditor.insertedTextBorder': '#00000000',
-              'diffEditor.removedTextBorder': '#00000000',
-              
-              'editor.selectionBackground': 'rgba(15, 23, 42, 0.14)',
-              'editor.selectionForeground': '#1e293b',
-              'editor.inactiveSelectionBackground': 'rgba(15, 23, 42, 0.09)',
-              'editor.selectionHighlightBackground': 'rgba(15, 23, 42, 0.10)',
-              'editor.selectionHighlightBorder': 'rgba(15, 23, 42, 0.22)',
-              'editor.wordHighlightBackground': 'rgba(15, 23, 42, 0.07)',
-              'editor.wordHighlightStrongBackground': 'rgba(15, 23, 42, 0.11)',
-            })
-          });
+          monaco.editor.defineTheme('bitfun-light', getBitfunLightMonacoTheme());
         }
         log.debug('Using builtin theme', { themeId: targetThemeId });
       }
@@ -144,6 +146,38 @@ export class MonacoThemeSync {
    
   getCurrentThemeId(): string | null {
     return this.currentThemeId;
+  }
+
+  /**
+   * Resolves which Monaco theme id should be active for the given app theme
+   * (same rules as {@link syncTheme}).
+   */
+  getTargetMonacoThemeId(theme: ThemeConfig): string {
+    if (theme.monaco) {
+      return theme.id;
+    }
+    return theme.type === 'dark' ? 'bitfun-dark' : 'bitfun-light';
+  }
+
+  /**
+   * Registers BitFun built-in and optional custom Monaco themes on the given Monaco instance.
+   * Use from the Monaco React wrapper `beforeMount` hook so themes exist on the loader's Monaco
+   * before the editor is created (avoids falling back to the default light theme).
+   */
+  registerThemesForEditorInstance(monacoInstance: typeof monaco, theme: ThemeConfig): string {
+    try {
+      monacoInstance.editor.defineTheme('bitfun-dark', BitFunDarkTheme);
+      monacoInstance.editor.defineTheme('bitfun-light', getBitfunLightMonacoTheme());
+
+      if (theme.monaco) {
+        monacoInstance.editor.defineTheme(theme.id, this.convertToMonacoTheme(theme));
+        return theme.id;
+      }
+      return this.getTargetMonacoThemeId(theme);
+    } catch (error) {
+      log.error('registerThemesForEditorInstance failed', error);
+      return 'bitfun-dark';
+    }
   }
   
    

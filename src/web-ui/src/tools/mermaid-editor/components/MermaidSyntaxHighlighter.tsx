@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Editor from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
 import { monacoInitManager } from '@/tools/editor/services/MonacoInitManager';
+import { useTheme, themeService, monacoThemeSync } from '@/infrastructure/theme';
 
 export interface MermaidSyntaxHighlighterProps {
   value: string;
@@ -26,6 +27,13 @@ export const MermaidSyntaxHighlighter: React.FC<MermaidSyntaxHighlighterProps> =
   showLineNumbers = true,
   onCursorPositionChange
 }) => {
+  const { theme: appTheme } = useTheme();
+
+  const monacoThemeId = useMemo(() => {
+    const t = appTheme ?? themeService.getCurrentTheme();
+    return t ? monacoThemeSync.getTargetMonacoThemeId(t) : 'bitfun-dark';
+  }, [appTheme]);
+
   const [isReady, setIsReady] = useState(monacoInitManager.isInitialized());
   const [initError, setInitError] = useState<string | null>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -59,6 +67,23 @@ export const MermaidSyntaxHighlighter: React.FC<MermaidSyntaxHighlighterProps> =
       editorRef.current = null;
     };
   }, [isReady]);
+
+  const handleBeforeMount = useCallback((monaco: typeof Monaco) => {
+    const t = appTheme ?? themeService.getCurrentTheme();
+    if (t) {
+      monacoThemeSync.registerThemesForEditorInstance(monaco, t);
+    }
+  }, [appTheme]);
+
+  useEffect(() => {
+    const t = appTheme ?? themeService.getCurrentTheme();
+    const m = monacoInitManager.getMonaco();
+    if (!t || !m) {
+      return;
+    }
+    monacoThemeSync.registerThemesForEditorInstance(m, t);
+    m.editor.setTheme(monacoThemeSync.getTargetMonacoThemeId(t));
+  }, [appTheme]);
 
   const options = useMemo<Monaco.editor.IStandaloneEditorConstructionOptions>(() => ({
     readOnly,
@@ -127,9 +152,10 @@ export const MermaidSyntaxHighlighter: React.FC<MermaidSyntaxHighlighterProps> =
       <Editor
         path={modelPathRef.current}
         language="mermaid"
-        theme="bitfun-dark"
+        theme={monacoThemeId}
         value={value}
         onChange={handleChange}
+        beforeMount={handleBeforeMount}
         onMount={handleMount}
         options={options}
         loading=""
