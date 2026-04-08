@@ -10,6 +10,9 @@ pub struct SessionTranscript {
     pub agent_type: String,
     pub session_name: String,
     pub workspace_path: Option<String>,
+    /// For facet cache fingerprinting (`SessionSummary.last_activity_at`).
+    #[serde(default)]
+    pub last_activity_unix_secs: u64,
     pub duration_minutes: u64,
     pub message_count: u32,
     pub turn_count: u32,

@@ -1,14 +1,14 @@
 use crate::agentic::core::{Message, MessageContent, MessageRole, ToolCall, ToolResult};
+use crate::agentic::insights::session_paths::collect_effective_session_storage_roots;
 use crate::agentic::insights::types::*;
 use crate::agentic::persistence::PersistenceManager;
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::session::{DialogTurnData, TurnStatus};
-use crate::service::workspace::get_global_workspace_service;
 use crate::util::errors::BitFunResult;
 use chrono::{DateTime, Utc};
 use log::{debug, warn};
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const MAX_TRANSCRIPT_CHARS: usize = 16000;
@@ -27,7 +27,7 @@ impl InsightsCollector {
         let pm = PersistenceManager::new(path_manager)?;
         let cutoff = SystemTime::now() - Duration::from_secs(days as u64 * 86400);
 
-        let workspace_paths = Self::collect_workspace_paths().await;
+        let workspace_paths = collect_effective_session_storage_roots().await;
 
         let mut transcripts = Vec::new();
         let mut base_stats = BaseStats::default();
@@ -91,6 +91,11 @@ impl InsightsCollector {
                 let mut transcript =
                     Self::build_transcript(&summary.session_id, &session, &messages);
                 transcript.workspace_path = Some(ws_path.to_string_lossy().to_string());
+                transcript.last_activity_unix_secs = summary
+                    .last_activity_at
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
                 Self::accumulate_stats(&mut base_stats, &session, &messages);
                 accumulate_code_stats_from_turns(&mut base_stats, &turns);
                 transcripts.push(transcript);
@@ -123,22 +128,6 @@ impl InsightsCollector {
         );
 
         Ok((base_stats, transcripts))
-    }
-
-    /// Collect all known workspace paths that have session data
-    async fn collect_workspace_paths() -> Vec<PathBuf> {
-        let mut paths = Vec::new();
-
-        if let Some(ws_service) = get_global_workspace_service() {
-            let workspaces = ws_service.list_workspaces().await;
-            for ws in workspaces {
-                if ws.root_path.join(".bitfun").join("sessions").exists() {
-                    paths.push(ws.root_path);
-                }
-            }
-        }
-
-        paths
     }
 
     /// Load messages for a session, trying sources in priority order:
@@ -231,6 +220,7 @@ impl InsightsCollector {
             agent_type: session.agent_type.clone(),
             session_name: session.session_name.clone(),
             workspace_path: None,
+            last_activity_unix_secs: 0,
             duration_minutes,
             message_count: messages.len() as u32,
             turn_count: session.dialog_turn_ids.len() as u32,
