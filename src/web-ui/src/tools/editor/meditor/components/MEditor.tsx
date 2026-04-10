@@ -64,6 +64,9 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
   const placeholder = placeholderProp ?? t('editor.meditor.placeholder')
   const containerRef = useRef<HTMLDivElement>(null)
   const textareaTargetIdRef = useRef(`markdown-textarea-${++markdownTextareaTargetCounter}`)
+  const initialEditorValue = controlledValue ?? defaultValue
+  const savedValueRef = useRef(initialEditorValue)
+  const currentValueRef = useRef(initialEditorValue)
 
   const {
     value,
@@ -81,6 +84,10 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
   const effectiveMode = mode === 'ir' && editability.containsRenderOnlyBlocks
     ? (readonly ? 'preview' : 'split')
     : mode
+
+  useEffect(() => {
+    currentValueRef.current = value
+  }, [value])
 
   useEffect(() => {
     if (effectiveMode === 'ir' || effectiveMode === 'preview') {
@@ -115,9 +122,11 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
 
   useEffect(() => {
     if (controlledValue !== undefined && controlledValue !== value) {
-      setValue(controlledValue)
+      currentValueRef.current = controlledValue
+      editorInstance.setValue(controlledValue)
+      onDirtyChange?.(controlledValue !== savedValueRef.current)
     }
-  }, [controlledValue, value, setValue])
+  }, [controlledValue, editorInstance, onDirtyChange, value])
 
   useEffect(() => {
     if (initialMode) {
@@ -130,6 +139,12 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
       setTheme(initialTheme)
     }
   }, [initialTheme, setTheme])
+
+  const handleEditorChange = useCallback((nextValue: string) => {
+    currentValueRef.current = nextValue
+    setValue(nextValue)
+    onDirtyChange?.(nextValue !== savedValueRef.current)
+  }, [onDirtyChange, setValue])
 
   useImperativeHandle(ref, () => ({
     ...editorInstance,
@@ -172,19 +187,29 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
       if (effectiveMode === 'ir' && tiptapEditorRef.current) {
         tiptapEditorRef.current.markSaved()
       }
+      savedValueRef.current = currentValueRef.current
+      onDirtyChange?.(false)
     },
     setInitialContent: (content: string) => {
       if (effectiveMode === 'ir' && tiptapEditorRef.current) {
         tiptapEditorRef.current.setInitialContent(content)
+        currentValueRef.current = content
+        savedValueRef.current = content
+        onDirtyChange?.(false)
+        return
       }
+      currentValueRef.current = content
+      savedValueRef.current = content
+      editorInstance.setValue(content)
+      onDirtyChange?.(false)
     },
     get isDirty() {
       if (effectiveMode === 'ir' && tiptapEditorRef.current) {
         return tiptapEditorRef.current.isDirty
       }
-      return false
+      return currentValueRef.current !== savedValueRef.current
     }
-  }), [editorInstance, effectiveMode, textareaRef])
+  }), [editorInstance, effectiveMode, onDirtyChange, textareaRef])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -249,7 +274,7 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
             <EditArea
               ref={textareaRef}
               value={value}
-              onChange={setValue}
+              onChange={handleEditorChange}
               onFocus={onFocus}
               onBlur={onBlur}
               placeholder={placeholder}
@@ -265,7 +290,7 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
               <EditArea
                 ref={textareaRef}
                 value={value}
-                onChange={setValue}
+                onChange={handleEditorChange}
                 onFocus={onFocus}
                 onBlur={onBlur}
                 placeholder={placeholder}
@@ -284,7 +309,7 @@ export const MEditor = forwardRef<EditorInstance, MEditorProps>((props, ref) => 
             <TiptapEditor
               ref={tiptapEditorRef}
               value={value}
-              onChange={setValue}
+              onChange={handleEditorChange}
               onFocus={onFocus}
               onBlur={onBlur}
               onDirtyChange={onDirtyChange}

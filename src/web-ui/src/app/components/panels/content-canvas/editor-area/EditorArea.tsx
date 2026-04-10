@@ -66,16 +66,16 @@ export const EditorArea: React.FC<EditorAreaProps> = ({
 
   const handleTabClose = useCallback((groupId: EditorGroupId) => async (tabId: string) => {
     if (onTabCloseWithDirtyCheck) {
-      const shouldClose = await onTabCloseWithDirtyCheck(tabId, groupId);
-      if (!shouldClose) return;
+      await onTabCloseWithDirtyCheck(tabId, groupId);
+      return;
     }
     closeTab(tabId, groupId);
   }, [closeTab, onTabCloseWithDirtyCheck]);
 
   const handleCloseAllTabs = useCallback((groupId: EditorGroupId) => async () => {
     if (onTabCloseAllWithDirtyCheck) {
-      const shouldClose = await onTabCloseAllWithDirtyCheck(groupId);
-      if (!shouldClose) return;
+      await onTabCloseAllWithDirtyCheck(groupId);
+      return;
     }
     closeAllTabs(groupId);
   }, [closeAllTabs, onTabCloseAllWithDirtyCheck]);

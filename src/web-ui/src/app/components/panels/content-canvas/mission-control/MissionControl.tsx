@@ -129,8 +129,8 @@ export const MissionControl: React.FC<MissionControlProps> = ({
   // Handle tab close
   const handleTabClose = useCallback(async (tabId: string, groupId: EditorGroupId) => {
     if (handleCloseWithDirtyCheck) {
-      const shouldClose = await handleCloseWithDirtyCheck(tabId, groupId);
-      if (!shouldClose) return;
+      await handleCloseWithDirtyCheck(tabId, groupId);
+      return;
     }
     closeTab(tabId, groupId);
   }, [closeTab, handleCloseWithDirtyCheck]);

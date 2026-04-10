@@ -14,6 +14,7 @@ import type { EditorGroupId, PanelContent, CreateTabEventDetail } from '../types
 import { TAB_EVENTS } from '../types';
 import { useI18n } from '@/infrastructure/i18n';
 import { drainPendingTabs } from '@/shared/services/pendingTabQueue';
+import { confirmDialog } from '@/component-library/components/ConfirmDialog/confirmService';
 interface UseTabLifecycleOptions {
   /** App mode / target canvas */
   mode?: 'agent' | 'project' | 'git';
@@ -45,6 +46,12 @@ interface UseTabLifecycleReturn {
 export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLifecycleReturn => {
   const { mode = 'agent' } = options;
   const { t } = useI18n('components');
+  const canvasStoreApi =
+    mode === 'project'
+      ? useProjectCanvasStore
+      : mode === 'git'
+        ? useGitCanvasStore
+        : useAgentCanvasStore;
   
   const {
     addTab,
@@ -55,8 +62,6 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
     updateTabContent,
     closeTab,
     closeAllTabs,
-    primaryGroup,
-    secondaryGroup,
     activeGroupId,
     layout,
     setSplitMode,
@@ -123,7 +128,8 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
    * Dirty check before closing a tab.
    */
   const handleCloseWithDirtyCheck = useCallback(async (tabId: string, groupId: EditorGroupId): Promise<boolean> => {
-    const group = groupId === 'primary' ? primaryGroup : secondaryGroup;
+    const { primaryGroup: latestPrimaryGroup, secondaryGroup: latestSecondaryGroup } = canvasStoreApi.getState();
+    const group = groupId === 'primary' ? latestPrimaryGroup : latestSecondaryGroup;
     const tab = group.tabs.find(t => t.id === tabId);
 
     if (!tab) {
@@ -131,10 +137,12 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
     }
 
     if (tab.isDirty) {
-      // Show confirmation and ensure correct return handling
-      const result = window.confirm(
-        t('tabs.confirmCloseWithDirty', { title: tab.title })
-      );
+      const result = await confirmDialog({
+        title: t('tabs.unsaved'),
+        message: t('tabs.confirmCloseWithDirty', { title: tab.title }),
+        type: 'warning',
+        confirmDanger: true,
+      });
 
       if (!result) {
         return false;
@@ -143,13 +151,14 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
 
     closeTab(tabId, groupId);
     return true;
-  }, [primaryGroup, secondaryGroup, closeTab, t]);
+  }, [canvasStoreApi, closeTab, t]);
 
   /**
    * Dirty check before closing all tabs.
    */
   const handleCloseAllWithDirtyCheck = useCallback(async (groupId: EditorGroupId): Promise<boolean> => {
-    const group = groupId === 'primary' ? primaryGroup : secondaryGroup;
+    const { primaryGroup: latestPrimaryGroup, secondaryGroup: latestSecondaryGroup } = canvasStoreApi.getState();
+    const group = groupId === 'primary' ? latestPrimaryGroup : latestSecondaryGroup;
     const dirtyTabs = group.tabs.filter(t => t.isDirty);
 
     if (dirtyTabs.length === 0) {
@@ -157,11 +166,14 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
       return true;
     }
 
-    // Show confirmation with list of dirty files
     const fileList = dirtyTabs.map(t => `  - ${t.title}`).join('\n');
-    const result = window.confirm(
-      t('tabs.confirmCloseAllWithDirty', { count: dirtyTabs.length, fileList })
-    );
+    const result = await confirmDialog({
+      title: t('tabs.unsaved'),
+      message: t('tabs.confirmCloseAllWithDirty', { count: dirtyTabs.length, fileList }),
+      type: 'warning',
+      confirmDanger: true,
+      preview: fileList,
+    });
 
     if (!result) {
       return false;
@@ -169,7 +181,7 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
 
     closeAllTabs(groupId);
     return true;
-  }, [primaryGroup, secondaryGroup, closeAllTabs, t]);
+  }, [canvasStoreApi, closeAllTabs, t]);
 
   /**
    * Listen for left-panel terminal close events to sync right-panel tabs.

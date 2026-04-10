@@ -89,6 +89,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const { isLight } = useTheme();
   const [content, setContent] = useState<string>(initialContent);
   const [hasChanges, setHasChanges] = useState(false);
+  const [viewMode, setViewMode] = useState<'preview' | 'markdown'>('preview');
   const [unsafeViewMode, setUnsafeViewMode] = useState<'source' | 'preview'>('source');
   const [loading, setLoading] = useState(!!filePath);
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +163,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   }, []);
 
   useEffect(() => {
+    setViewMode('preview');
     setUnsafeViewMode('source');
   }, [filePath, initialContent]);
 
@@ -630,8 +632,8 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             </div>
           </div>
         )}
-        <div className="bitfun-markdown-editor__unsafe-toolbar">
-          <div className="bitfun-markdown-editor__unsafe-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
+        <div className="bitfun-markdown-editor__mode-toolbar">
+          <div className="bitfun-markdown-editor__mode-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
             <Button
               type="button"
               size="small"
@@ -639,7 +641,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
               onClick={() => setUnsafeViewMode('source')}
               aria-pressed={unsafeViewMode === 'source'}
             >
-              {t('editor.markdownEditor.source')}
+              {t('editor.markdownEditor.markdown')}
             </Button>
             <Button
               type="button"
@@ -718,13 +720,35 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           </div>
         </div>
       )}
+      <div className="bitfun-markdown-editor__mode-toolbar">
+        <div className="bitfun-markdown-editor__mode-toggle" role="tablist" aria-label={t('editor.markdownEditor.viewModeLabel')}>
+          <Button
+            type="button"
+            size="small"
+            variant={viewMode === 'preview' ? 'primary' : 'secondary'}
+            onClick={() => setViewMode('preview')}
+            aria-pressed={viewMode === 'preview'}
+          >
+            {t('editor.markdownEditor.preview')}
+          </Button>
+          <Button
+            type="button"
+            size="small"
+            variant={viewMode === 'markdown' ? 'primary' : 'secondary'}
+            onClick={() => setViewMode('markdown')}
+            aria-pressed={viewMode === 'markdown'}
+          >
+            {t('editor.markdownEditor.markdown')}
+          </Button>
+        </div>
+      </div>
       <MEditor
         ref={editorRef}
         value={content}
         onChange={handleContentChange}
         onSave={handleSave}
         onDirtyChange={handleDirtyChange}
-        mode="ir"
+        mode={viewMode === 'preview' ? 'ir' : 'edit'}
         theme={isLight ? 'light' : 'dark'}
         height="100%"
         width="100%"

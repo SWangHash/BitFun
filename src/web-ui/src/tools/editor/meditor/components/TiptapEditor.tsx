@@ -15,6 +15,8 @@ import TaskList from '@tiptap/extension-task-list';
 import Link from '@tiptap/extension-link';
 import { ArrowUp, FileText, ListTodo, PenLine } from 'lucide-react';
 import type { Editor as TiptapEditorInstance, JSONContent } from '@tiptap/core';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import { Selection } from '@tiptap/pm/state';
 import { useI18n } from '@/infrastructure/i18n';
 import { Input } from '@/component-library';
 import { editorAiAPI } from '@/infrastructure/api/service-api/EditorAiAPI';
@@ -299,6 +301,133 @@ function getCurrentEmptyParagraphContext(
   };
 }
 
+function isMarkdownTableCellNode(node: ProseMirrorNode): boolean {
+  return node.type.name === 'markdownTableHeader' || node.type.name === 'markdownTableCell';
+}
+
+function isEffectivelyEmptyMarkdownTableCell(node: ProseMirrorNode): boolean {
+  if (!isMarkdownTableCellNode(node)) {
+    return false;
+  }
+
+  if (node.childCount === 0) {
+    return true;
+  }
+
+  let hasMeaningfulContent = false;
+
+  node.descendants((child) => {
+    if (child.isText) {
+      if ((child.text ?? '').trim().length > 0) {
+        hasMeaningfulContent = true;
+        return false;
+      }
+      return;
+    }
+
+    if (child.isInline) {
+      hasMeaningfulContent = true;
+      return false;
+    }
+  });
+
+  return !hasMeaningfulContent;
+}
+
+function isEffectivelyEmptyMarkdownTable(node: ProseMirrorNode): boolean {
+  if (node.type.name !== 'markdownTable') {
+    return false;
+  }
+
+  let hasCells = false;
+  let hasMeaningfulContent = false;
+
+  node.descendants((child) => {
+    if (!isMarkdownTableCellNode(child)) {
+      return;
+    }
+
+    hasCells = true;
+    if (!isEffectivelyEmptyMarkdownTableCell(child)) {
+      hasMeaningfulContent = true;
+      return false;
+    }
+  });
+
+  return hasCells && !hasMeaningfulContent;
+}
+
+function deleteEmptyMarkdownTableAtSelection(instance: TiptapEditorInstance): boolean {
+  const { selection } = instance.state;
+  if (!selection.empty) {
+    return false;
+  }
+
+  const { $from } = selection;
+  let cellDepth = -1;
+
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if (isMarkdownTableCellNode($from.node(depth))) {
+      cellDepth = depth;
+      break;
+    }
+  }
+
+  if (cellDepth < 0) {
+    return false;
+  }
+
+  const cellNode = $from.node(cellDepth);
+  if ($from.parentOffset !== 0 || !isEffectivelyEmptyMarkdownTableCell(cellNode)) {
+    return false;
+  }
+
+  let tableDepth = -1;
+  for (let depth = cellDepth - 1; depth >= 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'markdownTable') {
+      tableDepth = depth;
+      break;
+    }
+  }
+
+  if (tableDepth < 0) {
+    return false;
+  }
+
+  const tableNode = $from.node(tableDepth);
+  if (!isEffectivelyEmptyMarkdownTable(tableNode)) {
+    return false;
+  }
+
+  const tablePos = $from.before(tableDepth);
+  const tr = instance.state.tr.deleteRange(tablePos, tablePos + tableNode.nodeSize);
+
+  if (tr.doc.childCount === 0) {
+    const paragraph = tr.doc.type.schema.nodes.paragraph?.create();
+    if (paragraph) {
+      tr.insert(0, paragraph);
+    }
+  }
+
+  const nextSelectionPos = Math.min(tablePos, tr.doc.content.size);
+  tr.setSelection(Selection.near(tr.doc.resolve(nextSelectionPos), nextSelectionPos > 0 ? -1 : 1));
+  instance.view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+function replaceEditorContentWithoutHistory(
+  instance: TiptapEditorInstance,
+  markdown: string,
+): void {
+  instance
+    .chain()
+    .setMeta('addToHistory', false)
+    .setContent(markdownToTiptapDoc(markdown), {
+      emitUpdate: false,
+    })
+    .run();
+}
+
 export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorProps>(({
   value,
   onChange,
@@ -493,11 +622,23 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
           return false;
         }
 
+        const instance = editorRef.current;
+        if (
+          event.key === 'Backspace' &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey &&
+          !!instance &&
+          deleteEmptyMarkdownTableAtSelection(instance)
+        ) {
+          event.preventDefault();
+          return true;
+        }
+
         if (event.key !== ' ' || event.ctrlKey || event.metaKey || event.altKey) {
           return false;
         }
 
-        const instance = editorRef.current;
         if (!instance) {
           return false;
         }
@@ -645,9 +786,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
     applyingExternalValueRef.current = true;
     preserveTrailingNewlineRef.current = value.endsWith('\n');
     currentMarkdownRef.current = value;
-    editor.commands.setContent(markdownToTiptapDoc(value), {
-      emitUpdate: false,
-    });
+    replaceEditorContentWithoutHistory(editor, value);
     syncInlineAiHints(editor, rootRef.current, inlineAiTriggerHint);
     onDirtyChange?.(value !== savedContentRef.current);
   }, [editor, inlineAiTriggerHint, value, onDirtyChange]);
@@ -1046,9 +1185,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
       }
 
       applyingExternalValueRef.current = true;
-      editor.commands.setContent(markdownToTiptapDoc(content), {
-        emitUpdate: false,
-      });
+      replaceEditorContentWithoutHistory(editor, content);
       onDirtyChange?.(false);
     },
     get isDirty() {
