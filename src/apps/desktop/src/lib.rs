@@ -680,6 +680,10 @@ pub async fn run() {
             api::miniapp_api::miniapp_dialog_message,
             api::miniapp_api::miniapp_import_from_path,
             api::miniapp_api::miniapp_sync_from_fs,
+            api::miniapp_api::miniapp_ai_complete,
+            api::miniapp_api::miniapp_ai_chat,
+            api::miniapp_api::miniapp_ai_cancel,
+            api::miniapp_api::miniapp_ai_list_models,
             // Browser API
             api::browser_api::browser_webview_eval,
             api::browser_api::browser_get_url,

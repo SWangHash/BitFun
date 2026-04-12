@@ -1,6 +1,7 @@
 /**
  * useMiniAppBridge — handles postMessage JSON-RPC from the MiniApp iframe:
- * worker.call → JS Worker, dialog.open/save/message → Tauri dialog.
+ * worker.call → JS Worker, dialog.open/save/message → Tauri dialog,
+ * ai.* → Host AI client, clipboard.* → Host navigator.clipboard.
  * Also handles bitfun/request-theme and pushes theme changes to the iframe.
  */
 import { useLayoutEffect, useRef, useEffect, RefObject } from 'react';
@@ -10,12 +11,20 @@ import type { MiniApp } from '@/infrastructure/api/service-api/MiniAppAPI';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useTheme } from '@/infrastructure/theme/hooks/useTheme';
 import { buildMiniAppThemeVars } from '../utils/buildMiniAppThemeVars';
+import { api } from '@/infrastructure/api/service-api/ApiClient';
 
 interface JSONRPC {
   jsonrpc?: string;
   id: number | string;
   method: string;
   params?: Record<string, unknown>;
+}
+
+interface AiStreamPayload {
+  appId: string;
+  streamId: string;
+  type: 'chunk' | 'done' | 'error';
+  data: Record<string, unknown>;
 }
 
 export function useMiniAppBridge(
@@ -84,6 +93,56 @@ export function useMiniAppBridge(
           reply(await dialogMessage(params as unknown as Parameters<typeof dialogMessage>[0]));
           return;
         }
+
+        // ── AI commands ──────────────────────────────────────────────────────
+        if (method === 'ai.complete') {
+          const result = await miniAppAPI.aiComplete(appId, (params.prompt as string) ?? '', {
+            systemPrompt: params.systemPrompt as string | undefined,
+            model: params.model as string | undefined,
+            maxTokens: params.maxTokens as number | undefined,
+            temperature: params.temperature as number | undefined,
+          });
+          reply(result);
+          return;
+        }
+        if (method === 'ai.chat') {
+          const result = await miniAppAPI.aiChat(
+            appId,
+            (params.messages as { role: 'user' | 'assistant'; content: string }[]) ?? [],
+            (params.streamId as string) ?? '',
+            {
+              systemPrompt: params.systemPrompt as string | undefined,
+              model: params.model as string | undefined,
+              maxTokens: params.maxTokens as number | undefined,
+              temperature: params.temperature as number | undefined,
+            },
+          );
+          reply(result);
+          return;
+        }
+        if (method === 'ai.cancel') {
+          await miniAppAPI.aiCancel(appId, (params.streamId as string) ?? '');
+          reply(null);
+          return;
+        }
+        if (method === 'ai.getModels') {
+          const models = await miniAppAPI.aiListModels(appId);
+          reply(models);
+          return;
+        }
+
+        // ── Clipboard commands ───────────────────────────────────────────────
+        if (method === 'clipboard.writeText') {
+          await navigator.clipboard.writeText((params.text as string) ?? '');
+          reply(null);
+          return;
+        }
+        if (method === 'clipboard.readText') {
+          const text = await navigator.clipboard.readText();
+          reply(text);
+          return;
+        }
+
         replyError(`Unknown method: ${method}`);
       } catch (error) {
         replyError(typeof error === 'string' ? error : String(error));
@@ -103,4 +162,56 @@ export function useMiniAppBridge(
       '*',
     );
   }, [currentTheme, iframeRef]);
+
+  // Listen for AI stream events from Tauri and forward them to the iframe.
+  useEffect(() => {
+    const currentAppId = app.id;
+    const unlisten = api.listen<AiStreamPayload>('miniapp://ai-stream', (payload) => {
+      if (!iframeRef.current?.contentWindow) return;
+      if (payload.appId !== currentAppId) return;
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: 'bitfun:event',
+          event: 'ai:stream',
+          payload: {
+            streamId: payload.streamId,
+            type: payload.type,
+            data: payload.data,
+          },
+        },
+        '*',
+      );
+    });
+
+    return () => {
+      unlisten();
+    };
+  }, [app.id, iframeRef]);
+
+  // Listen for Worker push events and forward them to the iframe.
+  useEffect(() => {
+    const currentAppId = app.id;
+    const eventName = `miniapp://worker-event:${currentAppId}`;
+    const unlisten = api.listen<{ appId: string; event: string; data: unknown }>(
+      eventName,
+      (payload) => {
+        if (!iframeRef.current?.contentWindow) return;
+        iframeRef.current.contentWindow.postMessage(
+          {
+            type: 'bitfun:event',
+            event: 'worker:event',
+            payload: {
+              event: payload.event,
+              data: payload.data,
+            },
+          },
+          '*',
+        );
+      },
+    );
+
+    return () => {
+      unlisten();
+    };
+  }, [app.id, iframeRef]);
 }

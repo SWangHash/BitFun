@@ -28,6 +28,53 @@ export interface MiniAppPermissions {
   shell?: { allow?: string[] };
   net?: { allow?: string[] };
   node?: { enabled?: boolean; max_memory_mb?: number; timeout_ms?: number };
+  ai?: {
+    enabled?: boolean;
+    allowed_models?: string[];
+    max_tokens_per_request?: number;
+    rate_limit_per_minute?: number;
+  };
+}
+
+// ─── AI Types ─────────────────────────────────────────────────────────────────
+
+export interface AiCompleteOptions {
+  systemPrompt?: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+}
+
+export interface AiCompleteResult {
+  text: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
+export interface AiChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AiChatOptions {
+  systemPrompt?: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+}
+
+export interface AiChatStartedResult {
+  streamId: string;
+}
+
+export interface AiModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  isDefault: boolean;
 }
 
 export interface MiniAppRuntimeState {
@@ -236,6 +283,64 @@ export class MiniAppAPI {
       });
     } catch (error) {
       throw createTauriCommandError('miniapp_sync_from_fs', error, { appId, workspacePath });
+    }
+  }
+
+  // ─── AI commands ────────────────────────────────────────────────────────────
+
+  async aiComplete(appId: string, prompt: string, options?: AiCompleteOptions): Promise<AiCompleteResult> {
+    try {
+      return await api.invoke('miniapp_ai_complete', {
+        request: {
+          appId,
+          prompt,
+          systemPrompt: options?.systemPrompt,
+          model: options?.model,
+          maxTokens: options?.maxTokens,
+          temperature: options?.temperature,
+        }
+      });
+    } catch (error) {
+      throw createTauriCommandError('miniapp_ai_complete', error, { appId });
+    }
+  }
+
+  async aiChat(
+    appId: string,
+    messages: AiChatMessage[],
+    streamId: string,
+    options?: AiChatOptions,
+  ): Promise<AiChatStartedResult> {
+    try {
+      return await api.invoke('miniapp_ai_chat', {
+        request: {
+          appId,
+          messages,
+          streamId,
+          systemPrompt: options?.systemPrompt,
+          model: options?.model,
+          maxTokens: options?.maxTokens,
+          temperature: options?.temperature,
+        }
+      });
+    } catch (error) {
+      throw createTauriCommandError('miniapp_ai_chat', error, { appId, streamId });
+    }
+  }
+
+  async aiCancel(appId: string, streamId: string): Promise<void> {
+    try {
+      await api.invoke('miniapp_ai_cancel', { request: { appId, streamId } });
+    } catch (error) {
+      throw createTauriCommandError('miniapp_ai_cancel', error, { appId, streamId });
+    }
+  }
+
+  async aiListModels(appId: string): Promise<AiModelInfo[]> {
+    try {
+      return await api.invoke('miniapp_ai_list_models', { request: { appId } });
+    } catch (error) {
+      throw createTauriCommandError('miniapp_ai_list_models', error, { appId });
     }
   }
 }

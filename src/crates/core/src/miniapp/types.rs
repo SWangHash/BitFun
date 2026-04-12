@@ -47,6 +47,8 @@ pub struct MiniAppPermissions {
     pub net: Option<NetPermissions>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node: Option<NodePermissions>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai: Option<AiPermissions>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -85,6 +87,24 @@ pub struct NodePermissions {
 
 fn default_node_enabled() -> bool {
     true
+}
+
+/// AI permissions — controls access to the host application's AI client.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AiPermissions {
+    /// Whether AI access is enabled for this MiniApp.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Allowed model references (e.g. ["primary", "fast"] or specific model ids).
+    /// Empty or absent means only "primary" is allowed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowed_models: Option<Vec<String>>,
+    /// Maximum output tokens per single request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_tokens_per_request: Option<u32>,
+    /// Maximum number of AI requests per minute (per app).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_limit_per_minute: Option<u32>,
 }
 
 /// AI context for iteration (stored in meta, not in compiled HTML).

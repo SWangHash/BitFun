@@ -122,9 +122,15 @@ impl JsWorkerPool {
             )));
         }
 
-        let worker = JsWorker::spawn(&self.runtime, &self.worker_host_path, &app_dir, policy_json)
-            .await
-            .map_err(BitFunError::validation)?;
+        let worker = JsWorker::spawn(
+            &self.runtime,
+            &self.worker_host_path,
+            &app_dir,
+            policy_json,
+            app_id.to_string(),
+        )
+        .await
+        .map_err(BitFunError::validation)?;
 
         let _timeout_ms = node_perms.and_then(|n| n.timeout_ms).unwrap_or(30_000);
         let worker = Arc::new(Mutex::new(worker));

@@ -1,5 +1,6 @@
 //! JS Worker — single child process (Bun/Node) with stdin/stderr JSON-RPC.
 
+use crate::infrastructure::events::{emit_global_event, BackendEvent};
 use crate::miniapp::runtime_detect::DetectedRuntime;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -25,11 +26,13 @@ pub struct JsWorker {
 
 impl JsWorker {
     /// Spawn Worker process: `runtime_path worker_host_path '<policy_json>'` with cwd = app_dir.
+    /// The `app_id` is used as the source identifier when emitting worker events.
     pub async fn spawn(
         runtime: &DetectedRuntime,
         worker_host_path: &Path,
         app_dir: &Path,
         policy_json: &str,
+        app_id: String,
     ) -> Result<Self, String> {
         let exe = runtime.path.to_string_lossy();
         let host = worker_host_path.to_string_lossy();
@@ -78,6 +81,8 @@ impl JsWorker {
                     Ok(v) => v,
                     Err(_) => continue,
                 };
+
+                // Lines with an `id` are RPC responses — route to the pending map.
                 let id = msg.get("id").and_then(Value::as_str).map(String::from);
                 if let Some(id) = id {
                     let result = if let Some(err) = msg.get("error") {
@@ -95,6 +100,24 @@ impl JsWorker {
                     if let Some(tx) = guard.remove(&id) {
                         let _ = tx.send(result);
                     }
+                    continue;
+                }
+
+                // Lines with an `event` field (no `id`) are push events from the Worker.
+                // Forward them as Tauri-level events so the Bridge can relay to the iframe.
+                if let Some(event_name) = msg.get("event").and_then(Value::as_str) {
+                    let data = msg.get("data").cloned().unwrap_or(Value::Null);
+                    let payload = serde_json::json!({
+                        "appId": app_id,
+                        "event": event_name,
+                        "data": data,
+                    });
+                    let event_full_name = format!("miniapp://worker-event:{}", app_id);
+                    let _ = emit_global_event(BackendEvent::Custom {
+                        event_name: event_full_name,
+                        payload,
+                    })
+                    .await;
                 }
             }
         });

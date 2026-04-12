@@ -4,7 +4,8 @@ use crate::miniapp::types::{EsmDep, MiniAppPermissions};
 use serde_json;
 
 /// Build the Runtime Adapter script (JS) to inject into the iframe.
-/// Exposes window.app with call(), fs.*, shell.*, net.*, os.*, storage.*, dialog.*, lifecycle, events.
+/// Exposes window.app with call(), fs.*, shell.*, net.*, os.*, storage.*, dialog.*,
+/// ai.*, clipboard.*, lifecycle, events.
 pub fn build_bridge_script(
     app_id: &str,
     app_data_dir: &str,
@@ -80,6 +81,40 @@ pub fn build_bridge_script(
       message: (opts) => _rpc('dialog.message', opts || {{}}),
     }},
 
+    // AI namespace — proxies to host application AI client (no API key exposure).
+    _aiStreams: {{}},
+    ai: {{
+      complete: (prompt, opts) => _rpc('ai.complete', {{ prompt, ...(opts || {{}}) }}),
+      chat: (messages, opts) => {{
+        const streamId = 'ai-stream-' + Math.random().toString(36).slice(2) + '-' + Date.now();
+        const handlers = {{
+          onChunk: opts && opts.onChunk,
+          onDone:  opts && opts.onDone,
+          onError: opts && opts.onError,
+        }};
+        app._aiStreams[streamId] = handlers;
+        const rpcOpts = {{}};
+        if (opts) {{
+          if (opts.systemPrompt !== undefined) rpcOpts.systemPrompt = opts.systemPrompt;
+          if (opts.model !== undefined) rpcOpts.model = opts.model;
+          if (opts.maxTokens !== undefined) rpcOpts.maxTokens = opts.maxTokens;
+          if (opts.temperature !== undefined) rpcOpts.temperature = opts.temperature;
+        }}
+        return _rpc('ai.chat', {{ messages, streamId, ...rpcOpts }}).then((result) => ({{
+          streamId: result && result.streamId ? result.streamId : streamId,
+          cancel: () => _rpc('ai.cancel', {{ streamId }}),
+        }}));
+      }},
+      cancel:    (streamId) => _rpc('ai.cancel', {{ streamId }}),
+      getModels: () => _rpc('ai.getModels', {{}}),
+    }},
+
+    // Clipboard namespace — proxies to host navigator.clipboard (bypasses sandbox restriction).
+    clipboard: {{
+      writeText: (text) => _rpc('clipboard.writeText', {{ text }}),
+      readText:  () => _rpc('clipboard.readText', {{}}),
+    }},
+
     _lifecycleHandlers: {{ activate: [], deactivate: [], themeChange: [] }},
     onActivate:   (fn) => app._lifecycleHandlers.activate.push(fn),
     onDeactivate: (fn) => app._lifecycleHandlers.deactivate.push(fn),
@@ -105,6 +140,29 @@ pub fn build_bridge_script(
         }}
         app._lifecycleHandlers.themeChange.forEach(f => f(payload));
         (app._eventHandlers[event] || []).forEach(f => f(payload));
+      }} else if (event === 'ai:stream') {{
+        // Route AI stream chunks to the registered callbacks
+        if (payload && payload.streamId) {{
+          const h = app._aiStreams[payload.streamId];
+          if (h) {{
+            if (payload.type === 'chunk' && h.onChunk) h.onChunk(payload.data || {{}});
+            if (payload.type === 'done') {{
+              if (h.onDone) h.onDone(payload.data || {{}});
+              delete app._aiStreams[payload.streamId];
+            }}
+            if (payload.type === 'error') {{
+              if (h.onError) h.onError(payload.data || {{}});
+              delete app._aiStreams[payload.streamId];
+            }}
+          }}
+        }}
+      }} else if (event === 'worker:event') {{
+        // Forward Worker push events to registered app.on('worker:*', ...) handlers
+        if (payload && payload.event) {{
+          const evtKey = 'worker:' + payload.event;
+          (app._eventHandlers[evtKey] || []).forEach(f => f(payload.data));
+          (app._eventHandlers['worker:*'] || []).forEach(f => f(payload.event, payload.data));
+        }}
       }} else {{
         (app._eventHandlers[event] || []).forEach(f => f(payload));
       }}

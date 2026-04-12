@@ -157,6 +157,7 @@ Returns app_id and the app root directory. Use the root directory and file names
                 allow: Some(vec!["*".to_string()]),
             }),
             node: None,
+            ai: None,
         };
 
         let app = manager

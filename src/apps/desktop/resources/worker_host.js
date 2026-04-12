@@ -23,6 +23,20 @@ function rpcSend(obj) {
   process.stderr.write(JSON.stringify(obj) + '\n');
 }
 
+/**
+ * Emit a push event to the MiniApp iframe (no request id, no reply expected).
+ * The host process will forward this to the iframe via "miniapp://worker-event:{appId}".
+ *
+ * @param {string} event - Event name (e.g. 'progress', 'status')
+ * @param {any} data - Event payload
+ */
+function rpcEmit(event, data) {
+  process.stderr.write(JSON.stringify({ event, data }) + '\n');
+}
+
+// Make rpcEmit available globally so source/worker.js can use it.
+global.rpcEmit = rpcEmit;
+
 function isPathAllowed(targetPath, mode) {
   if (!policy.fs) return false;
   const resolved = path.resolve(targetPath);

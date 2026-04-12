@@ -20,6 +20,7 @@ pub use permission_policy::resolve_policy;
 pub use runtime_detect::{DetectedRuntime, RuntimeKind};
 pub use storage::MiniAppStorage;
 pub use types::{
-    EsmDep, FsPermissions, MiniApp, MiniAppAiContext, MiniAppMeta, MiniAppPermissions,
-    MiniAppSource, NetPermissions, NodePermissions, NpmDep, PathScope, ShellPermissions,
+    AiPermissions, EsmDep, FsPermissions, MiniApp, MiniAppAiContext, MiniAppMeta,
+    MiniAppPermissions, MiniAppSource, NetPermissions, NodePermissions, NpmDep, PathScope,
+    ShellPermissions,
 };
