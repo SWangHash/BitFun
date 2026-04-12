@@ -2,6 +2,7 @@
 //!
 //! Contains core business logic: Workspace, Config, FileSystem, Git, Agentic, AIRules, MCP.
 
+pub mod announcement; // Announcement / feature-demo / tips system
 pub(crate) mod agent_memory; // Agent memory prompt helpers
 pub mod ai_memory; // AI memory point management
 pub mod ai_rules; // AI rules management
@@ -60,4 +61,5 @@ pub use token_usage::{
     ModelTokenStats, SessionTokenStats, TimeRange, TokenUsageQuery, TokenUsageRecord,
     TokenUsageService, TokenUsageSummary,
 };
+pub use announcement::{AnnouncementCard, AnnouncementScheduler, AnnouncementSchedulerRef};
 pub use workspace::{WorkspaceManager, WorkspaceProvider, WorkspaceService};

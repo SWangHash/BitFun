@@ -719,6 +719,13 @@ pub async fn run() {
             api::ssh_api::remote_open_workspace,
             api::ssh_api::remote_close_workspace,
             api::ssh_api::remote_get_workspace_info,
+            // Announcement / feature-demo / tips API
+            api::announcement_api::get_pending_announcements,
+            api::announcement_api::mark_announcement_seen,
+            api::announcement_api::dismiss_announcement,
+            api::announcement_api::never_show_announcement,
+            api::announcement_api::trigger_announcement,
+            api::announcement_api::get_announcement_tips,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = run_result {

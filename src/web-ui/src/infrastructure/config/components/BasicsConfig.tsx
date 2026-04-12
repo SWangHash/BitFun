@@ -800,26 +800,45 @@ function ThemePreviewThumbnail({ theme }: ThemePreviewThumbnailProps) {
 
 function BasicsNotificationsSection() {
   const { t } = useTranslation('settings/basics');
-  const [enabled, setEnabled] = useState(true);
+  const [dialogNotify, setDialogNotify] = useState(true);
+  const [startupTips, setStartupTips] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
-        const val = await configManager.getConfig<boolean>('app.notifications.dialog_completion_notify');
-        setEnabled(val !== false);
+        const [notify, tips] = await Promise.all([
+          configManager.getConfig<boolean>('app.notifications.dialog_completion_notify'),
+          configManager.getConfig<boolean>('app.notifications.enable_startup_tips'),
+        ]);
+        setDialogNotify(notify !== false);
+        setStartupTips(tips !== false);
       } catch {
-        setEnabled(true);
+        setDialogNotify(true);
+        setStartupTips(true);
       }
     })();
   }, []);
 
-  const handleToggle = async (checked: boolean) => {
+  const handleDialogNotifyToggle = async (checked: boolean) => {
     setSaving(true);
     try {
       await configAPI.setConfig('app.notifications.dialog_completion_notify', checked);
-      setEnabled(checked);
+      setDialogNotify(checked);
+      setMessage({ type: 'success', text: t('notifications.messages.saveSuccess') });
+    } catch {
+      setMessage({ type: 'error', text: t('notifications.messages.saveFailed') });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleStartupTipsToggle = async (checked: boolean) => {
+    setSaving(true);
+    try {
+      await configAPI.setConfig('app.notifications.enable_startup_tips', checked);
+      setStartupTips(checked);
       setMessage({ type: 'success', text: t('notifications.messages.saveSuccess') });
     } catch {
       setMessage({ type: 'error', text: t('notifications.messages.saveFailed') });
@@ -840,8 +859,19 @@ function BasicsNotificationsSection() {
         align="center"
       >
         <Switch
-          checked={enabled}
-          onChange={(e) => { void handleToggle(e.target.checked); }}
+          checked={dialogNotify}
+          onChange={(e) => { void handleDialogNotifyToggle(e.target.checked); }}
+          disabled={saving}
+        />
+      </ConfigPageRow>
+      <ConfigPageRow
+        label={t('notifications.startupTips.label')}
+        description={t('notifications.startupTips.description')}
+        align="center"
+      >
+        <Switch
+          checked={startupTips}
+          onChange={(e) => { void handleStartupTipsToggle(e.target.checked); }}
           disabled={saving}
         />
       </ConfigPageRow>

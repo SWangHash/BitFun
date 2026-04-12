@@ -7,7 +7,7 @@ use bitfun_core::miniapp::{initialize_global_miniapp_manager, JsWorkerPool, Mini
 use bitfun_core::service::remote_ssh::{
     init_remote_workspace_manager, RemoteFileService, RemoteTerminalManager, SSHConnectionManager,
 };
-use bitfun_core::service::{ai_rules, config, filesystem, mcp, token_usage, workspace};
+use bitfun_core::service::{ai_rules, announcement, config, filesystem, mcp, token_usage, workspace};
 use bitfun_core::util::errors::*;
 
 use serde::{Deserialize, Serialize};
@@ -80,6 +80,7 @@ pub struct AppState {
     pub remote_terminal_manager: Arc<RwLock<Option<RemoteTerminalManager>>>,
     pub remote_workspace: Arc<RwLock<Option<RemoteWorkspace>>>,
     pub active_searches: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
+    pub announcement_scheduler: Arc<announcement::AnnouncementScheduler>,
 }
 
 impl AppState {
@@ -135,6 +136,18 @@ impl AppState {
             }
         };
         let path_manager = workspace_service.path_manager().clone();
+
+        let announcement_scheduler = Arc::new(
+            announcement::AnnouncementScheduler::new(&path_manager)
+                .await
+                .map_err(|e| {
+                    BitFunError::service(format!(
+                        "Failed to initialize announcement scheduler: {}",
+                        e
+                    ))
+                })?,
+        );
+
         let miniapp_manager = Arc::new(MiniAppManager::new(path_manager.clone()));
         initialize_global_miniapp_manager(miniapp_manager.clone());
 
@@ -273,6 +286,7 @@ impl AppState {
             remote_terminal_manager,
             remote_workspace,
             active_searches: Arc::new(Mutex::new(HashMap::new())),
+            announcement_scheduler,
         };
 
         log::info!("AppState initialized successfully");

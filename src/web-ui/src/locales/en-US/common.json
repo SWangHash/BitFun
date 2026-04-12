@@ -101,7 +101,7 @@
     },
     "search": {
       "triggerPlaceholder": "Search",
-      "triggerTooltip": "Search (Ctrl+K)",
+      "triggerTooltip": "Search (Ctrl+K, Alt+F)",
       "inputPlaceholder": "Search workspaces, assistants, sessions...",
       "groupWorkspaces": "Open Workspaces",
       "groupAssistants": "Assistants",

@@ -72,6 +72,13 @@ export const APP_SHORTCUTS: ShortcutDef[] = [
     config: mod(',', { scope: 'app', allowInInput: true }),
     descriptionKey: 'keyboard.shortcuts.scene.openSettings',
   },
+
+  // Left nav: workspace / session quick search (Alt+F is handled in MainNav without a second catalog id)
+  {
+    id: 'nav.toggleSearch',
+    config: mod('k', { scope: 'app', allowInInput: true }),
+    descriptionKey: 'keyboard.shortcuts.nav.toggleSearch',
+  },
   {
     id: 'scene.openTerminal',
     config: mod('`', { shift: true, scope: 'app', allowInInput: true }),

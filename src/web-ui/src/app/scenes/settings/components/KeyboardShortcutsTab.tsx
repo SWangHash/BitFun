@@ -427,11 +427,12 @@ const KeyboardShortcutsTab: React.FC = () => {
   // Format a key combination from a registration or pending change
   const formatKey = (reg: ShortcutRegistration, pending?: PendingChange): string => {
     const isMac = navigator.platform.toUpperCase().includes('MAC');
-    const cfg = pending
-      ? { key: pending.key, ctrl: pending.ctrl, shift: pending.shift, alt: pending.alt }
+    const cfg: ShortcutConfig = pending
+      ? { ...reg.config, key: pending.key, ctrl: pending.ctrl, shift: pending.shift, alt: pending.alt }
       : reg.config;
     const parts: string[] = [];
-    if (cfg.ctrl) parts.push(isMac ? '⌘' : 'Ctrl');
+    const primaryMod = isMac ? cfg.ctrl || cfg.meta : cfg.ctrl;
+    if (primaryMod) parts.push(isMac ? '⌘' : 'Ctrl');
     if (cfg.shift) parts.push(isMac ? '⇧' : 'Shift');
     if (cfg.alt) parts.push(isMac ? '⌥' : 'Alt');
     parts.push(formatShortcutKeyCap(cfg.key, t));

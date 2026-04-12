@@ -50,6 +50,26 @@
     "syncing": "Syncing...",
     "assistantBootstrapWaitingForModelConfiguration": "Assistant bootstrap is waiting for AI model configuration."
   },
+  "announcements": {
+    "common": {
+      "learn_more": "Learn more",
+      "got_it": "Got it",
+      "later": "Later",
+      "close": "Close",
+      "prev": "Prev",
+      "next": "Next page",
+      "done": "Done",
+      "never_show_again": "Don't show again",
+      "page": "Page",
+      "more_count": "{{count}} more"
+    },
+    "welcome": {
+      "toast_title": "Welcome to BitFun",
+      "toast_desc": "Your AI-powered programming environment",
+      "modal_title": "Welcome to BitFun",
+      "modal_body": "BitFun is an AI-driven programming environment.\n\nThrough multi-turn conversations and tool collaboration, development becomes more efficient."
+    }
+  },
   "confirm": {
     "deleteFile": "Are you sure you want to delete this file?",
     "deleteFolder": "Are you sure you want to delete this folder and all its contents?",

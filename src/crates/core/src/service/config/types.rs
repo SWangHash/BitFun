@@ -136,6 +136,9 @@ pub struct NotificationConfig {
     /// Whether to show a toast notification when a dialog turn completes while the window is not focused.
     #[serde(default = "default_true")]
     pub dialog_completion_notify: bool,
+    /// Whether to show built-in tip cards on startup (can be disabled by the user).
+    #[serde(default = "default_true")]
+    pub enable_startup_tips: bool,
 }
 
 /// Theme configuration.
@@ -992,6 +995,7 @@ impl Default for AppConfig {
                 position: "topRight".to_string(),
                 duration: 5000,
                 dialog_completion_notify: true,
+                enable_startup_tips: true,
             },
             session_config: AppSessionConfig::default(),
             ai_experience: AIExperienceConfig::default(),
@@ -1287,6 +1291,7 @@ impl Default for NotificationConfig {
             position: "topRight".to_string(),
             duration: 5000,
             dialog_completion_notify: true,
+            enable_startup_tips: true,
         }
     }
 }

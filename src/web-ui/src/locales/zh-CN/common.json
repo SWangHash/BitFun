@@ -101,7 +101,7 @@
     },
     "search": {
       "triggerPlaceholder": "搜索",
-      "triggerTooltip": "搜索 (Ctrl+K)",
+      "triggerTooltip": "搜索 (Ctrl+K、Alt+F)",
       "inputPlaceholder": "搜索工作区、助理、会话...",
       "groupWorkspaces": "已打开工作区",
       "groupAssistants": "助理",

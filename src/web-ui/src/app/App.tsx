@@ -7,6 +7,7 @@ import AppLayout from './layout/AppLayout';
 import { useCurrentModelConfig } from '../hooks/useModelConfigs';
 import { ContextMenuRenderer } from '../shared/context-menu-system/components/ContextMenuRenderer';
 import { NotificationContainer, NotificationCenter } from '../shared/notification-system';
+import { AnnouncementProvider } from '../shared/announcement-system';
 import { ConfirmDialogRenderer } from '../component-library';
 import { createLogger } from '@/shared/utils/logger';
 import { useWorkspaceContext } from '../infrastructure/contexts/WorkspaceContext';
@@ -190,6 +191,9 @@ function App() {
 
             {/* Confirm dialog */}
             <ConfirmDialogRenderer />
+
+            {/* Announcement / feature-demo / tips system */}
+            <AnnouncementProvider />
 
             {/* Startup splash — sits above everything, exits once workspace is ready */}
             {splashVisible && (

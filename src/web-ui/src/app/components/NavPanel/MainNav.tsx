@@ -42,8 +42,12 @@ import { getRecentWorkspaceLineParts } from '@/shared/utils/recentWorkspaceDispl
 import { useSSHRemoteContext, SSHConnectionDialog, RemoteFileBrowser } from '@/features/ssh-remote';
 import { useSessionModeStore } from '../../stores/sessionModeStore';
 import NavSearchDialog from './NavSearchDialog';
+import { useShortcut } from '@/infrastructure/hooks/useShortcut';
+import { ALL_SHORTCUTS } from '@/shared/constants/shortcuts';
 
 import './NavPanel.scss';
+
+const NAV_TOGGLE_SEARCH_DEF = ALL_SHORTCUTS.find((d) => d.id === 'nav.toggleSearch')!;
 
 const log = createLogger('MainNav');
 
@@ -160,16 +164,35 @@ const MainNav: React.FC<MainNavProps> = ({
     });
   }, [openedWorkspacesList]);
 
+  const toggleNavSearch = useCallback(() => {
+    setSearchOpen((v) => !v);
+  }, []);
+
+  useShortcut(
+    NAV_TOGGLE_SEARCH_DEF.id,
+    NAV_TOGGLE_SEARCH_DEF.config,
+    toggleNavSearch,
+    { priority: 5, description: NAV_TOGGLE_SEARCH_DEF.descriptionKey }
+  );
+
+  // Secondary binding (not listed separately in keyboard settings — same action as Mod+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setSearchOpen(v => !v);
+      if (
+        !e.altKey ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.shiftKey ||
+        e.key.toLowerCase() !== 'f'
+      ) {
+        return;
       }
+      e.preventDefault();
+      toggleNavSearch();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [toggleNavSearch]);
 
   const handleCreateProjectSession = useCallback(
     async (mode: 'agentic' | 'Cowork') => {
