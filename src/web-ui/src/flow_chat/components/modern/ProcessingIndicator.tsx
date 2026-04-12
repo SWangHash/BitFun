@@ -1,10 +1,12 @@
 /**
  * Processing indicator.
  * Shows pulsing dots while the session is processing.
+ * After 1s of continuous processing, shows a rotating fun hint text on the left.
  * reserveSpace keeps layout height even when hidden.
  */
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import './ProcessingIndicator.scss';
 
 interface ProcessingIndicatorProps {
@@ -14,6 +16,44 @@ interface ProcessingIndicatorProps {
 }
 
 export const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({ visible, reserveSpace = false }) => {
+  const { t } = useTranslation('flow-chat');
+  const hints = t('processingHints', { returnObjects: true }) as string[];
+
+  const [showHint, setShowHint] = useState(false);
+  const [hintIndex, setHintIndex] = useState(0);
+
+  const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rotateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      const initialIndex = Math.floor(Math.random() * hints.length);
+      setHintIndex(initialIndex);
+
+      delayTimerRef.current = setTimeout(() => {
+        setShowHint(true);
+        rotateTimerRef.current = setInterval(() => {
+          setHintIndex(prev => (prev + 1) % hints.length);
+        }, 5000);
+      }, 1000);
+    } else {
+      if (delayTimerRef.current) {
+        clearTimeout(delayTimerRef.current);
+        delayTimerRef.current = null;
+      }
+      if (rotateTimerRef.current) {
+        clearInterval(rotateTimerRef.current);
+        rotateTimerRef.current = null;
+      }
+      setShowHint(false);
+    }
+
+    return () => {
+      if (delayTimerRef.current) clearTimeout(delayTimerRef.current);
+      if (rotateTimerRef.current) clearInterval(rotateTimerRef.current);
+    };
+  }, [visible]);
+
   const shouldRender = visible || reserveSpace;
   if (!shouldRender) return null;
 
@@ -23,13 +63,12 @@ export const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({ visibl
         className="processing-indicator__content"
         style={visible ? undefined : { visibility: 'hidden' as const }}
       >
-        <div className="processing-indicator__dots">
-          <div className="processing-indicator__dot processing-indicator__dot--1" />
-          <div className="processing-indicator__dot processing-indicator__dot--2" />
-          <div className="processing-indicator__dot processing-indicator__dot--3" />
-        </div>
+        {showHint && hints.length > 0 && (
+          <span key={hintIndex} className="processing-indicator__hint">
+            {hints[hintIndex]}
+          </span>
+        )}
       </div>
     </div>
   );
 };
-

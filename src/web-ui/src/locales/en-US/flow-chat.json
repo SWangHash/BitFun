@@ -1,4 +1,24 @@
 {
+  "processingHints": [
+    "Rummaging through the multiverse of ideas...",
+    "Neural gears meshing at full speed...",
+    "Summoning creativity, please hold...",
+    "Bits and bytes lining up for you...",
+    "Got lost in vector space, back in a sec...",
+    "Quantum state hasn't collapsed yet...",
+    "Feeding the model its morning coffee...",
+    "Pondering the meaning of tokens...",
+    "Arranging thoughts into coherent shapes...",
+    "Consulting the universe-scale knowledge base...",
+    "Inspiration emerging from the void...",
+    "Running matrix multiplications, hang tight...",
+    "Trying very hard not to hallucinate...",
+    "Converting chaos into structured output...",
+    "Gears of thought clicking into place...",
+    "Decoding your profound question...",
+    "Backpropagating through life choices...",
+    "Neurons firing in passionate debate..."
+  ],
   "emptyState": {
     "welcomeBack": "Welcome back!",
     "workingIn": "You are working in <workspace>{{workspace}}</workspace>",

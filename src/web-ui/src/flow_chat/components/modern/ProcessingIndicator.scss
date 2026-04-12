@@ -1,5 +1,5 @@
 /**
- * Processing indicator styles - modern pulse dots.
+ * Processing indicator styles - modern pulse dots with animated hint text.
  */
 
 .processing-indicator {
@@ -24,48 +24,46 @@
 .processing-indicator__content {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.75rem;
   padding: 0.5rem 0;
 }
 
-.processing-indicator__dots {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
+// Hint text — same breathe rhythm as tool cards (tool-card-text-fade: 1.6s 0%→25%→0%)
+.processing-indicator__hint {
+  font-size: 0.8125rem;
+  color: var(--text-secondary, rgba(107, 114, 128, 0.9));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+  // fade-in entry (0.4s) then breathe loop identical to card shimmer
+  animation:
+    hint-fade-in 0.4s ease forwards,
+    hint-breathe 1.6s ease-in-out 0.4s infinite;
 
-.processing-indicator__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(156, 163, 175, 0.9), rgba(209, 213, 219, 0.9));
-  box-shadow: 0 0 5px rgba(156, 163, 175, 0.4);
-  animation: pulse-dot 1.4s ease-in-out infinite;
-  
-  &--1 {
-    animation-delay: 0s;
-  }
-  
-  &--2 {
-    animation-delay: 0.2s;
-  }
-  
-  &--3 {
-    animation-delay: 0.4s;
+  @media (max-width: 768px) {
+    max-width: 200px;
   }
 }
 
-// Pulse animation for dots
-@keyframes pulse-dot {
+@keyframes hint-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// Mirrors BaseToolCard's tool-card-text-fade exactly (1→0.25→1)
+@keyframes hint-breathe {
   0%, 100% {
-    transform: scale(1);
-    opacity: 0.5;
+    opacity: 1;
   }
   50% {
-    transform: scale(1.4);
-    opacity: 1;
-    box-shadow: 0 0 8px rgba(156, 163, 175, 0.6);
+    opacity: 0.25;
   }
 }
-
