@@ -52,7 +52,7 @@ export const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({ visibl
       if (delayTimerRef.current) clearTimeout(delayTimerRef.current);
       if (rotateTimerRef.current) clearInterval(rotateTimerRef.current);
     };
-  }, [visible]);
+  }, [visible, hints.length]);
 
   const shouldRender = visible || reserveSpace;
   if (!shouldRender) return null;

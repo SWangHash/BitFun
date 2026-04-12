@@ -69,8 +69,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
   // ── Load user keybinding overrides from config on startup ────────────────
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-
     const load = async () => {
       try {
         const raw = await configManager.getConfig('app.keybindings');
@@ -85,12 +83,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
     void load();
 
-    unsubscribe = configManager.onConfigChange((path) => {
+    const unsubscribe = configManager.onConfigChange((path) => {
       if (path === 'app.keybindings') void load();
     });
 
-    return () => unsubscribe?.();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => unsubscribe();
   }, []);
   const activeSceneId = useSceneStore(s => s.activeTabId);
   const isAgentScene = activeSceneId === 'session';
