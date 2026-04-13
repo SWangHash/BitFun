@@ -246,9 +246,26 @@ Additional guidelines:
             vec![]
         };
 
+        // Build a workspace-relative path for the computer:// link so the user can
+        // click it directly in the chat interface. Falls back to the absolute path
+        // for remote workspaces where a relative path cannot be derived.
+        let computer_link = context
+            .workspace_root()
+            .and_then(|root| {
+                std::path::Path::new(&plan_file_path_str)
+                    .strip_prefix(root)
+                    .ok()
+                    .map(|rel| format!("computer://{}", rel.to_string_lossy().replace('\\', "/")))
+            })
+            .unwrap_or_else(|| plan_file_path_str.clone());
+
         let result_for_assistant = format!(
-            "Plan file created at: {}\nYour next reply MUST include this exact plan file path and then end the conversation turn. Do not continue with more planning details or additional questions.",
-            plan_file_path_str
+            "Plan file created. Absolute path: {}\nLink for user: [{}]({})\nYour next reply MUST show the clickable link [{}]({}) and then end the conversation turn. Do not continue with more planning details or additional questions.",
+            plan_file_path_str,
+            plan_file_name,
+            computer_link,
+            plan_file_name,
+            computer_link,
         );
 
         let result = json!({

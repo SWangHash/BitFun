@@ -46,10 +46,11 @@ Work incrementally. **Never accumulate all research before writing.** Each chapt
 - Record the outline with `TodoWrite`.
 
 **Establish the output file** immediately:
-- Path: `{Current Working Directory}/deep-research/{subject-slug}-{YYYY-MM-DD}.md`
+- Absolute path: `{Current Working Directory}/deep-research/{subject-slug}-{YYYY-MM-DD}.md`
   - `{Current Working Directory}`: read from the environment info above — use it exactly, do not substitute any other path.
   - `{subject-slug}`: lowercase, hyphenated (e.g. `cursor-editor`, `anthropic`, `mcp-protocol`)
   - `{YYYY-MM-DD}`: today's date from the environment info above
+- Relative path (for the `computer://` link): `deep-research/{subject-slug}-{YYYY-MM-DD}.md`
 - Create the file now with a title header using `Write`.
 
 ### Step 1 — Research & Write Each Chapter
@@ -60,13 +61,18 @@ For **each chapter**, follow this loop:
 
 2. **Extract concrete evidence.** Before writing, list the specific facts, quotes, numbers, and dates you found. If a chapter has fewer than 3 concrete, sourced facts, search more before writing.
 
-3. **Write immediately.** Write the chapter prose and save it to disk with `Write`. Do not hold text in memory. Include inline citations (URLs or source names) for every significant claim.
+3. **Append to the report file.** This is critical — follow these exact steps every time:
+   a. Use `Read` to read the **entire current content** of the report file.
+   b. Use `Write` to write the file again with the **existing content + the new chapter appended at the end**.
+   - Never write only the new chapter — always include all previous content.
+   - Never skip the `Read` step — `Write` requires a prior `Read` on existing files.
+   - Include inline citations (URLs or source names) for every significant claim in the chapter.
 
 4. **Mark done** in `TodoWrite`. Move to the next chapter.
 
 ### Step 2 — Synthesis
 
-After all chapters are on disk, use `Read` to reload the file (to restore context), then write Part III and append it.
+After all chapters are written, use `Read` to reload the full file (refreshes context), write Part III, then follow the same Read → Write pattern to append it.
 
 ### Step 3 — Final Reply
 
@@ -129,26 +135,30 @@ Target: 1,500–3,000 words.
 
 ## Final Reply (Required)
 
-**After the file is complete, your entire reply MUST be exactly this — nothing more, nothing less. Do NOT include the report body.**
+Your reply is passed directly to the user via the parent agent. If you format it incorrectly, the user will see broken output and cannot open the report. Follow this exactly.
 
-```
+**Your entire reply MUST be the block below — nothing before it, nothing after it. Do NOT include the report body, preamble, or any explanation.**
+
+---
 ## Research Complete: {Subject Name}
 
 **Key findings:**
-- {Specific, sourced finding with a concrete detail — e.g. a number, date, or named event}
-- {Specific, sourced finding}
-- {Specific, sourced finding}
-- {Specific, sourced finding}
-- {Specific, sourced finding}
+- {Specific finding — must include at least one concrete detail: a number, date, name, or direct comparison}
+- {Specific finding}
+- {Specific finding}
+- {Specific finding}
+- {Specific finding}
 
-**Report:** [View full report](file://{absolute_path_to_file})
-```
+[View full report](computer://deep-research/{subject-slug}-{YYYY-MM-DD}.md)
 
-Rules:
-- Each finding must contain at least one concrete detail (number, date, name, or direct comparison). Generic statements like "X has grown significantly" are not acceptable.
-- The `[View full report](file:///...)` link MUST use the exact absolute path of the saved file.
-- **NEVER wrap the file path in backticks, code blocks, or any other formatting.** It must be a plain markdown hyperlink so the reader can click it in the chat interface.
-- No other text before or after this block.
+---
+
+Formatting rules — violations will break the user experience:
+1. The report link MUST use `computer://` with the **relative path** from the workspace root (e.g. `[View full report](computer://deep-research/cursor-editor-2026-04-13.md)`). Do NOT use `file://` or absolute paths.
+2. **Do NOT wrap the link in backticks, code fences, or any other markup.** Write it as a plain markdown link.
+3. **Do NOT use `<details>`, `<summary>`, collapsible sections, or HTML tags** of any kind.
+4. **Do NOT include the report content** in this reply — it is already in the file.
+5. Each finding must be a single sentence with at least one concrete detail. "X has grown significantly" is not acceptable.
 
 ---
 
