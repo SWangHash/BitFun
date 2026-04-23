@@ -21,7 +21,7 @@ BitFun 是一个由 Rust workspace 与共享 React 前端组成的项目。
 ## 3 步快速上手
 
 1. 在修改架构敏感代码前，先阅读 `README.md`、`CONTRIBUTING.md` 和本文件。
-2. 常规本地开发使用 `pnpm run desktop:dev`；仅前端改动使用 `pnpm run dev:web`。
+2. 共享前端改动或 Rust / Tauri 改动后的本地桌面快速人工验证，都优先使用 `pnpm run desktop:preview:debug`。它会在已有 debug 桌面二进制可复用时直接预览，并在二进制缺失或 Rust / Tauri 输入更新后自动执行一次快速本地重编译。`pnpm run desktop:dev` 保留给完整 Tauri dev 流程、首次初始化，或启动 / 构建链路本身的调试；仅浏览器前端验证时使用 `pnpm run dev:web`。
 3. 改完后按下方最小验证集合执行检查。
 
 ## 核心命令
@@ -33,6 +33,7 @@ pnpm run e2e:install
 
 # 主要开发流程
 pnpm run desktop:dev
+pnpm run desktop:preview:debug
 pnpm run dev:web
 pnpm run cli:dev
 pnpm run installer:dev
@@ -53,6 +54,25 @@ cargo build -p bitfun-desktop
 pnpm run e2e:test:l0
 pnpm --dir tests/e2e exec wdio run ./config/wdio.conf.ts --spec "./specs/<file>.spec.ts"
 ```
+
+## 本地桌面快速迭代
+
+- `pnpm run desktop:preview:debug` 会启动或复用 web dev server，并直接拉起 `target/debug/bitfun-desktop(.exe)`，不会经过 `tauri dev`。当已有 debug 二进制仍然可复用时它会直接预览；当二进制缺失，或 Rust / Tauri 输入比当前二进制更新时，它会先以 `CARGO_PROFILE_DEV_DEBUG=0` 和更高并行 codegen 快速重编 `bitfun-desktop`，再进入预览。
+- `pnpm run desktop:preview:debug -- --force-rebuild` 是显式强制重编后再预览的兜底入口，只有在你明确想忽略时间戳复用判断时才使用。
+- 上面的 preview 流程只是本地迭代加速手段，不能替代下方与改动范围匹配的最小验证集合。
+- 如果用户的意图是“快速看看效果”“本地跑起来看一下”这类人工预览，即使表述里同时出现了“编译”或“调试版本”，也优先使用上面的 preview 命令。
+- `pnpm run desktop:build:fast` 只保留给“明确要一个 debug 构建产物，且不需要顺手启动预览”的场景。
+- 意图示例：
+  - “本地编译一个调试版本快速看看效果” -> `pnpm run desktop:preview:debug`
+  - “只编一个 debug 产物给我，不用启动” -> `pnpm run desktop:build:fast`
+
+## 打包请求
+
+- 当用户提出打包、release 或构建可分发桌面产物，但没有明确点名产物形式时，先确认目标打包类型，再执行构建。
+- 要区分“本地临时产物”和“正式 release 交付物”。除非用户明确要求，否则不要把 `desktop:preview:*`、debug 构建，或 `--no-bundle` 的快速产物当成最终给用户分发的 release。
+- 如果用户的语义明显是“给 Windows 最终用户安装”，优先使用 `pnpm run desktop:build:nsis`。
+- 如果用户明确要“独立可执行文件”而不是安装器，优先使用 `pnpm run desktop:build:exe`。
+- 如果用户已经明确点名目标格式，就不要重复确认，直接走对应打包流程。
 
 ## 架构
 
