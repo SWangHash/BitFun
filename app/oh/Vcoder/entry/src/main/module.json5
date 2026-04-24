@@ -2,16 +2,6 @@
   "module": {
     "name": "entry",
     "type": "entry",
-    "hnpPackages": [
-      {
-        "package": "node.hnp",
-        "type": "private"
-      },
-      {
-        "package": "git.hnp",
-        "type": "private"
-      }
-    ],
     "description": "$string:module_desc",
     "mainElement": "EntryAbility",
     "deviceTypes": [
