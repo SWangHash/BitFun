@@ -1,0 +1,14 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "Please describe the basic information.",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "libbitfun_desktop_lib.so": "file:./src/main/cpp/types/libbitfun_desktop_lib",
+    "libentry.so": "file:./src/main/cpp/types/libentry",
+    "@ohos-rs/ability": "0.4.0-beta.0"
+  }
+}
+
