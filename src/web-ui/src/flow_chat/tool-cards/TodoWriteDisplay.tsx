@@ -8,15 +8,18 @@ import { TaskRunningIndicator } from '../../component-library';
 import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
+import { useDialogTurnTodos } from '../hooks/useDialogTurnTodos';
 import './TodoWriteDisplay.scss';
 
 export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
   toolItem,
   config,
+  turnId,
+  sessionId,
 }) => {
   const { t } = useTranslation('flow-chat');
   const { status, toolResult, partialParams, isParamsStreaming } = toolItem;
-  
+
   const [expandedState, setExpandedState] = useState<boolean | null>(null);
   const toolId = toolItem.id;
   const { cardRootRef, applyExpandedState } = useToolCardHeightContract({
@@ -24,15 +27,20 @@ export const TodoWriteDisplay: React.FC<ToolCardProps> = ({
     toolName: toolItem.toolName,
   });
 
+  const turnTodos = useDialogTurnTodos(sessionId, turnId);
+
   const todosToDisplay = useMemo(() => {
     if (isParamsStreaming && partialParams?.todos && Array.isArray(partialParams.todos)) {
       return partialParams.todos;
+    }
+    if (turnTodos.length > 0) {
+      return turnTodos;
     }
     if (toolResult?.result?.todos && Array.isArray(toolResult.result.todos)) {
       return toolResult.result.todos;
     }
     return [];
-  }, [partialParams, toolResult, isParamsStreaming]);
+  }, [partialParams, toolResult, isParamsStreaming, turnTodos]);
 
   const taskStats = useMemo(() => {
     if (todosToDisplay.length === 0) {

@@ -558,7 +558,7 @@ const SubagentItemsContainer = React.memo<SubagentItemsContainerProps>(({
 /**
  * Subagent item renderer (used inside the container, no collapse logic).
  */
-const SubagentItemRenderer = React.memo<{ item: FlowItem; turnId: string; roundId: string; isLastItem?: boolean }>(({ item, isLastItem }) => {
+const SubagentItemRenderer = React.memo<{ item: FlowItem; turnId: string; roundId: string; isLastItem?: boolean }>(({ item, turnId, isLastItem }) => {
   const {
     onToolConfirm,
     onToolReject,
@@ -614,9 +614,10 @@ const SubagentItemRenderer = React.memo<{ item: FlowItem; turnId: string; roundI
           onOpenInEditor={handleOpenInEditor}
           onOpenInPanel={handleOpenInPanel}
           sessionId={sessionId}
+          turnId={turnId}
         />
       );
-    
+
     default:
       return null;
   }
@@ -633,7 +634,7 @@ interface FlowItemRendererProps {
 }
 
 // Do not memoize: streaming content updates frequently.
-const FlowItemRenderer: React.FC<FlowItemRendererProps> = ({ item, isLastItem }) => {
+const FlowItemRenderer: React.FC<FlowItemRendererProps> = ({ item, turnId, isLastItem }) => {
   const {
     onToolConfirm,
     onToolReject,
@@ -720,10 +721,11 @@ const FlowItemRenderer: React.FC<FlowItemRendererProps> = ({ item, isLastItem })
               }
             }}
             sessionId={sessionId}
+            turnId={turnId}
           />
         </div>
       );
-    
+
     default:
       return null;
   }
