@@ -431,13 +431,17 @@ export class FlowChatStore {
     });
   }
 
-  public updateSessionBtwOrigin(sessionId: string, origin: Session['btwOrigin']): void {
+  public updateSessionBtwOrigin(
+    sessionId: string,
+    origin: Session['btwOrigin'],
+    sessionKind: SessionKind = 'btw'
+  ): void {
     this.setState(prev => {
       const session = prev.sessions.get(sessionId);
       if (!session) return prev;
 
       const relationship = normalizeSessionRelationship({
-        sessionKind: 'btw',
+        sessionKind,
         parentSessionId: origin?.parentSessionId ?? session.parentSessionId,
         btwOrigin: { ...(session.btwOrigin || {}), ...(origin || {}) },
       });
@@ -1269,9 +1273,46 @@ export class FlowChatStore {
     });
   }
 
+  public markSessionUnreadCompletion(
+    sessionId: string,
+    completionKind: 'completed' | 'error'
+  ): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session) return prev;
+
+      const updatedSession: Session = {
+        ...session,
+        hasUnreadCompletion: completionKind,
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      return { ...prev, sessions: newSessions };
+    });
+  }
+
+  public clearSessionUnreadCompletion(sessionId: string): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(sessionId);
+      if (!session || !session.hasUnreadCompletion) return prev;
+
+      const updatedSession: Session = {
+        ...session,
+        hasUnreadCompletion: undefined,
+      };
+
+      const newSessions = new Map(prev.sessions);
+      newSessions.set(sessionId, updatedSession);
+
+      return { ...prev, sessions: newSessions };
+    });
+  }
+
   public async updateSessionTitle(
-    sessionId: string, 
-    title: string, 
+    sessionId: string,
+    title: string,
     status: 'generating' | 'generated' | 'failed'
   ): Promise<void> {
     this.setState(prev => {

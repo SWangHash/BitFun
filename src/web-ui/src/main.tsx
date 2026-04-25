@@ -64,18 +64,25 @@ function registerGlobalErrorHandlers() {
   w[flag] = true;
 
   const scheduleCrashLog = (payload: { location: string; message: string; data?: Record<string, unknown> }) => {
-    // Only persist when it looks like a real "white screen"/startup crash.
+    // Always persist uncaught errors so they appear in webview.log for diagnostics.
+    // Mark white-screen crashes separately to allow callers to deduplicate.
     queueMicrotask(() => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          if (isRootEmpty() && !hasLoggedWhiteScreenCrash()) {
-            markWhiteScreenCrashLogged();
-            log.error('[CRASH] Application crashed', {
-              location: payload.location,
-              message: payload.message,
-              ...payload.data,
-            });
+          const isWhiteScreen = isRootEmpty();
+          const crashType = isWhiteScreen ? 'white-screen' : 'page-error';
+          // Deduplicate only white-screen crashes to avoid duplicate startup logs.
+          if (isWhiteScreen && hasLoggedWhiteScreenCrash()) {
+            return;
           }
+          if (isWhiteScreen) {
+            markWhiteScreenCrashLogged();
+          }
+          log.error(`[CRASH:${crashType}] Uncaught error`, {
+            location: payload.location,
+            message: payload.message,
+            ...payload.data,
+          });
         });
       });
     });

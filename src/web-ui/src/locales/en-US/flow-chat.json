@@ -67,7 +67,8 @@
     "toBottom": "Back to bottom",
     "toBottomWithCount": "Back to bottom ({{count}} new messages)",
     "toLatest": "Jump to latest message",
-    "clickToLatest": "Click to jump to latest"
+    "clickToLatest": "Click to jump to latest",
+    "toCurrentTurn": "Jump to current turn"
   },
   "message": {
     "user": "User",
@@ -234,6 +235,14 @@
     "initUsage": "Use /init without extra arguments.",
     "initFailed": "AGENTS.md initialization failed",
     "initPrompt": "Please generate or update AGENTS.md based on the current project content",
+    "deepreviewAction": "Deep review",
+    "deepreviewNoSession": "No active session for /DeepReview",
+    "deepreviewUsage": "Use /DeepReview with optional focus text, for example /DeepReview review commit abc123 for security.",
+    "deepreviewFailed": "Deep review failed",
+    "deepreviewInfo": "Deep review launches a parallel code review team. It may take longer and use more tokens than a normal review.",
+    "deepreviewBusy": "A review is already running for this session. Stop or finish it before starting another Deep Review.",
+    "deepreviewNestedDisabled": "Deep Review can only be started from the main session.",
+    "deepreviewThreadTitle": "Deep review",
     "currentMode": "Current mode: {{mode}}",
     "noMatchingMode": "No matching mode",
     "noMatchingCommand": "No matching command",
@@ -338,6 +347,69 @@
     "close": "Close",
     "noSession": "No active session for /btw"
   },
+  "childSession": {
+    "stopReview": "Stop review",
+    "stoppingReview": "Stopping review...",
+    "stopReviewFailed": "Failed to stop the review session.",
+    "kinds": {
+      "btw": {
+        "short": "Side",
+        "title": "Side thread",
+        "origin": "Asked from"
+      },
+      "review": {
+        "short": "Review",
+        "title": "Code review",
+        "origin": "Review source"
+      },
+      "deep_review": {
+        "short": "Deep",
+        "title": "Deep review",
+        "origin": "Review source"
+      }
+    }
+  },
+  "deepReviewActionBar": {
+    "reviewCompleted": "Deep review completed",
+    "fixRunning": "Fixing in progress...",
+    "fixCompleted": "Fix completed",
+    "fixFailed": "Fix failed",
+    "fixTimeout": "Fix timed out",
+    "reviewError": "Review error",
+    "dismiss": "Dismiss",
+    "close": "Close",
+    "showCustomInput": "Add instructions",
+    "hideCustomInput": "Hide instructions",
+    "customInstructionsPlaceholder": "Describe additional requirements or context for the fix...",
+    "fillBackInput": "Fill to input",
+    "fillBackInputHint": "Copy selected fix plan to the input box for manual editing",
+    "reviewInterrupted": "Deep review interrupted",
+    "resumeBlocked": "Action required before continuing",
+    "resumeRunning": "Continuing review...",
+    "resumeFailed": "Continue failed",
+    "resumeBlockedHint": "Resolve the model configuration or quota issue before continuing.",
+    "resumeReview": "Continue review",
+    "resumeRequestDisplay": "Continue interrupted Deep Review",
+    "resumeFailedMessage": "Unable to continue Deep Review. Check the model settings or try again later.",
+    "openModelSettings": "Open model settings",
+    "copyDiagnostics": "Copy diagnostics",
+    "diagnosticsCopied": "Diagnostics copied"
+  },
+  "deepReviewConsent": {
+    "windowTitle": "Deep Review",
+    "eyebrow": "Code review team",
+    "title": "Start Deep Review?",
+    "body": "Deep Review launches a parallel code review team. It can take longer and consume noticeably more tokens than a standard review.",
+    "readonlyLabel": "Read-only first pass",
+    "readonly": "The first pass is read-only. It will produce findings and a remediation plan before any code changes.",
+    "costLabel": "Higher token usage",
+    "cost": "Expected cost: multiple reviewers plus a quality gate, so runtime and token use may be several times higher than a standard review.",
+    "timeLabel": "Longer runtime",
+    "time": "You can keep working while it runs; we will only notify you when the whole Deep Review finishes in the background.",
+    "dontShowAgain": "Do not show this again",
+    "cancel": "Cancel",
+    "confirm": "Start Deep Review"
+  },
   "flowChatHeader": {
     "turnList": "Turn list",
     "untitledTurn": "Untitled turn",
@@ -359,6 +431,15 @@
     "files": "files",
     "reviewLabel": "Review",
     "reviewAll": "Review All",
+    "reviewMenuLabel": "Review",
+    "reviewMenuHint": "Choose review depth",
+    "reviewModeStandard": "Standard review",
+    "reviewModeDeep": "Deep review",
+    "reviewRunningStandard": "Review in progress",
+    "reviewRunningDeep": "Review in progress",
+    "reviewRunningHint": "Wait for the current review to finish or stop it from the review page.",
+    "deepReviewLabel": "Deep",
+    "deepReviewAll": "Deep Review",
     "loadFailed": "Load failed",
     "clickToViewDiff": "Click to view diff",
     "review": {
@@ -369,12 +450,20 @@
       "prompt": "Please review the following files modified in this session:\n\n{{files}}",
       "promptFiltered": "Please review the following modified files in this session:\n\n{{files}}\n\nDo not review the {{skipped}} skipped files because they matched the excluded lock, generated, or binary file rules.",
       "threadTitle": "Code review"
+    },
+    "deepReview": {
+      "info": "Deep review launches a parallel code review team. It may take longer and use noticeably more tokens.",
+      "displayMessage": "Deep review modified files:\n{{files}}",
+      "displayMessageFiltered": "Deep review filtered files:\n{{files}}\n\nSkipped {{skipped}} excluded files.",
+      "threadTitle": "Deep review"
     }
   },
   "sessionFileModificationsBar": {
     "filesCount": "{{count}} files",
     "expandList": "Expand list",
-    "collapseList": "Collapse list"
+    "collapseList": "Collapse list",
+    "reviewSource": "Review",
+    "deepReviewSource": "Deep review"
   },
   "snapshotSystem": {
     "errors": {
@@ -660,6 +749,7 @@
       "noData": "Unable to load task data",
       "executionContent": "Execution Content",
       "duration": "Duration",
+      "waitingForModelResponse": "Waiting for model response...",
       "status": {
         "pending": "Pending",
         "running": "Running",
@@ -914,8 +1004,22 @@
       "rollback": "Rollback",
       "rollbackTooltip": "Rollback to this turn"
     },
+    "reviewSessionSummary": {
+      "standardTitle": "Review",
+      "deepTitle": "Deep review",
+      "running": "in progress",
+      "failed": "failed",
+      "issueCount": "{{count}} issues",
+      "noIssues": "no blocking issues",
+      "filesChanged": "{{count}} files",
+      "waitingSummary": "The review is still running. Results will appear here when the code review team finishes.",
+      "emptySummary": "No structured review summary is available yet.",
+      "changedFilesTitle": "Files from this review",
+      "openReview": "Open review page"
+    },
     "codeReview": {
       "reviewResult": "Review Result",
+      "deepReviewResult": "Deep Review Result",
       "reviewingCode": "Reviewing code...",
       "preparingReview": "Preparing code review",
       "reviewFailed": "Code review failed: {{error}}",
@@ -925,10 +1029,87 @@
       "overallAssessment": "Overall Assessment",
       "riskLevel": "Risk Level",
       "recommendedAction": "Recommended Action",
+      "reviewMode": "Review Mode",
+      "reviewScope": "Scope",
       "contextLimitations": "Context Limitations",
       "issuesCount": "Issues ({{count}})",
       "suggestion": "Suggestion",
       "codeStrengths": "Code Strengths",
+      "reviewerTeam": "Code Review Team",
+      "reviewerIssues": "{{count}} issues",
+      "reviewerIssuesUnknown": "Issue count unavailable",
+      "reviewerTeamSummary": "{{total}} reviewers · {{completed}} completed · {{degraded}} need attention",
+      "sectionItemCount": "{{count}} items",
+      "remediationPlan": "Remediation Plan",
+      "sections": {
+        "summary": "Executive Summary",
+        "issues": "Issues",
+        "remediation": "Remediation Plan",
+        "strengths": "Code Strengths",
+        "team": "Code Review Team",
+        "coverage": "Coverage Notes"
+      },
+      "groups": {
+        "must_fix": "Must fix",
+        "should_improve": "Should improve",
+        "needs_decision": "Needs decision",
+        "verification": "Verification",
+        "architecture": "Architecture",
+        "maintainability": "Maintainability",
+        "tests": "Tests",
+        "security": "Security",
+        "performance": "Performance",
+        "user_experience": "User experience",
+        "other": "Other"
+      },
+      "report": {
+        "titleStandard": "Code Review Report",
+        "titleDeep": "Deep Review Report",
+        "reviewDecision": "Review Decision",
+        "noIssues": "No validated issues.",
+        "status": "Status",
+        "findings": "Findings",
+        "validation": "Validation",
+        "source": "Source",
+        "noItems": "None."
+      },
+      "export": {
+        "copyMarkdown": "Copy Markdown",
+        "openMarkdown": "Open as Markdown",
+        "saveMarkdown": "Save Markdown",
+        "copySuccess": "Review report copied as Markdown.",
+        "copyFailed": "Failed to copy review report.",
+        "openFailed": "Failed to open review report in editor.",
+        "saveSuccess": "Review report exported.",
+        "saveFailed": "Failed to export review report.",
+        "saveDialogTitle": "Export review report",
+        "fileNamePrefix": "BitFun-Code-Review",
+        "editorTitle": "Review Report"
+      },
+      "reviewModes": {
+        "standard": "Standard",
+        "deep": "Deep"
+      },
+      "remediationActions": {
+        "title": "Next steps",
+        "hint": "Deep Review is read-only by default. Select the remediation items to fix.",
+        "selectAll": "Select all",
+        "selectionCount": "{{selected}}/{{total}} selected",
+        "expandPlan": "Details",
+        "collapsePlan": "Collapse",
+        "relatedIssue": "Related issue",
+        "noRelatedIssue": "No directly-linked issue was provided for this remediation item. Use the plan text itself as the implementation scope.",
+        "severity": "Severity",
+        "certainty": "Certainty",
+        "location": "Location",
+        "noSelectionHint": "Select at least one remediation item to start fixing.",
+        "startFix": "Start fixing",
+        "fixAndReview": "Fix and re-review",
+        "cancel": "Cancel",
+        "fixUnavailable": "Unable to start remediation because the review session is unavailable.",
+        "fixRequestDisplay": "Start fixing Deep Review findings",
+        "fixAndReviewRequestDisplay": "Fix Deep Review findings and re-review"
+      },
       "riskLevels": {
         "low": "Low Risk",
         "medium": "Medium Risk",

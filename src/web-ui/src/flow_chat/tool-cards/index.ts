@@ -32,6 +32,7 @@ import { TerminalControlDisplay } from './TerminalControlDisplay';
 import { InitMiniAppDisplay } from './MiniAppToolDisplay';
 import { GenerativeWidgetToolCard } from './GenerativeWidgetToolCard';
 import { BtwMarkerCard } from './BtwMarkerCard';
+import { ReviewSessionSummaryCard } from './ReviewSessionSummaryCard';
 import { SessionControlToolCard } from './SessionControlToolCard';
 import { SessionMessageToolCard } from './SessionMessageToolCard';
 
@@ -221,6 +222,17 @@ export const TOOL_CARD_CONFIGS: Record<string, ToolCardConfig> = {
     primaryColor: '#7aa6ff'
   },
 
+  'ReviewSessionSummary': {
+    toolName: 'ReviewSessionSummary',
+    displayName: 'Review summary',
+    icon: 'REV',
+    requiresConfirmation: false,
+    resultDisplayType: 'hidden',
+    description: 'Review session summary marker',
+    displayMode: 'detailed',
+    primaryColor: '#0ea5e9'
+  },
+
   // Git version control tool
   'Git': {
     toolName: 'Git',
@@ -362,6 +374,7 @@ export const TOOL_CARD_COMPONENTS = {
 
   // /btw marker
   'BtwMarker': BtwMarkerCard,
+  'ReviewSessionSummary': ReviewSessionSummaryCard,
 
   // Git version control
   'Git': GitToolDisplay,

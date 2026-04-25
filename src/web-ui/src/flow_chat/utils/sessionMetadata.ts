@@ -1,4 +1,4 @@
-import { i18nService } from '@/infrastructure/i18n';
+import { i18nService } from '@/infrastructure/i18n/core/I18nService';
 import type {
   SessionCustomMetadata,
   SessionKind,
@@ -7,7 +7,7 @@ import type {
 import type { Session } from '../types/flow-chat';
 import { resolveSessionTitle } from './sessionTitle';
 
-const BTW_TAG = 'btw';
+const CHILD_SESSION_KIND_TAGS = new Set<SessionKind>(['btw', 'review', 'deep_review']);
 const RELATIONSHIP_METADATA_KEYS = new Set([
   'kind',
   'parentSessionId',
@@ -26,6 +26,8 @@ type SessionRelationshipInput = Pick<Session, 'sessionKind' | 'parentSessionId' 
 export interface ResolvedSessionRelationship {
   kind: SessionKind;
   isBtw: boolean;
+  isReview: boolean;
+  isDeepReview: boolean;
   parentSessionId?: string;
   displayAsChild: boolean;
   canOpenInAuxPane: boolean;
@@ -50,7 +52,11 @@ function normalizeTurnIndex(value: unknown): number | undefined {
 }
 
 export function normalizeSessionKind(value: unknown): SessionKind {
-  return value === 'btw' ? 'btw' : 'normal';
+  if (value === 'btw' || value === 'review' || value === 'deep_review') {
+    return value;
+  }
+
+  return 'normal';
 }
 
 export function normalizeSessionRelationship(
@@ -61,7 +67,7 @@ export function normalizeSessionRelationship(
     input?.btwOrigin?.parentSessionId ?? input?.parentSessionId
   );
 
-  if (sessionKind !== 'btw') {
+  if (sessionKind === 'normal') {
     return {
       sessionKind,
       parentSessionId: undefined,
@@ -88,13 +94,20 @@ export function resolveSessionRelationship(
 ): ResolvedSessionRelationship {
   const normalized = normalizeSessionRelationship(input);
   const isBtw = normalized.sessionKind === 'btw';
+  const isReview =
+    normalized.sessionKind === 'review' ||
+    normalized.sessionKind === 'deep_review';
 
   return {
     kind: normalized.sessionKind,
     isBtw,
+    isReview,
+    isDeepReview: normalized.sessionKind === 'deep_review',
     parentSessionId: normalized.parentSessionId,
     displayAsChild: Boolean(normalized.parentSessionId),
-    canOpenInAuxPane: Boolean(isBtw && normalized.parentSessionId),
+    canOpenInAuxPane: Boolean(
+      normalized.sessionKind !== 'normal' && normalized.parentSessionId
+    ),
     origin: normalized.btwOrigin,
   };
 }
@@ -109,7 +122,7 @@ export function deriveSessionRelationshipFromMetadata(
     sessionKind,
     parentSessionId: customMetadata?.parentSessionId ?? undefined,
     btwOrigin:
-      sessionKind === 'btw'
+      sessionKind !== 'normal'
         ? {
             requestId: normalizeString(customMetadata?.parentRequestId),
             parentSessionId: normalizeString(customMetadata?.parentSessionId),
@@ -173,7 +186,7 @@ function buildSessionCustomMetadata(
 
   nextCustomMetadata.kind = normalized.sessionKind;
 
-  if (normalized.sessionKind === 'btw') {
+  if (normalized.sessionKind !== 'normal') {
     nextCustomMetadata.parentSessionId = normalized.parentSessionId ?? null;
     nextCustomMetadata.parentRequestId = normalized.btwOrigin?.requestId ?? null;
     nextCustomMetadata.parentDialogTurnId =
@@ -199,10 +212,15 @@ function buildSessionTags(
   sessionKind: SessionKind,
   existingTags?: string[]
 ): string[] {
-  const baseTags = Array.isArray(existingTags) ? [...existingTags] : [];
+  const baseTags = Array.isArray(existingTags)
+    ? existingTags.filter(
+        (tag) =>
+          !CHILD_SESSION_KIND_TAGS.has(tag as SessionKind) || tag === sessionKind
+      )
+    : [];
 
-  if (sessionKind === 'btw' && !baseTags.includes(BTW_TAG)) {
-    baseTags.push(BTW_TAG);
+  if (sessionKind !== 'normal' && !baseTags.includes(sessionKind)) {
+    baseTags.push(sessionKind);
   }
 
   return baseTags;

@@ -4,12 +4,12 @@
 
 use super::stream_processor::StreamProcessor;
 use super::types::{FinishReason, RoundContext, RoundResult};
+use crate::agentic::MessageContent;
 use crate::agentic::core::Message;
 use crate::agentic::events::{AgenticEvent, EventPriority, EventQueue};
 use crate::agentic::tools::computer_use_host::ComputerUseHostRef;
 use crate::agentic::tools::pipeline::{ToolExecutionContext, ToolExecutionOptions, ToolPipeline};
 use crate::agentic::tools::registry::get_global_tool_registry;
-use crate::agentic::MessageContent;
 use crate::infrastructure::ai::AIClient;
 use crate::service::config::GlobalConfigManager;
 use crate::util::errors::{BitFunError, BitFunResult};
@@ -253,7 +253,10 @@ impl RoundExecutor {
         if let Some(ref usage) = stream_result.usage {
             debug!(
                 "Updating token stats from model response: input={}, output={}, total={}, is_subagent={}",
-                usage.prompt_token_count, usage.candidates_token_count, usage.total_token_count, is_subagent
+                usage.prompt_token_count,
+                usage.candidates_token_count,
+                usage.total_token_count,
+                is_subagent
             );
 
             self.emit_event(
@@ -489,15 +492,23 @@ impl RoundExecutor {
         let dialog_turn_id = context.dialog_turn_id.clone();
         let round_id_clone = round_id.clone();
         let tool_result_messages: Vec<Message> = tool_results
-            .into_iter()
+            .iter()
             .map(|result| {
-                Message::tool_result(result)
+                Message::tool_result(result.clone())
                     .with_turn_id(dialog_turn_id.clone())
                     .with_round_id(round_id_clone.clone())
             })
             .collect();
 
-        let has_more_rounds = !tool_result_messages.is_empty();
+        // P4: Check if any tool result signals loop termination
+        let loop_terminated = tool_results.iter().any(|r| {
+            r.result
+                .get("loop_terminated")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        });
+
+        let has_more_rounds = !tool_result_messages.is_empty() && !loop_terminated;
 
         debug!(
             "Returning RoundResult: has_more_rounds={}, tool_result_messages={}",
@@ -513,7 +524,9 @@ impl RoundExecutor {
             tool_calls: stream_result.tool_calls.clone(),
             tool_result_messages,
             has_more_rounds,
-            finish_reason: if has_more_rounds {
+            finish_reason: if loop_terminated {
+                FinishReason::LoopDetected
+            } else if has_more_rounds {
                 FinishReason::ToolCalls
             } else {
                 FinishReason::Complete
@@ -579,10 +592,24 @@ impl RoundExecutor {
             "prompt is too long",
             "content policy",
             "proxy authentication required",
+            "provider quota",
+            "provider billing",
+            "insufficient_quota",
+            "insufficient quota",
+            "insufficient balance",
+            "not_enough_balance",
+            "not enough balance",
+            "余额不足",
+            "无可用资源包",
+            "账户已欠费",
+            "code=1113",
+            "\"code\":\"1113\"",
             "client error 400",
             "client error 401",
+            "client error 402",
             "client error 403",
             "client error 404",
+            "client error 413",
             "client error 422",
             "sse parsing error",
             "schema error",
@@ -645,5 +672,21 @@ mod tests {
     fn rejects_sse_schema_error() {
         let msg = "Stream processing error: SSE data schema error: missing field choices";
         assert!(!RoundExecutor::is_transient_network_error(msg));
+    }
+
+    #[test]
+    fn rejects_provider_quota_errors_even_when_stream_closed() {
+        let msg = "AI client error: Stream processing error: Provider error: provider=glm, code=1113, message=余额不足或无可用资源包,请充值。; SSE Error: stream closed before response completed";
+        assert!(!RoundExecutor::is_transient_network_error(msg));
+    }
+
+    #[test]
+    fn rejects_provider_auth_and_billing_errors() {
+        let auth = "Provider error: provider=kimi, code=401, message=invalid API key";
+        let billing =
+            "OpenAI error: insufficient_quota, please check your plan and billing details";
+
+        assert!(!RoundExecutor::is_transient_network_error(auth));
+        assert!(!RoundExecutor::is_transient_network_error(billing));
     }
 }

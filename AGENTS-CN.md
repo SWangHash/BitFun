@@ -158,6 +158,7 @@ await api.invoke('your_command', { request: { ... } });
 ## 先看哪里
 
 - Agent mode：`src/crates/core/src/agentic/agents/`、`src/crates/core/src/agentic/agents/prompts/`、`src/web-ui/src/locales/*/scenes/agents.json`
+- Deep Review / 代码审核团队：`src/crates/core/src/agentic/deep_review_policy.rs`、`src/crates/core/src/agentic/agents/deep_review_agent.rs`、`src/crates/core/src/agentic/tools/implementations/{task_tool.rs,code_review_tool.rs}`、`src/web-ui/src/shared/services/reviewTeamService.ts`、`src/web-ui/src/flow_chat/services/DeepReviewService.ts`、`src/web-ui/src/app/scenes/agents/components/ReviewTeamPage.tsx`
 - Tool：`src/crates/core/src/agentic/tools/implementations/`、`src/crates/core/src/agentic/tools/registry.rs`
 - MCP / LSP / remote：`src/crates/core/src/service/mcp/`、`src/crates/core/src/service/lsp/`、`src/crates/core/src/service/remote_connect/`、`src/crates/core/src/service/remote_ssh/`
 - 桌面端 API：`src/apps/desktop/src/api/`、`src/crates/api-layer/src/`、`src/crates/transport/src/adapters/tauri.rs`
@@ -168,6 +169,7 @@ await api.invoke('your_command', { request: { ... } });
 | 改动类型 | 最低验证要求 |
 | --- | --- |
 | 前端 UI、状态、适配层或多语言文案 | `pnpm run lint:web && pnpm run type-check:web && pnpm --dir src/web-ui run test:run` |
+| Deep Review / 代码审核团队行为 | 运行上面的前端验证，再运行 `cargo test -p bitfun-core deep_review -- --nocapture`；如果触及后端或 Tauri API，还需要运行下方 Rust / 桌面端验证 |
 | `core`、`transport`、`api-layer` 或共享服务中的 Rust 逻辑 | `cargo check --workspace && cargo test --workspace` |
 | 桌面端集成、Tauri API、browser/computer-use 或桌面专属行为 | `cargo check -p bitfun-desktop && cargo test -p bitfun-desktop` |
 | 被桌面端 smoke/functional 流覆盖的行为 | `cargo build -p bitfun-desktop` 后运行最接近的 E2E spec，或 `pnpm run e2e:test:l0` |

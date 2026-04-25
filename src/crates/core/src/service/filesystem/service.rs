@@ -3,8 +3,8 @@ use crate::infrastructure::{
     FileOperationService, FileReadResult, FileSearchOutcome, FileSearchProgressSink,
     FileSearchResult, FileTreeNode, FileTreeService, FileWriteResult,
 };
-use crate::util::errors::*;
 use crate::util::elapsed_ms_u64;
+use crate::util::errors::*;
 use log::debug;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;

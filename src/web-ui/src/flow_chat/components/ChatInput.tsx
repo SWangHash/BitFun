@@ -34,6 +34,12 @@ import { useChatInputState } from '../store/chatInputStateStore';
 import { useInputHistoryStore } from '../store/inputHistoryStore';
 import { startBtwThread } from '../services/BtwThreadService';
 import { FlowChatManager } from '../services/FlowChatManager';
+import {
+  DEEP_REVIEW_SLASH_COMMAND,
+  buildDeepReviewPromptFromSlashCommand,
+  isDeepReviewSlashCommand,
+  launchDeepReviewSession,
+} from '../services/DeepReviewService';
 import { createLogger } from '@/shared/utils/logger';
 import { Tooltip, IconButton } from '@/component-library';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
@@ -48,6 +54,9 @@ import MCPAPI, { type MCPPrompt, type MCPPromptMessage, type MCPServerInfo } fro
 import { deriveChatInputPetMood } from '../utils/chatInputPetMood';
 import { ChatInputPixelPet } from './ChatInputPixelPet';
 import { expandWidgetPromptReferenceTokens } from '@/tools/generative-widget/widgetPromptReference';
+import { useDeepReviewConsent } from './DeepReviewConsentDialog';
+import { useSessionReviewActivity } from '../hooks/useSessionReviewActivity';
+import { shouldBlockDeepReviewCommand } from '../utils/deepReviewCommandGuard';
 import './ChatInput.scss';
 
 const log = createLogger('ChatInput');
@@ -232,11 +241,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const effectiveTargetSession = effectiveTargetSessionId
     ? flowChatState.sessions.get(effectiveTargetSessionId)
     : undefined;
-  const isBtwSession = resolveSessionRelationship(effectiveTargetSession).isBtw;
+  const effectiveTargetRelationship = resolveSessionRelationship(effectiveTargetSession);
+  const isBtwSession = effectiveTargetRelationship.displayAsChild;
   const showTargetSwitcher = !!activeBtwSessionId;
   const currentSessionTitle = currentSession?.title?.trim() || t('session.untitled');
-  const activeBtwSessionTitle = activeBtwSessionId
-    ? flowChatState.sessions.get(activeBtwSessionId)?.title?.trim() || t('btw.threadLabel')
+  const activeBtwSession = activeBtwSessionId
+    ? flowChatState.sessions.get(activeBtwSessionId)
+    : undefined;
+  const activeBtwRelationship = resolveSessionRelationship(activeBtwSession);
+  const activeBtwKind = activeBtwRelationship.kind === 'review' || activeBtwRelationship.kind === 'deep_review'
+    ? activeBtwRelationship.kind
+    : 'btw';
+  const activeBtwTargetLabel = t(`childSession.kinds.${activeBtwKind}.short`, {
+    defaultValue: t('chatInput.targetBtw'),
+  });
+  const activeBtwSessionTitle = activeBtwSession
+    ? activeBtwSession.title?.trim() || t(`childSession.kinds.${activeBtwKind}.title`, {
+        defaultValue: t('btw.threadLabel'),
+      })
     : '';
   
   // Memoize history so keyboard handlers don't see a fresh [] on every render.
@@ -248,7 +270,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     effectiveTargetSessionId,
     inputState.value.trim()
   );
+  const currentReviewActivity = useSessionReviewActivity(currentSessionId);
   const sessionMachineSnapshot = useSessionStateMachine(effectiveTargetSessionId);
+  const { confirmDeepReviewLaunch, deepReviewConsentDialog } = useDeepReviewConsent();
   const petMood = useMemo(
     () => deriveChatInputPetMood(sessionMachineSnapshot),
     [sessionMachineSnapshot],
@@ -983,16 +1007,26 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           }]),
       {
         kind: 'action',
-        id: 'compact',
-        command: '/compact',
-        label: t('chatInput.compactAction', { defaultValue: 'Compact session' }),
+        id: 'deepreview',
+        command: DEEP_REVIEW_SLASH_COMMAND,
+        label: t('chatInput.deepreviewAction', { defaultValue: 'Deep review' }),
       },
-      {
-        kind: 'action',
-        id: 'init',
-        command: '/init',
-        label: t('chatInput.initAction', { defaultValue: 'Generate AGENTS.md' }),
-      },
+      ...(!derivedState?.isProcessing
+        ? [
+            {
+              kind: 'action' as const,
+              id: 'compact',
+              command: '/compact',
+              label: t('chatInput.compactAction', { defaultValue: 'Compact session' }),
+            },
+            {
+              kind: 'action' as const,
+              id: 'init',
+              command: '/init',
+              label: t('chatInput.initAction', { defaultValue: 'Generate AGENTS.md' }),
+            },
+          ]
+        : []),
     ];
 
     const q = (slashCommandState.query || '').trim().toLowerCase();
@@ -1002,7 +1036,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const cmd = i.command.slice(1).toLowerCase();
       return cmd.includes(q) || i.label.toLowerCase().includes(q);
     });
-  }, [isBtwSession, slashCommandState.query, t]);
+  }, [derivedState?.isProcessing, isBtwSession, slashCommandState.query, t]);
 
   const getFilteredMcpPromptCommands = useCallback((): SlashMcpPromptItem[] => {
     const q = (slashCommandState.query || '').trim().toLowerCase();
@@ -1079,10 +1113,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     const trimmedLower = text.trim().toLowerCase();
     const isBtwCommand = trimmedLower.startsWith('/btw');
     const isCompactCommand = trimmedLower.startsWith('/compact');
+    const isDeepReviewCommand = isDeepReviewSlashCommand(text);
     const isProcessing = !!derivedState?.isProcessing;
 
     // Don't queue /btw while the main session is processing; /btw runs independently.
-    if (derivedState?.isProcessing && !isBtwCommand && !isCompactCommand) {
+    if (derivedState?.isProcessing && !isBtwCommand && !isCompactCommand && !isDeepReviewCommand) {
       setQueuedInput(text);
     }
 
@@ -1095,10 +1130,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
       // While the main session is running, expose a single quick action (/btw) via the same picker UX.
       if (isProcessing) {
-        // Only show the picker for "/..." patterns that are plausibly a command (/ or /b...).
+        // Only show the picker for "/..." patterns that are plausibly a command (/ or /b... /d...).
         // Once the user types a space (starts composing the real question), stop showing the picker
-        // so Enter can submit "/btw ..." instead of selecting from the picker.
-        if (!hasWhitespace && (query === '' || query.startsWith('b'))) {
+        // so Enter can submit "/btw ..." or "/DeepReview ..." instead of selecting from the picker.
+        if (!hasWhitespace && (query === '' || query.startsWith('b') || query.startsWith('d'))) {
           setSlashCommandState({
             isActive: true,
             kind: 'actions',
@@ -1112,7 +1147,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       }
 
       // When idle, keep the picker for mode switching, but don't interfere with executable slash commands.
-      if (!isBtwCommand && !isCompactCommand && !matchedMcpPrompt) {
+      if (!isBtwCommand && !isCompactCommand && !isDeepReviewCommand && !matchedMcpPrompt) {
         setSlashCommandState({
           isActive: true,
           kind: 'all',
@@ -1329,6 +1364,103 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     t,
   ]);
 
+  const submitDeepreviewFromInput = useCallback(async () => {
+    if (!effectiveTargetSessionId || !effectiveTargetSession) {
+      notificationService.error(
+        t('chatInput.deepreviewNoSession', { defaultValue: 'No active session for /DeepReview' })
+      );
+      return;
+    }
+
+    const message = inputState.value.trim();
+    if (!isDeepReviewSlashCommand(message)) {
+      notificationService.warning(
+        t('chatInput.deepreviewUsage', {
+          defaultValue: 'Use /DeepReview with optional focus text, for example /DeepReview review commit abc123 for security.',
+        })
+      );
+      return;
+    }
+
+    if (isBtwSession) {
+      notificationService.warning(
+        t('chatInput.deepreviewNestedDisabled', {
+          defaultValue: 'Deep Review can only be started from the main session.',
+        }),
+      );
+      return;
+    }
+
+    if (shouldBlockDeepReviewCommand(message, currentReviewActivity)) {
+      notificationService.warning(
+        t('chatInput.deepreviewBusy', {
+          defaultValue: 'A review is already running for this session. Stop or finish it before starting another Deep Review.',
+        }),
+      );
+      return;
+    }
+
+    const confirmed = await confirmDeepReviewLaunch();
+    if (!confirmed) {
+      return;
+    }
+
+    const originalPendingLargePastes = { ...pendingLargePastesRef.current };
+    if (effectiveTargetSessionId) {
+      addToHistory(effectiveTargetSessionId, message);
+    }
+    setHistoryIndex(-1);
+    setSavedDraft('');
+    dispatchInput({ type: 'CLEAR_VALUE' });
+    clearPendingLargePastes();
+    setQueuedInput(null);
+    setSlashCommandState({ isActive: false, kind: 'modes', query: '', selectedIndex: 0 });
+
+    try {
+      const prompt = await buildDeepReviewPromptFromSlashCommand(
+        message,
+        effectiveTargetSession.workspacePath,
+      );
+
+      await launchDeepReviewSession({
+        parentSessionId: effectiveTargetSessionId,
+        workspacePath: effectiveTargetSession.workspacePath,
+        prompt,
+        displayMessage: message,
+        childSessionName: t('chatInput.deepreviewThreadTitle', {
+          defaultValue: 'Deep review',
+        }),
+      });
+      dispatchInput({ type: 'DEACTIVATE' });
+    } catch (error) {
+      log.error('Failed to trigger /DeepReview', {
+        error,
+        sessionId: effectiveTargetSessionId,
+      });
+      pendingLargePastesRef.current = originalPendingLargePastes;
+      dispatchInput({ type: 'ACTIVATE' });
+      dispatchInput({ type: 'SET_VALUE', payload: message });
+      notificationService.error(
+        error instanceof Error ? error.message : t('error.unknown'),
+        {
+          title: t('chatInput.deepreviewFailed', { defaultValue: 'Deep review failed' }),
+          duration: 5000,
+        }
+      );
+    }
+  }, [
+    addToHistory,
+    clearPendingLargePastes,
+    confirmDeepReviewLaunch,
+    currentReviewActivity,
+    effectiveTargetSession,
+    effectiveTargetSessionId,
+    inputState.value,
+    isBtwSession,
+    setQueuedInput,
+    t,
+  ]);
+
   const submitMcpPromptFromInput = useCallback(async () => {
     const originalMessage = inputState.value.trim();
     let command = resolveTypedMcpPromptCommand(originalMessage);
@@ -1465,6 +1597,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       return;
     }
 
+    if (isDeepReviewSlashCommand(message)) {
+      await submitDeepreviewFromInput();
+      return;
+    }
+
     if (resolveTypedMcpPromptCommand(message)) {
       await submitMcpPromptFromInput();
       return;
@@ -1540,6 +1677,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     submitBtwFromInput,
     submitCompactFromInput,
     submitInitFromInput,
+    submitDeepreviewFromInput,
     submitMcpPromptFromInput,
     t,
     resolveTypedMcpPromptCommand,
@@ -1631,6 +1769,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       next = '/compact';
     } else if (actionId === 'init') {
       next = '/init';
+    } else if (actionId === 'deepreview') {
+      next = `${DEEP_REVIEW_SLASH_COMMAND} `;
     } else {
       return;
     }
@@ -2205,6 +2345,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <>
+      {deepReviewConsentDialog}
       <ContextDropZone
         acceptedTypes={['file', 'directory', 'image', 'code-snippet', 'mermaid-diagram']}
         className="bitfun-chat-input-drop-zone"
@@ -2297,7 +2438,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   className={`bitfun-chat-input__target-tab ${inputTarget === 'btw' ? 'bitfun-chat-input__target-tab--active' : ''}`}
                   onClick={() => setInputTarget('btw')}
                 >
-                  {t('chatInput.targetBtw')}
+                  {activeBtwTargetLabel}
                   {inputTarget === 'btw' && activeBtwSessionTitle && (
                     <span className="bitfun-chat-input__target-tab-name">{activeBtwSessionTitle}</span>
                   )}

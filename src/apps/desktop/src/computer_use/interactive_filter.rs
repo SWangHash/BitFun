@@ -147,7 +147,11 @@ pub(crate) fn build_interactive_elements(
         // dense pages. We still preserve the deterministic display order
         // afterwards by re-sorting the kept slice.
         let mut by_area = staged;
-        by_area.sort_by(|a, b| b.area.partial_cmp(&a.area).unwrap_or(std::cmp::Ordering::Equal));
+        by_area.sort_by(|a, b| {
+            b.area
+                .partial_cmp(&a.area)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         by_area.truncate(opts.max_elements);
         by_area.sort_by(|a, b| {
             let (ax, ay, _, _) = a.frame_global;
@@ -348,12 +352,7 @@ fn project_global_to_image(
         let iy = ((gy - bounds.top) * scale_y).round();
         let iw = (gw * scale_x).round().max(1.0);
         let ih = (gh * scale_y).round().max(1.0);
-        return Some((
-            ix.max(0.0) as u32,
-            iy.max(0.0) as u32,
-            iw as u32,
-            ih as u32,
-        ));
+        return Some((ix.max(0.0) as u32, iy.max(0.0) as u32, iw as u32, ih as u32));
     }
 
     let ix = ((lx - bounds.left) * scale_x).round();

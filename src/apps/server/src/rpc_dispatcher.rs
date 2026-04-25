@@ -5,14 +5,16 @@
 //! `params` and returns a JSON `result`.
 
 use crate::bootstrap::ServerAppState;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
+use bitfun_core::agentic::agents::SubAgentSource;
 use bitfun_core::agentic::coordination::{DialogSubmissionPolicy, DialogTriggerSource};
 use bitfun_core::agentic::core::SessionConfig;
-use bitfun_core::service::i18n::{
-    sync_global_i18n_service_locale, LocaleId, LocaleMetadata,
-};
+use bitfun_core::service::config::types::SubAgentConfig;
+use bitfun_core::service::i18n::{LocaleId, LocaleMetadata, sync_global_i18n_service_locale};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 /// Dispatch a WebSocket RPC method call to the appropriate handler.
 ///
@@ -168,6 +170,115 @@ pub async fn dispatch(
             Ok(serde_json::to_value(&models).unwrap_or_default())
         }
 
+        "list_subagents" => {
+            let request = extract_request(&params)?;
+            let source = request
+                .get("source")
+                .cloned()
+                .map(serde_json::from_value::<SubAgentSource>)
+                .transpose()?;
+            let workspace =
+                workspace_root_from_request(request.get("workspacePath").and_then(|v| v.as_str()));
+            let list = state
+                .agent_registry
+                .get_subagents_info(workspace.as_deref())
+                .await;
+            let result: Vec<_> = match source {
+                Some(source) => list
+                    .into_iter()
+                    .filter(|agent| agent.subagent_source == Some(source))
+                    .collect(),
+                None => list,
+            };
+
+            Ok(serde_json::to_value(&result).unwrap_or_default())
+        }
+        "update_subagent_config" => {
+            let request = extract_request(&params)?;
+            let subagent_id = get_string(request, "subagentId")?;
+            let enabled = request.get("enabled").and_then(|v| v.as_bool());
+            let model = request
+                .get("model")
+                .and_then(|v| v.as_str())
+                .map(|value| value.to_string());
+            let workspace =
+                workspace_root_from_request(request.get("workspacePath").and_then(|v| v.as_str()));
+
+            if let Some(workspace) = workspace.as_deref() {
+                state.agent_registry.load_custom_subagents(workspace).await;
+            }
+
+            if state
+                .agent_registry
+                .get_custom_subagent_config(&subagent_id, workspace.as_deref())
+                .is_some()
+            {
+                state
+                    .agent_registry
+                    .update_and_save_custom_subagent_config(
+                        &subagent_id,
+                        enabled,
+                        model,
+                        workspace.as_deref(),
+                    )
+                    .map_err(|e| anyhow!("Failed to update configuration: {}", e))?;
+                Ok(serde_json::Value::Null)
+            } else {
+                if state
+                    .agent_registry
+                    .has_project_custom_subagent(&subagent_id)
+                {
+                    if let Some(workspace) = workspace.as_deref() {
+                        return Err(anyhow!(
+                            "Project Sub-Agent '{}' was not found in workspace '{}'",
+                            subagent_id,
+                            workspace.display()
+                        ));
+                    }
+
+                    return Err(anyhow!(
+                        "workspacePath is required to update project Sub-Agent '{}'",
+                        subagent_id
+                    ));
+                }
+
+                if let Some(enabled) = enabled {
+                    let config = SubAgentConfig { enabled };
+                    let path = format!("ai.subagent_configs.{}", subagent_id);
+                    let config_value = serde_json::to_value(&config)?;
+                    state
+                        .config_service
+                        .set_config(&path, config_value)
+                        .await
+                        .map_err(|e| anyhow!("Failed to update enabled status: {}", e))?;
+                }
+
+                if let Some(model) = model {
+                    let mut agent_models: HashMap<String, String> = state
+                        .config_service
+                        .get_config(Some("ai.agent_models"))
+                        .await
+                        .unwrap_or_default();
+                    agent_models.insert(subagent_id.clone(), model);
+                    state
+                        .config_service
+                        .set_config("ai.agent_models", &agent_models)
+                        .await
+                        .map_err(|e| anyhow!("Failed to update model configuration: {}", e))?;
+                }
+
+                if let Err(e) = bitfun_core::service::config::reload_global_config().await {
+                    log::warn!(
+                        "Failed to reload global config after server subagent config update: subagent_id={}, error={}",
+                        subagent_id,
+                        e
+                    );
+                }
+
+                Ok(serde_json::Value::Null)
+            }
+        }
+
         // ── Agentic (Session / Dialog) ───────────────────────
         "create_session" => {
             let request = extract_request(&params)?;
@@ -268,6 +379,16 @@ pub async fn dispatch(
                 .await
                 .map_err(|e| anyhow!("{}", e))?;
             Ok(serde_json::json!({ "success": true }))
+        }
+        "cancel_session" => {
+            let request = extract_request(&params)?;
+            let session_id = get_string(&request, "sessionId")?;
+            state
+                .coordinator
+                .cancel_active_turn_for_session(&session_id, Duration::from_secs(5))
+                .await
+                .map_err(|e| anyhow!("{}", e))?;
+            Ok(serde_json::Value::Null)
         }
         "get_session_messages" => {
             let request = params.get("request").unwrap_or(&params);
@@ -467,4 +588,10 @@ fn get_string(obj: &serde_json::Value, key: &str) -> Result<String> {
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
         .ok_or_else(|| anyhow!("Missing or invalid '{}' field", key))
+}
+
+fn workspace_root_from_request(workspace_path: Option<&str>) -> Option<PathBuf> {
+    workspace_path
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
 }

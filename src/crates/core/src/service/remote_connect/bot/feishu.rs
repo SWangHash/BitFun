@@ -19,6 +19,7 @@ use super::command_router::{
     BotInteractiveRequest, BotLanguage, BotMessageSender, HandleResult,
 };
 use super::{load_bot_persistence, save_bot_persistence, BotConfig, SavedBotConnection};
+use crate::util::truncate_at_char_boundary;
 
 type FeishuWsStream =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
@@ -341,7 +342,7 @@ impl FeishuBot {
         let body: serde_json::Value = serde_json::from_str(&token_resp_text).map_err(|e| {
             anyhow!(
                 "feishu token response parse error: {e}, body: {}",
-                &token_resp_text[..token_resp_text.len().min(200)]
+                truncate_at_char_boundary(&token_resp_text, 200)
             )
         })?;
         let access_token = body["tenant_access_token"]
@@ -904,7 +905,7 @@ impl FeishuBot {
         let body: serde_json::Value = serde_json::from_str(&ws_resp_text).map_err(|e| {
             anyhow!(
                 "feishu ws endpoint parse error: {e}, body: {}",
-                &ws_resp_text[..ws_resp_text.len().min(300)]
+                truncate_at_char_boundary(&ws_resp_text, 300)
             )
         })?;
         let code = body["code"].as_i64().unwrap_or(-1);

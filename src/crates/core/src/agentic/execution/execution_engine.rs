@@ -12,6 +12,7 @@ use crate::agentic::core::{
     RequestReasoningTokenPolicy, Session,
 };
 use crate::agentic::events::{AgenticEvent, EventPriority, EventQueue};
+use crate::agentic::execution::types::FinishReason;
 use crate::agentic::image_analysis::{
     build_multimodal_message_with_images, process_image_contexts_for_provider, ImageContextData,
     ImageLimits,
@@ -26,11 +27,11 @@ use crate::infrastructure::ai::get_global_ai_client_factory;
 use crate::service::config::get_global_config_service;
 use crate::service::config::types::{ModelCapability, ModelCategory};
 use crate::service::remote_ssh::workspace_state::get_remote_workspace_manager;
-use crate::util::elapsed_ms_u64;
 use crate::util::errors::{BitFunError, BitFunResult};
 use crate::util::token_counter::TokenCounter;
 use crate::util::types::Message as AIMessage;
 use crate::util::types::ToolDefinition;
+use crate::util::{elapsed_ms_u64, truncate_at_char_boundary};
 use log::{debug, error, info, trace, warn};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -41,11 +42,16 @@ use tokio_util::sync::CancellationToken;
 #[derive(Debug, Clone)]
 pub struct ExecutionEngineConfig {
     pub max_rounds: usize, // Maximum number of rounds to prevent infinite loops
+    /// Max consecutive rounds with identical tool call signatures before loop detection triggers
+    pub max_consecutive_same_tool: usize,
 }
 
 impl Default for ExecutionEngineConfig {
     fn default() -> Self {
-        Self { max_rounds: 200 }
+        Self {
+            max_rounds: 50,
+            max_consecutive_same_tool: 3,
+        }
     }
 }
 
@@ -96,6 +102,18 @@ impl ExecutionEngine {
             messages,
             tools,
             RequestReasoningTokenPolicy::LatestTurnOnly,
+        )
+    }
+
+    fn tool_signature_args_summary(args_str: &str) -> String {
+        if args_str.len() <= 128 {
+            return args_str.to_string();
+        }
+
+        format!(
+            "{}..#{}",
+            truncate_at_char_boundary(args_str, 64),
+            args_str.len()
         )
     }
 
@@ -1176,6 +1194,10 @@ impl ExecutionEngine {
         let mut consecutive_compression_failures: u32 = 0;
         const MAX_CONSECUTIVE_COMPRESSION_FAILURES: u32 = 3;
 
+        // P0: Loop detection: track recent tool call signatures
+        let mut recent_tool_signatures: Vec<String> = Vec::new();
+        let mut loop_detected = false;
+
         // Save the last token usage statistics
         let mut last_usage: Option<crate::util::types::ai::GeminiUsage> = None;
 
@@ -1517,6 +1539,37 @@ impl ExecutionEngine {
 
             total_tools += round_result.tool_calls.len();
 
+            // P0: Consecutive same-tool-call loop detection
+            if !round_result.tool_calls.is_empty() {
+                let mut sigs: Vec<String> = round_result
+                    .tool_calls
+                    .iter()
+                    .map(|tc| {
+                        let args_str = tc.arguments.to_string();
+                        let args_summary = Self::tool_signature_args_summary(&args_str);
+                        format!("{}:{}", tc.tool_name, args_summary)
+                    })
+                    .collect();
+                sigs.sort();
+                let round_sig = sigs.join("|");
+                recent_tool_signatures.push(round_sig);
+            } else {
+                recent_tool_signatures.clear();
+            }
+
+            let max_consec = self.config.max_consecutive_same_tool;
+            if recent_tool_signatures.len() >= max_consec {
+                let tail = &recent_tool_signatures[recent_tool_signatures.len() - max_consec..];
+                if tail.windows(2).all(|w| w[0] == w[1]) {
+                    warn!(
+                        "Loop detected: {} consecutive rounds with identical tool signatures, stopping",
+                        max_consec
+                    );
+                    loop_detected = true;
+                    break;
+                }
+            }
+
             // If no more rounds, dialog turn ends
             if !round_result.has_more_rounds {
                 debug!(
@@ -1634,11 +1687,31 @@ impl ExecutionEngine {
             );
         }
 
+        // Determine finish reason
+        let finish_reason = if loop_detected {
+            FinishReason::LoopDetected
+        } else if round_index >= self.config.max_rounds {
+            FinishReason::MaxRounds
+        } else {
+            FinishReason::Complete
+        };
+
+        let success = !loop_detected && round_index < self.config.max_rounds;
+
+        if loop_detected {
+            warn!(
+                "Dialog turn stopped due to loop detection: turn={}, rounds={}",
+                context.dialog_turn_id,
+                round_index + 1
+            );
+        }
+
         Ok(ExecutionResult {
             final_message: last_assistant_message,
             total_rounds: round_index + 1,
-            success: true,
+            success,
             new_messages,
+            finish_reason,
         })
     }
 
@@ -1817,5 +1890,23 @@ mod tests {
             ExecutionEngine::resolve_configured_model_id(&ai_config, "fast"),
             "model-primary"
         );
+    }
+
+    #[test]
+    fn tool_signature_args_summary_truncates_on_utf8_boundary() {
+        let args = format!("{}{}", "a".repeat(62), "案".repeat(30));
+
+        let summary = ExecutionEngine::tool_signature_args_summary(&args);
+
+        assert_eq!(summary, format!("{}..#{}", "a".repeat(62), args.len()));
+    }
+
+    #[test]
+    fn tool_signature_args_summary_keeps_short_arguments() {
+        let args = r#"{"content":"short"}"#;
+
+        let summary = ExecutionEngine::tool_signature_args_summary(args);
+
+        assert_eq!(summary, args);
     }
 }

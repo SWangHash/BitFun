@@ -14,6 +14,7 @@ import type { FlowChatContext, SessionConfig } from './types';
 import { touchSessionActivity, cleanupSaveState } from './PersistenceModule';
 import {
   createDefaultSessionTitleDescriptor,
+  getNextDefaultSessionTitleCount,
   resolveSessionTitle,
 } from '../../utils/sessionTitle';
 
@@ -242,10 +243,16 @@ export async function createChatSession(
       return pendingCreation;
     }
 
-    const sameModeCount =
-      Array.from(context.flowChatStore.getState().sessions.values()).filter(
-        session => normalizeSessionDisplayMode(session.mode) === sessionMode
-      ).length + 1;
+    const sameModeCount = getNextDefaultSessionTitleCount(
+      context.flowChatStore.getState().sessions.values(),
+      {
+        mode: sessionMode,
+        workspaceId: workspace?.id,
+        workspacePath,
+        remoteConnectionId,
+        remoteSshHost,
+      },
+    );
     const titleDescriptor = createDefaultSessionTitleDescriptor(
       sessionMode,
       sameModeCount,

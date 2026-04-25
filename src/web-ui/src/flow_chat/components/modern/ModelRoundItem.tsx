@@ -559,6 +559,7 @@ const SubagentItemRenderer = React.memo<{ item: FlowItem; turnId: string; roundI
       return (
         <FlowTextBlock
           textItem={item as FlowTextItem}
+          className="flow-text-block--subagent-compact"
         />
       );
     
@@ -646,6 +647,7 @@ const FlowItemRenderer: React.FC<FlowItemRendererProps> = ({ item, isLastItem })
       return wrapContent(
         <FlowTextBlock
           textItem={item as FlowTextItem}
+          className={isSubagentItem ? 'flow-text-block--subagent-compact' : ''}
         />
       );
     

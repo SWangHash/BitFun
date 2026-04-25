@@ -58,6 +58,7 @@ Below is BitFun’s **official Agent and capability inventory**, plus how we tra
 | Capability | Description |
 | --- | --- |
 | **Code Agent** | Four modes: Agentic (autonomous read / edit / run / verify) / Plan (plan first, then execute) / Debug (instrument → gather evidence → root cause) / Review (repo-standard review) |
+| **Deep Review** | A parallel Code Review Team for higher-risk code changes, with reviewer roles, a quality gate, and user-approved remediation |
 | **Cowork Agent** | Native PDF / DOCX / XLSX / PPTX workflows; extend on demand from the Skill marketplace |
 | **Document collaboration** | Write and ask in the document; the AI rewrites, continues, summarizes, and lays out text directly in paragraphs |
 | **Computer Use** | Sees the screen and drives mouse and keyboard to operate browsers and any desktop app—hand repetitive clicking to the Agent |

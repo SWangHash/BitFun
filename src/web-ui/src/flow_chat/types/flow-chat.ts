@@ -246,6 +246,13 @@ export interface Session {
     parentDialogTurnId?: string;
     parentTurnIndex?: number;
   };
+
+  /**
+   * Set when a session finishes (completed / error / cancelled) while not the active session.
+   * Cleared after the user switches to it and the content renders.
+   * 'completed' → green dot, 'error' → red dot.
+   */
+  hasUnreadCompletion?: 'completed' | 'error';
 }
 
 export interface SessionConfig {

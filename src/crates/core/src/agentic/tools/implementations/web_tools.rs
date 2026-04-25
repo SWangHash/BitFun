@@ -2,6 +2,7 @@
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext, ValidationResult};
 use crate::util::errors::{BitFunError, BitFunResult};
+use crate::util::truncate_at_char_boundary;
 use async_trait::async_trait;
 use log::{error, info};
 use serde::Deserialize;
@@ -378,7 +379,7 @@ impl WebFetchTool {
                 return true;
             }
         }
-        let sample = &content[..content.len().min(2048)];
+        let sample = truncate_at_char_boundary(content, 2048);
         let sample_lower = sample.to_lowercase();
         sample_lower.contains("<!doctype html")
             || sample_lower.contains("<html")

@@ -1,7 +1,8 @@
 use super::{
-    Agent, AgenticMode, ClawMode, CodeReviewAgent, ComputerUseMode, CoworkMode, DebugMode,
-    DeepResearchAgent, ExploreAgent, FileFinderAgent, GenerateDocAgent, InitAgent, PlanMode,
-    TeamMode,
+    Agent, AgenticMode, BusinessLogicReviewerAgent, ClawMode, CodeReviewAgent, ComputerUseMode,
+    CoworkMode, DebugMode, DeepResearchAgent, DeepReviewAgent, ExploreAgent, FileFinderAgent,
+    GenerateDocAgent, InitAgent, PerformanceReviewerAgent, PlanMode, ReviewFixerAgent,
+    ReviewJudgeAgent, SecurityReviewerAgent, TeamMode,
 };
 use crate::agentic::agents::custom_subagents::{
     CustomSubagent, CustomSubagentKind, CustomSubagentLoader,
@@ -131,7 +132,14 @@ fn default_model_id_for_builtin_agent(agent_type: &str) -> &'static str {
     match agent_type {
         "agentic" | "Cowork" | "ComputerUse" | "Plan" | "debug" | "Claw" | "DeepResearch"
         | "Team" => "auto",
-        _ => "primary",
+        "DeepReview"
+        | "ReviewBusinessLogic"
+        | "ReviewPerformance"
+        | "ReviewSecurity"
+        | "ReviewJudge"
+        | "ReviewFixer" => "fast",
+        "Explore" | "FileFinder" | "CodeReview" | "GenerateDoc" | "Init" => "primary",
+        _ => "fast",
     }
 }
 
@@ -308,6 +316,11 @@ impl AgentRegistry {
             Arc::new(ComputerUseMode::new()),
             Arc::new(ExploreAgent::new()),
             Arc::new(FileFinderAgent::new()),
+            Arc::new(BusinessLogicReviewerAgent::new()),
+            Arc::new(PerformanceReviewerAgent::new()),
+            Arc::new(SecurityReviewerAgent::new()),
+            Arc::new(ReviewJudgeAgent::new()),
+            Arc::new(ReviewFixerAgent::new()),
         ];
         for subagent in builtin_subagents {
             register(
@@ -321,6 +334,7 @@ impl AgentRegistry {
         // Register hidden agents
         let hidden_subagents: Vec<Arc<dyn Agent>> = vec![
             Arc::new(CodeReviewAgent::new()),
+            Arc::new(DeepReviewAgent::new()),
             Arc::new(GenerateDocAgent::new()),
             Arc::new(InitAgent::new()),
         ];
@@ -612,7 +626,7 @@ impl AgentRegistry {
 
     /// validate and correct CustomSubagent's tools and model
     /// - tools: filter out invalid tools, record warning log
-    /// - model: if invalid, set to "primary", record warning log
+    /// - model: if invalid, set to "fast", record warning log
     fn validate_custom_subagent(
         subagent: &mut CustomSubagent,
         valid_tools: &[String],
@@ -635,13 +649,13 @@ impl AgentRegistry {
         }
         subagent.tools = valid;
 
-        // validate model: if invalid, set to "primary"
+        // validate model: if invalid, set to "fast"
         if !valid_models.contains(&subagent.model) {
             warn!(
-                "[Subagent {}] Invalid model '{}', reset to 'primary'",
+                "[Subagent {}] Invalid model '{}', reset to 'fast'",
                 agent_id, subagent.model
             );
-            subagent.model = "primary".to_string();
+            subagent.model = "fast".to_string();
         }
     }
 
@@ -654,22 +668,35 @@ impl AgentRegistry {
 
     /// get custom subagent configuration (used for updating configuration)
     /// only custom subagent is valid, return clone of CustomSubagentConfig
-    pub fn get_custom_subagent_config(&self, agent_id: &str) -> Option<CustomSubagentConfig> {
+    pub fn get_custom_subagent_config(
+        &self,
+        agent_id: &str,
+        workspace_root: Option<&Path>,
+    ) -> Option<CustomSubagentConfig> {
         if let Some(entry) = self.read_agents().get(agent_id) {
             if entry.category == AgentCategory::SubAgent {
                 return entry.custom_config.clone();
             }
         }
 
-        for entries in self.read_project_subagents().values() {
-            if let Some(entry) = entries.get(agent_id) {
-                if entry.category == AgentCategory::SubAgent {
-                    return entry.custom_config.clone();
-                }
-            }
-        }
+        workspace_root
+            .and_then(|root| self.read_project_subagents().get(root).cloned())
+            .and_then(|entries| entries.get(agent_id).cloned())
+            .and_then(|entry| {
+                (entry.category == AgentCategory::SubAgent)
+                    .then(|| entry.custom_config)
+                    .flatten()
+            })
+    }
 
-        None
+    pub fn has_project_custom_subagent(&self, agent_id: &str) -> bool {
+        self.read_project_subagents().values().any(|entries| {
+            entries.get(agent_id).is_some_and(|entry| {
+                entry.category == AgentCategory::SubAgent
+                    && entry.subagent_source == Some(SubAgentSource::Project)
+                    && entry.custom_config.is_some()
+            })
+        })
     }
 
     /// update custom subagent configuration and save to file
@@ -679,18 +706,40 @@ impl AgentRegistry {
         agent_id: &str,
         enabled: Option<bool>,
         model: Option<String>,
+        workspace_root: Option<&Path>,
     ) -> BitFunResult<()> {
         let mut map = self.write_agents();
-        let mut project_maps = self.write_project_subagents();
-        let entry = if let Some(entry) = map.get_mut(agent_id) {
-            entry
-        } else {
-            project_maps
-                .values_mut()
-                .find_map(|entries| entries.get_mut(agent_id))
-                .ok_or_else(|| BitFunError::agent(format!("Subagent not found: {}", agent_id)))?
-        };
+        if let Some(entry) = map.get_mut(agent_id) {
+            return Self::update_custom_entry_config(agent_id, entry, enabled, model);
+        }
+        drop(map);
 
+        let workspace_root = workspace_root.ok_or_else(|| {
+            BitFunError::agent(format!(
+                "workspace_path is required to update project subagent '{}'",
+                agent_id
+            ))
+        })?;
+        let mut project_maps = self.write_project_subagents();
+        let entries = project_maps.get_mut(workspace_root).ok_or_else(|| {
+            BitFunError::agent(format!(
+                "Project subagents are not loaded for workspace: {}",
+                workspace_root.display()
+            ))
+        })?;
+        let entry = entries
+            .get_mut(agent_id)
+            .ok_or_else(|| BitFunError::agent(format!("Subagent not found: {}", agent_id)))?;
+
+        Self::update_custom_entry_config(agent_id, entry, enabled, model)
+    }
+
+    fn update_custom_entry_config(
+        agent_id: &str,
+        entry: &mut AgentEntry,
+        enabled: Option<bool>,
+        model: Option<String>,
+    ) -> BitFunResult<()> {
         if entry.category != AgentCategory::SubAgent {
             return Err(BitFunError::agent(format!(
                 "Agent '{}' is not a subagent",
@@ -1017,10 +1066,10 @@ impl AgentRegistry {
                 }
                 // empty model, use default value
                 debug!(
-                    "[AgentRegistry] Custom subagent '{}' using default model: primary",
+                    "[AgentRegistry] Custom subagent '{}' using default model: fast",
                     agent_type
                 );
-                return Ok("primary".to_string());
+                return Ok("fast".to_string());
             }
         }
 
@@ -1071,7 +1120,71 @@ pub fn get_agent_registry() -> Arc<AgentRegistry> {
 
 #[cfg(test)]
 mod tests {
-    use super::{default_model_id_for_builtin_agent, merge_dynamic_mcp_tools, AgentRegistry};
+    use super::{
+        default_model_id_for_builtin_agent, merge_dynamic_mcp_tools, AgentCategory, AgentEntry,
+        AgentRegistry, CustomSubagentConfig, SubAgentSource,
+    };
+    use crate::agentic::agents::Agent;
+    use async_trait::async_trait;
+    use std::collections::HashMap;
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
+
+    struct TestAgent {
+        id: String,
+    }
+
+    #[async_trait]
+    impl Agent for TestAgent {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn name(&self) -> &str {
+            &self.id
+        }
+
+        fn description(&self) -> &str {
+            "Test subagent"
+        }
+
+        fn prompt_template_name(&self, _model_name: Option<&str>) -> &str {
+            "test_agent"
+        }
+
+        fn default_tools(&self) -> Vec<String> {
+            vec!["Read".to_string()]
+        }
+    }
+
+    fn test_project_entry(id: &str, enabled: bool) -> AgentEntry {
+        AgentEntry {
+            category: AgentCategory::SubAgent,
+            subagent_source: Some(SubAgentSource::Project),
+            agent: Arc::new(TestAgent { id: id.to_string() }),
+            custom_config: Some(CustomSubagentConfig {
+                enabled,
+                model: "fast".to_string(),
+            }),
+        }
+    }
+
+    fn insert_project_subagent(
+        registry: &AgentRegistry,
+        workspace: &Path,
+        id: &str,
+        enabled: bool,
+    ) {
+        let mut entries = HashMap::new();
+        entries.insert(id.to_string(), test_project_entry(id, enabled));
+        registry
+            .write_project_subagents()
+            .insert(workspace.to_path_buf(), entries);
+    }
 
     #[test]
     fn top_level_modes_default_to_auto() {
@@ -1111,9 +1224,32 @@ mod tests {
     }
 
     #[test]
-    fn non_mode_agents_default_to_primary() {
-        assert_eq!(default_model_id_for_builtin_agent("Explore"), "primary");
-        assert_eq!(default_model_id_for_builtin_agent("CodeReview"), "primary");
+    fn non_deep_review_builtin_subagents_default_to_primary() {
+        for agent_type in ["Explore", "FileFinder", "CodeReview", "GenerateDoc", "Init"] {
+            assert_eq!(
+                default_model_id_for_builtin_agent(agent_type),
+                "primary",
+                "{agent_type} should default to the primary model slot"
+            );
+        }
+    }
+
+    #[test]
+    fn deep_review_family_defaults_to_fast() {
+        for agent_type in [
+            "DeepReview",
+            "ReviewBusinessLogic",
+            "ReviewPerformance",
+            "ReviewSecurity",
+            "ReviewJudge",
+            "ReviewFixer",
+        ] {
+            assert_eq!(
+                default_model_id_for_builtin_agent(agent_type),
+                "fast",
+                "{agent_type} should stay on the fast model slot"
+            );
+        }
     }
 
     #[test]
@@ -1137,5 +1273,36 @@ mod tests {
                 "mcp__github__list_issues".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn project_subagent_config_lookup_is_workspace_scoped() {
+        let registry = AgentRegistry::new();
+        let workspace_a = PathBuf::from("D:/workspace/project-a");
+        let workspace_b = PathBuf::from("D:/workspace/project-b");
+        insert_project_subagent(&registry, &workspace_a, "SharedReviewer", false);
+        insert_project_subagent(&registry, &workspace_b, "SharedReviewer", true);
+
+        assert_eq!(
+            registry
+                .get_custom_subagent_config("SharedReviewer", Some(&workspace_a))
+                .expect("workspace A config")
+                .enabled,
+            false
+        );
+        assert_eq!(
+            registry
+                .get_custom_subagent_config("SharedReviewer", Some(&workspace_b))
+                .expect("workspace B config")
+                .enabled,
+            true
+        );
+        assert!(
+            registry
+                .get_custom_subagent_config("SharedReviewer", None)
+                .is_none(),
+            "unscoped lookup must not pick an arbitrary project subagent"
+        );
+        assert!(registry.has_project_custom_subagent("SharedReviewer"));
     }
 }

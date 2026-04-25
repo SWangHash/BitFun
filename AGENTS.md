@@ -158,6 +158,7 @@ await api.invoke('your_command', { request: { ... } });
 ## Where to look first
 
 - Agent modes: `src/crates/core/src/agentic/agents/`, `src/crates/core/src/agentic/agents/prompts/`, `src/web-ui/src/locales/*/scenes/agents.json`
+- Deep Review / Code Review Team: `src/crates/core/src/agentic/deep_review_policy.rs`, `src/crates/core/src/agentic/agents/deep_review_agent.rs`, `src/crates/core/src/agentic/tools/implementations/{task_tool.rs,code_review_tool.rs}`, `src/web-ui/src/shared/services/reviewTeamService.ts`, `src/web-ui/src/flow_chat/services/DeepReviewService.ts`, `src/web-ui/src/app/scenes/agents/components/ReviewTeamPage.tsx`
 - Tools: `src/crates/core/src/agentic/tools/implementations/`, `src/crates/core/src/agentic/tools/registry.rs`
 - MCP / LSP / remote: `src/crates/core/src/service/mcp/`, `src/crates/core/src/service/lsp/`, `src/crates/core/src/service/remote_connect/`, `src/crates/core/src/service/remote_ssh/`
 - Desktop APIs: `src/apps/desktop/src/api/`, `src/crates/api-layer/src/`, `src/crates/transport/src/adapters/tauri.rs`
@@ -168,6 +169,7 @@ await api.invoke('your_command', { request: { ... } });
 | Change type | Minimum verification |
 | --- | --- |
 | Frontend UI, state, adapters, or locales | `pnpm run lint:web && pnpm run type-check:web && pnpm --dir src/web-ui run test:run` |
+| Deep Review / Code Review Team behavior | Web UI verification above, plus `cargo test -p bitfun-core deep_review -- --nocapture`; also run the Rust / desktop rows below when backend or Tauri APIs are touched |
 | Shared Rust logic in `core`, `transport`, `api-layer`, or services | `cargo check --workspace && cargo test --workspace` |
 | Desktop integration, Tauri APIs, browser/computer-use, or desktop-only behavior | `cargo check -p bitfun-desktop && cargo test -p bitfun-desktop` |
 | Behavior covered by desktop smoke/functional flows | `cargo build -p bitfun-desktop` then the nearest E2E spec or `pnpm run e2e:test:l0` |

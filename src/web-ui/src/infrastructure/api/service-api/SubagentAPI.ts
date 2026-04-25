@@ -48,6 +48,7 @@ export interface UpdateSubagentConfigPayload {
   subagentId: string;
   enabled?: boolean;
   model?: string;
+  workspacePath?: string;
 }
 
 /** Full definition for create/edit form (custom user/project sub-agents) */

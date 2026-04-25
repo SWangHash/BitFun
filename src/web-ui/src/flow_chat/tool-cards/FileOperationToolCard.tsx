@@ -44,6 +44,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
 import { useToolCardHeightContract } from './useToolCardHeightContract';
 import { hasNonFileUriScheme } from '@/shared/utils/pathUtils';
+import { notificationService } from '@/shared/notification-system';
 import './FileOperationToolCard.scss';
 
 const log = createLogger('FileOperationToolCard');
@@ -487,8 +488,20 @@ export const FileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
         currentWorkspace.rootPath
       );
 
-      if ((diffData.originalContent || '') === (diffData.modifiedContent || '')) {
-        log.debug('Skipping empty baseline diff', { filePath: diffFilePath });
+      const originalContent = diffData.originalContent || '';
+      const modifiedContent = diffData.modifiedContent || '';
+
+      if (originalContent === modifiedContent) {
+        log.info('Baseline diff has no changes, skipping diff editor', {
+          filePath: diffFilePath,
+          originalLength: originalContent.length,
+          modifiedLength: modifiedContent.length,
+          operationId: toolCall?.id,
+          anchorLine: diffData.anchorLine,
+        });
+        notificationService.info(
+          `No changes to display for ${fileName}: baseline and current content are identical.`
+        );
         return;
       }
 

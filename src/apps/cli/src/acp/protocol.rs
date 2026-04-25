@@ -17,7 +17,11 @@ pub struct JsonRpcRequest {
 
 impl JsonRpcRequest {
     /// Create a new JSON-RPC request
-    pub fn new(id: Option<serde_json::Value>, method: String, params: Option<serde_json::Value>) -> Self {
+    pub fn new(
+        id: Option<serde_json::Value>,
+        method: String,
+        params: Option<serde_json::Value>,
+    ) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
             id,
@@ -285,10 +289,16 @@ pub struct SessionPromptParams {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ContentBlock {
-    Text { text: String },
-    Image { source: ImageSource },
+    Text {
+        text: String,
+    },
+    Image {
+        source: ImageSource,
+    },
     #[serde(rename = "embedded_context")]
-    EmbeddedContext { resources: Vec<Resource> },
+    EmbeddedContext {
+        resources: Vec<Resource>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -392,8 +402,12 @@ pub struct SessionUpdateNotification {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "sessionUpdate", rename_all = "snake_case")]
 pub enum SessionUpdate {
-    AgentMessageChunk { content: ContentBlock },
-    AgentThoughtChunk { content: ContentBlock },
+    AgentMessageChunk {
+        content: ContentBlock,
+    },
+    AgentThoughtChunk {
+        content: ContentBlock,
+    },
     ToolCall {
         tool_call_id: String,
         name: String,

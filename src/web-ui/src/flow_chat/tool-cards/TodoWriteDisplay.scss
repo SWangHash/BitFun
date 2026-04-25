@@ -289,9 +289,19 @@
     height: 11px;
 
     &--completed  { color: var(--color-success); }
-    &--in-progress { color: var(--color-info); }
     &--pending    { color: var(--tool-card-text-muted); opacity: 0.5; }
     &--cancelled  { color: var(--color-error); opacity: 0.6; }
+
+    &--in-progress {
+      color: var(--color-info);
+      width: auto;
+      height: auto;
+    }
+  }
+
+  /* Compact mode loading icon alignment */
+  .todo-compact-loading-icon {
+    color: var(--color-info);
   }
 
   .todo-content {

@@ -24,7 +24,7 @@ pub struct CustomSubagent {
     pub kind: CustomSubagentKind,
     /// Whether this subagent is enabled, default true
     pub enabled: bool,
-    /// Model ID to use, default "primary"
+    /// Model ID to use, default "fast"
     pub model: String,
 }
 
@@ -88,7 +88,7 @@ impl CustomSubagent {
             path,
             kind,
             enabled: true,
-            model: "primary".to_string(),
+            model: "fast".to_string(),
         }
     }
 
@@ -142,7 +142,7 @@ impl CustomSubagent {
     const DEFAULT_TOOLS: &'static [&'static str] = &["LS", "Read", "Glob", "Grep"];
     const DEFAULT_READONLY: bool = true;
     const DEFAULT_ENABLED: bool = true;
-    const DEFAULT_MODEL: &'static str = "primary";
+    const DEFAULT_MODEL: &'static str = "fast";
 
     /// Check if tools match default values
     fn is_default_tools(tools: &[String]) -> bool {

@@ -330,6 +330,7 @@ pub struct UpdateSubagentConfigRequest {
     pub subagent_id: String,
     pub enabled: Option<bool>,
     pub model: Option<String>,
+    pub workspace_path: Option<String>,
 }
 
 #[tauri::command]
@@ -338,18 +339,45 @@ pub async fn update_subagent_config(
     request: UpdateSubagentConfigRequest,
 ) -> Result<(), String> {
     let subagent_id = &request.subagent_id;
+    let workspace = workspace_root_from_request(request.workspace_path.as_deref());
+    if let Some(workspace) = workspace.as_deref() {
+        state.agent_registry.load_custom_subagents(workspace).await;
+    }
 
     if state
         .agent_registry
-        .get_custom_subagent_config(subagent_id)
+        .get_custom_subagent_config(subagent_id, workspace.as_deref())
         .is_some()
     {
         state
             .agent_registry
-            .update_and_save_custom_subagent_config(subagent_id, request.enabled, request.model)
+            .update_and_save_custom_subagent_config(
+                subagent_id,
+                request.enabled,
+                request.model,
+                workspace.as_deref(),
+            )
             .map_err(|e| format!("Failed to update configuration: {}", e))?;
         Ok(())
     } else {
+        if state
+            .agent_registry
+            .has_project_custom_subagent(subagent_id)
+        {
+            if let Some(workspace) = workspace.as_deref() {
+                return Err(format!(
+                    "Project Sub-Agent '{}' was not found in workspace '{}'",
+                    subagent_id,
+                    workspace.display()
+                ));
+            }
+
+            return Err(format!(
+                "workspacePath is required to update project Sub-Agent '{}'",
+                subagent_id
+            ));
+        }
+
         let config_service = &state.config_service;
 
         if let Some(enabled) = request.enabled {

@@ -18,6 +18,7 @@ pub mod tools;
 
 // Coordination module
 pub mod coordination;
+pub mod deep_review_policy;
 
 // Shared-context fork execution module
 pub mod fork;

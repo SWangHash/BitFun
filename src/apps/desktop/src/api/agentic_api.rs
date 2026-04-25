@@ -157,6 +157,12 @@ pub struct CancelDialogTurnRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CancelSessionRequest {
+    pub session_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CancelToolRequest {
     pub tool_use_id: String,
     pub reason: Option<String>,
@@ -586,6 +592,26 @@ pub async fn cancel_dialog_turn(
             );
             format!("Failed to cancel dialog turn: {}", e)
         })
+}
+
+#[tauri::command]
+pub async fn cancel_session(
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    request: CancelSessionRequest,
+) -> Result<(), String> {
+    coordinator
+        .cancel_active_turn_for_session(&request.session_id, std::time::Duration::from_secs(5))
+        .await
+        .map_err(|e| {
+            log::error!(
+                "Failed to cancel session: session_id={}, error={}",
+                request.session_id,
+                e
+            );
+            format!("Failed to cancel session: {}", e)
+        })?;
+
+    Ok(())
 }
 
 #[tauri::command]

@@ -4,7 +4,7 @@
  * Used by session lists and persistence metadata in the frontend.
  */
 
-export type SessionKind = 'normal' | 'btw';
+export type SessionKind = 'normal' | 'btw' | 'review' | 'deep_review';
 export type PersistedSessionKind = 'standard' | 'subagent';
 export type SessionTitleSource = 'text' | 'i18n';
 

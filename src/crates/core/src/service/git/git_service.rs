@@ -1,9 +1,9 @@
+use super::git_types::*;
+use super::git_utils::*;
 /**
  * Git service implementation
  */
 use crate::util::elapsed_ms_u64;
-use super::git_types::*;
-use super::git_utils::*;
 use git2::{BranchType, Commit, Repository};
 use std::path::Path;
 use std::time::Duration;

@@ -74,6 +74,10 @@ pub(crate) async fn computer_use_augment_result_json(
                     "suggestion": loop_result.suggestion,
                 }),
             );
+            // P4: When repetitions significantly exceed threshold, signal termination
+            if loop_result.repetitions > 3 {
+                map.insert("loop_terminated".to_string(), json!(true));
+            }
         }
     }
     body
@@ -2227,11 +2231,17 @@ impl Tool for ComputerUseTool {
                             if stdout.is_empty() {
                                 String::new()
                             } else {
-                                format!(" Output: {}", &stdout[..stdout.len().min(200)])
+                                format!(
+                                    " Output: {}",
+                                    crate::util::truncate_at_char_boundary(&stdout, 200)
+                                )
                             }
                         )
                     } else {
-                        format!("AppleScript error: {}", &stderr[..stderr.len().min(200)])
+                        format!(
+                            "AppleScript error: {}",
+                            crate::util::truncate_at_char_boundary(&stderr, 200)
+                        )
                     };
                     Ok(vec![ToolResult::ok(body, Some(summary))])
                 }

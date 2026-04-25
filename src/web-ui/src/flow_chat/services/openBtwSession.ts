@@ -27,7 +27,7 @@ export interface BtwSessionPanelMetadata {
 
 type AgentCanvasState = ReturnType<typeof useAgentCanvasStore.getState>;
 
-const getBtwSessionDuplicateKey = (childSessionId: string) => `btw-session-${childSessionId}`;
+export const getBtwSessionDuplicateKey = (childSessionId: string) => `btw-session-${childSessionId}`;
 
 const resolveBtwSessionTitle = (childSessionId: string): string => {
   const session = flowChatStore.getState().sessions.get(childSessionId);
@@ -36,6 +36,22 @@ const resolveBtwSessionTitle = (childSessionId: string): string => {
     : undefined;
   if (title) return title;
   return i18nService.t('flow-chat:btw.threadLabel', { defaultValue: 'Side thread' });
+};
+
+const scheduleFrame = (callback: FrameRequestCallback): void => {
+  if (typeof globalThis.requestAnimationFrame === 'function') {
+    globalThis.requestAnimationFrame(callback);
+    return;
+  }
+  setTimeout(() => callback(Date.now()), 0);
+};
+
+const clearSessionUnreadCompletionAfterRender = (sessionId: string): void => {
+  scheduleFrame(() => {
+    scheduleFrame(() => {
+      flowChatStore.clearSessionUnreadCompletion(sessionId);
+    });
+  });
 };
 
 export const isBtwSessionPanelContent = (content: PanelContent | null | undefined): boolean =>
@@ -124,8 +140,8 @@ export function openBtwSessionInAuxPane(params: {
     params.workspacePath
   );
 
-  if (params.expand !== false) {
-    window.dispatchEvent(new CustomEvent('expand-right-panel'));
+  if (params.expand !== false && typeof window !== 'undefined') {
+    window.dispatchEvent(new window.CustomEvent('expand-right-panel'));
   }
 
   createTab({
@@ -138,4 +154,17 @@ export function openBtwSessionInAuxPane(params: {
     replaceExisting: false,
     mode: 'agent',
   });
+  clearSessionUnreadCompletionAfterRender(params.childSessionId);
+}
+
+export function closeBtwSessionInAuxPane(childSessionId: string): boolean {
+  const duplicateCheckKey = getBtwSessionDuplicateKey(childSessionId);
+  const canvasStore = useAgentCanvasStore.getState();
+  const result = canvasStore.findTabByMetadata({ duplicateCheckKey });
+  if (!result) {
+    return false;
+  }
+
+  canvasStore.closeTab(result.tab.id, result.groupId, { forceRemove: true });
+  return true;
 }

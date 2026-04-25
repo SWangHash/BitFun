@@ -106,10 +106,10 @@ enum Commands {
     Health,
 
     /// Start Agent Client Protocol (ACP) server
-    /// 
+    ///
     /// Runs a JSON-RPC 2.0 server over stdio for integration with
     /// ACP-compatible editors and IDEs.
-    /// 
+    ///
     /// Usage: bitfun acp
     /// The server reads JSON-RPC requests from stdin and writes responses to stdout.
     Acp {

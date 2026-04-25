@@ -5,7 +5,7 @@
  * `src/web-ui/src/locales/<locale-id>/*.json` files. The i18n audit checks
  * that the registry and locale folders stay in sync.
  */
-export const LOCALE_IDS = ['zh-CN', 'zh-TW', 'en-US'] as const;
+export const LOCALE_IDS = ['zh-CN', 'en-US', 'zh-TW'] as const;
 export type LocaleId = (typeof LOCALE_IDS)[number];
 
 export const builtinLocales = [
@@ -26,22 +26,6 @@ export const builtinLocales = [
     builtin: true,
   },
   {
-    id: 'zh-TW',
-    name: '繁體中文',
-    englishName: 'Traditional Chinese',
-    nativeName: '繁體中文',
-    shortName: '繁',
-    rtl: false,
-    dateFormat: 'YYYY年MM月DD日',
-    numberFormat: {
-      decimal: '.',
-      thousands: ',',
-    },
-    aliases: ['zh-TW', 'zh-Hant', 'zh-HK', 'zh-MO'],
-    contentFallbacks: ['zh-CN', 'en-US'],
-    builtin: true,
-  },
-  {
     id: 'en-US',
     name: 'English',
     englishName: 'English (US)',
@@ -55,6 +39,22 @@ export const builtinLocales = [
     },
     aliases: ['en', 'en-US'],
     contentFallbacks: ['zh-CN'],
+    builtin: true,
+  },
+  {
+    id: 'zh-TW',
+    name: '繁體中文',
+    englishName: 'Traditional Chinese',
+    nativeName: '繁體中文',
+    shortName: '繁',
+    rtl: false,
+    dateFormat: 'YYYY年MM月DD日',
+    numberFormat: {
+      decimal: '.',
+      thousands: ',',
+    },
+    aliases: ['zh-TW', 'zh-Hant', 'zh-HK', 'zh-MO'],
+    contentFallbacks: ['zh-CN', 'en-US'],
     builtin: true,
   },
 ] satisfies LocaleMetadata[];

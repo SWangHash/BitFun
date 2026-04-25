@@ -51,7 +51,8 @@ impl AcpSessionManager {
             client_capabilities,
         };
 
-        self.sessions.insert(acp_session_id.clone(), session.clone());
+        self.sessions
+            .insert(acp_session_id.clone(), session.clone());
 
         tracing::info!(
             "Created ACP session: acp_id={}, bitfun_id={}",
@@ -69,7 +70,9 @@ impl AcpSessionManager {
 
     /// Remove an ACP session
     pub fn remove_session(&self, acp_session_id: &str) -> Option<AcpSession> {
-        self.sessions.remove(acp_session_id).map(|(_, session)| session)
+        self.sessions
+            .remove(acp_session_id)
+            .map(|(_, session)| session)
     }
 
     /// List all sessions

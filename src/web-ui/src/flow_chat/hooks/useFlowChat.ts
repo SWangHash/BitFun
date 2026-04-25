@@ -21,7 +21,11 @@ import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext'
 import { WorkspaceKind } from '@/shared/types';
 import { generateTempTitle } from '../utils/titleUtils';
 import { createLogger } from '@/shared/utils/logger';
-import { createI18nSessionTitleDescriptor } from '../utils/sessionTitle';
+import {
+  createI18nSessionTitleDescriptor,
+  getNextDefaultSessionTitleCount,
+  normalizeDefaultSessionTitleMode,
+} from '../utils/sessionTitle';
 
 const log = createLogger('useFlowChat');
 
@@ -94,13 +98,6 @@ export const useFlowChat = () => {
   const createSession = useCallback(async (config?: Partial<SessionConfig>): Promise<string> => {
     
     try {
-      const sessionCount = flowChatStore.getState().sessions.size + 1;
-      const titleDescriptor = createI18nSessionTitleDescriptor(
-        'flow-chat:session.newWithIndex',
-        (key, options) => i18nService.t(key, options),
-        { count: sessionCount },
-      );
-      const sessionName = titleDescriptor.text;
       if (!workspacePath) {
         throw new Error('Workspace path is required to create a session');
       }
@@ -112,6 +109,26 @@ export const useFlowChat = () => {
       const remoteSshHost = isRemote ? workspace?.sshHost : undefined;
 
       const agentTypeForSession = (config?.agentType || 'agentic').trim() || 'agentic';
+      const sessionTitleMode =
+        workspace?.workspaceKind === WorkspaceKind.Assistant
+          ? 'claw'
+          : normalizeDefaultSessionTitleMode(agentTypeForSession);
+      const sessionCount = getNextDefaultSessionTitleCount(
+        flowChatStore.getState().sessions.values(),
+        {
+          mode: sessionTitleMode,
+          workspaceId: workspace?.id,
+          workspacePath,
+          remoteConnectionId,
+          remoteSshHost,
+        },
+      );
+      const titleDescriptor = createI18nSessionTitleDescriptor(
+        'flow-chat:session.newWithIndex',
+        (key, options) => i18nService.t(key, options),
+        { count: sessionCount },
+      );
+      const sessionName = titleDescriptor.text;
 
       const response = await agentAPI.createSession({
         sessionName,
@@ -184,7 +201,21 @@ export const useFlowChat = () => {
         workspaceId: workspace?.id ?? config?.workspaceId,
       };
 
-      const sessionCount = flowChatStore.getState().sessions.size + 1;
+      const fallbackAgentType = (config?.agentType || 'agentic').trim() || 'agentic';
+      const fallbackTitleMode =
+        workspace?.workspaceKind === WorkspaceKind.Assistant
+          ? 'claw'
+          : normalizeDefaultSessionTitleMode(fallbackAgentType);
+      const sessionCount = getNextDefaultSessionTitleCount(
+        flowChatStore.getState().sessions.values(),
+        {
+          mode: fallbackTitleMode,
+          workspaceId: workspace?.id,
+          workspacePath,
+          remoteConnectionId: remoteConnectionIdFb,
+          remoteSshHost: remoteSshHostFb,
+        },
+      );
       const titleDescriptor = createI18nSessionTitleDescriptor(
         'flow-chat:session.newWithIndex',
         (key, options) => i18nService.t(key, options),

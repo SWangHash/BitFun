@@ -8,15 +8,17 @@ import { useTranslation } from 'react-i18next';
 import { 
   Split,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Square
 } from 'lucide-react';
 import type { FlowToolItem, FlowTextItem, FlowThinkingItem, FlowItem } from '../../types/flow-chat';
 import { FlowChatStore } from '../../store/FlowChatStore';
 import { FlowTextBlock } from '../FlowTextBlock';
 import { FlowToolCard } from '../FlowToolCard';
 import { ModelThinkingDisplay } from '../../tool-cards/ModelThinkingDisplay';
-import { Tooltip, DotMatrixLoader } from '@/component-library';
+import { Button, Tooltip, DotMatrixLoader } from '@/component-library';
 import { createLogger } from '@/shared/utils/logger';
+import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
 import './TaskDetailPanel.scss';
 
 const log = createLogger('TaskDetailPanel');
@@ -43,6 +45,8 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
   const parentTaskToolId = toolItem?.id;
   
   const [subagentItems, setSubagentItems] = useState<FlowItem[]>([]);
+  const [stoppingSubagent, setStoppingSubagent] = useState(false);
+  const [stopError, setStopError] = useState<string | null>(null);
   
   const contentRef = useRef<HTMLDivElement>(null);
   // Track auto-scroll; disable when the user scrolls up.
@@ -89,6 +93,9 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
   const isRunning = status === 'preparing' || status === 'streaming' || status === 'running';
   const isFailed = status === 'error';
   const isCompleted = status === 'completed' && !isFailed;
+  const subagentSessionId = toolItem?.subagentSessionId
+    || subagentItems.find((item) => item.subagentSessionId)?.subagentSessionId;
+  const canStopSubagent = Boolean(isRunning && subagentSessionId);
 
   const getErrorMessage = () => {
     if (toolResult && 'error' in toolResult) {
@@ -139,6 +146,12 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
     }
   }, [isRunning]);
 
+  useEffect(() => {
+    if (!isRunning) {
+      setStoppingSubagent(false);
+    }
+  }, [isRunning]);
+
   const formatDuration = (ms: number) => {
     if (ms < 1000) return `${ms}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
@@ -172,6 +185,31 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
       log.error('Failed to open file', { filePath, error });
     }
   }, []);
+
+  const handleStopSubagent = useCallback(async () => {
+    if (!subagentSessionId || stoppingSubagent) {
+      return;
+    }
+
+    setStoppingSubagent(true);
+    setStopError(null);
+
+    try {
+      await agentAPI.cancelSession(subagentSessionId);
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : t('toolCards.taskDetailPanel.stopSubagentFailed', {
+          defaultValue: 'Failed to stop this subagent.',
+        });
+      setStopError(message);
+      log.error('Failed to stop subagent session', {
+        subagentSessionId,
+        error,
+      });
+      setStoppingSubagent(false);
+    }
+  }, [stoppingSubagent, subagentSessionId, t]);
 
   const renderSubagentItem = useCallback((item: FlowItem) => {
     switch (item.type) {
@@ -260,6 +298,39 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
             <summary>{t('toolCards.taskDetailPanel.promptLabel')}</summary>
             <pre className="task-detail-panel__prompt-content">{taskInput.prompt}</pre>
           </details>
+        )}
+
+        {canStopSubagent && (
+          <div className="task-detail-panel__actions">
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={() => void handleStopSubagent()}
+              disabled={stoppingSubagent}
+            >
+              <Square size={12} style={{ marginRight: 6 }} />
+              {stoppingSubagent
+                ? t('toolCards.taskDetailPanel.stoppingSubagent', {
+                  defaultValue: 'Stopping subagent...',
+                })
+                : t('toolCards.taskDetailPanel.stopSubagent', {
+                  defaultValue: 'Stop subagent',
+                })}
+            </Button>
+            <span className="task-detail-panel__actions-hint">
+              {t('toolCards.taskDetailPanel.stopSubagentHint', {
+                defaultValue:
+                  'Cancels only this reviewer/subagent. The parent review can keep going and still produce a summary.',
+              })}
+            </span>
+          </div>
+        )}
+
+        {stopError && (
+          <div className="task-detail-panel__error">
+            <AlertCircle size={14} />
+            <span>{stopError}</span>
+          </div>
         )}
 
         {subagentItems.length > 0 && (
