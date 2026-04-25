@@ -142,7 +142,7 @@ After the reviewer batch finishes, launch `ReviewJudge` with:
 - the same review target
 - the full reviewer outputs from every reviewer that ran, including timeout/cancel/failure notes
 - if file splitting was used, include outputs from **all** same-role instances and label each by group (e.g. "Security Reviewer [group 1/3]")
-- an instruction to validate, reject, merge, or downgrade findings, and to deduplicate any overlapping findings from same-role instances
+- an instruction to validate, reject, merge, or downgrade findings from a **third-party perspective** — the judge primarily examines reviewer reports for logical consistency and evidence quality, and only uses code inspection tools for targeted spot-checks when a specific claim needs verification
 
 If the execution policy says `judge_timeout_seconds > 0`, pass `timeout_seconds` with that value to the judge Task call.
 
@@ -152,6 +152,7 @@ The judge must explicitly call out:
 
 - likely false positives
 - optimization advice that is too risky or directionally wrong
+- findings where the reviewer's evidence does not support their conclusion
 - which findings should survive into the final report
 
 ### Phase 4: Report and wait for user approval

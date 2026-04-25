@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   Bot,
+  ChevronDown,
   Gauge,
   GitBranch,
   Lock,
@@ -261,8 +262,7 @@ const ReviewTeamPage: React.FC = () => {
     );
   }
 
-  const selectedResponsibilities = selectedMember ? getLocalizedResponsibilities(selectedMember) : [];
-  const SelectedIcon = selectedMember ? getMemberIcon(selectedMember) : Bot;
+
   const policy = team.executionPolicy;
   const strategyLabel = getStrategyLabel(team.strategyLevel);
   const reviewerTimeoutLabel = formatPolicySeconds(policy.reviewerTimeoutSeconds);
@@ -308,6 +308,7 @@ const ReviewTeamPage: React.FC = () => {
 
       <ConfigPageContent>
         <ConfigPageSection
+          className="review-team-page__section--no-body-frame"
           title={t('reviewTeams.detail.summaryTitle', { defaultValue: 'Team Overview' })}
           description={t('reviewTeams.detail.summaryDescription', {
             defaultValue: 'The code review team launches reviewers in parallel and finishes with a quality-gate pass.',
@@ -416,6 +417,7 @@ const ReviewTeamPage: React.FC = () => {
         </ConfigPageSection>
 
         <ConfigPageSection
+          className="review-team-page__section--no-body-frame"
           title={t('reviewTeams.detail.membersTitle', { defaultValue: 'Team Members' })}
           description={t('reviewTeams.detail.membersDescription', {
             defaultValue: 'Click a member to inspect its role and responsibilities. Core roles always stay in the team.',
@@ -441,113 +443,125 @@ const ReviewTeamPage: React.FC = () => {
             {team.members.map((member) => {
               const MemberIcon = getMemberIcon(member);
               const isSelected = selectedMember?.id === member.id;
+              const responsibilities = getLocalizedResponsibilities(member);
 
               return (
-                <button
+                <div
                   key={member.id}
-                  type="button"
-                  className={`review-team-page__member-card${isSelected ? ' is-selected' : ''}`}
+                  className={`review-team-page__member-card${isSelected ? ' is-selected is-expanded' : ''}`}
                   style={{ '--member-accent': member.accentColor || DEFAULT_MEMBER_ACCENT } as React.CSSProperties}
-                  onClick={() => setSelectedMemberId(member.id)}
                 >
-                  <div className="review-team-page__member-card-icon">
-                    <MemberIcon size={16} strokeWidth={1.9} />
-                  </div>
-                  <div className="review-team-page__member-card-body">
-                    <div className="review-team-page__member-card-top">
-                      <span className="review-team-page__member-card-name">
-                        {getLocalizedMemberName(member)}
+                  <button
+                    type="button"
+                    className="review-team-page__member-card-header"
+                    onClick={() => setSelectedMemberId(isSelected ? null : member.id)}
+                  >
+                    <div className="review-team-page__member-card-icon">
+                      <MemberIcon size={16} strokeWidth={1.9} />
+                    </div>
+                    <div className="review-team-page__member-card-body">
+                      <div className="review-team-page__member-card-top">
+                        <span className="review-team-page__member-card-name">
+                          {getLocalizedMemberName(member)}
+                        </span>
+                        <div className="review-team-page__member-card-badges">
+                          {member.locked ? (
+                            <Badge variant="neutral">
+                              <Lock size={10} />
+                              {t('reviewTeams.detail.memberTypes.locked', { defaultValue: 'Locked' })}
+                            </Badge>
+                          ) : (
+                            <Badge variant="info">
+                              {t('reviewTeams.detail.memberTypes.extra', { defaultValue: 'Extra Sub-Agent' })}
+                            </Badge>
+                          )}
+                          <Badge variant={getSourceVariant(member.subagentSource)}>
+                            {t(`reviewTeams.detail.memberTypes.${member.subagentSource ?? 'builtin'}`, {
+                              defaultValue: member.subagentSource ?? 'builtin',
+                            })}
+                          </Badge>
+                          <Badge variant={member.strategySource === 'member' ? 'info' : 'neutral'}>
+                            {getStrategyLabel(member.strategyLevel)}
+                          </Badge>
+                        </div>
+                      </div>
+                      <p className="review-team-page__member-card-description">
+                        {getLocalizedMemberDescription(member)}
+                      </p>
+                      <span className="review-team-page__member-card-model">
+                        {formatModelLabel(member.model)}
                       </span>
-                      <div className="review-team-page__member-card-badges">
-                        {member.locked ? (
-                          <Badge variant="neutral">
-                            <Lock size={10} />
-                            {t('reviewTeams.detail.memberTypes.locked', { defaultValue: 'Locked' })}
-                          </Badge>
-                        ) : (
-                          <Badge variant="info">
-                            {t('reviewTeams.detail.memberTypes.extra', { defaultValue: 'Extra Sub-Agent' })}
-                          </Badge>
-                        )}
-                        <Badge variant={getSourceVariant(member.subagentSource)}>
-                          {t(`reviewTeams.detail.memberTypes.${member.subagentSource ?? 'builtin'}`, {
-                            defaultValue: member.subagentSource ?? 'builtin',
-                          })}
-                        </Badge>
-                        <Badge variant={member.strategySource === 'member' ? 'info' : 'neutral'}>
-                          {getStrategyLabel(member.strategyLevel)}
-                        </Badge>
+                      <span className="review-team-page__member-card-chevron">
+                        <ChevronDown
+                          size={14}
+                          strokeWidth={1.9}
+                          style={{
+                            transform: isSelected ? 'rotate(180deg)' : undefined,
+                            transition: 'transform 200ms ease',
+                          }}
+                        />
+                      </span>
+                    </div>
+                  </button>
+
+                  {isSelected ? (
+                    <div className="review-team-page__member-card-detail">
+                      <div className="review-team-page__member-card-detail-inner">
+                        <div className="review-team-page__detail-hero">
+                          <div
+                            className="review-team-page__detail-icon"
+                            style={{ '--member-accent': member.accentColor || DEFAULT_MEMBER_ACCENT } as React.CSSProperties}
+                          >
+                            <MemberIcon size={18} strokeWidth={1.9} />
+                          </div>
+                          <div className="review-team-page__detail-copy">
+                            <div className="review-team-page__detail-title-row">
+                              <div>
+                                <h3 className="review-team-page__detail-name">
+                                  {getLocalizedMemberName(member)}
+                                </h3>
+                                <p className="review-team-page__detail-role">
+                                  {member.subagentId}
+                                </p>
+                              </div>
+                              <div className="review-team-page__detail-badges">
+                                <Badge variant="accent">{formatModelLabel(member.model)}</Badge>
+                                <Badge variant={member.strategySource === 'member' ? 'info' : 'neutral'}>
+                                  {getStrategyLabel(member.strategyLevel)}
+                                </Badge>
+                                {member.locked ? (
+                                  <Badge variant="neutral">
+                                    {t('reviewTeams.detail.memberTypes.core', { defaultValue: 'Core role' })}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                            </div>
+                            <p className="review-team-page__detail-description">
+                              {getLocalizedMemberDescription(member)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="review-team-page__responsibilities">
+                          <span className="review-team-page__block-label">
+                            {t('reviewTeams.detail.responsibilities', { defaultValue: 'Responsibilities' })}
+                          </span>
+                          <ul className="review-team-page__responsibility-list">
+                            {responsibilities.map((item, index) => (
+                              <li key={`${member.id}-${index}`} className="review-team-page__responsibility-item">
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
                     </div>
-                    <p className="review-team-page__member-card-description">
-                      {getLocalizedMemberDescription(member)}
-                    </p>
-                    <span className="review-team-page__member-card-model">
-                      {formatModelLabel(member.model)}
-                    </span>
-                  </div>
-                </button>
+                  ) : null}
+                </div>
               );
             })}
           </div>
         </ConfigPageSection>
-
-        {selectedMember ? (
-          <ConfigPageSection
-            title={t('reviewTeams.detail.memberDetailTitle', { defaultValue: 'Member Detail' })}
-            description={t('reviewTeams.detail.memberDetailDescription', {
-              defaultValue: 'The selected reviewer keeps an isolated context when the code review team runs.',
-            })}
-          >
-            <div className="review-team-page__detail-hero">
-              <div
-                className="review-team-page__detail-icon"
-                style={{ '--member-accent': selectedMember.accentColor || DEFAULT_MEMBER_ACCENT } as React.CSSProperties}
-              >
-                <SelectedIcon size={18} strokeWidth={1.9} />
-              </div>
-              <div className="review-team-page__detail-copy">
-                <div className="review-team-page__detail-title-row">
-                  <div>
-                    <h3 className="review-team-page__detail-name">
-                      {getLocalizedMemberName(selectedMember)}
-                    </h3>
-                    <p className="review-team-page__detail-role">
-                      {selectedMember.subagentId}
-                    </p>
-                  </div>
-                  <div className="review-team-page__detail-badges">
-                    <Badge variant="accent">{formatModelLabel(selectedMember.model)}</Badge>
-                    <Badge variant={selectedMember.strategySource === 'member' ? 'info' : 'neutral'}>
-                      {getStrategyLabel(selectedMember.strategyLevel)}
-                    </Badge>
-                    {selectedMember.locked ? (
-                      <Badge variant="neutral">
-                        {t('reviewTeams.detail.memberTypes.core', { defaultValue: 'Core role' })}
-                      </Badge>
-                    ) : null}
-                  </div>
-                </div>
-                <p className="review-team-page__detail-description">
-                  {getLocalizedMemberDescription(selectedMember)}
-                </p>
-              </div>
-            </div>
-
-            <div className="review-team-page__responsibilities">
-              <span className="review-team-page__block-label">
-                {t('reviewTeams.detail.responsibilities', { defaultValue: 'Responsibilities' })}
-              </span>
-              <ul className="review-team-page__responsibility-list">
-                {selectedResponsibilities.map((item) => (
-                  <li key={item} className="review-team-page__responsibility-item">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </ConfigPageSection>
-        ) : null}
       </ConfigPageContent>
     </ConfigPageLayout>
   );

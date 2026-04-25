@@ -211,7 +211,7 @@ export const DEFAULT_REVIEW_TEAM_CORE_ROLES: ReviewTeamCoreRoleDefinition[] = [
   {
     key: 'businessLogic',
     subagentId: 'ReviewBusinessLogic',
-    funName: 'Logic Detective Locke',
+    funName: 'Logic Reviewer',
     roleName: 'Business Logic Reviewer',
     description:
       'A workflow sleuth that inspects business rules, state transitions, recovery paths, and real-user correctness.',
@@ -225,7 +225,7 @@ export const DEFAULT_REVIEW_TEAM_CORE_ROLES: ReviewTeamCoreRoleDefinition[] = [
   {
     key: 'performance',
     subagentId: 'ReviewPerformance',
-    funName: 'Turbo Trace Bolt',
+    funName: 'Performance Reviewer',
     roleName: 'Performance Reviewer',
     description:
       'A speed-focused profiler that hunts hot paths, unnecessary work, blocking calls, and scale-sensitive regressions.',
@@ -239,7 +239,7 @@ export const DEFAULT_REVIEW_TEAM_CORE_ROLES: ReviewTeamCoreRoleDefinition[] = [
   {
     key: 'security',
     subagentId: 'ReviewSecurity',
-    funName: 'Aegis Sentinel Nova',
+    funName: 'Security Reviewer',
     roleName: 'Security Reviewer',
     description:
       'A boundary guardian that scans for injection risks, trust leaks, privilege mistakes, and unsafe file or command handling.',
@@ -253,13 +253,14 @@ export const DEFAULT_REVIEW_TEAM_CORE_ROLES: ReviewTeamCoreRoleDefinition[] = [
   {
     key: 'judge',
     subagentId: 'ReviewJudge',
-    funName: 'Quality Judge Echo',
+    funName: 'Review Arbiter',
     roleName: 'Review Quality Inspector',
     description:
-      'A calm final arbiter that checks other reviewers for false positives, risky advice, and evidence quality before reporting.',
+      'An independent third-party arbiter that validates reviewer reports for logical consistency and evidence quality. It spot-checks specific code locations only when a claim needs verification, rather than re-reviewing the codebase from scratch.',
     responsibilities: [
-      'Validate, merge, downgrade, or reject reviewer findings before they reach the final report.',
-      'Filter out false positives and directionally-wrong optimization advice.',
+      'Validate, merge, downgrade, or reject reviewer findings based on logical consistency and evidence quality.',
+      'Filter out false positives and directionally-wrong optimization advice by examining reviewer reasoning.',
+      'Spot-check specific code locations only when a reviewer claim needs verification.',
       'Ensure every surviving issue has an actionable fix or follow-up plan.',
     ],
     accentColor: '#7c3aed',
@@ -963,7 +964,7 @@ export function buildReviewTeamPromptBlock(
     '- When file splitting is active, each same-role instance must only review its assigned file group. Label instances in the Task description (e.g. "Security review [group 1/3]").',
     '- Do not run ReviewFixer during the review pass.',
     '- Wait for explicit user approval before starting any remediation.',
-    '- The Review Quality Inspector must validate findings from every reviewer (including all same-role instances) before the final report.',
+    '- The Review Quality Inspector acts as a third-party arbiter: it primarily examines reviewer reports for logical consistency and evidence quality, and only uses code inspection tools for targeted spot-checks when a specific claim needs verification.',
     'Review strategy rules:',
     `- Team strategy: ${team.strategyLevel}. ${formatStrategyImpact(team.strategyLevel)}`,
     commonStrategyRules,

@@ -534,6 +534,18 @@
     "separator": "，",
     "collapse": "收起探索过程"
   },
+  "terminalRegion": {
+    "executedCommands_one": "执行了 {{count}} 个命令",
+    "executedCommands_other": "执行了 {{count}} 个命令",
+    "executedCommands": "执行了 {{count}} 个命令",
+    "allSuccess": "全部成功",
+    "partialSuccess": "{{success}} 个成功，{{failed}} 个失败",
+    "withRunning": "{{success}} 个成功，{{running}} 个运行中",
+    "withCancelled": "{{success}} 个成功，{{cancelled}} 个已取消",
+    "mixedStatus": "{{success}} 个成功，{{failed}} 个失败，{{running}} 个运行中",
+    "separator": "，",
+    "collapse": "收起命令列表"
+  },
   "toolCards": {
     "file": {
       "write": "写入文件",

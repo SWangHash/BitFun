@@ -299,7 +299,7 @@ describeWithJsdom('ReviewTeamPage', () => {
       memberButton!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
     });
 
-    expect(container.textContent).toContain('Member Detail');
+    expect(container.textContent).toContain('Responsibilities');
     expect(container.textContent).toContain('Logic');
   });
 });

@@ -29,20 +29,63 @@ function findParentTurnId(parentSession: { dialogTurns: Array<{ id: string; mode
 }
 
 /**
- * Subagent text items are now created on the first real text chunk only.
- * The TaskDetailPanel loading state handles the waiting period.
+ * Create a placeholder text item when a subagent model round starts.
+ * This gives users immediate visual feedback that the subagent is running,
+ * rather than waiting for the first text chunk.
  */
 export function routeModelRoundStartedToToolCard(
   _context: FlowChatContext,
-  _parentSessionId: string,
-  _parentToolId: string,
-  _data: {
+  parentSessionId: string,
+  parentToolId: string,
+  data: {
     sessionId: string;
     turnId: string;
     roundId: string;
   }
 ): void {
-  // No-op: placeholder items are no longer created.
+  const store = FlowChatStore.getInstance();
+  const parentSession = store.getState().sessions.get(parentSessionId);
+
+  if (!parentSession) {
+    log.debug('Parent session not found (Subagent ModelRoundStarted)', { parentSessionId });
+    return;
+  }
+
+  const parentTurnId = findParentTurnId(parentSession, parentToolId);
+  if (!parentTurnId) {
+    log.debug('Parent tool DialogTurn not found (ModelRoundStarted)', { parentSessionId, parentToolId });
+    return;
+  }
+
+  const itemId = getSubagentTextItemId(parentToolId, data.sessionId, data.roundId);
+
+  // Check if placeholder already exists (e.g., from a previous call)
+  const parentTurn = parentSession.dialogTurns.find(turn => turn.id === parentTurnId);
+  if (parentTurn) {
+    for (const round of parentTurn.modelRounds) {
+      if (round.items.some(item => item.id === itemId)) {
+        return;
+      }
+    }
+  }
+
+  const parentTool = store.findToolItem(parentSessionId, parentTurnId, parentToolId);
+  const parentTimestamp = parentTool?.timestamp || Date.now();
+
+  const placeholderItem: FlowTextItem = {
+    id: itemId,
+    type: 'text',
+    content: '\u200B',
+    timestamp: parentTimestamp + 1,
+    isStreaming: true,
+    status: 'streaming',
+    isMarkdown: true,
+    isSubagentItem: true,
+    parentTaskToolId: parentToolId,
+    subagentSessionId: data.sessionId,
+  };
+
+  store.insertModelRoundItemAfterTool(parentSessionId, parentTurnId, parentToolId, placeholderItem);
 }
 
 /**
@@ -93,7 +136,9 @@ export function routeTextChunkToToolCard(
   }
   
   if (existingItem) {
-    const content = existingItem.content + textContent;
+    // Strip the zero-width-space placeholder when the first real text arrives.
+    const baseContent = existingItem.content === '\u200B' ? '' : existingItem.content;
+    const content = baseContent + textContent;
 
     if (isThinkingEnd) {
       store.updateModelRoundItem(parentSessionId, parentTurnId, itemId, {

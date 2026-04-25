@@ -534,6 +534,18 @@
     "separator": ", ",
     "collapse": "Collapse exploration"
   },
+  "terminalRegion": {
+    "executedCommands_one": "Executed {{count}} command",
+    "executedCommands_other": "Executed {{count}} commands",
+    "executedCommands": "Executed {{count}} command(s)",
+    "allSuccess": "All succeeded",
+    "partialSuccess": "{{success}} succeeded, {{failed}} failed",
+    "withRunning": "{{success}} succeeded, {{running}} running",
+    "withCancelled": "{{success}} succeeded, {{cancelled}} cancelled",
+    "mixedStatus": "{{success}} succeeded, {{failed}} failed, {{running}} running",
+    "separator": ", ",
+    "collapse": "Collapse commands"
+  },
   "toolCards": {
     "file": {
       "write": "Write File",

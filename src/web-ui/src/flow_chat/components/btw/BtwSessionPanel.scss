@@ -170,13 +170,8 @@
     z-index: 12;
   }
 
-  // When the deep review action bar is visible, add extra scroll padding
-  &--has-action-bar &__body::after {
-    height: 220px;
-    min-height: 220px;
-  }
-
+  // Action bar is now a floating card above the bottom, so no extra scroll padding needed.
   &--has-action-bar &__scroll-to-bottom {
-    bottom: 200px;
+    bottom: 140px;
   }
 }

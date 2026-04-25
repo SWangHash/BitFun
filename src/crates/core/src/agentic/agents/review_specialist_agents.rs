@@ -35,7 +35,7 @@ define_readonly_subagent!(
     ReviewJudgeAgent,
     REVIEW_JUDGE_AGENT_TYPE,
     "Review Quality Inspector",
-    r#"Independent read-only quality inspector that validates reviewer findings, removes false positives, checks whether optimization advice is directionally correct, and decides what should appear in the final deep-review report."#,
+    r#"Independent third-party arbiter that validates reviewer reports for logical consistency and evidence quality. It spot-checks specific code locations only when a claim needs verification, rather than re-reviewing the codebase from scratch."#,
     "review_quality_gate_agent",
     &["Read", "Grep", "Glob", "LS", "GetFileDiff", "Git"]
 );

@@ -250,7 +250,7 @@
     },
     "members": {
       "businessLogic": {
-        "funName": "Logic Detective Locke",
+        "funName": "Logic Reviewer",
         "role": "Business Logic Reviewer",
         "description": "A workflow sleuth that inspects business rules, state transitions, recovery paths, and real-user correctness.",
         "responsibilities": [
@@ -260,7 +260,7 @@
         ]
       },
       "performance": {
-        "funName": "Turbo Trace Bolt",
+        "funName": "Performance Reviewer",
         "role": "Performance Reviewer",
         "description": "A speed-focused profiler that hunts hot paths, unnecessary work, blocking calls, and scale-sensitive regressions.",
         "responsibilities": [
@@ -270,7 +270,7 @@
         ]
       },
       "security": {
-        "funName": "Aegis Sentinel Nova",
+        "funName": "Security Reviewer",
         "role": "Security Reviewer",
         "description": "A boundary guardian that scans for injection risks, trust leaks, privilege mistakes, and unsafe file or command handling.",
         "responsibilities": [
@@ -280,12 +280,13 @@
         ]
       },
       "judge": {
-        "funName": "Quality Judge Echo",
+        "funName": "Review Arbiter",
         "role": "Review Quality Inspector",
-        "description": "A calm final arbiter that checks other reviewers for false positives, risky advice, and evidence quality before reporting.",
+        "description": "An independent third-party arbiter that validates reviewer reports for logical consistency and evidence quality. It spot-checks specific code locations only when a claim needs verification, rather than re-reviewing the codebase from scratch.",
         "responsibilities": [
-          "Validate, merge, downgrade, or reject reviewer findings before they reach the final report.",
-          "Filter out false positives and directionally-wrong optimization advice.",
+          "Validate, merge, downgrade, or reject reviewer findings based on logical consistency and evidence quality.",
+          "Filter out false positives and directionally-wrong optimization advice by examining reviewer reasoning.",
+          "Spot-check specific code locations only when a reviewer's claim needs verification.",
           "Ensure every surviving issue has an actionable fix or follow-up plan."
         ]
       }

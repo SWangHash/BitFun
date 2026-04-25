@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import type { ToolCardProps } from '../types/flow-chat';
 import { Terminal, Play, X, ExternalLink, Square } from 'lucide-react';
 import { createTerminalTab } from '@/shared/utils/tabUtils';
-import { BaseToolCard, ToolCardHeader } from './BaseToolCard';
+import { CompactToolCard, CompactToolCardHeader } from './CompactToolCard';
 import { CubeLoading, IconButton, Tooltip } from '../../component-library';
 import { TerminalOutputRenderer } from '@/tools/terminal/components';
 import { createLogger } from '@/shared/utils/logger';
@@ -480,9 +480,8 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
   };
 
   const renderHeader = () => (
-    <ToolCardHeader
-      icon={<Terminal size={16} />}
-      iconClassName="terminal-icon"
+    <CompactToolCardHeader
+      statusIcon={<Terminal size={14} className="terminal-card-icon" />}
       action={t('toolCards.terminal.executeCommand')}
       content={renderCommandContent()}
       extra={viewState.hasHeaderExtra ? (
@@ -530,7 +529,7 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
           )}
         </>
       ) : undefined}
-      statusIcon={renderStatusIcon()}
+      rightIcon={renderStatusIcon()}
     />
   );
   const expandedContent = isExpanded
@@ -542,17 +541,14 @@ export const TerminalToolCard: React.FC<TerminalToolCardProps> = ({
 
   return (
     <div ref={cardRootRef} data-tool-card-id={toolId ?? ''}>
-      <BaseToolCard
+      <CompactToolCard
         status={status}
         isExpanded={isExpanded}
         onClick={handleCardClick}
         className="terminal-tool-card"
+        clickable
         header={renderHeader()}
-        expandedContent={expandedContent}
-        errorContent={errorContent}
-        isFailed={viewState.isFailed}
-        requiresConfirmation={showConfirmButtons}
-        headerExpandAffordance
+        expandedContent={expandedContent || errorContent}
       />
     </div>
   );

@@ -1,11 +1,14 @@
 .deep-review-action-bar {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
   z-index: 20;
   padding: 12px 16px;
-  border-top: 1px solid var(--border-base);
+  border: 1px solid var(--border-base);
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-base);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -18,7 +21,7 @@
       color-mix(in srgb, var(--color-bg-elevated) 96%, transparent),
       color-mix(in srgb, var(--color-success, #22c55e) 6%, var(--color-bg-primary)),
     );
-    border-top-color: color-mix(in srgb, var(--color-success, #22c55e) 40%, var(--border-base));
+    border-color: color-mix(in srgb, var(--color-success, #22c55e) 40%, var(--border-base));
   }
 
   &--loading {
@@ -27,7 +30,7 @@
       color-mix(in srgb, var(--color-bg-elevated) 96%, transparent),
       color-mix(in srgb, var(--color-accent-500, #60a5fa) 6%, var(--color-bg-primary)),
     );
-    border-top-color: color-mix(in srgb, var(--color-accent-500, #60a5fa) 40%, var(--border-base));
+    border-color: color-mix(in srgb, var(--color-accent-500, #60a5fa) 40%, var(--border-base));
   }
 
   &--error {
@@ -36,7 +39,7 @@
       color-mix(in srgb, var(--color-bg-elevated) 96%, transparent),
       color-mix(in srgb, var(--color-error, #ef4444) 6%, var(--color-bg-primary)),
     );
-    border-top-color: color-mix(in srgb, var(--color-error, #ef4444) 40%, var(--border-base));
+    border-color: color-mix(in srgb, var(--color-error, #ef4444) 40%, var(--border-base));
   }
 
   &--warning {
@@ -45,7 +48,7 @@
       color-mix(in srgb, var(--color-bg-elevated) 96%, transparent),
       color-mix(in srgb, var(--color-warning, #f59e0b) 6%, var(--color-bg-primary)),
     );
-    border-top-color: color-mix(in srgb, var(--color-warning, #f59e0b) 40%, var(--border-base));
+    border-color: color-mix(in srgb, var(--color-warning, #f59e0b) 40%, var(--border-base));
   }
 
   &--info {

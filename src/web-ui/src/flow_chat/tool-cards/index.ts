@@ -502,6 +502,11 @@ export const COLLAPSIBLE_TOOL_NAMES = new Set([
   'Read', 'LS', 'Grep', 'Glob', 'WebSearch'
 ]);
 
+/** Terminal tools that can be grouped together. */
+export const TERMINAL_COLLAPSIBLE_TOOL_NAMES = new Set([
+  'Bash'
+]);
+
 /** Read tools (counted in readCount). */
 export const READ_TOOL_NAMES = new Set(['Read', 'LS']);
 
@@ -511,6 +516,11 @@ export const SEARCH_TOOL_NAMES = new Set(['Grep', 'Glob', 'WebSearch']);
 /** Check whether a tool is collapsible. */
 export function isCollapsibleTool(toolName: string): boolean {
   return COLLAPSIBLE_TOOL_NAMES.has(toolName);
+}
+
+/** Check whether a tool is a terminal collapsible tool. */
+export function isTerminalCollapsibleTool(toolName: string): boolean {
+  return TERMINAL_COLLAPSIBLE_TOOL_NAMES.has(toolName);
 }
 
 /**

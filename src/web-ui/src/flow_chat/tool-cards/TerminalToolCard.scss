@@ -1,37 +1,36 @@
 /**
  * Terminal tool card styles
- * Specific styles based on BaseToolCard
+ * Specific styles based on CompactToolCard
  */
 
-@use './BaseToolCard.scss';
+@use './CompactToolCard.scss';
 @use '../../component-library/styles/_extended-mixins' as mixins;
 
 /* ========== Terminal card specific styles ========== */
 
 .terminal-tool-card {
-  .tool-identifier-icon {
-    &.terminal-icon {
-      color: var(--color-text-secondary);
-    }
+  .terminal-card-icon {
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
   }
 }
 
-/* Entire header row shows pointer (card toggles expand); children must not force default cursor. */
-.base-tool-card-wrapper.terminal-tool-card .base-tool-card-header {
+/* Entire compact card shows pointer (card toggles expand); children must not force default cursor. */
+.compact-tool-card.terminal-tool-card {
   cursor: pointer;
 }
 
-/* Footer bar: full width + background to bottom inner edge of card (matches .base-tool-card-expanded padding). */
-.base-tool-card-wrapper.terminal-tool-card .terminal-result-footer {
-  margin-left: -10px;
-  margin-right: -10px;
-  margin-bottom: -10px;
-  padding: 6px 10px;
-  border-radius: 0 0 7px 7px;
+/* Footer bar: full width + background to bottom inner edge of expanded content (matches .compact-tool-card-expanded padding). */
+.compact-tool-card.terminal-tool-card .terminal-result-footer {
+  margin-left: -8px;
+  margin-right: -8px;
+  margin-bottom: -8px;
+  padding: 6px 8px;
+  border-radius: 0 0 6px 6px;
 }
 
 /* ========== Fix scrollbar visibility on card hover ========== */
-.base-tool-card-wrapper.terminal-tool-card:hover {
+.compact-tool-card.terminal-tool-card:hover {
   .terminal-execution-output,
   .terminal-result-output,
   .xterm-viewport {
@@ -460,12 +459,12 @@
 /* ========== Narrow width adaptation (Toolbar mode) ========== */
 .bitfun-toolbar-mode__flowchat-container {
   .terminal-tool-card {
-    .tool-card-action {
+    .compact-card-action {
       display: none;
     }
     
-    .base-tool-card-header {
-      padding: 6px 8px;
+    .compact-tool-card-header {
+      padding: 2px 4px;
       gap: 2px;
     }
     

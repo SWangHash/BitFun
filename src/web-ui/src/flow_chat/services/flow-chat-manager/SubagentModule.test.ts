@@ -142,22 +142,28 @@ describe('SubagentModule', () => {
     resetStore();
   });
 
-  it('creates text item directly from first text chunk without placeholder', () => {
+  it('creates placeholder on model round start then updates from text chunk', () => {
     seedParentTaskTool();
 
-    // ModelRoundStarted no longer creates a placeholder.
+    const itemId = `subagent-text-${parentToolId}-${subagentSessionId}-${subagentRoundId}`;
+
+    // ModelRoundStarted creates a placeholder immediately.
     routeModelRoundStartedToToolCard(context, parentSessionId, parentToolId, {
       sessionId: subagentSessionId,
       turnId: subagentTurnId,
       roundId: subagentRoundId,
     });
 
-    // Verify no placeholder was created — the item should not exist yet.
-    const itemId = `subagent-text-${parentToolId}-${subagentSessionId}-${subagentRoundId}`;
-    const beforeChunk = getParentRoundTextItem(itemId);
-    expect(beforeChunk).toBeUndefined();
+    const placeholder = getParentRoundTextItem(itemId);
+    expect(placeholder).toBeDefined();
+    expect(placeholder?.content).toBe('\u200B');
+    expect(placeholder?.status).toBe('streaming');
+    expect(placeholder?.isStreaming).toBe(true);
+    expect(placeholder?.isSubagentItem).toBe(true);
+    expect(placeholder?.parentTaskToolId).toBe(parentToolId);
+    expect(placeholder?.subagentSessionId).toBe(subagentSessionId);
 
-    // First text chunk creates the item directly.
+    // First text chunk updates the placeholder.
     routeTextChunkToToolCard(context, parentSessionId, parentToolId, {
       sessionId: subagentSessionId,
       turnId: subagentTurnId,

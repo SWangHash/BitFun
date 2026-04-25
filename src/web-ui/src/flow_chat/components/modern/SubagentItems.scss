@@ -35,7 +35,7 @@
   overflow-y: auto;
 
   .flow-text-block--subagent-compact {
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.15rem;
     max-height: calc(var(--flowchat-font-size-base) * 1.45 * 3);
     overflow: hidden;
     line-height: 1.45;
@@ -46,9 +46,14 @@
     }
 
     .markdown-renderer {
-      --markdown-block-gap: 0.25em;
+      --markdown-block-gap: 0.15em;
     }
   }
+}
+
+// When expanded, remove max-height limit so content is fully visible.
+.subagent-items-container--expanded {
+  max-height: none;
 }
 
 .subagent-items-container--collapsed {

@@ -1,29 +1,29 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useTranslation} from 'react-i18next';
 import path from 'path-browserify';
-import { Link2, CornerUpLeft, Square } from 'lucide-react';
-import { FlowChatContext } from '../modern/FlowChatContext';
-import { VirtualItemRenderer } from '../modern/VirtualItemRenderer';
-import { ProcessingIndicator } from '../modern/ProcessingIndicator';
-import { ScrollToBottomButton } from '../ScrollToBottomButton';
-import { flowChatStore } from '../../store/FlowChatStore';
-import type { FlowChatConfig, FlowChatState, Session } from '../../types/flow-chat';
-import { sessionToVirtualItems } from '../../store/modernFlowChatStore';
-import { FLOWCHAT_FOCUS_ITEM_EVENT, type FlowChatFocusItemRequest } from '../../events/flowchatNavigation';
-import { fileTabManager } from '@/shared/services/FileTabManager';
-import { createTab } from '@/shared/utils/tabUtils';
-import { IconButton, type LineRange } from '@/component-library';
-import { globalEventBus } from '@/infrastructure/event-bus';
-import { resolveSessionRelationship } from '../../utils/sessionMetadata';
-import { agentAPI } from '@/infrastructure/api';
-import { notificationService } from '@/shared/notification-system';
-import { createLogger } from '@/shared/utils/logger';
-import { settleStoppedReviewSessionState } from '../../utils/reviewSessionStop';
-import { findLatestCodeReviewResult } from '../../utils/reviewSessionSummary';
-import { deriveDeepReviewInterruption } from '../../utils/deepReviewContinuation';
-import { buildReviewRemediationItems, type CodeReviewRemediationData } from '../../utils/codeReviewRemediation';
-import { ReviewActionBar } from './DeepReviewActionBar';
-import { useReviewActionBarStore, type ReviewActionMode } from '../../store/deepReviewActionBarStore';
+import {CornerUpLeft, Link2, Square} from 'lucide-react';
+import {FlowChatContext} from '../modern/FlowChatContext';
+import {VirtualItemRenderer} from '../modern/VirtualItemRenderer';
+import {ProcessingIndicator} from '../modern/ProcessingIndicator';
+import {ScrollToBottomButton} from '@/flow_chat';
+import {flowChatStore} from '../../store/FlowChatStore';
+import type {FlowChatConfig, FlowChatState, Session} from '../../types/flow-chat';
+import {sessionToVirtualItems} from '../../store/modernFlowChatStore';
+import {FLOWCHAT_FOCUS_ITEM_EVENT, type FlowChatFocusItemRequest} from '../../events/flowchatNavigation';
+import {fileTabManager} from '@/shared/services/FileTabManager';
+import {createTab} from '@/shared/utils/tabUtils';
+import {IconButton, type LineRange} from '@/component-library';
+import {globalEventBus} from '@/infrastructure/event-bus';
+import {resolveSessionRelationship} from '../../utils/sessionMetadata';
+import {agentAPI} from '@/infrastructure/api';
+import {notificationService} from '@/shared/notification-system';
+import {createLogger} from '@/shared/utils/logger';
+import {settleStoppedReviewSessionState} from '../../utils/reviewSessionStop';
+import {findLatestCodeReviewResult} from '../../utils/reviewSessionSummary';
+import {deriveDeepReviewInterruption} from '../../utils/deepReviewContinuation';
+import {buildReviewRemediationItems, type CodeReviewRemediationData} from '../../utils/codeReviewRemediation';
+import {ReviewActionBar} from './DeepReviewActionBar';
+import {type ReviewActionMode, useReviewActionBarStore} from '../../store/deepReviewActionBarStore';
 import './BtwSessionPanel.scss';
 
 export interface BtwSessionPanelProps {
@@ -68,14 +68,12 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
   const { t } = useTranslation('flow-chat');
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
   const [stoppingReview, setStoppingReview] = useState(false);
-  const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
 
   useEffect(() => {
-    const unsubscribe = flowChatStore.subscribe(setFlowChatState);
-    return unsubscribe;
+    return flowChatStore.subscribe(setFlowChatState);
   }, []);
 
   const childSession = childSessionId ? flowChatState.sessions.get(childSessionId) : undefined;
@@ -328,7 +326,9 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
             phase: 'review_completed',
           });
         } else {
-          store.updatePhase('fix_completed');
+          // Fix completed with no further remediation needed — dismiss the action bar
+          // so the user can focus on the fix results in the chat stream.
+          store.dismiss();
         }
       }
       return;
@@ -423,40 +423,8 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
     );
   }
 
-  const confirmStopDialog = showStopConfirm ? (
-    <div className="btw-session-panel__confirm-overlay" role="dialog" aria-modal="true">
-      <div className="btw-session-panel__confirm-dialog">
-        <p className="btw-session-panel__confirm-message">
-          {t('childSession.stopReviewConfirm', {
-            defaultValue: 'Are you sure you want to stop this review? This action cannot be undone.',
-          })}
-        </p>
-        <div className="btw-session-panel__confirm-actions">
-          <button
-            type="button"
-            className="btw-session-panel__confirm-cancel"
-            onClick={() => setShowStopConfirm(false)}
-          >
-            {t('common.cancel', { defaultValue: 'Cancel' })}
-          </button>
-          <button
-            type="button"
-            className="btw-session-panel__confirm-stop"
-            onClick={() => {
-              setShowStopConfirm(false);
-              void handleStopReviewSession();
-            }}
-          >
-            {t('childSession.stopReview', { defaultValue: 'Stop review' })}
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null;
-
   return (
     <FlowChatContext.Provider value={contextValue}>
-      {confirmStopDialog}
       <div className={`btw-session-panel${showReviewActionBar ? ' btw-session-panel--has-action-bar' : ''}`}>
         <div className="btw-session-panel__header">
           <div className="btw-session-panel__header-left">
@@ -476,7 +444,7 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
                 className="btw-session-panel__stop-button"
                 variant="ghost"
                 size="xs"
-                onClick={() => setShowStopConfirm(true)}
+                onClick={() => void handleStopReviewSession()}
                 disabled={!canStopReviewSession}
                 tooltip={stoppingReview
                   ? t('childSession.stoppingReview', { defaultValue: 'Stopping review...' })
