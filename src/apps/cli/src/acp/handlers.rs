@@ -32,7 +32,9 @@ pub async fn handle_method(
         // Session methods
         "session/new" => handle_session_new(&request, session_manager, agentic_system).await?,
         "session/load" => handle_session_load(&request)?,
-        "session/prompt" => handle_session_prompt(&request, agentic_system, session_manager).await?,
+        "session/prompt" => {
+            handle_session_prompt(&request, agentic_system, session_manager).await?
+        }
         "session/cancel" => {
             // Notification - no response
             handle_session_cancel(&request, session_manager).await?;
@@ -43,7 +45,7 @@ pub async fn handle_method(
         // Tools methods
         "tools/list" => handle_tools_list(&request, agentic_system).await?,
         "tools/call" => handle_tools_call(&request, agentic_system, session_manager).await?,
-        
+
         // Config methods
         "session/set_config_option" => handle_set_config_option(&request)?,
         "session/set_mode" => handle_set_mode(&request)?,
@@ -78,8 +80,9 @@ fn handle_initialize(request: &JsonRpcRequest) -> Result<serde_json::Value> {
             .params
             .as_ref()
             .ok_or_else(|| anyhow!("Missing params for initialize"))?
-            .clone()
-    ).context("Failed to parse initialize params")?;
+            .clone(),
+    )
+    .context("Failed to parse initialize params")?;
 
     tracing::info!(
         "ACP initialization: protocol_version={}, client_name={:?}",
@@ -100,9 +103,7 @@ fn handle_initialize(request: &JsonRpcRequest) -> Result<serde_json::Value> {
                 embedded_context: true,
                 image: true,
             },
-            session_capabilities: SessionCapabilities {
-                list: true,
-            },
+            session_capabilities: SessionCapabilities { list: true },
         },
         agent_info: Some(AgentInfo {
             name: "BitFun".to_string(),
@@ -131,8 +132,9 @@ async fn handle_session_new(
             .params
             .as_ref()
             .ok_or_else(|| anyhow!("Missing params for session/new"))?
-            .clone()
-    ).context("Failed to parse session/new params")?;
+            .clone(),
+    )
+    .context("Failed to parse session/new params")?;
 
     tracing::info!("Creating new ACP session: cwd={}", params.cwd);
 
@@ -158,10 +160,8 @@ async fn handle_session_new(
         .await?;
 
     // Update the ACP session with the real BitFun session ID
-    session_manager.update_bitfun_session_id(
-        &acp_session.acp_session_id,
-        session.session_id.clone(),
-    );
+    session_manager
+        .update_bitfun_session_id(&acp_session.acp_session_id, session.session_id.clone());
 
     tracing::info!(
         "Created BitFun session for ACP: acp_id={}, bitfun_id={}",
@@ -214,8 +214,9 @@ async fn handle_session_prompt(
             .params
             .as_ref()
             .ok_or_else(|| anyhow!("Missing params for session/prompt"))?
-            .clone()
-    ).context("Failed to parse session/prompt params")?;
+            .clone(),
+    )
+    .context("Failed to parse session/prompt params")?;
 
     tracing::info!(
         "Processing session/prompt: session_id={}, prompt_blocks={}",
@@ -253,12 +254,7 @@ async fn handle_session_prompt(
     let stdout = tokio::io::stdout();
 
     // Execute the message through ConversationCoordinator
-    let result = execute_prompt_turn(
-        agentic_system,
-        &acp_session,
-        user_message,
-        stdout,
-    ).await?;
+    let result = execute_prompt_turn(agentic_system, &acp_session, user_message, stdout).await?;
 
     Ok(serde_json::to_value(result)?)
 }
@@ -290,7 +286,7 @@ async fn execute_prompt_turn(
         .await?;
 
     let event_queue = agentic_system.event_queue.clone();
-let mut stop_reason: Option<StopReason> = None;
+    let mut stop_reason: Option<StopReason> = None;
     let mut accumulated_text = String::new();
 
     loop {
@@ -325,11 +321,7 @@ let mut stop_reason: Option<StopReason> = None;
                 }
 
                 CoreEvent::ToolEvent { tool_event, .. } => {
-                    handle_tool_event(
-                        &mut stdout,
-                        &acp_session.acp_session_id,
-                        tool_event,
-                    ).await?;
+                    handle_tool_event(&mut stdout, &acp_session.acp_session_id, tool_event).await?;
                 }
 
                 CoreEvent::DialogTurnCompleted { .. } => {
@@ -384,7 +376,11 @@ async fn handle_tool_event(
     tool_event: ToolEventData,
 ) -> Result<()> {
     match tool_event {
-        ToolEventData::Started { tool_id, tool_name, params: _ } => {
+        ToolEventData::Started {
+            tool_id,
+            tool_name,
+            params: _,
+        } => {
             let notification = SessionUpdateNotification {
                 session_id: session_id.to_string(),
                 update: SessionUpdate::ToolCall {
@@ -398,7 +394,12 @@ async fn handle_tool_event(
             send_notification(stdout, "session/update", &notification).await?;
         }
 
-        ToolEventData::Progress { tool_id, tool_name, message, percentage: _ } => {
+        ToolEventData::Progress {
+            tool_id,
+            tool_name,
+            message,
+            percentage: _,
+        } => {
             let notification = SessionUpdateNotification {
                 session_id: session_id.to_string(),
                 update: SessionUpdate::ToolCall {
@@ -410,7 +411,7 @@ async fn handle_tool_event(
                 },
             };
             send_notification(stdout, "session/update", &notification).await?;
-            
+
             // Send tool result with progress message
             let result_notification = SessionUpdateNotification {
                 session_id: session_id.to_string(),
@@ -423,10 +424,16 @@ async fn handle_tool_event(
             send_notification(stdout, "session/update", &result_notification).await?;
         }
 
-        ToolEventData::Completed { tool_id, tool_name, result, duration_ms: _, .. } => {
-            let result_text = serde_json::to_string(&result)
-                .unwrap_or_else(|_| "Success".to_string());
-            
+        ToolEventData::Completed {
+            tool_id,
+            tool_name,
+            result,
+            duration_ms: _,
+            ..
+        } => {
+            let result_text =
+                serde_json::to_string(&result).unwrap_or_else(|_| "Success".to_string());
+
             let notification = SessionUpdateNotification {
                 session_id: session_id.to_string(),
                 update: SessionUpdate::ToolCall {
@@ -438,7 +445,7 @@ async fn handle_tool_event(
                 },
             };
             send_notification(stdout, "session/update", &notification).await?;
-            
+
             // Send tool result
             let result_notification = SessionUpdateNotification {
                 session_id: session_id.to_string(),
@@ -451,7 +458,11 @@ async fn handle_tool_event(
             send_notification(stdout, "session/update", &result_notification).await?;
         }
 
-        ToolEventData::Failed { tool_id, tool_name, error } => {
+        ToolEventData::Failed {
+            tool_id,
+            tool_name,
+            error,
+        } => {
             let notification = SessionUpdateNotification {
                 session_id: session_id.to_string(),
                 update: SessionUpdate::ToolCall {
@@ -459,24 +470,28 @@ async fn handle_tool_event(
                     name: tool_name.clone(),
                     title: None,
                     kind: None,
-                    status: None,  // Failed - no specific status
+                    status: None, // Failed - no specific status
                 },
             };
             send_notification(stdout, "session/update", &notification).await?;
-            
+
             // Send tool result with error
             let result_notification = SessionUpdateNotification {
                 session_id: session_id.to_string(),
                 update: SessionUpdate::ToolResult {
                     tool_call_id: tool_id,
                     content: vec![ToolResultContent::Text { text: error }],
-                    status: None,  // Failed
+                    status: None, // Failed
                 },
             };
             send_notification(stdout, "session/update", &result_notification).await?;
         }
 
-        ToolEventData::ConfirmationNeeded { tool_id, tool_name, params: _ } => {
+        ToolEventData::ConfirmationNeeded {
+            tool_id,
+            tool_name,
+            params: _,
+        } => {
             let notification = SessionUpdateNotification {
                 session_id: session_id.to_string(),
                 update: SessionUpdate::ToolCall {
@@ -509,14 +524,14 @@ async fn send_notification(
         method.to_string(),
         Some(serde_json::to_value(params)?),
     );
-    
+
     let notification_json = serde_json::to_string(&notification)?;
     tracing::debug!("Sending notification: {}", notification_json);
-    
+
     stdout.write_all(notification_json.as_bytes()).await?;
     stdout.write_all(b"\n").await?;
     stdout.flush().await?;
-    
+
     Ok(())
 }
 
@@ -573,7 +588,10 @@ async fn handle_tools_list(
     // Build tool definitions (need to await description)
     let mut tools: Vec<ToolDefinition> = Vec::new();
     for tool in all_tools.iter() {
-        let desc = tool.description().await.map_err(|e| anyhow!("Failed to get tool description: {}", e))?;
+        let desc = tool
+            .description()
+            .await
+            .map_err(|e| anyhow!("Failed to get tool description: {}", e))?;
         tools.push(ToolDefinition {
             name: tool.name().to_string(),
             description: Some(desc),
@@ -597,8 +615,9 @@ async fn handle_tools_call(
             .params
             .as_ref()
             .ok_or_else(|| anyhow!("Missing params for tools/call"))?
-            .clone()
-    ).context("Failed to parse tools/call params")?;
+            .clone(),
+    )
+    .context("Failed to parse tools/call params")?;
 
     tracing::info!(
         "Tool call request: session_id={}, tool_name={}",
@@ -632,7 +651,11 @@ async fn handle_tools_call(
         workspace_services: None,
     };
 
-    tracing::info!("Executing tool {} with arguments: {:?}", params.name, params.arguments);
+    tracing::info!(
+        "Executing tool {} with arguments: {:?}",
+        params.name,
+        params.arguments
+    );
 
     // Execute the tool
     let tool_results = tool
@@ -645,7 +668,11 @@ async fn handle_tools_call(
         .into_iter()
         .filter_map(|result| {
             match result {
-                ToolResult::Result { data, result_for_assistant, .. } => {
+                ToolResult::Result {
+                    data,
+                    result_for_assistant,
+                    ..
+                } => {
                     // Use result_for_assistant if available, otherwise serialize data
                     let text = result_for_assistant.unwrap_or_else(|| {
                         serde_json::to_string(&data).unwrap_or_else(|_| "Success".to_string())
@@ -653,11 +680,13 @@ async fn handle_tools_call(
                     Some(ToolResultContent::Text { text })
                 }
                 ToolResult::Progress { content: data, .. } => {
-                    let text = serde_json::to_string(&data).unwrap_or_else(|_| "Progress".to_string());
+                    let text =
+                        serde_json::to_string(&data).unwrap_or_else(|_| "Progress".to_string());
                     Some(ToolResultContent::Text { text })
                 }
                 ToolResult::StreamChunk { data, .. } => {
-                    let text = serde_json::to_string(&data).unwrap_or_else(|_| "Stream chunk".to_string());
+                    let text =
+                        serde_json::to_string(&data).unwrap_or_else(|_| "Stream chunk".to_string());
                     Some(ToolResultContent::Text { text })
                 }
             }

@@ -51,7 +51,15 @@ pub(crate) fn render_overlay(
         }
         let color = role_color(&el.role, el.subrole.as_deref());
 
-        draw_rect_outline(&mut canvas, x as i32, y as i32, w as i32, h as i32, color, 2);
+        draw_rect_outline(
+            &mut canvas,
+            x as i32,
+            y as i32,
+            w as i32,
+            h as i32,
+            color,
+            2,
+        );
 
         let label = format!("{}", el.i);
         let badge_w = (label.len() as i32) * (CHAR_W as i32 + 1) + 5;
@@ -65,9 +73,9 @@ pub(crate) fn render_overlay(
         // Slide the badge along the top edge until it does not collide
         // with another element's badge (cap retries to avoid blowups).
         for _ in 0..6 {
-            let collides = placed_badges
-                .iter()
-                .any(|(px, py, pw, ph)| rects_overlap(bx, by, badge_w, badge_h, *px, *py, *pw, *ph));
+            let collides = placed_badges.iter().any(|(px, py, pw, ph)| {
+                rects_overlap(bx, by, badge_w, badge_h, *px, *py, *pw, *ph)
+            });
             if !collides {
                 break;
             }
@@ -121,16 +129,7 @@ fn role_color(role: &str, subrole: Option<&str>) -> Rgba<u8> {
     }
 }
 
-fn rects_overlap(
-    ax: i32,
-    ay: i32,
-    aw: i32,
-    ah: i32,
-    bx: i32,
-    by: i32,
-    bw: i32,
-    bh: i32,
-) -> bool {
+fn rects_overlap(ax: i32, ay: i32, aw: i32, ah: i32, bx: i32, by: i32, bw: i32, bh: i32) -> bool {
     !(ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay)
 }
 
@@ -227,16 +226,36 @@ const CHAR_H: usize = 7;
 /// 5×7 bitmap font, just enough for the digits 0-9 (badge labels).
 fn glyph_for(ch: char) -> Option<[u8; CHAR_H]> {
     match ch {
-        '0' => Some([0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110]),
-        '1' => Some([0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110]),
-        '2' => Some([0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111]),
-        '3' => Some([0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110]),
-        '4' => Some([0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010]),
-        '5' => Some([0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110]),
-        '6' => Some([0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110]),
-        '7' => Some([0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000]),
-        '8' => Some([0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110]),
-        '9' => Some([0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100]),
+        '0' => Some([
+            0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110,
+        ]),
+        '1' => Some([
+            0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+        ]),
+        '2' => Some([
+            0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111,
+        ]),
+        '3' => Some([
+            0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110,
+        ]),
+        '4' => Some([
+            0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010,
+        ]),
+        '5' => Some([
+            0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110,
+        ]),
+        '6' => Some([
+            0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110,
+        ]),
+        '7' => Some([
+            0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000,
+        ]),
+        '8' => Some([
+            0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110,
+        ]),
+        '9' => Some([
+            0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100,
+        ]),
         _ => None,
     }
 }

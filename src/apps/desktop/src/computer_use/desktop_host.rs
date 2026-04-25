@@ -3809,9 +3809,10 @@ tell application "System Events" to get unix id of first process whose frontmost
                             intersections: *intersections,
                             screenshot_id: shot.screenshot_id.clone(),
                         };
-                        let (ix, iy) = Self::image_grid_target_to_xy(&target)?.ok_or_else(|| {
-                            BitFunError::tool("invalid detected visual_grid target".to_string())
-                        })?;
+                        let (ix, iy) =
+                            Self::image_grid_target_to_xy(&target)?.ok_or_else(|| {
+                                BitFunError::tool("invalid detected visual_grid target".to_string())
+                            })?;
                         if let Some(wait) = wait_ms_after_detection {
                             if *wait > 0 {
                                 tokio::time::sleep(Duration::from_millis(*wait as u64)).await;
@@ -5159,7 +5160,9 @@ fn detect_regular_line_sequence(
                 } else {
                     expected
                 };
-                let idx = pos.round().clamp(0.0, projection.len().saturating_sub(1) as f64)
+                let idx = pos
+                    .round()
+                    .clamp(0.0, projection.len().saturating_sub(1) as f64)
                     as usize;
                 score += adjusted[idx];
                 positions.push(offset + idx as u32);
@@ -5203,10 +5206,7 @@ fn top_regular_positions(
         if scores[idx] <= 0.0 {
             break;
         }
-        if selected
-            .iter()
-            .any(|s| idx.abs_diff(*s) < min_gap.max(2))
-        {
+        if selected.iter().any(|s| idx.abs_diff(*s) < min_gap.max(2)) {
             continue;
         }
         selected.push(idx);
@@ -5218,7 +5218,12 @@ fn top_regular_positions(
         return None;
     }
     selected.sort_unstable();
-    Some(selected.into_iter().map(|idx| offset + idx as u32).collect())
+    Some(
+        selected
+            .into_iter()
+            .map(|idx| offset + idx as u32)
+            .collect(),
+    )
 }
 
 /// Returns `true` if the error reported by `resolve_interactive_index`

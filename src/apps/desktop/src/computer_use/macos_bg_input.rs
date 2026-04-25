@@ -23,9 +23,9 @@ use bitfun_core::util::errors::{BitFunError, BitFunResult};
 use core_graphics::event::{CGEvent, CGEventFlags, CGEventType, CGMouseButton, ScrollEventUnit};
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;
+use log::{debug, info, warn};
 use std::thread;
 use std::time::{Duration, Instant};
-use log::{debug, info, warn};
 
 /// Logical mouse button for `bg_click`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -283,7 +283,11 @@ fn frontmost_pid_macos() -> Option<i32> {
             return None;
         }
         let pid: i32 = msg_send![app, processIdentifier];
-        if pid <= 0 { None } else { Some(pid) }
+        if pid <= 0 {
+            None
+        } else {
+            Some(pid)
+        }
     }
 }
 

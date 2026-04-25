@@ -36,9 +36,9 @@ impl AcpServer {
     /// Run the ACP server - reads JSON-RPC from stdin, writes to stdout
     pub async fn run(&self) -> Result<()> {
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-        
+
         tracing::info!("Starting ACP server (JSON-RPC over stdio)");
-        
+
         let stdin = tokio::io::stdin();
         let mut stdout = tokio::io::stdout();
         let mut reader = BufReader::new(stdin);
@@ -47,7 +47,7 @@ impl AcpServer {
         loop {
             line.clear();
             let bytes_read = reader.read_line(&mut line).await?;
-            
+
             if bytes_read == 0 {
                 tracing::info!("EOF received, shutting down ACP server");
                 break;
@@ -97,8 +97,8 @@ impl AcpServer {
 
     /// Handle a single JSON-RPC request
     async fn handle_request(&self, request: &str) -> Result<Option<JsonRpcResponse>> {
-        let rpc_request: JsonRpcRequest = serde_json::from_str(request)
-            .context("Failed to parse JSON-RPC request")?;
+        let rpc_request: JsonRpcRequest =
+            serde_json::from_str(request).context("Failed to parse JSON-RPC request")?;
 
         handlers::handle_method(rpc_request, &self.agentic_system, &self.session_manager).await
     }
