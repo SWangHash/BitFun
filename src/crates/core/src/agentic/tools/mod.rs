@@ -22,5 +22,5 @@ pub use pipeline::*;
 pub use restrictions::{ToolPathOperation, ToolPathPolicy, ToolRuntimeRestrictions};
 pub use registry::{
     create_tool_registry, get_all_registered_tool_names, get_all_registered_tools, get_all_tools,
-    get_readonly_tools,
+    get_readonly_registered_tool_names, get_readonly_tools,
 };

@@ -55,11 +55,13 @@ describe('reviewTeamService', () => {
     subagentSource: SubagentInfo['subagentSource'] = 'builtin',
     model = 'fast',
     isReadonly = true,
+    isReview = id.startsWith('Review'),
   ): SubagentInfo => ({
     id,
     name: id,
     description: `${id} description`,
     isReadonly,
+    isReview,
     toolCount: 1,
     defaultTools: ['Read'],
     enabled,
@@ -135,8 +137,8 @@ describe('reviewTeamService', () => {
     );
     vi.mocked(SubagentAPI.listSubagents).mockResolvedValue([
       ...coreSubagents(false),
-      subagent('ExtraEnabled', true, 'user'),
-      subagent('ExtraDisabled', false, 'project'),
+      subagent('ExtraEnabled', true, 'user', 'fast', true, true),
+      subagent('ExtraDisabled', false, 'project', 'fast', true, true),
     ]);
 
     await prepareDefaultReviewTeamForLaunch('D:/workspace/project-a');
@@ -174,8 +176,8 @@ describe('reviewTeamService', () => {
     const team = resolveDefaultReviewTeam(
       [
         ...coreSubagents(),
-        subagent('ExtraEnabled', true, 'user'),
-        subagent('ExtraDisabled', false, 'project'),
+        subagent('ExtraEnabled', true, 'user', 'fast', true, true),
+        subagent('ExtraDisabled', false, 'project', 'fast', true, true),
       ],
       storedConfigWithExtra(['ExtraEnabled', 'ExtraDisabled']),
     );
@@ -188,35 +190,39 @@ describe('reviewTeamService', () => {
     expect(promptBlock).not.toContain('Always run the four locked core reviewers');
   });
 
-  it('excludes writable extra members from the resolved review team', () => {
-    const readonlyExtra = subagent('ExtraReadonly', true, 'user', 'fast', true);
-    const writableExtra = subagent('ExtraWritable', true, 'project', 'fast', false);
+  it('requires extra members to be explicitly marked for review and readonly', () => {
+    const readonlyReviewExtra = subagent('ExtraReadonlyReview', true, 'user', 'fast', true, true);
+    const readonlyPlainExtra = subagent('ExtraReadonlyPlain', true, 'user', 'fast', true, false);
+    const writableReviewExtra = subagent('ExtraWritableReview', true, 'project', 'fast', false, true);
 
-    expect(canUseSubagentAsReviewTeamMember(readonlyExtra)).toBe(true);
-    expect(canUseSubagentAsReviewTeamMember(writableExtra)).toBe(false);
+    expect(canUseSubagentAsReviewTeamMember(readonlyReviewExtra)).toBe(true);
+    expect(canUseSubagentAsReviewTeamMember(readonlyPlainExtra)).toBe(false);
+    expect(canUseSubagentAsReviewTeamMember(writableReviewExtra)).toBe(false);
 
     const team = resolveDefaultReviewTeam(
       [
         ...coreSubagents(),
-        readonlyExtra,
-        writableExtra,
+        readonlyReviewExtra,
+        readonlyPlainExtra,
+        writableReviewExtra,
       ],
-      storedConfigWithExtra(['ExtraReadonly', 'ExtraWritable']),
+      storedConfigWithExtra(['ExtraReadonlyReview', 'ExtraReadonlyPlain', 'ExtraWritableReview']),
     );
 
-    expect(team.extraMembers.map((member) => member.subagentId)).toEqual(['ExtraReadonly']);
+    expect(team.extraMembers.map((member) => member.subagentId)).toEqual(['ExtraReadonlyReview']);
 
     const promptBlock = buildReviewTeamPromptBlock(team);
-    expect(promptBlock).toContain('subagent_type: ExtraReadonly');
-    expect(promptBlock).not.toContain('ExtraWritable');
+    expect(promptBlock).toContain('subagent_type: ExtraReadonlyReview');
+    expect(promptBlock).not.toContain('ExtraReadonlyPlain');
+    expect(promptBlock).not.toContain('ExtraWritableReview');
   });
 
   it('builds an explicit run manifest for enabled, skipped, and quality-gate reviewers', () => {
     const team = resolveDefaultReviewTeam(
       [
         ...coreSubagents(),
-        subagent('ExtraEnabled', true, 'user'),
-        subagent('ExtraDisabled', false, 'project'),
+        subagent('ExtraEnabled', true, 'user', 'fast', true, true),
+        subagent('ExtraDisabled', false, 'project', 'fast', true, true),
       ],
       storedConfigWithExtra(['ExtraEnabled', 'ExtraDisabled']),
     );
@@ -251,7 +257,7 @@ describe('reviewTeamService', () => {
     const team = resolveDefaultReviewTeam(
       [
         ...coreSubagents(),
-        subagent('ExtraEnabled', true, 'user'),
+        subagent('ExtraEnabled', true, 'user', 'fast', true, true),
       ],
       storedConfigWithExtra(['ExtraEnabled'], {
         strategy_level: 'quick',
@@ -301,8 +307,8 @@ describe('reviewTeamService', () => {
     const team = resolveDefaultReviewTeam(
       [
         ...coreSubagents(),
-        subagent('ExtraDeletedModel', true, 'user', 'deleted-model'),
-        subagent('ExtraCustomModel', true, 'user', 'model-kept'),
+        subagent('ExtraDeletedModel', true, 'user', 'deleted-model', true, true),
+        subagent('ExtraCustomModel', true, 'user', 'model-kept', true, true),
       ],
       storedConfigWithExtra(['ExtraDeletedModel', 'ExtraCustomModel'], {
         strategy_level: 'deep',
@@ -335,8 +341,8 @@ describe('reviewTeamService', () => {
     const team = resolveDefaultReviewTeam(
       [
         ...coreSubagents(),
-        subagent('ExtraEnabled', true, 'user'),
-        subagent('ExtraDisabled', false, 'project'),
+        subagent('ExtraEnabled', true, 'user', 'fast', true, true),
+        subagent('ExtraDisabled', false, 'project', 'fast', true, true),
       ],
       storedConfigWithExtra(['ExtraEnabled', 'ExtraDisabled']),
     );

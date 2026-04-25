@@ -13,6 +13,7 @@ export interface SubagentInfo {
   name: string;
   description: string;
   isReadonly: boolean;
+  isReview: boolean;
   toolCount: number;
   defaultTools: string[];
   enabled: boolean;
@@ -41,6 +42,7 @@ export interface CreateSubagentPayload {
   tools?: string[];
    
   readonly?: boolean;
+  review?: boolean;
   workspacePath?: string;
 }
 
@@ -59,6 +61,7 @@ export interface SubagentDetail {
   prompt: string;
   tools: string[];
   readonly: boolean;
+  review: boolean;
   enabled: boolean;
   model: string;
   path: string;
@@ -76,6 +79,7 @@ export interface UpdateSubagentPayload {
   prompt: string;
   tools?: string[];
   readonly?: boolean;
+  review?: boolean;
   workspacePath?: string;
 }
 
@@ -136,6 +140,7 @@ export const SubagentAPI = {
         prompt: payload.prompt,
         tools: payload.tools,
         readonly: payload.readonly,
+        review: payload.review,
         workspacePath: payload.workspacePath,
       },
     });

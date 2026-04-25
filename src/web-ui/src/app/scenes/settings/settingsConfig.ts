@@ -9,6 +9,7 @@ export type ConfigTab =
   | 'basics'
   | 'models'
   | 'session-config'
+  | 'review'
   | 'ai-context'
   | 'mcp-tools'
   // | 'lsp' // temporarily hidden from config center
@@ -118,6 +119,22 @@ export const SETTINGS_CATEGORIES: ConfigCategoryDef[] = [
         ],
       },
       {
+        id: 'review',
+        labelKey: 'configCenter.tabs.review',
+        descriptionKey: 'configCenter.tabDescriptions.review',
+        keywords: [
+          'review',
+          'code review',
+          'deep review',
+          'review team',
+          'subagent',
+          'readonly',
+          'audit',
+          '\u5ba1\u6838',
+          '\u4ee3\u7801\u5ba1\u6838',
+        ],
+      },
+      {
         id: 'ai-context',
         labelKey: 'configCenter.tabs.aiContext',
         descriptionKey: 'configCenter.tabDescriptions.aiContext',
@@ -169,6 +186,7 @@ const KNOWN_TABS: ConfigTab[] = SETTINGS_CATEGORIES.flatMap((c) => c.tabs.map((t
 export function normalizeSettingsTab(section: string): ConfigTab {
   if (section === 'theme' || section === 'logging' || section === 'terminal') return 'basics';
   if (section === 'lsp') return DEFAULT_SETTINGS_TAB;
+  if (section === 'deep-review' || section === 'code-review' || section === 'review-team') return 'review';
   if (section === 'shortcuts' || section === 'keybindings' || section === 'hotkeys') return 'keyboard';
   if ((KNOWN_TABS as readonly string[]).includes(section)) return section as ConfigTab;
   return DEFAULT_SETTINGS_TAB;

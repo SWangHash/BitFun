@@ -3,9 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 
 const loadDefaultReviewTeam = vi.fn();
-const saveDefaultReviewTeamStrategyLevel = vi.fn();
-const saveDefaultReviewTeamMemberStrategyOverride = vi.fn();
-const saveDefaultReviewTeamExecutionPolicy = vi.fn();
 const notificationFns = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
@@ -93,9 +90,6 @@ vi.mock('@/shared/services/reviewTeamService', async () => {
   return {
     ...actual,
     loadDefaultReviewTeam,
-    saveDefaultReviewTeamStrategyLevel,
-    saveDefaultReviewTeamMemberStrategyOverride,
-    saveDefaultReviewTeamExecutionPolicy,
   };
 });
 
@@ -177,7 +171,7 @@ describeWithJsdom('ReviewTeamPage', () => {
     expect(loadDefaultReviewTeam).toHaveBeenCalledTimes(1);
   });
 
-  it('renders review strategy controls with token and runtime impact copy', async () => {
+  it('renders a read-only team overview with a settings entry point', async () => {
     const { default: ReviewTeamPage } = await import('./ReviewTeamPage');
 
     await act(async () => {
@@ -187,15 +181,15 @@ describeWithJsdom('ReviewTeamPage', () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).toContain('Review strategy');
-    expect(container.textContent).toContain('Quick');
+    expect(container.textContent).toContain('Team Overview');
+    expect(container.textContent).toContain('Current Policy');
+    expect(container.textContent).toContain('Review settings');
     expect(container.textContent).toContain('Normal');
-    expect(container.textContent).toContain('Deep');
-    expect(container.textContent).toContain('About 1.8-2.5x token usage and 1.5-2.5x runtime.');
   });
 
-  it('updates the team review strategy without reloading the whole page', async () => {
-    saveDefaultReviewTeamStrategyLevel.mockResolvedValue(undefined);
+  it('opens the review settings tab from the overview page', async () => {
+    const { useSettingsStore } = await import('@/app/scenes/settings/settingsStore');
+    const { useSceneStore } = await import('@/app/stores/sceneStore');
     const { default: ReviewTeamPage } = await import('./ReviewTeamPage');
 
     await act(async () => {
@@ -205,20 +199,17 @@ describeWithJsdom('ReviewTeamPage', () => {
       await Promise.resolve();
     });
 
-    expect(loadDefaultReviewTeam).toHaveBeenCalledTimes(1);
-    const deepStrategyButton = Array.from(container.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Thorough multi-pass review'));
-    expect(deepStrategyButton).toBeTruthy();
+    const settingsButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Review settings'));
+    expect(settingsButton).toBeTruthy();
 
     await act(async () => {
-      deepStrategyButton!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+      settingsButton!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
       await Promise.resolve();
     });
 
-    expect(saveDefaultReviewTeamStrategyLevel).toHaveBeenCalledWith('deep');
-    expect(loadDefaultReviewTeam).toHaveBeenCalledTimes(1);
-    expect(deepStrategyButton!.getAttribute('aria-pressed')).toBe('true');
-    expect(container.textContent).not.toContain('Loading code review team...');
+    expect(useSettingsStore.getState().activeTab).toBe('review');
+    expect(useSceneStore.getState().activeTabId).toBe('settings');
   });
 
   it('keeps rendering after selecting a review team member with missing optional fields', async () => {
@@ -270,7 +261,7 @@ describeWithJsdom('ReviewTeamPage', () => {
     });
 
     const memberButton = Array.from(container.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('Logic reviewer'));
+      .find((button) => button.textContent?.includes('Logic'));
     expect(memberButton).toBeTruthy();
 
     await act(async () => {
@@ -278,6 +269,6 @@ describeWithJsdom('ReviewTeamPage', () => {
     });
 
     expect(container.textContent).toContain('Member Detail');
-    expect(container.textContent).toContain('Logic reviewer');
+    expect(container.textContent).toContain('Logic');
   });
 });

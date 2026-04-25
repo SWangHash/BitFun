@@ -8,7 +8,7 @@ use bitfun_core::agentic::agents::{
 use bitfun_core::service::config::types::SubAgentConfig;
 use log::warn;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::State;
@@ -141,6 +141,7 @@ pub struct UpdateSubagentRequest {
     pub prompt: String,
     pub tools: Option<Vec<String>>,
     pub readonly: Option<bool>,
+    pub review: Option<bool>,
     pub workspace_path: Option<String>,
 }
 
@@ -165,6 +166,7 @@ pub async fn update_subagent(
             request.prompt.trim().to_string(),
             request.tools,
             request.readonly,
+            request.review,
         )
         .await
         .map_err(|e| e.to_string())
@@ -186,7 +188,40 @@ pub struct CreateSubagentRequest {
     pub prompt: String,
     pub tools: Option<Vec<String>>,
     pub readonly: Option<bool>,
+    pub review: Option<bool>,
     pub workspace_path: Option<String>,
+}
+
+fn readonly_tool_names(state: &AppState) -> HashSet<String> {
+    state
+        .tool_registry
+        .iter()
+        .filter(|tool| tool.is_readonly())
+        .map(|tool| tool.name().to_string())
+        .collect()
+}
+
+fn ensure_review_tools_are_readonly(
+    state: &AppState,
+    agent_name: &str,
+    tools: &[String],
+) -> Result<(), String> {
+    let readonly_tools = readonly_tool_names(state);
+    let writable_tools: Vec<&str> = tools
+        .iter()
+        .map(String::as_str)
+        .filter(|tool| !readonly_tools.contains(*tool))
+        .collect();
+
+    if writable_tools.is_empty() {
+        return Ok(());
+    }
+
+    Err(format!(
+        "Review Sub-Agent '{}' can only use read-only tools; remove writable tools: {}",
+        agent_name,
+        writable_tools.join(", ")
+    ))
 }
 
 fn validate_agent_name(name: &str) -> Result<(), String> {
@@ -265,8 +300,17 @@ pub async fn create_subagent(
         return Err(format!("File '{}' already exists", path_str));
     }
 
-    let readonly = request.readonly.unwrap_or(true);
-    let subagent = CustomSubagent::new(
+    let review = request.review.unwrap_or(false);
+    if review {
+        ensure_review_tools_are_readonly(&state, name, &tools)?;
+    }
+
+    let readonly = if review {
+        true
+    } else {
+        request.readonly.unwrap_or(true)
+    };
+    let mut subagent = CustomSubagent::new(
         name.to_string(),
         request.description.trim().to_string(),
         tools,
@@ -275,6 +319,7 @@ pub async fn create_subagent(
         path_str.clone(),
         kind,
     );
+    subagent.review = review;
     subagent
         .save_to_file(None, None)
         .map_err(|e| e.to_string())?;

@@ -34,6 +34,7 @@ export const ALL_NAMESPACES = [
   'settings/lsp',
   'settings/mcp',
   'settings/mcp-tools',
+  'settings/review',
   'settings/session-config',
   'settings/skills',
   'tools',

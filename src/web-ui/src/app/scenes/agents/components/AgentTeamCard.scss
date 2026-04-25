@@ -1,4 +1,5 @@
 @use '../../../../component-library/styles/tokens' as *;
+@use './AgentSurfaceCard' as surface;
 
 .agent-team-card {
   --team-card-accent: var(--color-accent-400, #0ea5e9);
@@ -7,44 +8,10 @@
     color-mix(in srgb, var(--team-card-accent) 28%, transparent) 0%,
     color-mix(in srgb, var(--team-card-accent) 9%, transparent) 100%
   );
-  display: flex;
-  flex-direction: column;
-  width: 360px;
-  height: 200px;
-  border-radius: 15px;
-  background: var(--element-bg-soft);
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  transform: translateY(calc(var(--card-index, 0) * 1px));
-  transition:
-    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.35s ease;
-
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 40px;
-    background: var(--team-card-gradient);
-    opacity: 0;
-    transition: opacity 0.35s ease;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  &:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 16px 40px color-mix(in srgb, var(--shadow-color, #0f172a) 20%, transparent);
-
-    &::before {
-      opacity: 0.42;
-    }
-  }
-
-  &:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--team-card-accent) 70%, var(--color-accent-500));
-    outline-offset: 2px;
-  }
+  @include surface.agent-surface-card(
+    var(--team-card-gradient),
+    color-mix(in srgb, var(--team-card-accent) 70%, var(--color-accent-500))
+  );
 
   &__header {
     display: flex;
@@ -178,22 +145,8 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    min-height: 40px;
     padding: $size-gap-2 $size-gap-3;
-    border-radius: 0 0 15px 15px;
-    overflow: hidden;
-    position: relative;
-    z-index: 1;
-
-    &::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: var(--team-card-gradient);
-      opacity: 0.5;
-      transition: opacity 0.35s ease;
-      pointer-events: none;
-    }
+    @include surface.agent-surface-footer(var(--team-card-gradient));
   }
 
   &:hover &__footer::after {

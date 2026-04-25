@@ -4,9 +4,15 @@ import { useTranslation } from 'react-i18next';
 import { Input, Textarea, Switch, Button } from '@/component-library';
 import { SubagentAPI } from '@/infrastructure/api/service-api/SubagentAPI';
 import type { SubagentLevel } from '@/infrastructure/api/service-api/SubagentAPI';
+import { toolAPI } from '@/infrastructure/api/service-api/ToolAPI';
 import { useNotification } from '@/shared/notification-system';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useAgentsStore } from '../agentsStore';
+import {
+  filterToolsForReviewMode,
+  normalizeReviewModeState,
+  type SubagentEditorToolInfo,
+} from './subagentEditorUtils';
 import '../AgentsView.scss';
 import './CreateAgentPage.scss';
 
@@ -26,14 +32,29 @@ const CreateAgentPage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [prompt, setPrompt] = useState('');
   const [readonly, setReadonly] = useState(true);
-  const [toolNames, setToolNames] = useState<string[]>([]);
+  const [review, setReview] = useState(false);
+  const [toolInfos, setToolInfos] = useState<SubagentEditorToolInfo[]>([]);
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
   useEffect(() => {
-    SubagentAPI.listAgentToolNames().then(setToolNames).catch(() => setToolNames([]));
+    toolAPI.getAllToolsInfo()
+      .then((tools) => {
+        const normalizedTools = tools
+          .map((tool): SubagentEditorToolInfo | null => {
+            const name = typeof tool?.name === 'string' ? tool.name : '';
+            if (!name) return null;
+            return {
+              name,
+              isReadonly: Boolean(tool?.isReadonly ?? tool?.is_readonly),
+            };
+          })
+          .filter((tool): tool is SubagentEditorToolInfo => Boolean(tool));
+        setToolInfos(normalizedTools);
+      })
+      .catch(() => setToolInfos([]));
   }, []);
 
   useEffect(() => {
@@ -64,6 +85,7 @@ const CreateAgentPage: React.FC = () => {
         setDescription(d.description);
         setPrompt(d.prompt);
         setReadonly(d.readonly);
+        setReview(d.review);
         setLevel(d.level);
         setSelectedTools(new Set(d.tools ?? []));
         setNameError(null);
@@ -98,6 +120,26 @@ const CreateAgentPage: React.FC = () => {
     });
   };
 
+  const handleReviewChange = (nextReview: boolean) => {
+    setReview(nextReview);
+    const next = normalizeReviewModeState({
+      review: nextReview,
+      readonly,
+      selectedTools,
+      availableTools: toolInfos,
+    });
+    setReadonly(next.readonly);
+    setSelectedTools(next.selectedTools);
+  };
+
+  const handleReadonlyChange = (nextReadonly: boolean) => {
+    if (review) {
+      setReadonly(true);
+      return;
+    }
+    setReadonly(nextReadonly);
+  };
+
   const handleSubmit = async () => {
     if (!isEdit) {
       const err = validateName(name);
@@ -121,6 +163,7 @@ const CreateAgentPage: React.FC = () => {
           description: description.trim(),
           prompt: prompt.trim(),
           readonly,
+          review,
           tools: selectedTools.size > 0 ? Array.from(selectedTools) : undefined,
           workspacePath: level === 'project' ? workspacePath : undefined,
         });
@@ -132,6 +175,7 @@ const CreateAgentPage: React.FC = () => {
           description: description.trim(),
           prompt: prompt.trim(),
           readonly,
+          review,
           tools: selectedTools.size > 0 ? Array.from(selectedTools) : undefined,
           workspacePath: level === 'project' ? workspacePath : undefined,
         });
@@ -157,6 +201,7 @@ const CreateAgentPage: React.FC = () => {
   const submitLabel = isEdit
     ? t('agentsOverview.form.save')
     : t('agentsOverview.form.submit');
+  const selectableTools = filterToolsForReviewMode(toolInfos, review);
 
   if (isEdit && detailLoading) {
     return (
@@ -256,29 +301,46 @@ const CreateAgentPage: React.FC = () => {
               </div>
               <div className="th-create-panel__readonly-row">
                 <label className="th-create-panel__label">{t('agentsOverview.form.readonly')}</label>
-                <Switch checked={readonly} onChange={(e) => setReadonly(e.target.checked)} size="small" />
+                <Switch
+                  checked={readonly}
+                  disabled={review}
+                  onChange={(e) => handleReadonlyChange(e.target.checked)}
+                  size="small"
+                />
+              </div>
+              <div className="th-create-panel__readonly-row">
+                <label className="th-create-panel__label">
+                  {t('agentsOverview.form.review', {
+                    defaultValue: 'Review',
+                  })}
+                </label>
+                <Switch checked={review} onChange={(e) => handleReviewChange(e.target.checked)} size="small" />
               </div>
             </div>
 
-            {toolNames.length > 0 && (
+            {selectableTools.length > 0 && (
               <div className="th-create-panel__field">
                 <label className="th-create-panel__label">
                   {t('agentsOverview.form.tools')}
                   <span className="th-create-panel__label-hint">
-                    {t('agentsOverview.form.toolsHint', {
-                      optionalLabel: t('agentsOverview.form.toolsOptional'),
-                    })}
+                    {review
+                      ? t('agentsOverview.form.reviewToolsHint', {
+                        defaultValue: 'Review Sub-Agents can only use read-only tools.',
+                      })
+                      : t('agentsOverview.form.toolsHint', {
+                        optionalLabel: t('agentsOverview.form.toolsOptional'),
+                      })}
                   </span>
                 </label>
                 <div className="th-create-panel__tools">
-                  {toolNames.map((tool) => (
+                  {selectableTools.map((tool) => (
                     <button
-                      key={tool}
+                      key={tool.name}
                       type="button"
-                      className={`th-list__tool-item${selectedTools.has(tool) ? ' is-on' : ''}`}
-                      onClick={() => toggleTool(tool)}
+                      className={`th-list__tool-item${selectedTools.has(tool.name) ? ' is-on' : ''}`}
+                      onClick={() => toggleTool(tool.name)}
                     >
-                      <span className="th-list__tool-item-name">{tool}</span>
+                      <span className="th-list__tool-item-name">{tool.name}</span>
                     </button>
                   ))}
                 </div>

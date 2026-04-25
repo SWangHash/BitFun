@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Sparkles, Users } from 'lucide-react';
+import { ShieldCheck, Users } from 'lucide-react';
 import { Badge } from '@/component-library';
 import './AgentTeamCard.scss';
 
@@ -10,7 +10,6 @@ interface AgentTeamCardProps {
   localOnlyLabel: string;
   qualityGateLabel: string;
   membersLabel: string;
-  warningText: string;
   openLabel: string;
   memberNames: string[];
   onOpen: () => void;
@@ -23,7 +22,6 @@ const AgentTeamCard: React.FC<AgentTeamCardProps> = ({
   localOnlyLabel,
   qualityGateLabel,
   membersLabel,
-  warningText,
   openLabel,
   memberNames,
   onOpen,
@@ -63,10 +61,6 @@ const AgentTeamCard: React.FC<AgentTeamCardProps> = ({
           <span className="agent-team-card__meta-item">
             <Users size={12} />
             {membersLabel}
-          </span>
-          <span className="agent-team-card__meta-item">
-            <Sparkles size={12} />
-            {warningText}
           </span>
         </div>
 

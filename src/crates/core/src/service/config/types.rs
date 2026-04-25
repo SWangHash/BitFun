@@ -393,6 +393,10 @@ pub struct DefaultModelsConfig {
 pub struct ReviewTeamConfig {
     /// Additional reviewer subagent IDs configured by the user.
     pub extra_subagent_ids: Vec<String>,
+    /// Default review depth used by the whole review team.
+    pub strategy_level: String,
+    /// Per-reviewer review depth overrides keyed by subagent ID.
+    pub member_strategy_overrides: HashMap<String, String>,
     /// Hard timeout applied to reviewer Task calls. 0 disables the cap.
     pub reviewer_timeout_seconds: u64,
     /// Hard timeout applied to ReviewJudge Task calls. 0 disables the cap.
@@ -414,6 +418,8 @@ impl Default for ReviewTeamConfig {
     fn default() -> Self {
         Self {
             extra_subagent_ids: Vec::new(),
+            strategy_level: "normal".to_string(),
+            member_strategy_overrides: HashMap::new(),
             reviewer_timeout_seconds: 300,
             judge_timeout_seconds: 240,
             auto_fix_enabled: false,
@@ -1740,6 +1746,8 @@ mod tests {
         assert!(!review_team.auto_fix_enabled);
         assert_eq!(review_team.auto_fix_max_rounds, 2);
         assert_eq!(review_team.auto_fix_max_stalled_rounds, 1);
+        assert_eq!(review_team.strategy_level, "normal");
+        assert!(review_team.member_strategy_overrides.is_empty());
     }
 
     #[test]
@@ -1797,6 +1805,11 @@ mod tests {
                     "extra_subagent_ids": ["ExtraReviewer"],
                     "reviewer_timeout_seconds": 120,
                     "judge_timeout_seconds": 90,
+                    "strategy_level": "deep",
+                    "member_strategy_overrides": {
+                        "ReviewSecurity": "quick",
+                        "ExtraReviewer": "normal"
+                    },
                     "auto_fix_enabled": false,
                     "auto_fix_max_rounds": 1,
                     "auto_fix_max_stalled_rounds": 1
@@ -1816,6 +1829,25 @@ mod tests {
         assert_eq!(review_team.extra_subagent_ids, vec!["ExtraReviewer"]);
         assert_eq!(review_team.reviewer_timeout_seconds, 120);
         assert_eq!(review_team.judge_timeout_seconds, 90);
+        assert_eq!(review_team.strategy_level, "deep");
+        assert_eq!(
+            review_team.member_strategy_overrides.get("ReviewSecurity"),
+            Some(&"quick".to_string())
+        );
+        assert_eq!(
+            review_team.member_strategy_overrides.get("ExtraReviewer"),
+            Some(&"normal".to_string())
+        );
         assert!(!review_team.auto_fix_enabled);
+
+        let serialized = serde_json::to_value(&config).expect("config should serialize");
+        assert_eq!(
+            serialized["review_teams"]["default"]["strategy_level"],
+            "deep"
+        );
+        assert_eq!(
+            serialized["review_teams"]["default"]["member_strategy_overrides"]["ReviewSecurity"],
+            "quick"
+        );
     }
 }

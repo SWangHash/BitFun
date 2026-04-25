@@ -290,3 +290,12 @@ pub async fn get_all_registered_tool_names() -> Vec<String> {
         .map(|tool| tool.name().to_string())
         .collect()
 }
+
+pub async fn get_readonly_registered_tool_names() -> Vec<String> {
+    get_readonly_tools()
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|tool| tool.name().to_string())
+        .collect()
+}

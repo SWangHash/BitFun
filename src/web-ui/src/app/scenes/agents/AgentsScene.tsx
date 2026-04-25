@@ -552,16 +552,13 @@ const AgentsHomeView: React.FC = () => {
                   count: reviewTeam.members.length,
                   defaultValue: `${reviewTeam.members.length} members`,
                 })}
-                warningText={t('reviewTeams.detail.warning', {
-                  defaultValue: reviewTeam.warning,
-                })}
                 openLabel={t('reviewTeams.detail.open', {
                   defaultValue: 'Open team',
                 })}
                 memberNames={reviewTeam.coreMembers.map((member) =>
                   member.definitionKey
-                    ? t(`reviewTeams.members.${member.definitionKey}.funName`, {
-                      defaultValue: member.displayName,
+                    ? t(`reviewTeams.members.${member.definitionKey}.role`, {
+                      defaultValue: member.roleName,
                     })
                     : member.displayName,
                 )}

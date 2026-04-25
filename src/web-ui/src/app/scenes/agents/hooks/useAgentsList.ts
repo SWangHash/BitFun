@@ -80,6 +80,7 @@ export function useAgentsList({
           name: mode.name,
           description: mode.description,
           isReadonly: mode.isReadonly,
+          isReview: false,
           toolCount: mode.toolCount,
           defaultTools: mode.defaultTools ?? [],
           enabled: mode.enabled,

@@ -7,7 +7,11 @@ use super::{
 use crate::agentic::agents::custom_subagents::{
     CustomSubagent, CustomSubagentKind, CustomSubagentLoader,
 };
-use crate::agentic::tools::get_all_registered_tool_names;
+use crate::agentic::deep_review_policy::{
+    REVIEWER_BUSINESS_LOGIC_AGENT_TYPE, REVIEWER_PERFORMANCE_AGENT_TYPE,
+    REVIEWER_SECURITY_AGENT_TYPE, REVIEW_JUDGE_AGENT_TYPE,
+};
+use crate::agentic::tools::{get_all_registered_tool_names, get_readonly_registered_tool_names};
 use crate::service::config::global::GlobalConfigManager;
 use crate::service::config::mode_config_canonicalizer::resolve_effective_tools;
 use crate::service::config::types::{ModeConfig, SubAgentConfig};
@@ -66,6 +70,7 @@ pub struct AgentInfo {
     pub name: String,
     pub description: String,
     pub is_readonly: bool,
+    pub is_review: bool,
     pub tool_count: usize,
     pub default_tools: Vec<String>,
     /// whether enabled (agentic always true, other from configuration)
@@ -101,6 +106,7 @@ impl AgentInfo {
             name: agent.name().to_string(),
             description: agent.description().to_string(),
             is_readonly: agent.is_readonly(),
+            is_review: is_review_agent_entry(entry),
             tool_count: default_tools.len(),
             default_tools,
             enabled,
@@ -121,11 +127,27 @@ pub struct CustomSubagentDetail {
     pub prompt: String,
     pub tools: Vec<String>,
     pub readonly: bool,
+    pub review: bool,
     pub enabled: bool,
     pub model: String,
     pub path: String,
     /// `"user"` or `"project"`
     pub level: String,
+}
+
+fn is_review_agent_entry(entry: &AgentEntry) -> bool {
+    let agent = entry.agent.as_ref();
+    if let Some(custom) = agent.as_any().downcast_ref::<CustomSubagent>() {
+        return custom.review;
+    }
+
+    matches!(
+        agent.id(),
+        REVIEWER_BUSINESS_LOGIC_AGENT_TYPE
+            | REVIEWER_PERFORMANCE_AGENT_TYPE
+            | REVIEWER_SECURITY_AGENT_TYPE
+            | REVIEW_JUDGE_AGENT_TYPE
+    )
 }
 
 fn default_model_id_for_builtin_agent(agent_type: &str) -> &'static str {
@@ -505,6 +527,24 @@ impl AgentRegistry {
         None
     }
 
+    pub fn get_subagent_is_review(&self, id: &str) -> Option<bool> {
+        if let Some(entry) = self.read_agents().get(id) {
+            if entry.category == AgentCategory::SubAgent {
+                return Some(is_review_agent_entry(entry));
+            }
+        }
+
+        for entries in self.read_project_subagents().values() {
+            if let Some(entry) = entries.get(id) {
+                if entry.category == AgentCategory::SubAgent {
+                    return Some(is_review_agent_entry(entry));
+                }
+            }
+        }
+
+        None
+    }
+
     /// get all subagent information (including source and enabled status, used for TaskTool, frontend subagent list etc.)
     /// - built-in subagent: read enabled status from global configuration ai.subagent_configs
     /// - custom subagent: read enabled and model configuration from custom_config cache
@@ -550,6 +590,7 @@ impl AgentRegistry {
     pub async fn load_custom_subagents(&self, workspace_root: &Path) {
         // get valid tools and models list for verification
         let valid_tools = get_all_registered_tool_names().await;
+        let readonly_tools = get_readonly_registered_tool_names().await;
         let valid_models = Self::get_valid_model_ids().await;
 
         let custom = CustomSubagentLoader::load_custom_subagents(workspace_root);
@@ -563,7 +604,7 @@ impl AgentRegistry {
             let id = sub.id().to_string();
             let source = SubAgentSource::from_custom_kind(sub.kind);
             // validate and correct tools and model
-            Self::validate_custom_subagent(&mut sub, &valid_tools, &valid_models);
+            Self::validate_custom_subagent(&mut sub, &valid_tools, &readonly_tools, &valid_models);
             // create CustomSubagentConfig cache configuration information
             let custom_config = CustomSubagentConfig {
                 enabled: sub.enabled,
@@ -630,6 +671,7 @@ impl AgentRegistry {
     fn validate_custom_subagent(
         subagent: &mut CustomSubagent,
         valid_tools: &[String],
+        readonly_tools: &[String],
         valid_models: &[String],
     ) {
         let agent_id = subagent.name.clone();
@@ -647,7 +689,23 @@ impl AgentRegistry {
                 agent_id, invalid
             );
         }
-        subagent.tools = valid;
+        if subagent.review {
+            subagent.readonly = true;
+            let readonly_tools_set: std::collections::HashSet<&str> =
+                readonly_tools.iter().map(|s| s.as_str()).collect();
+            let (review_tools, writable_tools): (Vec<_>, Vec<_>) = valid
+                .into_iter()
+                .partition(|t| readonly_tools_set.contains(t.as_str()));
+            if !writable_tools.is_empty() {
+                warn!(
+                    "[Subagent {}] Writable tools filtered out from review subagent: {:?}",
+                    agent_id, writable_tools
+                );
+            }
+            subagent.tools = review_tools;
+        } else {
+            subagent.tools = valid;
+        }
 
         // validate model: if invalid, set to "fast"
         if !valid_models.contains(&subagent.model) {
@@ -657,6 +715,30 @@ impl AgentRegistry {
             );
             subagent.model = "fast".to_string();
         }
+    }
+
+    fn ensure_review_tools_are_readonly(
+        agent_id: &str,
+        tools: &[String],
+        readonly_tools: &[String],
+    ) -> BitFunResult<()> {
+        let readonly_tools_set: std::collections::HashSet<&str> =
+            readonly_tools.iter().map(|s| s.as_str()).collect();
+        let writable_tools: Vec<&str> = tools
+            .iter()
+            .map(String::as_str)
+            .filter(|tool| !readonly_tools_set.contains(tool))
+            .collect();
+
+        if writable_tools.is_empty() {
+            return Ok(());
+        }
+
+        Err(BitFunError::agent(format!(
+            "Review Sub-Agent '{}' can only use read-only tools; remove writable tools: {}",
+            agent_id,
+            writable_tools.join(", ")
+        )))
     }
 
     /// clear all custom subagents (project/user source), only keep built-in subagents. called when closing workspace.
@@ -833,6 +915,7 @@ impl AgentRegistry {
             prompt: custom.prompt.clone(),
             tools: custom.tools.clone(),
             readonly: custom.readonly,
+            review: custom.review,
             enabled,
             model,
             path: custom.path.clone(),
@@ -849,6 +932,7 @@ impl AgentRegistry {
         prompt: String,
         tools: Option<Vec<String>>,
         readonly: Option<bool>,
+        review: Option<bool>,
     ) -> BitFunResult<()> {
         if let Some(root) = workspace_root {
             self.load_custom_subagents(root).await;
@@ -885,21 +969,32 @@ impl AgentRegistry {
                 "Grep".to_string(),
             ]
         });
+        let review = review.unwrap_or(old.review);
+        let valid_tools = get_all_registered_tool_names().await;
+        let readonly_tools = get_readonly_registered_tool_names().await;
+        if review {
+            Self::ensure_review_tools_are_readonly(agent_id, &tools, &readonly_tools)?;
+        }
         let mut new_subagent = CustomSubagent::new(
             old.name.clone(),
             description,
             tools,
             prompt,
-            readonly.unwrap_or(old.readonly),
+            if review { true } else { readonly.unwrap_or(old.readonly) },
             old.path.clone(),
             old.kind,
         );
+        new_subagent.review = review;
         new_subagent.enabled = old.enabled;
         new_subagent.model = old.model.clone();
 
-        let valid_tools = get_all_registered_tool_names().await;
         let valid_models = Self::get_valid_model_ids().await;
-        Self::validate_custom_subagent(&mut new_subagent, &valid_tools, &valid_models);
+        Self::validate_custom_subagent(
+            &mut new_subagent,
+            &valid_tools,
+            &readonly_tools,
+            &valid_models,
+        );
 
         new_subagent.save_to_file(None, None)?;
 

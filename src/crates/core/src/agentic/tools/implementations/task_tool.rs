@@ -404,6 +404,21 @@ impl Tool for TaskTool {
                     })
                 )));
             }
+            let is_review = get_agent_registry()
+                .get_subagent_is_review(&subagent_type)
+                .unwrap_or(false);
+            if !is_review {
+                return Err(BitFunError::tool(format!(
+                    "DeepReview Task policy violation: {}",
+                    json!({
+                        "code": "deep_review_subagent_not_review",
+                        "message": format!(
+                            "DeepReview review-phase subagent '{}' must be marked for review",
+                            subagent_type
+                        )
+                    })
+                )));
+            }
             record_deep_review_task_budget(&dialog_turn_id, &policy, role).map_err(
                 |violation| {
                     BitFunError::tool(format!(

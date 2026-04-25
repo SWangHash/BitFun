@@ -1,0 +1,75 @@
+{
+  "title": "審核",
+  "subtitle": "配置 Deep Review 與 /DeepReview 使用的程式碼審核團隊。",
+  "loading": "正在載入審核設定...",
+  "strategy": {
+    "title": "審核策略",
+    "description": "選擇整個程式碼審核團隊的預設審核深度。",
+    "quick": {
+      "label": "快速",
+      "summary": "快速篩查高置信問題。"
+    },
+    "normal": {
+      "label": "標準",
+      "summary": "適合日常程式碼審核的均衡深度。"
+    },
+    "deep": {
+      "label": "深度",
+      "summary": "適合高風險變更的多輪深入審核。"
+    },
+    "inherit": "繼承團隊（{{level}}）"
+  },
+  "execution": {
+    "title": "執行策略",
+    "description": "控制審核員逾時，以及大範圍審核如何拆分為並行審核實例。",
+    "reviewerTimeout": "審核員逾時",
+    "reviewerTimeoutDesc": "每個審核員的逾時時間，單位秒。設為 0 表示不限制。",
+    "judgeTimeout": "品質檢查逾時",
+    "judgeTimeoutDesc": "品質檢查員的逾時時間，單位秒。設為 0 表示不限制。",
+    "fileSplitThreshold": "文件拆分閾值",
+    "fileSplitThresholdDesc": "目標文件數超過該值時，同一審核角色會拆分為多個實例。",
+    "maxSameRoleInstances": "同角色最大實例數",
+    "maxSameRoleInstancesDesc": "單個審核角色允許並行啟動的最大實例數。"
+  },
+  "members": {
+    "title": "審核員",
+    "description": "調整每個審核員的策略和模型。核心角色會保持鎖定。",
+    "count": "{{count}} 個成員",
+    "locked": "鎖定",
+    "extra": "額外",
+    "remove": "移除",
+    "businessLogic": {
+      "name": "業務邏輯審核員",
+      "role": "業務邏輯審核員"
+    },
+    "performance": {
+      "name": "效能審核員",
+      "role": "效能審核員"
+    },
+    "security": {
+      "name": "安全審核員",
+      "role": "安全審核員"
+    },
+    "judge": {
+      "name": "審核品質檢查員",
+      "role": "審核品質檢查員"
+    }
+  },
+  "extra": {
+    "title": "額外 Review Sub-Agent",
+    "description": "只有勾選 Review 且保持唯讀的 Sub-Agent 可以加入審核團隊。",
+    "role": "額外專業審核員",
+    "candidate": "候選項",
+    "hint": "建立或編輯 Sub-Agent，啟用 Review 並保持唯讀後會出現在這裡。",
+    "placeholder": "選擇 Review Sub-Agent",
+    "add": "加入團隊",
+    "empty": "目前沒有可加入的 Review Sub-Agent。"
+  },
+  "messages": {
+    "loadFailed": "載入審核設定失敗。",
+    "saveFailed": "儲存審核設定失敗。",
+    "saved": "審核設定已儲存。",
+    "memberAdded": "已新增額外審核員。",
+    "memberRemoved": "已移除額外審核員。"
+  }
+}

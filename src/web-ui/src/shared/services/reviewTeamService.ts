@@ -648,9 +648,9 @@ export function canAddSubagentToReviewTeam(subagentId: string): boolean {
 }
 
 export function canUseSubagentAsReviewTeamMember(
-  subagent: Pick<SubagentInfo, 'id' | 'isReadonly'>,
+  subagent: Pick<SubagentInfo, 'id' | 'isReadonly' | 'isReview'>,
 ): boolean {
-  return subagent.isReadonly && canAddSubagentToReviewTeam(subagent.id);
+  return subagent.isReview && subagent.isReadonly && canAddSubagentToReviewTeam(subagent.id);
 }
 
 export function resolveDefaultReviewTeam(
