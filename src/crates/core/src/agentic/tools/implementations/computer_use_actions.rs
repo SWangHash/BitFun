@@ -32,23 +32,29 @@ fn loop_tracker_observe(
     target_sig: &str,
     before_digest: &str,
     after_digest: &str,
-) -> Option<String> {
-    let pid = pid?;
+) -> (Option<String>, bool) {
+    let pid = match pid {
+        Some(p) => p,
+        None => return (None, false),
+    };
     // A digest change means the action mutated the tree — that is real
     // progress and resets the streak even if the model picks the same
     // target name on purpose (e.g. clicking "Next" repeatedly).
     let progressed = before_digest != after_digest;
     let sig = format!("{action}:{target_sig}");
-    let mut guard = APP_LOOP_TRACKER
+    let mut guard = match APP_LOOP_TRACKER
         .get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
         .lock()
-        .ok()?;
+    {
+        Ok(g) => g,
+        Err(_) => return (None, false),
+    };
     let entry = guard
         .entry(pid)
         .or_insert_with(|| (String::new(), String::new(), 0));
     if progressed {
         *entry = (sig, after_digest.to_string(), 1);
-        return None;
+        return (None, false);
     }
     if entry.0 == sig && entry.1 == before_digest {
         entry.2 = entry.2.saturating_add(1);
@@ -56,12 +62,14 @@ fn loop_tracker_observe(
         *entry = (sig, before_digest.to_string(), 1);
     }
     if entry.2 >= 2 {
-        Some(format!(
+        let warning = Some(format!(
             "Detected {} consecutive `{}` calls on the same target ({}) without any AX tree mutation (digest unchanged). The target is almost certainly invisible / disabled / in a Canvas-WebGL surface that AX cannot describe. NEXT TURN you MUST: (1) run `desktop.screenshot {{ screenshot_window: false }}` to see the full display, (2) switch tactic — different `node_idx`, different `ocr_text` needle, or a keyboard shortcut. Do NOT retry this same target a third time.",
             entry.2, action, target_sig
-        ))
+        ));
+        let terminated = entry.2 >= 3;
+        (warning, terminated)
     } else {
-        None
+        (None, false)
     }
 }
 
@@ -964,15 +972,18 @@ impl ComputerUseActions {
                     })
                     .await?;
 
+                let mut loop_terminated = false;
                 if after.loop_warning.is_none() {
                     let target_sig = serde_json::to_string(&target).unwrap_or_default();
-                    after.loop_warning = loop_tracker_observe(
+                    let (warning, terminated) = loop_tracker_observe(
                         app.pid,
                         "app_click",
                         &target_sig,
                         before.as_deref().unwrap_or(""),
                         &after.digest,
                     );
+                    after.loop_warning = warning;
+                    loop_terminated = terminated;
                 }
 
                 let data = json!({
@@ -983,6 +994,7 @@ impl ComputerUseActions {
                     "app_state": snap_state_json(&after),
                     "app_state_nodes": after.nodes,
                     "loop_warning": after.loop_warning,
+                    "loop_terminated": loop_terminated,
                 });
                 Ok(vec![snap_result(data, Some("clicked".to_string()), &after)])
             }
@@ -1009,19 +1021,22 @@ impl ComputerUseActions {
                 let mut after = host
                     .app_type_text(app.clone(), &text, focus.clone())
                     .await?;
+                let mut loop_terminated = false;
                 if after.loop_warning.is_none() {
                     let target_sig = format!(
                         "focus={};len={}",
                         serde_json::to_string(&focus).unwrap_or_default(),
                         text.chars().count()
                     );
-                    after.loop_warning = loop_tracker_observe(
+                    let (warning, terminated) = loop_tracker_observe(
                         app.pid,
                         "app_type_text",
                         &target_sig,
                         before.as_deref().unwrap_or(""),
                         &after.digest,
                     );
+                    after.loop_warning = warning;
+                    loop_terminated = terminated;
                 }
                 let data = json!({
                     "target_app": app,
@@ -1032,6 +1047,7 @@ impl ComputerUseActions {
                     "app_state": snap_state_json(&after),
                     "app_state_nodes": after.nodes,
                     "loop_warning": after.loop_warning,
+                    "loop_terminated": loop_terminated,
                 });
                 Ok(vec![snap_result(
                     data,

@@ -3,10 +3,11 @@
 //! Top-level component that integrates all subsystems and provides a unified interface
 
 use super::{scheduler::DialogSubmissionPolicy, turn_outcome::TurnOutcome};
+use crate::agentic::WorkspaceBinding;
 use crate::agentic::agents::get_agent_registry;
 use crate::agentic::core::{
-    has_prompt_markup, Message, MessageContent, ProcessingPhase, PromptEnvelope, Session,
-    SessionConfig, SessionKind, SessionState, SessionSummary, TurnStats,
+    Message, MessageContent, ProcessingPhase, PromptEnvelope, Session, SessionConfig, SessionKind,
+    SessionState, SessionSummary, TurnStats, has_prompt_markup,
 };
 use crate::agentic::events::{
     AgenticEvent, EventPriority, EventQueue, EventRouter, EventSubscriber,
@@ -18,22 +19,25 @@ use crate::agentic::round_preempt::DialogRoundPreemptSource;
 use crate::agentic::session::SessionManager;
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::tools::pipeline::{SubagentParentInfo, ToolPipeline};
-use crate::agentic::WorkspaceBinding;
 use crate::service::bootstrap::{
     ensure_workspace_persona_files_for_prompt, is_workspace_bootstrap_pending,
 };
+use crate::service::config::global::GlobalConfigManager;
 use crate::util::errors::{BitFunError, BitFunResult};
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::OnceLock;
-use tokio::sync::mpsc;
-use tokio::time::{sleep, Duration, Instant};
+use tokio::sync::{OwnedSemaphorePermit, RwLock, Semaphore, mpsc};
+use tokio::time::{Duration, Instant, sleep};
 use tokio_util::sync::CancellationToken;
 
 const MANUAL_COMPACTION_COMMAND: &str = "/compact";
 const CONTEXT_COMPRESSION_TOOL_NAME: &str = "ContextCompression";
+const DEFAULT_SUBAGENT_MAX_CONCURRENCY: usize = 5;
+const MAX_SUBAGENT_MAX_CONCURRENCY: usize = 64;
+const SUBAGENT_TIMEOUT_GRACE_PERIOD: Duration = Duration::from_secs(10);
 
 /// Subagent execution result
 ///
@@ -116,6 +120,55 @@ impl Drop for CancelTokenGuard {
     }
 }
 
+#[derive(Clone)]
+struct SubagentConcurrencyLimiter {
+    semaphore: Arc<Semaphore>,
+    max_concurrency: usize,
+}
+
+struct SubagentConcurrencyPermitGuard {
+    permit: Option<OwnedSemaphorePermit>,
+    limiter: SubagentConcurrencyLimiter,
+    agent_type: String,
+}
+
+impl SubagentConcurrencyPermitGuard {
+    fn new(
+        permit: OwnedSemaphorePermit,
+        limiter: SubagentConcurrencyLimiter,
+        agent_type: String,
+    ) -> Self {
+        Self {
+            permit: Some(permit),
+            limiter,
+            agent_type,
+        }
+    }
+}
+
+impl Drop for SubagentConcurrencyPermitGuard {
+    fn drop(&mut self) {
+        let Some(permit) = self.permit.take() else {
+            return;
+        };
+
+        drop(permit);
+
+        let active_subagents = self
+            .limiter
+            .max_concurrency
+            .saturating_sub(self.limiter.semaphore.available_permits());
+        debug!(
+            "Released subagent concurrency permit: agent_type={}, active_subagents={}, max_concurrency={}",
+            self.agent_type, active_subagents, self.limiter.max_concurrency
+        );
+    }
+}
+
+fn normalize_subagent_max_concurrency(raw: usize) -> usize {
+    raw.clamp(1, MAX_SUBAGENT_MAX_CONCURRENCY)
+}
+
 /// Conversation coordinator
 pub struct ConversationCoordinator {
     session_manager: Arc<SessionManager>,
@@ -123,6 +176,7 @@ pub struct ConversationCoordinator {
     tool_pipeline: Arc<ToolPipeline>,
     event_queue: Arc<EventQueue>,
     event_router: Arc<EventRouter>,
+    subagent_concurrency_limiter: Arc<RwLock<Option<SubagentConcurrencyLimiter>>>,
     /// Notifies DialogScheduler of turn outcomes; injected after construction
     scheduler_notify_tx: OnceLock<mpsc::Sender<(String, TurnOutcome)>>,
     /// Round-boundary yield (same source as scheduler's yield flags); injected after construction
@@ -431,6 +485,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             tool_pipeline,
             event_queue,
             event_router,
+            subagent_concurrency_limiter: Arc::new(RwLock::new(None)),
             scheduler_notify_tx: OnceLock::new(),
             round_preempt_source: OnceLock::new(),
         }
@@ -1126,6 +1181,8 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                     session_id,
                     turn_id,
                     error: error_text.clone(),
+                    error_category: Some(err.error_category()),
+                    error_detail: Some(err.error_detail()),
                     subagent_parent_info: None,
                 })
                 .await;
@@ -1232,9 +1289,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             } => {
                 warn!(
                     "Session still processing, rejecting new dialog: session_id={}, current_turn_id={}, phase={:?}",
-                    session_id,
-                    current_turn_id,
-                    phase
+                    session_id, current_turn_id, phase
                 );
                 return Err(BitFunError::Validation(format!(
                     "Session state does not allow starting new dialog: {:?}",
@@ -1318,8 +1373,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                 Err(e) => {
                     debug!(
                         "Failed to restore session history (may be new session): session_id={}, error={}",
-                        session_id,
-                        e
+                        session_id, e
                     );
                 }
             }
@@ -1378,8 +1432,15 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             "Dialog turn workspace context: session_id={}, workspace_path={:?}, is_remote={}, workspace_services={}",
             session_id,
             session.config.workspace_path,
-            session_workspace.as_ref().map(|ws| ws.is_remote()).unwrap_or(false),
-            if workspace_services.is_some() { "available" } else { "NONE" }
+            session_workspace
+                .as_ref()
+                .map(|ws| ws.is_remote())
+                .unwrap_or(false),
+            if workspace_services.is_some() {
+                "available"
+            } else {
+                "NONE"
+            }
         );
 
         let wrapped_user_input = self
@@ -1671,6 +1732,8 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                                     session_id: session_id_clone.clone(),
                                     turn_id: turn_id_clone.clone(),
                                     error: error_text.clone(),
+                                    error_category: Some(e.error_category()),
+                                    error_detail: Some(e.error_detail()),
                                     subagent_parent_info: None,
                                 },
                                 Some(EventPriority::Critical),
@@ -1919,21 +1982,131 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         self.tool_pipeline.cancel_tool(tool_id, reason).await
     }
 
+    async fn get_subagent_concurrency_limiter(&self) -> SubagentConcurrencyLimiter {
+        let configured = match GlobalConfigManager::get_service().await {
+            Ok(config_service) => match config_service
+                .get_config::<usize>(Some("ai.subagent_max_concurrency"))
+                .await
+            {
+                Ok(value) => value,
+                Err(error) => {
+                    warn!(
+                        "Failed to read ai.subagent_max_concurrency, using default {}: {}",
+                        DEFAULT_SUBAGENT_MAX_CONCURRENCY, error
+                    );
+                    DEFAULT_SUBAGENT_MAX_CONCURRENCY
+                }
+            },
+            Err(error) => {
+                warn!(
+                    "Config service unavailable while reading ai.subagent_max_concurrency, using default {}: {}",
+                    DEFAULT_SUBAGENT_MAX_CONCURRENCY, error
+                );
+                DEFAULT_SUBAGENT_MAX_CONCURRENCY
+            }
+        };
+
+        let normalized = normalize_subagent_max_concurrency(configured);
+        if normalized != configured {
+            warn!(
+                "Normalized ai.subagent_max_concurrency from {} to {}",
+                configured, normalized
+            );
+        }
+
+        {
+            let limiter_guard = self.subagent_concurrency_limiter.read().await;
+            if let Some(limiter) = limiter_guard.as_ref() {
+                if limiter.max_concurrency == normalized {
+                    return limiter.clone();
+                }
+            }
+        }
+
+        let mut limiter_guard = self.subagent_concurrency_limiter.write().await;
+        if let Some(limiter) = limiter_guard.as_ref() {
+            if limiter.max_concurrency == normalized {
+                return limiter.clone();
+            }
+        }
+
+        let limiter = SubagentConcurrencyLimiter {
+            semaphore: Arc::new(Semaphore::new(normalized)),
+            max_concurrency: normalized,
+        };
+        *limiter_guard = Some(limiter.clone());
+        limiter
+    }
+
+    async fn acquire_subagent_concurrency_permit(
+        &self,
+        agent_type: &str,
+        cancel_token: Option<&CancellationToken>,
+        deadline: Option<Instant>,
+    ) -> BitFunResult<(OwnedSemaphorePermit, SubagentConcurrencyLimiter, u128)> {
+        let limiter = self.get_subagent_concurrency_limiter().await;
+        let started_waiting = Instant::now();
+        let semaphore = limiter.semaphore.clone();
+
+        let permit = match (cancel_token, deadline) {
+            (Some(token), Some(deadline)) => {
+                tokio::select! {
+                    result = semaphore.acquire_owned() => result?,
+                    _ = token.cancelled() => {
+                        return Err(BitFunError::Cancelled(
+                            "Subagent task was cancelled while waiting for a concurrency slot".to_string(),
+                        ));
+                    }
+                    _ = tokio::time::sleep_until(deadline) => {
+                        return Err(BitFunError::Timeout(format!(
+                            "Timed out while waiting for a concurrency slot for subagent '{}'",
+                            agent_type
+                        )));
+                    }
+                }
+            }
+            (Some(token), None) => {
+                tokio::select! {
+                    result = semaphore.acquire_owned() => result?,
+                    _ = token.cancelled() => {
+                        return Err(BitFunError::Cancelled(
+                            "Subagent task was cancelled while waiting for a concurrency slot".to_string(),
+                        ));
+                    }
+                }
+            }
+            (None, Some(deadline)) => {
+                tokio::select! {
+                    result = semaphore.acquire_owned() => result?,
+                    _ = tokio::time::sleep_until(deadline) => {
+                        return Err(BitFunError::Timeout(format!(
+                            "Timed out while waiting for a concurrency slot for subagent '{}'",
+                            agent_type
+                        )));
+                    }
+                }
+            }
+            (None, None) => semaphore.acquire_owned().await?,
+        };
+
+        let wait_ms = started_waiting.elapsed().as_millis();
+        let active_subagents = limiter
+            .max_concurrency
+            .saturating_sub(limiter.semaphore.available_permits());
+        debug!(
+            "Acquired subagent concurrency permit: agent_type={}, wait_ms={}, active_subagents={}, max_concurrency={}",
+            agent_type, wait_ms, active_subagents, limiter.max_concurrency
+        );
+
+        Ok((permit, limiter, wait_ms))
+    }
+
     async fn execute_hidden_subagent_internal(
         &self,
         request: HiddenSubagentExecutionRequest,
         cancel_token: Option<&CancellationToken>,
+        timeout_seconds: Option<u64>,
     ) -> BitFunResult<SubagentResult> {
-        // Check cancel token (before creating session)
-        if let Some(token) = cancel_token {
-            if token.is_cancelled() {
-                debug!("Subagent task cancelled before execution");
-                return Err(BitFunError::Cancelled(
-                    "Subagent task has been cancelled".to_string(),
-                ));
-            }
-        }
-
         let HiddenSubagentExecutionRequest {
             session_name,
             agent_type,
@@ -1945,6 +2118,55 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             runtime_tool_restrictions,
         } = request;
 
+        let timeout_seconds = timeout_seconds.filter(|seconds| *seconds > 0);
+        let timeout_error_message = match timeout_seconds {
+            Some(seconds) => format!(
+                "Subagent '{}' timed out after {} seconds",
+                agent_type, seconds
+            ),
+            None => format!("Subagent '{}' timed out", agent_type),
+        };
+        let deadline = timeout_seconds.map(|seconds| Instant::now() + Duration::from_secs(seconds));
+
+        // Check cancel token (before creating session)
+        if let Some(token) = cancel_token {
+            if token.is_cancelled() {
+                debug!("Subagent task cancelled before execution");
+                return Err(BitFunError::Cancelled(
+                    "Subagent task has been cancelled".to_string(),
+                ));
+            }
+        }
+
+        // Create independent subagent session.
+        // Use create_subagent_session (not create_session) so that no SessionCreated
+        // event is emitted to the transport layer — subagent sessions are internal
+        // implementation details and must not appear in the UI session list.
+        let (permit, limiter, wait_ms) = self
+            .acquire_subagent_concurrency_permit(&agent_type, cancel_token, deadline)
+            .await?;
+        let _permit_guard =
+            SubagentConcurrencyPermitGuard::new(permit, limiter, agent_type.clone());
+
+        if let Some(token) = cancel_token {
+            if token.is_cancelled() {
+                debug!(
+                    "Subagent task cancelled after waiting for concurrency slot: agent_type={}",
+                    agent_type
+                );
+                return Err(BitFunError::Cancelled(
+                    "Subagent task has been cancelled".to_string(),
+                ));
+            }
+        }
+        if deadline.is_some_and(|expires_at| Instant::now() >= expires_at) {
+            warn!(
+                "Subagent timed out before session creation after waiting for concurrency slot: agent_type={}, wait_ms={}",
+                agent_type, wait_ms
+            );
+            return Err(BitFunError::Timeout(timeout_error_message.clone()));
+        }
+
         let session = self
             .create_hidden_subagent_session(
                 session_name,
@@ -1953,16 +2175,25 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                 created_by,
             )
             .await?;
+        let session_id = session.session_id.clone();
 
         // Check cancel token (after creating session, before execution)
         if let Some(token) = cancel_token {
             if token.is_cancelled() {
                 debug!("Subagent task cancelled before AI call, cleaning up resources");
-                let _ = self.cleanup_subagent_resources(&session.session_id).await;
+                let _ = self.cleanup_subagent_resources(&session_id).await;
                 return Err(BitFunError::Cancelled(
                     "Subagent task has been cancelled".to_string(),
                 ));
             }
+        }
+        if deadline.is_some_and(|expires_at| Instant::now() >= expires_at) {
+            warn!(
+                "Subagent timed out before AI call after session creation: agent_type={}, session={}, wait_ms={}",
+                agent_type, session_id, wait_ms
+            );
+            let _ = self.cleanup_subagent_resources(&session_id).await;
+            return Err(BitFunError::Timeout(timeout_error_message.clone()));
         }
 
         // Generate unique dialog_turn_id for cancel token management
@@ -1972,34 +2203,28 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             dialog_turn_id
         );
 
-        // If external cancel_token provided, create child_token and register to RoundExecutor
-        // This allows execute_dialog_turn internal checks to detect external cancellation
-        let _cleanup_guard = if let Some(parent_token) = cancel_token {
-            // Create child_token, cancelled when parent_token is cancelled
-            let child_token = parent_token.child_token();
+        // Register a dedicated subagent token so both external cancellation and
+        // coordinator-enforced timeouts can stop the same dialog turn.
+        let subagent_cancel_token = cancel_token
+            .map(CancellationToken::child_token)
+            .unwrap_or_else(CancellationToken::new);
+        self.execution_engine
+            .register_cancel_token(&dialog_turn_id, subagent_cancel_token.clone());
 
-            // Register to ExecutionEngine (forwarded to RoundExecutor), using dialog_turn_id as key
-            self.execution_engine
-                .register_cancel_token(&dialog_turn_id, child_token.clone());
+        debug!(
+            "Registered cancel token to RoundExecutor: dialog_turn_id={}",
+            dialog_turn_id
+        );
 
-            debug!(
-                "Registered cancel token to RoundExecutor: dialog_turn_id={}",
-                dialog_turn_id
-            );
-
-            // Create cleanup guard to ensure token cleanup on function exit
-            Some(CancelTokenGuard {
-                execution_engine: self.execution_engine.clone(),
-                dialog_turn_id: dialog_turn_id.clone(),
-            })
-        } else {
-            None
+        let _cleanup_guard = CancelTokenGuard {
+            execution_engine: self.execution_engine.clone(),
+            dialog_turn_id: dialog_turn_id.clone(),
         };
 
         let subagent_workspace = Self::build_workspace_binding(&session.config).await;
         let subagent_services = Self::build_workspace_services(&subagent_workspace).await;
         let execution_context = ExecutionContext {
-            session_id: session.session_id.clone(),
+            session_id: session_id.clone(),
             dialog_turn_id: dialog_turn_id.clone(),
             turn_index: 0,
             agent_type: agent_type.clone(),
@@ -2015,10 +2240,178 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             round_preempt: self.round_preempt_source.get().cloned(),
         };
 
-        let result = self
-            .execution_engine
-            .execute_dialog_turn(agent_type, initial_messages, execution_context)
-            .await;
+        let execution_engine = self.execution_engine.clone();
+        let tool_pipeline = self.tool_pipeline.clone();
+        let agent_type_for_execution = agent_type.clone();
+        let mut execution_task = tokio::spawn(async move {
+            execution_engine
+                .execute_dialog_turn(
+                    agent_type_for_execution,
+                    initial_messages,
+                    execution_context,
+                )
+                .await
+        });
+
+        enum SubagentExecutionOutcome<T> {
+            Completed(T),
+            Cancelled,
+            TimedOut,
+        }
+
+        let execution_outcome = if let Some(expires_at) = deadline {
+            let sleep_until_timeout = tokio::time::sleep_until(expires_at);
+            tokio::pin!(sleep_until_timeout);
+
+            tokio::select! {
+                join_result = &mut execution_task => SubagentExecutionOutcome::Completed(join_result),
+                _ = subagent_cancel_token.cancelled() => SubagentExecutionOutcome::Cancelled,
+                _ = &mut sleep_until_timeout => SubagentExecutionOutcome::TimedOut,
+            }
+        } else {
+            tokio::select! {
+                join_result = &mut execution_task => SubagentExecutionOutcome::Completed(join_result),
+                _ = subagent_cancel_token.cancelled() => SubagentExecutionOutcome::Cancelled,
+            }
+        };
+
+        let result = match execution_outcome {
+            SubagentExecutionOutcome::Completed(join_result) => match join_result {
+                Ok(result) => result,
+                Err(error) => {
+                    error!(
+                        "Subagent execution failed to join: agent_type={}, session={}, error={}",
+                        agent_type, session_id, error
+                    );
+
+                    if let Err(cleanup_err) = self.cleanup_subagent_resources(&session_id).await {
+                        warn!(
+                            "Failed to cleanup subagent resources after join failure: session={}, error={}",
+                            session_id, cleanup_err
+                        );
+                    }
+
+                    return Err(BitFunError::tool(format!(
+                        "Subagent '{}' failed to join: {}",
+                        agent_type, error
+                    )));
+                }
+            },
+            SubagentExecutionOutcome::Cancelled => {
+                warn!(
+                    "Stopping subagent execution after cancellation: agent_type={}, session={}, dialog_turn_id={}",
+                    agent_type, session_id, dialog_turn_id
+                );
+                subagent_cancel_token.cancel();
+
+                if let Err(error) = self
+                    .execution_engine
+                    .cancel_dialog_turn(&dialog_turn_id)
+                    .await
+                {
+                    warn!(
+                        "Failed to cancel subagent dialog turn after cancellation: dialog_turn_id={}, error={}",
+                        dialog_turn_id, error
+                    );
+                }
+
+                if let Err(error) = tool_pipeline
+                    .cancel_dialog_turn_tools(&dialog_turn_id)
+                    .await
+                {
+                    warn!(
+                        "Failed to cancel subagent tools after cancellation: dialog_turn_id={}, error={}",
+                        dialog_turn_id, error
+                    );
+                }
+
+                match tokio::time::timeout(SUBAGENT_TIMEOUT_GRACE_PERIOD, &mut execution_task).await
+                {
+                    Ok(Ok(Ok(_))) | Ok(Ok(Err(_))) => {}
+                    Ok(Err(error)) => {
+                        warn!(
+                            "Subagent join failed during cancellation grace period: agent_type={}, session={}, error={}",
+                            agent_type, session_id, error
+                        );
+                        execution_task.abort();
+                    }
+                    Err(_) => {
+                        warn!(
+                            "Subagent did not stop within cancellation grace period, aborting task: agent_type={}, session={}",
+                            agent_type, session_id
+                        );
+                        execution_task.abort();
+                    }
+                }
+
+                if let Err(cleanup_err) = self.cleanup_subagent_resources(&session_id).await {
+                    warn!(
+                        "Failed to cleanup subagent resources after cancellation: session={}, error={}",
+                        session_id, cleanup_err
+                    );
+                }
+
+                return Err(BitFunError::Cancelled(
+                    "Subagent task has been cancelled".to_string(),
+                ));
+            }
+            SubagentExecutionOutcome::TimedOut => {
+                warn!(
+                    "Stopping subagent execution after timeout: agent_type={}, session={}, dialog_turn_id={}",
+                    agent_type, session_id, dialog_turn_id
+                );
+                subagent_cancel_token.cancel();
+
+                if let Err(error) = self
+                    .execution_engine
+                    .cancel_dialog_turn(&dialog_turn_id)
+                    .await
+                {
+                    warn!(
+                        "Failed to cancel subagent dialog turn after timeout: dialog_turn_id={}, error={}",
+                        dialog_turn_id, error
+                    );
+                }
+
+                if let Err(error) = tool_pipeline
+                    .cancel_dialog_turn_tools(&dialog_turn_id)
+                    .await
+                {
+                    warn!(
+                        "Failed to cancel subagent tools after timeout: dialog_turn_id={}, error={}",
+                        dialog_turn_id, error
+                    );
+                }
+
+                match tokio::time::timeout(SUBAGENT_TIMEOUT_GRACE_PERIOD, &mut execution_task).await
+                {
+                    Ok(Ok(Ok(_))) | Ok(Ok(Err(_))) => {}
+                    Ok(Err(error)) => {
+                        warn!(
+                            "Subagent join failed during timeout grace period: agent_type={}, session={}, error={}",
+                            agent_type, session_id, error
+                        );
+                        execution_task.abort();
+                    }
+                    Err(_) => {
+                        warn!(
+                            "Subagent did not stop within timeout grace period, aborting task: agent_type={}, session={}",
+                            agent_type, session_id
+                        );
+                        execution_task.abort();
+                    }
+                }
+
+                if let Err(cleanup_err) = self.cleanup_subagent_resources(&session_id).await {
+                    warn!(
+                        "Failed to cleanup subagent resources after timeout: session={}, error={}",
+                        session_id, cleanup_err
+                    );
+                }
+
+                return Err(BitFunError::Timeout(timeout_error_message.clone()));
+            }
+        };
 
         // cleanup_guard automatically cleans up token on scope exit (via Drop trait)
 
@@ -2032,14 +2425,13 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             Err(e) => {
                 error!(
                     "Subagent execution failed: session={}, error={}",
-                    session.session_id, e
+                    session_id, e
                 );
 
-                if let Err(cleanup_err) = self.cleanup_subagent_resources(&session.session_id).await
-                {
+                if let Err(cleanup_err) = self.cleanup_subagent_resources(&session_id).await {
                     warn!(
                         "Failed to cleanup subagent resources: session={}, error={}",
-                        session.session_id, cleanup_err
+                        session_id, cleanup_err
                     );
                 }
 
@@ -2048,19 +2440,16 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         };
 
         // Clean up subagent session resources after successful execution
-        debug!(
-            "Starting subagent resource cleanup: session={}",
-            session.session_id
-        );
-        if let Err(e) = self.cleanup_subagent_resources(&session.session_id).await {
+        debug!("Starting subagent resource cleanup: session={}", session_id);
+        if let Err(e) = self.cleanup_subagent_resources(&session_id).await {
             warn!(
                 "Failed to cleanup subagent resources: session={}, error={}",
-                session.session_id, e
+                session_id, e
             );
         } else {
             debug!(
                 "Subagent resource cleanup completed: session={}",
-                session.session_id
+                session_id
             );
         }
 
@@ -2125,6 +2514,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                     runtime_tool_restrictions: request.runtime_tool_restrictions,
                 },
                 cancel_token,
+                None,
             )
             .await?;
 
@@ -2154,6 +2544,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         workspace_path: Option<String>,
         context: Option<HashMap<String, String>>,
         cancel_token: Option<&CancellationToken>,
+        timeout_seconds: Option<u64>,
     ) -> BitFunResult<SubagentResult> {
         let workspace_path = workspace_path.ok_or_else(|| {
             BitFunError::Validation(
@@ -2176,6 +2567,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                 runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
             },
             cancel_token,
+            timeout_seconds,
         )
         .await
     }
@@ -2401,4 +2793,16 @@ static GLOBAL_COORDINATOR: OnceLock<Arc<ConversationCoordinator>> = OnceLock::ne
 /// Returns `None` if coordinator hasn't been initialized
 pub fn get_global_coordinator() -> Option<Arc<ConversationCoordinator>> {
     GLOBAL_COORDINATOR.get().cloned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_subagent_max_concurrency;
+
+    #[test]
+    fn clamps_subagent_max_concurrency_into_safe_range() {
+        assert_eq!(normalize_subagent_max_concurrency(0), 1);
+        assert_eq!(normalize_subagent_max_concurrency(5), 5);
+        assert_eq!(normalize_subagent_max_concurrency(usize::MAX), 64);
+    }
 }

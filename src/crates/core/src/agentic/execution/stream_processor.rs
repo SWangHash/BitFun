@@ -365,8 +365,7 @@ impl StreamProcessor {
         for tool_call in tool_calls {
             trace!(
                 "Cleaning up tool: {} ({})",
-                tool_call.tool_name,
-                tool_call.tool_id
+                tool_call.tool_name, tool_call.tool_id
             );
 
             let tool_event = if is_user_cancellation {
@@ -410,6 +409,8 @@ impl StreamProcessor {
                     session_id: session_id.clone(),
                     turn_id: turn_id.clone(),
                     error: reason,
+                    error_category: None,
+                    error_detail: None,
                     subagent_parent_info: event_subagent_parent_info.clone(),
                 }
             };
