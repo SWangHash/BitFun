@@ -31,7 +31,7 @@ export const CAPABILITY_COLORS: Record<CapabilityCategory, string> = {
   ops: '#5ea3a3',
 };
 
-export type AgentsScenePage = 'home' | 'createAgent';
+export type AgentsScenePage = 'home' | 'createAgent' | 'reviewTeam';
 export type AgentEditorMode = 'create' | 'edit';
 export type AgentFilterLevel = 'all' | 'builtin' | 'user' | 'project';
 export type AgentFilterType = 'all' | 'mode' | 'subagent';
@@ -50,6 +50,7 @@ interface AgentsStoreState {
   openHome: () => void;
   openCreateAgent: () => void;
   openEditAgent: (agentId: string) => void;
+  openReviewTeam: () => void;
   agentSoloEnabled: Record<string, boolean>;
   setAgentSoloEnabled: (agentId: string, enabled: boolean) => void;
 }
@@ -75,6 +76,11 @@ export const useAgentsStore = create<AgentsStoreState>((set) => ({
     page: 'createAgent',
     agentEditorMode: 'edit',
     editingAgentId: agentId,
+  }),
+  openReviewTeam: () => set({
+    page: 'reviewTeam',
+    agentEditorMode: 'create',
+    editingAgentId: null,
   }),
   agentSoloEnabled: {},
   setAgentSoloEnabled: (agentId, enabled) =>

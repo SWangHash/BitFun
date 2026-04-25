@@ -1,5 +1,12 @@
 /** Agent IDs hidden from the Agents overview UI (not listed, not counted). */
-export const HIDDEN_AGENT_IDS = new Set<string>(['Claw']);
+export const HIDDEN_AGENT_IDS = new Set<string>([
+  'Claw',
+  'DeepReview',
+  'ReviewBusinessLogic',
+  'ReviewPerformance',
+  'ReviewSecurity',
+  'ReviewJudge',
+]);
 
 /** Core mode agents shown in the top zone only; excluded from overview zone list and counts. */
 export const CORE_AGENT_IDS = new Set<string>(['agentic', 'Cowork', 'ComputerUse']);
