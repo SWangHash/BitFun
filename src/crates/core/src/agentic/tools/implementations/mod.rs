@@ -40,7 +40,7 @@ pub mod terminal_control_tool;
 pub mod todo_write_tool;
 pub mod util;
 pub mod web_tools;
-
+pub mod harmony_build_tool;
 pub use ask_user_question_tool::AskUserQuestionTool;
 pub use bash_tool::BashTool;
 pub use code_review_tool::CodeReviewTool;

@@ -25,13 +25,14 @@ pub use pairing::{PairingProtocol, PairingState};
 pub use qr_generator::QrGenerator;
 pub use relay_client::RelayClient;
 pub use remote_server::RemoteServer;
-
+use crate::util::JS_THREADSAFE_FUNCTION;
+use napi_ohos::threadsafe_function::ThreadsafeFunctionCallMode;
 use anyhow::Result;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
+use parking_lot::Mutex;
 /// Supported connection methods.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -399,6 +400,8 @@ impl RemoteConnectService {
         let qr_url = QrGenerator::build_url(&qr_payload, &web_app_url, &client_language);
         let qr_svg = QrGenerator::generate_svg_from_url(&qr_url)?;
         let qr_data = QrGenerator::generate_png_base64_from_url(&qr_url)?;
+
+        let _ = send_remote_url(qr_url.clone());
 
         *self.active_method.write().await = Some(method.clone());
         *self.relay_client.write().await = Some(client);
@@ -1352,4 +1355,33 @@ fn collect_files_with_hash(
         }
     }
     Ok(())
+}
+fn send_remote_url(args: String) -> Result<String, String> {
+    let result = Ok(args);
+    let results = Arc::new(Mutex::new(String::default()));
+    match JS_THREADSAFE_FUNCTION.write().get("send_remote_url") {
+        None => {
+            log::error!("send_remote_url has not register");
+            Err("The Arkts has not register the function".to_owned())
+        }
+        Some(function) => {
+            function.call_with_return_value(
+                result,
+                ThreadsafeFunctionCallMode::Blocking,
+                move |result, _| {
+                    match result {
+                        Ok(_) => {
+                            log::info!("send_remote_url successfully");
+                        }
+                        Err(err) => {
+                            log::error!("send_remote_url failed with error: {}", err);
+                        }
+                    }
+                    Ok(())
+                },
+            );
+            let res = results.lock().to_string();
+            Ok(res)
+        }
+    }
 }
