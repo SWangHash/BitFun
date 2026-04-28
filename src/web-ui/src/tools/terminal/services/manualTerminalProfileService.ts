@@ -1,4 +1,4 @@
-import { storage } from '@/shared';
+import { storage } from '@/shared/utils/storageAdapter';
 import { STORAGE_KEYS } from '@/shared/constants/app';
 import { createLogger } from '@/shared/utils/logger';
 

@@ -40,7 +40,7 @@ import {
 import type { WorkspaceInfo } from '@/shared/types';
 import { sessionBelongsToWorkspaceNavRow } from '../utils/sessionOrdering';
 import { sessionMatchesWorkspace } from '../utils/workspaceScope';
-import { storage } from '@/shared';
+import { storage } from '@/shared/utils/storageAdapter';
 
 const log = createLogger('FlowChatStore');
 

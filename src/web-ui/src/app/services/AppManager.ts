@@ -18,7 +18,7 @@ import {
 import { globalEventBus } from '../../infrastructure/event-bus';
 import { createLogger } from '@/shared/utils/logger';
 import { i18nService } from '@/infrastructure/i18n';
-import { storage } from '@/shared';
+import { storage } from '@/shared/utils/storageAdapter';
 
 const log = createLogger('AppManager');
 

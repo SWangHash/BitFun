@@ -4,7 +4,7 @@
  * History is now session-scoped - each session maintains its own input history.
  */
 
-import { storage } from '@/shared';
+import { storage } from '@/shared/utils/storageAdapter';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 

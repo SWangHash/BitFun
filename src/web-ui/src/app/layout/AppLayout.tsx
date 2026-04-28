@@ -16,7 +16,7 @@ import { useApp } from '../hooks/useApp';
 import { useSceneStore } from '../stores/sceneStore';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
 import { configManager } from '@/infrastructure';
-import { sessionStorageAdapter } from '@/shared';
+import { sessionStorageAdapter } from '@/shared/utils/sessionStorageAdapter';
 
 type TransitionDirection = 'entering' | 'returning' | null;
 import { FlowChatManager } from '../../flow_chat/services/FlowChatManager';
