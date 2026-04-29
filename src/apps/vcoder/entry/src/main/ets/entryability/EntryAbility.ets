@@ -21,6 +21,7 @@ export default class EntryAbility extends RustAbility {
   public moduleName: string = "bitfun_desktop_lib";
   public defaultPage: boolean = true;
   public commonEventListener: CommonEventListener | undefined = undefined;
+  public remote_url: string = "";
 
   async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
     super.onCreate(want, launchParam);
@@ -97,6 +98,11 @@ export default class EntryAbility extends RustAbility {
       runDeveco(this.context, arg);
       return '';
     });
+    RustModule.registerArktsFunction('send_remote_url', async (err: Error, arg: string): Promise<string> => {
+      hilog.info(DOMAIN_NUMBER, TAG, 'get remote url ' + arg);
+      this.remote_url = arg;
+      return '';
+    });
     RustModule.registerArktsFunction('harmony_create', async (err: Error, arg: string): Promise<string> => {
       await fileIo.copyDir('/storage/Users/currentUser/Documents/DevecoStudioProjects/MyApplication',
         '/storage/Users/currentUser/Documents/files', 1).then(() => {
@@ -122,19 +128,19 @@ export default class EntryAbility extends RustAbility {
   }
 
   private sendOnlyCallback = (sharableTable: harmonyShare.SharableTarget) => {
-    let filePath = "/data/storage/el2/base/files/dist/output.txt";
-    fileIo.readText(filePath).then((content: string) => {
-      console.info("readText success:" + content);
-      let shareData: systemShare.SharedData = new systemShare.SharedData({
-        utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-        content,
-        title: "Bitfun",
-        description: "Phone",
-      });
-      sharableTable.share(shareData)
-    }).catch((err: BusinessError) => {
-      hilog.error(DOMAIN, 'vnext', 'sendOnlyCallback error:' + err);
-    });
+    if (this.remote_url.length == 0) {
+        let content = this.remote_url;
+        let shareData: systemShare.SharedData = new systemShare.SharedData({
+            utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
+            content,
+            title: "Bitfun",
+            description: "Phone",
+        });
+        sharableTable.share(shareData)
+    }
+    else {
+      hilog.error(DOMAIN, 'vnext', 'sendOnlyCallback error: remote url is empty');
+    }
   }
 }
 
