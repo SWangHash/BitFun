@@ -15,6 +15,7 @@ import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { createLogger } from '@/shared/utils/logger';
 import { supportsNativeWindowDragging } from '@/infrastructure/runtime';
 import './SceneBar.scss';
+import { workspaceAPI } from '@/infrastructure';
 
 const log = createLogger('SceneBar');
 
@@ -66,8 +67,7 @@ const SceneBar: React.FC<SceneBarProps> = ({
 
     void (async () => {
       try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        await getCurrentWindow().startDragging();
+        await workspaceAPI.window_start_dragging();
       } catch (error) {
         log.debug('startDragging failed', error);
       }

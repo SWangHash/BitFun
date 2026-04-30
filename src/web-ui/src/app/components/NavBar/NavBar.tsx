@@ -18,6 +18,7 @@ import { PanelLeftIcon } from '../TitleBar/PanelIcons';
 import { createLogger } from '@/shared/utils/logger';
 import { isMacOSDesktopRuntime, supportsNativeWindowDragging } from '@/infrastructure/runtime';
 import './NavBar.scss';
+import { workspaceAPI } from '@/infrastructure';
 
 const log = createLogger('NavBar');
 
@@ -65,8 +66,7 @@ const NavBar: React.FC<NavBarProps> = ({
 
     void (async () => {
       try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        await getCurrentWindow().startDragging();
+        await workspaceAPI.window_start_dragging();
       } catch (error) {
         log.debug('startDragging failed', error);
       }
