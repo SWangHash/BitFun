@@ -217,16 +217,6 @@ pub async fn _run() {
             }
 
             logging::register_runtime_log_state(startup_log_level, session_log_dir.clone());
-            {
-                let candidates = ["mobile-web/dist","mobile-web","dist"];
-                let mut found = false;
-                let path = PathBuf::from("/data/storage/el2/base/files/dist");
-                if path.join("index.html").exists() {
-                    log::info!("Found bundled mobile-web at: {}", path.display());
-                    api::remote_connect_api::set_mobile_web_resource_path(path);
-                    found = true;
-                }
-            }
 
             for step in startup_timings.steps() {
                 log::debug!(
@@ -241,20 +231,13 @@ pub async fn _run() {
             // so the primary candidate is "mobile-web/dist". Additional fallbacks
             // handle legacy or non-standard bundle layouts.
             {
-                let candidates = ["mobile-web/dist", "mobile-web", "dist"];
+                let candidates = ["mobile-web/dist","mobile-web","dist"];
                 let mut found = false;
-                for candidate in &candidates {
-                    if let Ok(p) = app
-                        .path()
-                        .resolve(candidate, tauri::path::BaseDirectory::Resource)
-                    {
-                        if p.join("index.html").exists() {
-                            log::info!("Found bundled mobile-web at: {}", p.display());
-                            api::remote_connect_api::set_mobile_web_resource_path(p);
-                            found = true;
-                            break;
-                        }
-                    }
+                let path = PathBuf::from("/data/storage/el2/base/files/dist");
+                if path.join("index.html").exists() {
+                    log::info!("Found bundled mobile-web at: {}", path.display());
+                    api::remote_connect_api::set_mobile_web_resource_path(path);
+                    found = true;
                 }
                 if !found {
                     // Last resort: scan the resource root for any index.html
