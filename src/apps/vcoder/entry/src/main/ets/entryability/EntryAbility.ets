@@ -1,5 +1,10 @@
 import {
-  abilityAccessCtrl, AbilityConstant, common, Permissions, Want
+  abilityAccessCtrl,
+  AbilityConstant,
+  common,
+  ConfigurationConstant,
+  Permissions,
+  Want
 } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
@@ -119,6 +124,37 @@ export default class EntryAbility extends RustAbility {
         });
       return '';
     });
+    setTimeout(() => {
+      windowStage.getMainWindow((err, data) => {
+        data.setWindowDecorHeight(32)
+        data.setWindowDecorVisible(false);
+      })
+    }, 40)
+    RustModule.registerArktsFunction('reveal_in_explorer', async (err: Error, arg: string): Promise<string> => {
+      const path = arg.replace('file://', 'file://docs');
+      const want: Want = {
+        bundleName: 'com.huawei.hmos.filemanager',
+        abilityName: 'MainAbility',
+        parameters: {
+          fileUri: path
+        }
+      };
+      const context = getContext(this) as common.UIAbilityContext;
+      try {
+        await context.startAbility(want)
+      } catch (err) {
+        hilog.error(201, 'vnext', `reveal in explorer failed ${JSON.stringify(err)}`)
+      }
+      return '';
+    });
+    RustModule.registerArktsFunction('set_theme_mode', async (err: Error, arg: string): Promise<string> => {
+      if (arg === 'bitfun-light' || arg === 'bitfun-china-style') {
+        this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT)
+      } else {
+        this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_DARK)
+      }
+      return '';
+    });
     return super.onWindowStageCreate(windowStage);
   }
 
@@ -129,16 +165,15 @@ export default class EntryAbility extends RustAbility {
 
   private sendOnlyCallback = (sharableTable: harmonyShare.SharableTarget) => {
     if (this.remote_url.length == 0) {
-        let content = this.remote_url;
-        let shareData: systemShare.SharedData = new systemShare.SharedData({
-            utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-            content,
-            title: "Bitfun",
-            description: "Phone",
-        });
-        sharableTable.share(shareData)
-    }
-    else {
+      let content = this.remote_url;
+      let shareData: systemShare.SharedData = new systemShare.SharedData({
+        utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
+        content,
+        title: "Bitfun",
+        description: "Phone",
+      });
+      sharableTable.share(shareData)
+    } else {
       hilog.error(DOMAIN, 'vnext', 'sendOnlyCallback error: remote url is empty');
     }
   }

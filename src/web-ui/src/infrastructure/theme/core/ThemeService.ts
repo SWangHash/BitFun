@@ -14,7 +14,7 @@ import {
   ThemeSelectionId,
 } from '../types';
 import { builtinThemes, getSystemPreferredDefaultThemeId } from '../presets';
-import { configAPI } from '@/infrastructure/api';
+import { configAPI, workspaceAPI } from '@/infrastructure/api';
 import { monacoThemeSync } from '../integrations/MonacoThemeSync';
 import { createLogger } from '@/shared/utils/logger';
 
@@ -257,6 +257,8 @@ export class ThemeService {
       this.resolvedThemeId = resolvedId;
 
       this.injectCSSVariables(theme);
+
+      await workspaceAPI.setThemeMode(resolvedId);
 
       try {
         monacoThemeSync.syncTheme(theme);

@@ -2212,6 +2212,12 @@ pub async fn reveal_in_explorer(
             ))
         }
     };
+    #[cfg(target_env = "ohos")]
+     {
+        use crate::ohos::ohos_file_system::reveal_in_oh_explorer;
+        let _ = reveal_in_oh_explorer(path.to_string_lossy().to_string());
+        return Ok(());
+    }
     if !path.exists() {
         return Err(format!("Path does not exist: {}", request.path));
     }

@@ -1,9 +1,5 @@
-use crate::AppState;
 use bitfun_core::util::JS_THREADSAFE_FUNCTION;
-use log::error;
 use napi_ohos::threadsafe_function::ThreadsafeFunctionCallMode;
-use std::sync::mpsc::channel;
-use tauri::State;
 
 #[tauri::command]
 pub fn handle_min_window() -> Result<(), String> {
