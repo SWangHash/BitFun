@@ -82,6 +82,16 @@ impl ShellDetector {
 
         #[cfg(not(windows))]
         {
+            if let Some(bash_path) = Self::find_bash_with_which() {
+                return DetectedShell {
+                    shell_type: ShellType::Bash,
+                    path: bash_path.clone(),
+                    version: Self::get_shell_version(bash_path.to_str().unwrap_or_default()),
+                    display_name: "bash".to_string(),
+                };
+            } else {
+                log::error!("bash not found");
+            }
             // Try to use $SHELL environment variable
             if let Ok(shell_path) = std::env::var("SHELL") {
                 let shell_type = ShellType::from_executable(&shell_path);
@@ -300,6 +310,35 @@ impl ShellDetector {
             }
         }
 
+        None
+    }
+
+    #[cfg(not(windows))]
+    fn find_bash_with_which() -> Option<PathBuf> {
+        let output = std::process::Command::new("which").arg("bash").output();
+        match output {
+            Ok(output) => {
+                if output.status.success() {
+                    let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if !path_str.is_empty() {
+                        let path = PathBuf::from(path_str);
+                        if path.exists() {
+                            return Some(path);
+                        } else {
+                            log::warn!("bash path not exist");
+                        }
+                    } else {
+                        log::warn!("bash not exist");
+                    }
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    log::error!("which bash error: {}", stderr.trim());
+                }
+            }
+            Err(e) => {
+                log::error!("which bash error: {}", e);
+            }
+        };
         None
     }
 
