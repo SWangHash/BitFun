@@ -2,6 +2,8 @@
 
 pub mod ask_user_question_tool;
 pub mod bash_tool;
+pub mod calendar_tool;
+pub mod harmonyos_project;
 pub mod code_review_tool;
 pub mod computer_use_actions;
 pub mod computer_use_input;
