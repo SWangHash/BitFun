@@ -13,7 +13,7 @@ import {
 import { globalEventBus } from '../../../infrastructure/event-bus';
 import { getMonacoLanguage } from '@/infrastructure/language-detection';
 import { createLogger } from '@/shared/utils/logger';
-import { storage } from '@/shared';
+import { storage } from '@/shared/utils/storageAdapter';
 
 const log = createLogger('EditorManager');
 

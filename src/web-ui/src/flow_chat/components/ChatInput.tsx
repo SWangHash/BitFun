@@ -58,7 +58,7 @@ import { useDeepReviewConsent } from './DeepReviewConsentDialog';
 import { useSessionReviewActivity } from '../hooks/useSessionReviewActivity';
 import { shouldBlockDeepReviewCommand } from '../utils/deepReviewCommandGuard';
 import './ChatInput.scss';
-import { sessionStorageAdapter } from '@/shared';
+import { sessionStorageAdapter } from '@/shared/utils/sessionStorageAdapter';
 
 const log = createLogger('ChatInput');
 

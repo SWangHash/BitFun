@@ -8,7 +8,7 @@ import { lspService } from '@/tools/lsp/services/LspService';
 import { createLogger } from '@/shared/utils/logger';
 import './LspConfig.scss';
 import {workspaceAPI} from "@/infrastructure";
-import { storage } from '@/shared';
+import { storage } from '@/shared/utils/storageAdapter';
 
 const log = createLogger('LspConfig');
 

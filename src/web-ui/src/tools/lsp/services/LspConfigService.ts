@@ -2,7 +2,7 @@
  * LSP config service (user-facing settings).
  */
 
-import { storage } from '@/shared';
+import { storage } from '@/shared/utils/storageAdapter';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('LspConfigService');

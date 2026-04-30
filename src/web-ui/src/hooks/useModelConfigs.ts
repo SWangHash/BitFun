@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ModelConfig } from '../shared/types';
 import { modelConfigManager } from '../infrastructure/config/services/modelConfigs';
-import { storage } from '@/shared';
+import { storage } from '@/shared/utils/storageAdapter';
 export const useModelConfigs = () => {
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
   const [loading, setLoading] = useState(true);
