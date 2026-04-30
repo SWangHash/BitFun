@@ -263,6 +263,14 @@ function BasicsLoggingSection() {
   const [openingFolder, setOpeningFolder] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
+  const getFormattedLogPath = useCallback(() => {
+    if (!runtimeInfo?.sessionLogDir) return '';
+    return runtimeInfo.sessionLogDir.replace(
+      '/data/storage/el2/base/files/bitfun',
+      '/storage/Users/currentUser/appdata/el2/base/com.huawei.bitfunide/files/bitfun'
+    );
+  }, [runtimeInfo?.sessionLogDir]);
+
   const levelOptions = useMemo(
     () => [
       { value: 'trace', label: t('logging.levels.trace') },
@@ -329,7 +337,7 @@ function BasicsLoggingSection() {
   );
 
   const handleOpenFolder = useCallback(async () => {
-    const folder = runtimeInfo?.sessionLogDir;
+    const folder = getFormattedLogPath();
     if (!folder) {
       showMessage('error', t('logging.messages.pathUnavailable'));
       return;
@@ -344,7 +352,7 @@ function BasicsLoggingSection() {
     } finally {
       setOpeningFolder(false);
     }
-  }, [runtimeInfo?.sessionLogDir, showMessage, t]);
+  }, [getFormattedLogPath, showMessage, t]);
 
   if (loading) {
     return <ConfigPageLoading text={t('logging.messages.loading')} />;
@@ -380,7 +388,7 @@ function BasicsLoggingSection() {
           >
             <div className="bitfun-logging-config__path-row">
               <div className="bitfun-logging-config__path-box">
-                {runtimeInfo?.sessionLogDir || '-'}
+                {getFormattedLogPath() || '-'}
               </div>
               <Tooltip content={t('logging.actions.openFolderTooltip')} placement="top">
                 <button
