@@ -1,4 +1,4 @@
-[workspace]
+﻿[workspace]
 members = [
     "src/apps/cli",
     "src/apps/sdk-host",
@@ -22,6 +22,7 @@ members = [
     "src/crates/adapters/opencode-plugin-host",
     "src/crates/adapters/claude-code-adapter",
     "src/crates/adapters/codex-adapter",
+    "src/crates/adapters/matrix-adapter",
     "src/crates/adapters/static-hook-support",
     "src/crates/adapters/webdriver",
     "src/crates/adapters/transport",
@@ -54,7 +55,7 @@ exclude = [
 
 resolver = "2"
 
-# Shared package metadata — single source of truth for version
+# Shared package metadata 鈥?single source of truth for version
 [workspace.package]
 version = "1.0.0" # x-release-please-version
 authors = ["OpenBitFun Team"]
@@ -133,6 +134,9 @@ hex = "0.4"
 chardetng = "0.1.17"
 encoding_rs = "0.8.35"
 url = "2"
+
+# Internal adapter crates (path-pinned for workspace = true consumers)
+openbitfun-matrix-adapter = { path = "src/crates/adapters/matrix-adapter" }
 
 # HTTP client
 reqwest = { version = "0.13.4", default-features = false }

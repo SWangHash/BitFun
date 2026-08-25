@@ -32,6 +32,7 @@ openbitfun-transport = { path = "../../crates/adapters/transport", features = ["
 openbitfun-events = { path = "../../crates/contracts/events" }
 openbitfun-webdriver = { path = "../../crates/adapters/webdriver" }
 openbitfun-acp = { path = "../../crates/interfaces/acp", default-features = false, features = ["client"] }
+openbitfun-matrix-adapter = { path = "../../crates/adapters/matrix-adapter" }
 
 # Tauri
 tauri = { workspace = true }

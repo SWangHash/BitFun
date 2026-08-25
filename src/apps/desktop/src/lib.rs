@@ -92,6 +92,7 @@ use api::git_agent_api::*;
 use api::git_api::*;
 use api::i18n_api::*;
 use api::mcp_api::*;
+use api::matrix_skill_api::*;
 use api::review_platform_api::*;
 use api::runtime_api::*;
 use api::search_api::*;
@@ -1752,6 +1753,12 @@ pub async fn _run() {
             download_skill_market,
             get_skill_descriptions,
             set_global_skill_disabled,
+            list_matrix_tags,
+            list_matrix_skills,
+            list_matrix_categories,
+            list_matrix_organizations,
+            install_matrix_skill,
+            check_matrix_skill_checksum,
             set_mode_skill_disabled,
             replace_mode_skill_selection,
             reset_mode_skill_selection,
