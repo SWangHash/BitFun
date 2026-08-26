@@ -40,15 +40,18 @@ import { createLogger } from '@/shared/utils/logger';
 import { getCardGradient } from '@/shared/utils/cardGradients';
 import { useInstalledSkills } from './hooks/useInstalledSkills';
 import { useSkillMarket } from './hooks/useSkillMarket';
+import { useMatrixSkillMarket } from './hooks/useMatrixSkillMarket';
 import SkillCard from './components/SkillCard';
 import SkillsSuiteView from './components/SkillsSuiteView';
+import MatrixMarketView from './components/MatrixMarketView';
+import type { MatrixSkillSummary } from '@/infrastructure/api/service-api/MatrixSkillAPI';
 import './SkillsScene.scss';
 import { useSkillsSceneStore, type InstalledFilter } from './skillsSceneStore';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
 
 const log = createLogger('SkillsScene');
 
-type SkillTab = 'installed' | 'discover';
+type SkillTab = 'installed' | 'discover' | 'matrix';
 
 interface CategoryInfo {
   id: InstalledFilter;
@@ -123,6 +126,7 @@ const SkillsScene: React.FC = () => {
   const [selectedDetail, setSelectedDetail] = useState<
     | { type: 'installed'; skillKey: string }
     | { type: 'market'; skill: SkillMarketItem }
+    | { type: 'matrix'; skill: MatrixSkillSummary }
     | null
   >(null);
 
@@ -148,6 +152,15 @@ const SkillsScene: React.FC = () => {
     [installed.skills, selectedDetail],
   );
   const selectedMarketSkill = selectedDetail?.type === 'market' ? selectedDetail.skill : null;
+  const selectedMatrixSkill = selectedDetail?.type === 'matrix' ? selectedDetail.skill : null;
+  const installedMatrixEnNames = useMemo(
+    () => new Set(
+      installed.skills
+        .filter((skill) => skill.sourceId === 'matrix')
+        .map((skill) => skill.dirName),
+    ),
+    [installed.skills],
+  );
 
   useEffect(() => {
     if (selectedDetail?.type === 'installed' && !installed.loading && !selectedInstalledSkill) {
@@ -170,6 +183,13 @@ const SkillsScene: React.FC = () => {
     installedSkillNames,
     pageSize: 15,
     enabled: desktopConfigAvailable,
+    onInstalledChanged: async () => {
+      await installed.loadSkills(true);
+    },
+  });
+  const matrix = useMatrixSkillMarket({
+    enabled: desktopConfigAvailable,
+    installedEnNames: installedMatrixEnNames,
     onInstalledChanged: async () => {
       await installed.loadSkills(true);
     },
@@ -273,6 +293,19 @@ const SkillsScene: React.FC = () => {
             data-openbitfun-tab="discover"
             data-openbitfun-state={activeTab === 'discover' ? 'active' : undefined}
           ><span>{t('market.title')}</span></Button>
+          <span className="skills-tabs-bar__divider" data-openbitfun-scene="skills" data-openbitfun-part="tabDivider" />
+          <Button
+            size="sm"
+            variant={activeTab === 'matrix' ? 'fill' : 'text'}
+            className="skills-tabs-bar__tab"
+            aria-pressed={activeTab === 'matrix'}
+            disabled={!desktopConfigAvailable}
+            onClick={() => setActiveTab('matrix')}
+            data-openbitfun-scene="skills"
+            data-openbitfun-part="tab"
+            data-openbitfun-tab="matrix"
+            data-openbitfun-state={activeTab === 'matrix' ? 'active' : undefined}
+          ><span>{t('matrix.tabLabel')}</span></Button>
         </div>
       </div>
 
@@ -774,19 +807,88 @@ const SkillsScene: React.FC = () => {
             </ScrollArea>
           </div>
         )}
+
+        {desktopConfigAvailable && activeTab === 'matrix' && (
+          <div className="skills-discover" data-openbitfun-scene="skills" data-openbitfun-part="matrix">
+            <div className="skills-discover__hero" data-openbitfun-scene="skills" data-openbitfun-part="matrixHero">
+              <div className="skills-discover__hero-content" data-openbitfun-scene="skills" data-openbitfun-part="matrixHeroContent">
+                <h1 className="skills-discover__title" data-openbitfun-scene="skills" data-openbitfun-part="matrixTitle">{t('matrix.title')}</h1>
+                <p className="skills-discover__subtitle" data-openbitfun-scene="skills" data-openbitfun-part="matrixSubtitle">
+                  {t('matrix.subtitle')}
+                </p>
+                <div className="skills-discover__search-wrapper" data-openbitfun-scene="skills" data-openbitfun-part="matrixSearch">
+                  <SearchField
+                    className="skills-discover__search"
+                    value={matrix.keyword}
+                    onValueChange={matrix.setKeyword}
+                    onSearch={matrix.submitKeyword}
+                    leadingIcon={<Icon name="search" size="sm" aria-hidden />}
+                    placeholder={t('matrix.searchPlaceholder')}
+                    aria-label={t('matrix.searchPlaceholder')}
+                    size="md"
+                    clearLabel={matrix.keyword ? tComponents('search.clear') : undefined}
+                    onClear={matrix.keyword ? () => {
+                      matrix.setKeyword('');
+                      matrix.submitKeyword();
+                    } : undefined}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <MatrixMarketView
+              tags={matrix.tags}
+              tagsLoading={matrix.tagsLoading}
+              tagsError={matrix.tagsError}
+              selectedTagIds={matrix.selectedTagIds}
+              onToggleTag={matrix.toggleTag}
+              onClearTags={matrix.clearTags}
+              categories={matrix.categories}
+              categoriesLoading={matrix.categoriesLoading}
+              categoriesError={matrix.categoriesError}
+              selectedCategoryId={matrix.selectedCategoryId}
+              onToggleCategory={matrix.toggleCategory}
+              organizations={matrix.organizations}
+              organizationsLoading={matrix.organizationsLoading}
+              organizationsError={matrix.organizationsError}
+              selectedOrgId={matrix.selectedOrgId}
+              onToggleOrganization={matrix.toggleOrganization}
+              activeSection={matrix.activeSection}
+              onSelectSection={matrix.selectSection}
+              hasWorkspace={matrix.hasWorkspace}
+              isRemoteWorkspace={matrix.isRemoteWorkspace}
+              isAssistantWorkspace={matrix.isAssistantWorkspace}
+              skills={matrix.skills}
+              totalCount={matrix.totalCount}
+              skillsLoading={matrix.skillsLoading}
+              skillsError={matrix.skillsError}
+              hasMore={matrix.hasMore}
+              loadingMore={matrix.loadingMore}
+              loadMoreError={matrix.loadMoreError}
+              onLoadMore={() => void matrix.loadMore()}
+              onRetryLoadMore={() => matrix.retryLoadMore()}
+              installingEnName={matrix.installingEnName}
+              installError={matrix.installError}
+              onInstall={matrix.handleInstall}
+              onOpenDetails={(skill) => setSelectedDetail({ type: 'matrix', skill })}
+              installedEnNames={installedMatrixEnNames}
+            />
+          </div>
+        )}
       </div>
 
       <GalleryDetailModal
         isOpen={desktopConfigAvailable && Boolean(selectedDetail)}
         onClose={() => setSelectedDetail(null)}
-        icon={selectedMarketSkill ? <Package size={24} strokeWidth={1.6} /> : <Icon name="extension" size="lg" />}
+        icon={selectedMarketSkill || selectedMatrixSkill ? <Package size={24} strokeWidth={1.6} /> : <Icon name="extension" size="lg" />}
         iconGradient={getCardGradient(
           selectedInstalledSkill?.name
           ?? selectedMarketSkill?.installId
           ?? selectedMarketSkill?.name
+          ?? selectedMatrixSkill?.enName
           ?? 'skill'
         )}
-        title={selectedInstalledSkill?.name ?? selectedMarketSkill?.name ?? ''}
+        title={selectedInstalledSkill?.name ?? selectedMarketSkill?.name ?? selectedMatrixSkill?.name ?? ''}
         badges={selectedInstalledSkill ? (
           <>
             {selectedInstalledSkill.isShadowed && (
@@ -819,8 +921,12 @@ const SkillsScene: React.FC = () => {
           <StatusPill tone="success" leading={<Icon name="check-circle" size="2xs" />}>
             {t('market.item.installed')}
           </StatusPill>
+        ) : selectedMatrixSkill && installedMatrixEnNames.has(selectedMatrixSkill.enName) ? (
+          <StatusPill tone="success" leading={<Icon name="check-circle" size="2xs" />}>
+            {t('matrix.item.installed')}
+          </StatusPill>
         ) : null}
-        description={selectedInstalledSkill?.description ?? selectedMarketSkill?.description}
+        description={selectedInstalledSkill?.description ?? selectedMarketSkill?.description ?? selectedMatrixSkill?.description}
         testId="skill-detail-panel"
         titleTestId="skill-detail-title"
         descriptionTestId="skill-detail-description"
@@ -829,6 +935,11 @@ const SkillsScene: React.FC = () => {
           <span className="openbitfun-skills-scene__market-meta">
             <TrendingUp size={12} />
             {selectedMarketSkill.installs ?? 0}
+          </span>
+        ) : selectedMatrixSkill ? (
+          <span className="openbitfun-skills-scene__market-meta">
+            <TrendingUp size={12} />
+            {selectedMatrixSkill.download ?? 0}
           </span>
         ) : null}
         actions={selectedInstalledSkill && canDeleteSkill(selectedInstalledSkill) ? (
@@ -870,6 +981,39 @@ const SkillsScene: React.FC = () => {
                   disabled={market.downloadingPackage === selectedMarketSkill.installId}
                 >
                   {t('market.item.downloadUser')}
+                </Button>
+              </>
+            )}
+          </>
+        ) : selectedMatrixSkill ? (
+          <>
+            {installedMatrixEnNames.has(selectedMatrixSkill.enName) ? (
+              <Button variant="outline" size="sm" disabled>
+                {t('matrix.item.installed')}
+              </Button>
+            ) : (
+              <>
+                {!matrix.isRemoteWorkspace && (
+                  <Button
+                    variant="fill"
+                    size="sm"
+                    onClick={() => void matrix.handleInstall(selectedMatrixSkill, 'project')}
+                    disabled={matrix.installingEnName === selectedMatrixSkill.enName || !matrix.hasWorkspace}
+                  >
+                    {matrix.installingEnName === selectedMatrixSkill.enName
+                      ? t('matrix.item.installing')
+                      : t('market.item.downloadProject')}
+                  </Button>
+                )}
+                <Button
+                  variant={matrix.isRemoteWorkspace ? 'fill' : 'outline'}
+                  size="sm"
+                  onClick={() => void matrix.handleInstall(selectedMatrixSkill, 'user')}
+                  disabled={matrix.installingEnName === selectedMatrixSkill.enName}
+                >
+                  {matrix.installingEnName === selectedMatrixSkill.enName
+                    ? t('matrix.item.installing')
+                    : t('market.item.downloadUser')}
                 </Button>
               </>
             )}
@@ -941,6 +1085,48 @@ const SkillsScene: React.FC = () => {
               {selectedMarketSkill.url}
             </a>
           </div>
+        ) : null}
+
+        {selectedMatrixSkill ? (
+          <>
+            {selectedMatrixSkill.repository ? (
+              <div className="openbitfun-skills-scene__detail-row">
+                <span className="openbitfun-skills-scene__detail-label">{t('market.detail.linkLabel')}</span>
+                <a
+                  href={selectedMatrixSkill.repository}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="openbitfun-skills-scene__detail-link"
+                >
+                  {selectedMatrixSkill.repository}
+                </a>
+              </div>
+            ) : null}
+            {selectedMatrixSkill.version ? (
+              <div className="openbitfun-skills-scene__detail-row">
+                <span className="openbitfun-skills-scene__detail-label">{t('market.detail.versionLabel')}</span>
+                <span className="openbitfun-skills-scene__detail-value">{selectedMatrixSkill.version}</span>
+              </div>
+            ) : null}
+            {selectedMatrixSkill.organization?.name ? (
+              <div className="openbitfun-skills-scene__detail-row">
+                <span className="openbitfun-skills-scene__detail-label">{t('market.detail.orgLabel')}</span>
+                <span className="openbitfun-skills-scene__detail-value">{selectedMatrixSkill.organization.name}</span>
+              </div>
+            ) : null}
+            {selectedMatrixSkill.tags && selectedMatrixSkill.tags.length > 0 ? (
+              <div className="openbitfun-skills-scene__detail-row">
+                <span className="openbitfun-skills-scene__detail-label">{t('market.detail.tagsLabel')}</span>
+                <span className="openbitfun-skills-scene__detail-value">
+                  {selectedMatrixSkill.tags.map((tag) => tag.name).join(', ')}
+                </span>
+              </div>
+            ) : null}
+            <div className="openbitfun-skills-scene__detail-row">
+              <span className="openbitfun-skills-scene__detail-label">{t('market.detail.installsLabel')}</span>
+              <span className="openbitfun-skills-scene__detail-value">{selectedMatrixSkill.download ?? 0}</span>
+            </div>
+          </>
         ) : null}
       </GalleryDetailModal>
 
