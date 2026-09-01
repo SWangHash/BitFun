@@ -36,7 +36,10 @@ import {
 import { CodeReviewReportExportActions } from './CodeReviewReportExportActions';
 import { DEEP_REVIEW_SCROLL_TO_EVENT, type DeepReviewScrollToRequest } from '../events/flowchatNavigation';
 import { globalEventBus } from '@/infrastructure/event-bus';
-import { normalizeDecisionEntry, type DecisionContext } from '../utils/codeReviewReport';
+import {
+  normalizeCodeReviewReportData,
+  normalizeDecisionEntry,
+} from '../utils/codeReviewReport';
 import { getMotionAwareScrollBehavior } from '../utils/motionPreference';
 import type { ReviewTeamRunManifest } from '@/shared/services/reviewTeamService';
 import './CodeReviewToolCard.scss';
@@ -284,14 +287,10 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
 
       if (typeof result === 'string') {
         const parsed = JSON.parse(result);
-        return parsed;
+        return normalizeCodeReviewReportData(parsed);
       }
 
-      if (typeof result === 'object' && result.summary) {
-        return result as CodeReviewReportData;
-      }
-
-      return null;
+      return normalizeCodeReviewReportData(result);
     } catch (error) {
       log.error('Failed to parse result', error);
       return null;
@@ -763,7 +762,7 @@ export const CodeReviewToolCard: React.FC<ToolCardProps> = React.memo(({
                         <ul className="review-report-group__list">
                           {group.items.map((_, index) => {
                             const raw = rawEntries?.[index];
-                            const ctx = raw ? normalizeDecisionEntry(raw as string | DecisionContext) : null;
+                            const ctx = raw ? normalizeDecisionEntry(raw) : null;
                             return (
                               <li data-openbitfun-component="code-review-tool-card" data-openbitfun-part="decision" key={`${group.id}-${index}`} id={`review-remediation-${group.id}-${index}`}>
                                 {ctx && ctx.question !== ctx.plan ? (
