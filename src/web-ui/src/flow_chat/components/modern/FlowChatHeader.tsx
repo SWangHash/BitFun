@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Session-level actions for FlowChat.
  * The workspace scene renders these actions in the shared scene top bar;
  * standalone FlowChat hosts keep the inline fallback.
@@ -15,6 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { SessionFilesBadge } from './SessionFilesBadge';
 import { SessionTreePopover, type SessionTreeSelection } from './SessionTreePopover';
+import { SessionShareFilesButton } from './SessionShareFilesButton';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { gitAPI, reviewPlatformAPI, type ReviewPlatformPullRequest } from '@/infrastructure/api';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance';
@@ -657,6 +658,10 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             />
           </Tooltip>
         )) : null}
+        <SessionShareFilesButton
+          sessionId={sessionId}
+          t={t}
+        />
         <div
           className="flowchat-header__session-overview"
           ref={sessionOverviewRootRef}
@@ -850,7 +855,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
                                 command.status === 'running'
                                   ? t('flowChatHeader.backgroundCommandStatusRunning')
                                   : t('flowChatHeader.backgroundCommandStatusFinished'),
-                              ].filter(Boolean).join(' · ')}
+                              ].filter(Boolean).join(' 路 ')}
                             </span>
                           </button>
                           {renderBackgroundCommandActions(command)}

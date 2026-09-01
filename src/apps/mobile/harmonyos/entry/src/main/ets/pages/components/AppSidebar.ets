@@ -65,6 +65,7 @@ export struct AppSidebar {
     (_session: RemoteSession, _archived: boolean) => {};
   @Event onExportSession: (session: RemoteSession) => void = (_session: RemoteSession) => {};
   @Event onDeleteSession: (session: RemoteSession) => void = (_session: RemoteSession) => {};
+  @Event onTogglePinSession: (session: RemoteSession) => void = (_session: RemoteSession) => {};
   @Local activeActionSessionId: string = '';
   @Local showSessionActionSheet: boolean = false;
   @Local detailsSessionId: string = '';
@@ -478,6 +479,7 @@ export struct AppSidebar {
       Text(session.title || RemoteI18n.t('sidebar.untitled'))
         .fontSize(MobileDesignTypography.titleSmall.size).fontColor(INK).layoutWeight(1)
         .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+      this.PinToggleButton(session)
       this.SessionMoreButton(session)
     }
     .width('100%').height(44)
@@ -512,6 +514,7 @@ export struct AppSidebar {
         .layoutWeight(1)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
+      this.PinToggleButton(item)
       this.SessionMoreButton(item)
     }
     .width('100%')
@@ -550,6 +553,21 @@ export struct AppSidebar {
     .opacity(0.62)
     .accessibilityText(RemoteI18n.t('session.actions'))
     .onClick(() => this.openSessionActions(session))
+  }
+
+  @Builder
+  private PinToggleButton(session: RemoteSession) {
+    Stack({ alignContent: Alignment.Center }) {
+      SymbolGlyph($r('sys.symbol.pin'))
+        .fontSize(17)
+        .fontColor([session.id === this.pinnedSessionId ? INK : MUTED])
+    }
+    .width(34)
+    .height(40)
+    .opacity(0.62)
+    .accessibilityText(session.id === this.pinnedSessionId ?
+      RemoteI18n.t('chat.unpin') : RemoteI18n.t('chat.pin'))
+    .onClick(() => this.onTogglePinSession(session))
   }
 
   @Builder

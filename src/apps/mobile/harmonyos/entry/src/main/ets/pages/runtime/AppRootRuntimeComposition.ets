@@ -996,7 +996,11 @@ export abstract class AppRootRuntimeComposition {
         this.conversationController.archiveHomeSession(session, archived);
       },
       exportSession: (session: RemoteSession): void => { this.conversationController.exportHomeSession(session); },
-      deleteSession: (session: RemoteSession): void => { this.conversationController.deleteHomeSession(session); }
+      deleteSession: (session: RemoteSession): void => { this.conversationController.deleteHomeSession(session); },
+      pin: (session: RemoteSession): void => {
+        const pinned: boolean = this.generalChatPageState.pinnedSessionId() === session.id;
+        void this.generalChatCommandController.pinSession(session, !pinned, this.generalChatPageState.isBusy);
+      }
     },
     onSettings: {
       close: (): void => this.appShellState.leaveSettings(),
