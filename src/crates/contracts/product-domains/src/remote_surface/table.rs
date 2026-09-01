@@ -624,6 +624,7 @@ pub(super) const OPERATIONS: &[OperationDefinition] = &[
     op("save_project_permission_rules",                              Routed,      Proxied,          CLI_NOT_IMPLEMENTED),
     op("save_session_metadata",                                      Unaudited,   Proxied,          CLI_NOT_IMPLEMENTED),
     op("save_session_turn",                                          Unaudited,   Proxied,          HANDLED),
+    op("save_text_file_dialog",                                      LocalOnly,   ControllerLocal,  REFUSED),
     op("save_web_search_credential",                                 Agnostic,    Proxied,          HANDLED),
     op("scan_workspace_info",                                        Unsupported, Proxied,          CLI_NOT_IMPLEMENTED),
     op("search_build_index",                                         Routed,      Proxied,          CLI_NO_DESKTOP_IDE_SURFACE),

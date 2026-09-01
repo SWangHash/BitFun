@@ -1,4 +1,4 @@
-#![cfg(not(target_env = "ohos"))]
+﻿#![cfg(not(target_env = "ohos"))]
 
 //! Non-OHOS `ScreenCapture` backend backed by the `screenshots` crate.
 //!
@@ -11,12 +11,12 @@
 //! `src/apps/desktop/Cargo.toml`).
 //!
 //! `capture_region` mirrors the display-resolution + area-capture flow that
-//! the MiniApp "截取当前画面" command used to inline: resolve the display
+//! the MiniApp "鎴彇褰撳墠鐢婚潰" command used to inline: resolve the display
 //! containing the region's center via `Screen::from_point`, map the global
 //! rect to that display's local space, and `capture_area`.
 
 use async_trait::async_trait;
-use bitfun_services_core::screen_capture::{CapturedImage, DisplayInfo, ScreenCapture};
+use openbitfun_services_core::screen_capture::{CapturedImage, DisplayInfo, ScreenCapture};
 
 /// `ScreenCapture` backed by the `screenshots` crate.
 #[derive(Debug)]
