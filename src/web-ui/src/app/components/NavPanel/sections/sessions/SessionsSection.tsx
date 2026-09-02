@@ -1727,7 +1727,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
                 isEditing && 'editing',
                 openMenuSessionId === session.sessionId && 'menuOpen',
               ].filter(Boolean).join(' ') || undefined}
-              data-testid="nav-session-item"
+              data-testid={`nav-session-item-${session.sessionId}`}
               data-session-id={session.sessionId}
               data-session-kind={relationship.kind}
               data-session-level={String(level)}
