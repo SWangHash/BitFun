@@ -30,6 +30,10 @@ pub mod plugin_host_tool;
 pub(crate) mod post_call_hooks;
 #[doc(hidden)]
 pub mod product_runtime;
+#[cfg(feature = "agent-runtime")]
+pub(crate) mod qt_migration_candidates;
+#[cfg(feature = "agent-runtime")]
+pub(crate) mod qt_migration_gate;
 pub mod registry;
 pub mod restrictions;
 pub(crate) mod tool_adapter;

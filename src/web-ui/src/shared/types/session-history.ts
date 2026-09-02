@@ -316,6 +316,7 @@ export interface ToolItemData {
   toolName: string;
   toolCall: ToolCallData;
   toolResult?: ToolResultData;
+  questionRequest?: any;
   aiIntent?: string;
   startTime: number;
   endTime?: number;

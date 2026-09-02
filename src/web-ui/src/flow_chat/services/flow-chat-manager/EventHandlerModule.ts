@@ -80,6 +80,7 @@ import {
   processToolProgressInternal,
   handleToolExecutionProgress,
   handleToolTerminalReady,
+  handleToolAwaitingUserInput,
 } from './ToolEventModule';
 import { handleAcpPermissionRequestForToolCard } from './AcpPermissionToolCardModule';
 import {
@@ -792,6 +793,10 @@ export async function initializeEventListeners(
     const eventData = (payload as any)?.value || payload;
     handleToolTerminalReady(eventData);
   });
+  const unlistenAwaitingUserInput = api.listen('backend-event-toolawaitinguserinput', (payload: any) => {
+    const eventData = (payload as any)?.value || payload;
+    handleToolAwaitingUserInput(eventData);
+  });
   const unlistenBackgroundCommandLifecycle = api.listen('backend-event-backgroundcommandlifecycle', (payload: any) => {
     const eventData = (payload as any)?.value || payload;
     useBackgroundCommandActivityStore.getState().applyLifecycleEvent(eventData);
@@ -901,6 +906,7 @@ export async function initializeEventListeners(
   return () => {
     unlistenProgress();
     unlistenTerminalReady();
+    unlistenAwaitingUserInput();
     unlistenBackgroundCommandLifecycle();
     unlistenMcpInteractionRequest();
     unlistenAcpPermissionRequest();

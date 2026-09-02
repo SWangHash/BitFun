@@ -928,6 +928,8 @@
       "Cowork": "Cowork",
       "ComputerUse": "Computer Use",
       "DeepResearch": "Deep Research",
+      "Team": "Team",
+      "QtMigration": "QT 遷移專家",
       "Ultra": "Ultra"
     },
     "openFolder": "開啟資料夾…",
@@ -1855,6 +1857,13 @@
       "submitting": "提交中...",
       "submitFailed": "答案提交失敗，請檢查連線後重試。",
       "unsupportedOnPeer": "該裝置的 OpenBitFun 版本暫不支援回答此問題，請更新該裝置上的 OpenBitFun。",
+      "submitPathNotFound": "{{field}}路徑不存在：{{path}}",
+      "fieldName": {
+        "source_project": "原始工程",
+        "output_project": "輸出工程",
+        "toolchain": "遷移工具鏈",
+        "template": "模板工程"
+      },
       "waitingAnswer": "等待回答",
       "questionsCount": "{{count}} 個問題",
       "answerAllBeforeSubmit": "請回答所有問題後再提交",
@@ -1866,7 +1875,12 @@
       "loadingQuestions": "正在接收問題…",
       "other": "其他",
       "customInputHint": "提供自定義文字",
-      "pleaseSpecify": "請輸入..."
+      "pleaseSpecify": "請輸入...",
+      "browsePath": "從檔案管理員中選擇路徑",
+      "qtMigration": {
+        "pathsIntro": "偵測到提示詞中未指定遷移路徑，需要先確認4項路徑設定。",
+        "pathsHint": "💡在提示詞中寫明4項路徑即可跳過設定"
+      }
     },
     "think": {
       "analysis": "思考分析",

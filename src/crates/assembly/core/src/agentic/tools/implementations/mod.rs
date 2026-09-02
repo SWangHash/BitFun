@@ -5,6 +5,7 @@ pub mod agent_list_tool;
 pub mod agent_wait_tool;
 #[cfg(feature = "tools-image-analysis")]
 pub mod analyze_image_tool;
+pub mod analyze_migration_request_tool;
 #[cfg(feature = "tools-miniapp")]
 pub mod appearance_publish_tool;
 pub mod ask_user_question_tool;
@@ -97,6 +98,7 @@ pub use agent_list_tool::AgentListTool;
 pub use agent_wait_tool::AgentWaitTool;
 #[cfg(feature = "tools-image-analysis")]
 pub use analyze_image_tool::AnalyzeImageTool;
+pub use analyze_migration_request_tool::AnalyzeMigrationRequestTool;
 #[cfg(feature = "tools-miniapp")]
 pub use appearance_publish_tool::PublishAppearanceTool;
 pub use ask_user_question_tool::AskUserQuestionTool;

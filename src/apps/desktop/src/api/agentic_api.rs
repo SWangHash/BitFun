@@ -4556,6 +4556,7 @@ mod tests {
                 id: format!("call-{}", tool_name),
                 input: json!({}),
             },
+            question_request: None,
             tool_result: Some(ToolResultData {
                 result,
                 success: true,

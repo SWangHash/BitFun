@@ -324,7 +324,7 @@ export function sessionToVirtualItems(session: Session | null): VirtualItem[] {
   ) {
     return cachedVirtualItems;
   }
-  
+
   cachedSession = session;
   cachedDialogTurnsRef = session.dialogTurns;
   cachedTurnCatalogRef = session.turnCatalog;
