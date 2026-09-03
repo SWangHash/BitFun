@@ -387,7 +387,7 @@ function getAgentRowStatus({
     return 'partial';
   }
   if (!configured) return 'ready';
-  if (!enabled) return 'invalid';
+  if (!enabled) return 'disabled';
   return 'enabled';
 }
 
@@ -1105,6 +1105,7 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
   }) => {
     const { status, issueKind, probe, requiresAdapter } = args;
     if (status === 'enabled') return t('registry.enabled');
+    if (status === 'disabled') return t('registry.disabled');
     if (status === 'ready') return t('registry.ready');
     if (status === 'partial') return t('registry.partial');
     if (status === 'checking') return t('registry.checking');
@@ -1133,6 +1134,8 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
     const lines: string[] = [];
     if (status === 'enabled') {
       lines.push(t('registry.enabled'));
+    } else if (status === 'disabled') {
+      lines.push(t('registry.disabled'));
     } else if (status === 'ready') {
       lines.push(t('registry.ready'));
     } else if (status === 'partial') {
