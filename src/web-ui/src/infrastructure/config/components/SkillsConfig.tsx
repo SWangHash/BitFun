@@ -176,6 +176,20 @@ const SkillsConfig: React.FC = () => {
       return;
     }
 
+    // Block install: a same-level skill with this dirName already exists.
+    // Cross-level installs land in a different directory and are allowed.
+    const atIdx = skill.installId.lastIndexOf('@');
+    const subdir = atIdx < 0 ? skill.installId : skill.installId.slice(atIdx + 1);
+    const slashIdx = subdir.lastIndexOf('/');
+    const dirName = slashIdx < 0 ? subdir : subdir.slice(slashIdx + 1);
+    const conflictSet = resolvedLevel === 'user'
+      ? installedDirNamesByLevel.user
+      : installedDirNamesByLevel.project;
+    if (conflictSet.has(dirName) && !isMarketSkillInstalled(skill)) {
+      notification.error(t('messages.nameConflict', { name: skill.name }));
+      return;
+    }
+
     try {
       setDownloadingPackage(skill.installId);
       const result = await configAPI.downloadSkillMarket({
@@ -428,7 +442,7 @@ const SkillsConfig: React.FC = () => {
       <div className="openbitfun-skills-config__market-list" data-openbitfun-component="skills-config" data-openbitfun-part="marketList">
         {displayMarketSkills.map((skill) => {
           const isDownloading = downloadingPackage === skill.installId;
-          const isInstalled = installedSkillNames.has(skill.name);
+          const isInstalled = isMarketSkillInstalled(skill);
           const sourceLabel = formatMarketSource(skill.source);
           const projectTooltipText = !hasWorkspace
             ? t('messages.noWorkspace')
@@ -571,9 +585,28 @@ const SkillsConfig: React.FC = () => {
     </>
   );
 
-  const installedSkillNames = useMemo(
-    () => new Set(skills.map((skill) => skill.name)),
+  const installedInstallIds = useMemo(
+    () => new Set(
+      skills
+        .map((skill) => skill.marketInstallId)
+        .filter((id): id is string => Boolean(id)),
+    ),
     [skills]
+  );
+  const installedDirNamesByLevel = useMemo(
+    () => {
+      const user = new Set<string>();
+      const project = new Set<string>();
+      for (const skill of skills) {
+        (skill.level === 'user' ? user : project).add(skill.dirName);
+      }
+      return { user, project };
+    },
+    [skills]
+  );
+  const isMarketSkillInstalled = useCallback(
+    (skill: SkillMarketItem): boolean => installedInstallIds.has(skill.installId),
+    [installedInstallIds]
   );
 
   const formatMarketSource = useCallback((source: string): string => {
@@ -600,7 +633,7 @@ const SkillsConfig: React.FC = () => {
     const entries = marketSkills.map((skill, index) => ({
       skill,
       index,
-      installed: installedSkillNames.has(skill.name),
+      installed: isMarketSkillInstalled(skill),
     }));
 
     entries.sort((a, b) => {
@@ -617,7 +650,7 @@ const SkillsConfig: React.FC = () => {
     });
 
     return entries.map((entry) => entry.skill);
-  }, [marketSkills, installedSkillNames]);
+  }, [marketSkills, isMarketSkillInstalled]);
 
   const handleMarketSearch = useCallback(() => {
     loadMarketSkills(marketKeyword);
