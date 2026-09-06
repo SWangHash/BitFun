@@ -6726,8 +6726,8 @@ export const requiredContentRules = [
         message: 'missing remote dialog outcome builder contract test',
       },
       {
-        regex: /\bremote_connect_dialog_runtime_keeps_legacy_restore_failure_tolerance\b/,
-        message: 'missing restore failure tolerance test',
+        regex: /\bremote_connect_dialog_runtime_stops_before_prewarm_when_restore_fails\b/,
+        message: 'missing restore failure propagation test',
       },
       {
         regex: /\bremote_chat_history_assembly_preserves_message_shape_and_item_order\b/,
