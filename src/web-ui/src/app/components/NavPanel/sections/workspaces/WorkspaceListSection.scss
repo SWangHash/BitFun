@@ -311,10 +311,6 @@
     text-align: left;
   }
 
-  &__workspace-item.is-active &__workspace-item-name-stack {
-    padding-right: 28px;
-  }
-
   &__workspace-item:hover &__workspace-item-name-stack,
   &__workspace-item.is-menu-open &__workspace-item-name-stack,
   &__workspace-item:focus-within &__workspace-item-name-stack {
