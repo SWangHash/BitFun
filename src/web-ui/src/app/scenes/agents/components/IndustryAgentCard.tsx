@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Bot } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/component-library';
@@ -8,7 +8,7 @@ import { getCardGradient } from '@/shared/utils/cardGradients';
 import './AgentCard.scss';
 
 /**
- * Industry agent card 鈥?renders a real backend-registered agent (e.g.
+ * Industry agent card —renders a real backend-registered agent (e.g.
  * QtMigration) with a vertical-domain presentation: localized name/description
  * and an "industry agent" badge. Reuses `.agent-card` styling and the shared
  * AGENT_ICON_MAP icon source so it renders consistently with AgentCard.

@@ -1,4 +1,4 @@
-﻿//! Skill tool implementation
+//! Skill tool implementation
 //!
 //! Supports loading and executing skills from user-level and project-level directories
 //! Manages skill enabled/disabled status through SkillRegistry
@@ -385,7 +385,7 @@ impl Tool for SkillTool {
 /// Record a Qt migration skill load receipt into the Session intake snapshot.
 /// Only the managed built-in `ohos-qt-skills` loaded from the `.system` source
 /// qualifies; other skills or name collisions produce no receipt. The receipt
-/// is attached to an existing intake only 鈥?if no intake exists yet the
+/// is attached to an existing intake only — if no intake exists yet the
 /// session is not an active migration, so there is nothing to attach the
 /// receipt to.
 async fn record_qt_migration_skill_receipt(

@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
 import { FolderOpen, User, MessageSquare } from 'lucide-react';
@@ -62,7 +62,7 @@ const NavSearchDialog: React.FC<NavSearchDialogProps> = ({ open, onClose }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
-  /** Persisted session rows for opened workspaces 鈥?filled when dialog opens (search filters client-side). */
+  /** Persisted session rows for opened workspaces —filled when dialog opens (search filters client-side). */
   const [persistedOpenWorkspaceSessions, setPersistedOpenWorkspaceSessions] = useState<
     Array<{ meta: SessionMetadata; workspace: WorkspaceInfo }>
   >([]);
@@ -275,7 +275,7 @@ const NavSearchDialog: React.FC<NavSearchDialogProps> = ({ open, onClose }) => {
     }
   }, [onClose, setActiveWorkspace, setSelectedAssistantWorkspaceId, openNurseryAssistant, switchLeftPanelTab, openScene]);
 
-  // Passed to Search component's onKeyDown 鈥?called before its built-in handling.
+  // Passed to Search component's onKeyDown —called before its built-in handling.
   // Use e.preventDefault() to suppress Search's own Enter/Escape logic when needed.
   const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {

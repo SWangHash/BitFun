@@ -1,4 +1,4 @@
-﻿#![cfg(target_env = "ohos")]
+#![cfg(target_env = "ohos")]
 
 //! OHOS `ScreenCapture` backend through an ArkTS bridge.
 //!

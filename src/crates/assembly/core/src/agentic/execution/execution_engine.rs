@@ -1,4 +1,4 @@
-﻿//! Execution Engine
+//! Execution Engine
 //!
 //! Executes complete dialog turns, managing loops of multiple model rounds
 
@@ -568,18 +568,21 @@ pub struct ExecutionEngine {
 
 // QtMigration intake gate: only requests classified as `app_migration` by the
 // full analyzer receive migration input and skill constraints.
-const QT_MIGRATION_CONFIRM_INSTRUCTION: &str = r#"## 杩佺Щ鍓嶇疆杈撳叆锛堢郴缁熺害鏉燂紝蹇呴』绔嬪嵆鎵ц锛?
-鐢ㄦ埛璇锋眰宸插垎绫讳负 Qt 鈫?HarmonyOS 搴旂敤杩佺Щ浠诲姟銆傚湪鍥涢」鏈€灏忚緭鍏ワ紙source_project銆乷utput_project銆乼oolchain銆乼emplate锛夊叏閮ㄨ揪鍒?Validated 涔嬪墠锛岀姝㈡墽琛屼换浣曡縼绉诲壇浣滅敤锛堝啓鏂囦欢銆佹瀯寤恒€侀儴缃层€佸垹闄わ級锛岀姝㈠姞杞芥妧鑳姐€佺姝㈠仛浠讳綍鍏跺畠浜嬫儏銆?
-浣犵殑涓嬩竴姝ュ繀椤讳笖鍙兘鏄皟鐢?AskUserQuestion 宸ュ叿锛屽弬鏁颁紶鍏?{"templateId": "qt-migration-paths", "candidates": {...}}銆傚湪璋冪敤鍓嶅彲浣跨敤鍙宸ュ叿鎺㈡祴褰撳墠宸ヤ綔鍖猴紱涓€鏃﹀彂鐜扮敤鎴峰綋鍓嶆寚瀹氭垨鏄庣‘鎸囦唬鐨?Qt 宸ョ▼锛屽繀椤绘妸鍏跺伐绋嬬洰褰曟垨 `.pro` 鏂囦欢璺緞鏀惧叆 `candidates.source_project`锛屼笖缃簬鏁扮粍绗竴椤广€備笉寰楀彧鍦ㄥ垎鏋愭枃瀛椾腑鎻忚堪鍊欓€夎€岀渷鐣?`candidates`銆傚叾浠栧凡鎺㈡祴鍊欓€変篃搴旀寜瀛楁浼犲叆锛涗笉瑕佽嚜琛屾瀯閫?questions锛屼笉瑕佸湪宸ュ叿璋冪敤鍓嶅悗杈撳嚭璇存槑鏂囧瓧锛屼篃涓嶈兘鐢ㄧ函鏂囨湰鎻愮ず浠ｆ浛宸ュ叿璋冪敤銆傝皟鐢ㄥ悗绛夊緟鐢ㄦ埛鎻愪氦绛旀銆?#;
+const QT_MIGRATION_CONFIRM_INSTRUCTION: &str = r#"## 迁移前置输入（系统约束，必须立即执行）
+
+用户请求已分类为 Qt → HarmonyOS 应用迁移任务。在四项最小输入（source_project、output_project、toolchain、template）全部达到 Validated 之前，禁止执行任何迁移副作用（写文件、构建、部署、删除），禁止加载技能、禁止做任何其它事情。
+
+你的下一步必须且只能是调用 AskUserQuestion 工具，参数传入 {"templateId": "qt-migration-paths", "candidates": {...}}。在调用前可使用只读工具探测当前工作区；一旦发现用户当前指定或明确指代的 Qt 工程，必须把其工程目录或 `.pro` 文件路径放入 `candidates.source_project`，且置于数组第一项。不得只在分析文字中描述候选而省略 `candidates`。其他已探测候选也应按字段传入；不要自行构造 questions，不要在工具调用前后输出说明文字，也不能用纯文本提示代替工具调用。调用后等待用户提交答案。"#;
 
 // Engine-level constraint ensuring Qt migration work always uses the
 // `ohos-qt-skills` knowledge base. Gate semantics only: which skill must load
 // and that side effects are forbidden before the skill is loaded - not a copy
 // of the skill's domain flow.
-const QT_MIGRATION_SKILL_GATE_INSTRUCTION: &str = r#"## 蹇呯敤鎶€鑳斤紙绯荤粺绾︽潫锛屽繀椤婚伒瀹堬級
+const QT_MIGRATION_SKILL_GATE_INSTRUCTION: &str = r#"## 必用技能（系统约束，必须遵守）
 
-杩欐槸涓€涓?Qt 鈫?HarmonyOS(OpenHarmony) 杩佺Щ浠诲姟銆傚湪姣忎釜鏂扮殑杩佺Щ浠诲姟寮€濮嬪墠锛堝寘鎷悓涓€浼氳瘽涓縼绉诲彟涓€涓?Qt 宸ョ▼锛夛紝浣?*蹇呴』**鍏堣皟鐢?Skill 宸ュ叿鍔犺浇鎶€鑳?ohos-qt-skills锛屽苟閬靛惊璇ユ妧鑳藉綋鍓嶇増鏈殑娴佺▼锛堜互鍏?_index/_task-routing 涓?procedural 椤甸潰涓哄噯锛夈€備笂涓€娆¤縼绉讳换鍔′腑宸茬粡鍔犺浇杩囩殑鎶€鑳戒笉婊¤冻鏈浠诲姟鐨勮姹傘€?
-鎶€鑳芥湭鍔犺浇銆佹妧鑳戒笉鍙敤鎴栧姞杞藉け璐ユ椂锛岀姝骇鐢熶换浣曡縼绉诲壇浣滅敤銆傞鍩熸祦绋嬬粏鑺傛湰绯荤粺涓嶉噸澶嶆彁渚涳紝涓€寰嬩互 ohos-qt-skills 褰撳墠鐗堟湰涓哄敮涓€浜嬪疄婧愩€?#;
+这是一个 Qt → HarmonyOS(OpenHarmony) 迁移任务。在每个新的迁移任务开始前（包括同一会话中迁移另一个 Qt 工程），你**必须**先调用 Skill 工具加载技能 ohos-qt-skills，并遵循该技能当前版本的流程（以其 _index/_task-routing 与 procedural 页面为准）。上一次迁移任务中已经加载过的技能不满足本次任务的要求。
+
+技能未加载、技能不可用或加载失败时，禁止产生任何迁移副作用。领域流程细节本系统不重复提供，一律以 ohos-qt-skills 当前版本为唯一事实源。"#;
 
 impl ExecutionEngine {
     const AUTO_COMPRESSION_SAFETY_RESERVE_TOKENS: usize = 10_000;
@@ -3460,12 +3463,12 @@ impl ExecutionEngine {
             initial_messages.insert(
                 0,
                 Message::user(format!(
-                    "褰撳墠杞槸鍚﹀惎鐢?Qt 鍒伴缚钂欒縼绉绘祦绋嬶細{}銆倇}",
-                    if is_migration { "鏄? } else { "鍚? },
+                    "当前轮是否启用 Qt 到鸿蒙迁移流程：{}。{}",
+                    if is_migration { "是" } else { "否" },
                     if is_migration {
-                        "鍙湁姝ょ姸鎬佷负鈥滄槸鈥濇椂锛屾墠鎵ц杩佺Щ涓撳睘杈撳叆鏀堕泦銆佹妧鑳藉姞杞藉拰杩佺Щ鎿嶄綔銆?
+                        "只有此状态为“是”时，才执行迁移专属输入收集、技能加载和迁移操作。"
                     } else {
-                        "褰撳墠璇锋眰鎸夋櫘閫?Agentic 璇锋眰澶勭悊锛屼笉瑕佸姞杞?ohos-qt-skills锛屼笉瑕佽皟鐢?qt-migration-paths锛屼篃涓嶈鎵ц杩佺Щ涓撳睘杈撳叆鏀堕泦銆?
+                        "当前请求按普通 Agentic 请求处理，不要加载 ohos-qt-skills，不要调用 qt-migration-paths，也不要执行迁移专属输入收集。"
                     }
                 )),
             );
@@ -3566,14 +3569,14 @@ impl ExecutionEngine {
                             })
                             .copied()
                             .collect::<Vec<_>>()
-                            .join("銆?);
+                            .join("、");
                     instruction.push_str(QT_MIGRATION_CONFIRM_INSTRUCTION);
                     instruction.push_str(&format!(
-                        "\n\n褰撳墠缂哄皯鎴栦粎鏈夊紩鐢ㄨ€屾湭鎻愪緵鍏蜂綋璺緞/ID 鐨勮緭鍏ラ」锛歿}銆俓n",
+                        "\n\n当前缺少或仅有引用而未提供具体路径/ID 的输入项：{}。\n",
                         pending_fields
                     ));
                     instruction
-                        .push_str("\n\n杈撳叆鏀堕泦瀹屾垚鍚庯紝杩佺Щ宸ヤ綔蹇呴』閬靛畧涓嬮潰鐨勫繀鐢ㄦ妧鑳界害鏉燂細\n");
+                        .push_str("\n\n输入收集完成后，迁移工作必须遵守下面的必用技能约束：\n");
                 }
                 instruction.push_str(QT_MIGRATION_SKILL_GATE_INSTRUCTION);
                 initial_messages.insert(0, Message::user(instruction));
@@ -3962,7 +3965,8 @@ impl ExecutionEngine {
             //
             // NOTE: There used to be a "microcompact" pre-pass here that
             // silently rewrote older tool-result contents into a placeholder.
-            // It has been removed: it mutated already-sent message prefixes 鈥?            // killing provider KV-cache hits on every round 鈥?and stripped the
+            // It has been removed: it mutated already-sent message prefixes —
+            // killing provider KV-cache hits on every round — and stripped the
             // model of memory of what it had already done, which directly
             // drove repetitive tool-call loops in long exploratory subagents
             // (see deep-review subagent loop incident, 2026-05-12).
@@ -4166,7 +4170,7 @@ impl ExecutionEngine {
                 }
             }
 
-            // L2: Emergency truncation 鈥?if tokens still exceed context_window
+            // L2: Emergency truncation — if tokens still exceed context_window
             // after all compression layers, drop oldest API rounds until we fit.
             let send_prepended_reminders = turn_prompt_scaffold
                 .prepended_prompt_reminders
@@ -4923,7 +4927,7 @@ impl ExecutionEngine {
                     }
                 } else if round_result.had_thinking_content {
                     thinking_only_rescue_attempts += 1;
-                    let reminder = "<system_reminder>The previous round produced internal reasoning only 鈥?no tool call and no user-visible response. You MUST now either: (1) call the single tool that best advances the user's task, or (2) write your final answer to the user. Do not produce another round of reasoning without taking action.</system_reminder>".to_string();
+                    let reminder = "<system_reminder>The previous round produced internal reasoning only — no tool call and no user-visible response. You MUST now either: (1) call the single tool that best advances the user's task, or (2) write your final answer to the user. Do not produce another round of reasoning without taking action.</system_reminder>".to_string();
                     let user_msg = Message::internal_reminder(
                         InternalReminderKind::ThinkingOnlyRescue,
                         reminder.clone(),
@@ -6378,9 +6382,9 @@ mod tests {
 
     #[test]
     fn tool_signature_args_summary_truncates_on_utf8_boundary() {
-        let args = format!("{}{}", "a".repeat(62), "妗?.repeat(30));
-
         let args = format!("{}{}", "a".repeat(62), "案".repeat(30));
+        let args_hash = hex::encode(Sha256::digest(args.as_bytes()));
+
         let summary = ExecutionEngine::tool_signature_args_summary(&args);
 
         assert_eq!(

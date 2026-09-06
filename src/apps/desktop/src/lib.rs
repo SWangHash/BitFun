@@ -1,4 +1,4 @@
-﻿#![recursion_limit = "256"]
+#![recursion_limit = "256"]
 #![allow(non_snake_case)]
 //! OpenBitFun Desktop - Tauri-based desktop application with TransportAdapter architecture
 //!
@@ -6,7 +6,7 @@
 //! trait-evaluation recursion budget when desktop tasks require `Send`.
 //!
 //! Concretely, dropping the limit back to 128 fails with `overflow evaluating
-//! the requirement Vec<slab::Entry<h2::鈥?:Slot<h2::鈥?:recv::Event>>>: Send`.
+//! the requirement Vec<slab::Entry<h2::…::Slot<h2::…::recv::Event>>>: Send`.
 //! The chain runs ~15 frames through h2's own internals (`Slab` 鈫?`Buffer` 鈫?//! `Recv` 鈫?`Actions` 鈫?`Inner` 鈫?`Arc<Mutex<_>>` 鈫?`RecvStream` 鈫?hyper's
 //! `Incoming`), into the MCP remote transport, then out through roughly ten
 //! nested `async fn` bodies from `agentic::coordination::scheduler` to the
@@ -2503,7 +2503,7 @@ fn setup_panic_hook() {
 
         // Known wry bug: WKWebView.URL() returns nil after navigating to an
         // invalid address, causing url_from_webview to panic on unwrap().
-        // This is non-fatal 鈥?the webview is still alive 鈥?so we log and
+        // This is non-fatal — the webview is still alive — so we log and
         // continue instead of killing the process.
         // See: https://github.com/tauri-apps/wry/pull/1554
         if location.contains("wry") && location.contains("wkwebview") {
@@ -2520,13 +2520,13 @@ fn setup_panic_hook() {
         }
 
         // 鈹€鈹€ Recovery strategy 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-        // Main-thread panics are unrecoverable 鈥?the event loop is gone.
+        // Main-thread panics are unrecoverable — the event loop is gone.
         // Spawned-thread panics only kill that thread; the rest of the
         // application can continue.  We log a clear message and skip the
         // hard exit so the user isn't forced to restart.
         if !is_main_thread {
             log::warn!(
-                "Non-main thread panicked 鈥?application will continue. \
+                "Non-main thread panicked — application will continue. \
                  The affected feature may be degraded until the next restart."
             );
             return;

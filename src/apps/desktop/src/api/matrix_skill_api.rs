@@ -1,4 +1,4 @@
-﻿//! Tauri commands for the OpenHarmony Matrix skill market.
+//! Tauri commands for the OpenHarmony Matrix skill market.
 //!
 //! These commands wrap the independent `openbitfun-matrix-adapter` crate so the
 //! frontend can invoke Matrix market operations (`list_matrix_tags`,

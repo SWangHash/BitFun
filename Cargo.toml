@@ -1,4 +1,4 @@
-﻿[workspace]
+[workspace]
 members = [
     "src/apps/cli",
     "src/apps/sdk-host",

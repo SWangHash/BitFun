@@ -1,4 +1,4 @@
-﻿use openbitfun_agent_runtime::user_questions::{
+use openbitfun_agent_runtime::user_questions::{
     ask_user_question_available_for_acp_transport, ask_user_question_available_in_context,
     build_answered_user_question_result, build_cancelled_user_question_result,
     validate_ask_user_question_input, AskUserQuestionInput, Question, QuestionOption,
@@ -204,11 +204,11 @@ fn ask_user_question_validation_rejects_empty_input_placeholder() {
 fn ask_user_question_validation_allows_single_option_only_for_template_questions() {
     let mut single = question();
     single.options = vec![QuestionOption {
-        label: "榛樿璺緞".to_string(),
+        label: "默认路径".to_string(),
         description: "D:/work/myqt".to_string(),
         value: None,
     }];
-    single.input_placeholder = Some("璇峰～鍐欏師濮嬪伐绋嬭矾寰?.to_string());
+    single.input_placeholder = Some("请填写原始工程路径".to_string());
 
     // Template-resolved questions may carry exactly one candidate option.
     assert!(

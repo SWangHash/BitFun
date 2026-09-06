@@ -1,4 +1,4 @@
-﻿//! HTTP client for the OpenHarmony Matrix skill market.
+//! HTTP client for the OpenHarmony Matrix skill market.
 //!
 //! Mirrors the BitFun `ReviewHttpClient` safe-defaults pattern
 //! (`src/crates/services/services-integrations/src/review_platform_http.rs`):

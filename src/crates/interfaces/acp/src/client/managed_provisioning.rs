@@ -1,4 +1,4 @@
-﻿use std::collections::HashMap;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{
@@ -774,7 +774,7 @@ fn command_error_summary(stderr: &[u8], stdout: &[u8]) -> String {
     let mut chars = detail.chars();
     let truncated = chars.by_ref().take(2_000).collect::<String>();
     if chars.next().is_some() {
-        format!("{truncated}鈥?)
+        format!("{truncated}…")
     } else if truncated.is_empty() {
         "Installer exited without diagnostic output".to_string()
     } else {

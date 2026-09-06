@@ -1,4 +1,4 @@
-﻿#![cfg(not(target_env = "ohos"))]
+#![cfg(not(target_env = "ohos"))]
 
 //! Non-OHOS `ScreenCapture` backend backed by the `screenshots` crate.
 //!

@@ -1,4 +1,4 @@
-﻿//! Session Manager
+//! Session Manager
 //!
 //! Responsible for session CRUD, lifecycle management, and resource association
 
@@ -891,8 +891,8 @@ impl SessionManager {
             return truncated_chars.iter().collect();
         }
 
-        let sentence_break_chars = ['銆?, '锛?, '锛?, '锛?, '.', '!', '?'];
-        let break_chars = ['銆?, '锛?, '锛?, '锛?, '.', '!', '?', '锛?, ',', ' '];
+        let sentence_break_chars = ['。', '！', '？', '；', '.', '!', '?'];
+        let break_chars = ['。', '！', '？', '；', '.', '!', '?', '，', ',', ' '];
         let min_break_index = max_length / 2;
         let mut best_break_index: Option<usize> = None;
 
@@ -2358,7 +2358,7 @@ impl SessionManager {
     ///
     /// `model_id` is treated as "usable" when:
     /// - it is a special selector (`primary` / `fast` /
-    ///   empty) 鈥?these are evaluated again at request time against
+    ///   empty) — these are evaluated again at request time against
     ///   `default_models`, so their long-term validity is governed elsewhere;
     /// - it resolves to a model that exists AND is enabled.
     fn is_session_model_id_usable(
@@ -19022,7 +19022,7 @@ mod tests {
             .as_array()
             .expect("resolved questions present");
         assert_eq!(questions.len(), 4);
-        assert_eq!(questions[0]["options"][0]["label"], "榛樿璺緞");
+        assert_eq!(questions[0]["options"][0]["label"], "默认路径");
         assert_eq!(questions[0]["options"][0]["description"], "D:/work/myqt");
 
         // Plain (inline questions) AskUserQuestion calls carry the questions in

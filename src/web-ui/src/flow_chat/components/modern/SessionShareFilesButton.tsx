@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Files } from 'lucide-react';
 import { IconButton } from '@/component-library';
@@ -28,14 +28,14 @@ function basename(path: string): string {
  * Header button that lists files the agent wrote during the current session.
  * Sibling of `SessionTreePopover` in the FlowChat header right-actions area.
  *
- * Only renders on the OpenHarmony host 鈥?`isOpenHarmonyRuntime()` returns
+ * Only renders on the OpenHarmony host —`isOpenHarmonyRuntime()` returns
  * false everywhere else, so the button stays hidden and the file-list fetch
  * is the only cost on unsupported runtimes. The file list itself comes from
  * the existing snapshot system (`useSnapshotState`), which already tracks
  * agent write_file / edit_file / create_file operations, so no new tracking
  * is introduced.
  *
- * UX (current scope 鈥?list-only):
+ * UX (current scope —list-only):
  *  1. Click the files icon 鈫?popover lists session files (basename + path).
  *
  * The per-file share actions (闅旂┖浼犻€?/ 纰颁竴纰? are intentionally not
