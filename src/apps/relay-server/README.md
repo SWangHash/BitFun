@@ -298,7 +298,7 @@ docker inspect --format '{{.Config.Image}} {{index .Config.Labels "org.openconta
 
 The image must report `/app/openbitfun-relay-server` as its command and account
 mode must use `/app/data/openbitfun_relay.db`. A pre-1.0 deployment that still
-has `openbitfun_relay.db` must be stopped and copied with SQLite's `.backup` command
+has `bitfun_relay.db` must be stopped and copied with SQLite's `.backup` command
 to the new filename before the OpenBitFun image is started. The runtime has no
 fallback to the retired filename.
 

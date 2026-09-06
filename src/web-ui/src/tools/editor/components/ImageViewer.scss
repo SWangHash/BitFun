@@ -24,7 +24,6 @@
   // Toolbar layout comes from the design-system Toolbar; keep it pinned to the top.
   &__toolbar {
     flex-shrink: 0;
-    container-type: inline-size;
   }
 
   &__info {
@@ -34,7 +33,6 @@
     font-size: var(--openbitfun-type-label-md-font-size);
     flex: 1;
     min-width: 0;
-    overflow: hidden;
   }
 
   &__filename {
@@ -43,34 +41,13 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
-    flex-shrink: 1;
   }
 
-  &__dimensions {
-    font-size: var(--bf-appearance-token-font-size-xs);
-    color: var(--bf-appearance-token-color-text-secondary);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
+  &__dimensions,
   &__filesize {
     font-size: var(--openbitfun-type-label-sm-font-size);
     color: var(--openbitfun-color-content-secondary);
     white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  @container (max-width: 250px) {
-    .openbitfun-image-viewer__dimensions {
-      display: none;
-    }
-  }
-
-  @container (max-width: 150px) {
-    .openbitfun-image-viewer__filename {
-      display: none;
-    }
   }
 
   &__zoom-display {

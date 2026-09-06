@@ -7,7 +7,6 @@ export const HOST_CAPABILITIES = [
   "config-contributions-v2",
   "generation-fencing-v1",
 ] as const
-export const MIN_NEGOTIATED_FRAME_BYTES = 64 * 1024
 export const DEFAULT_MAX_FRAME_BYTES = 16 * 1024 * 1024
 export const MAX_MAX_FRAME_BYTES = 64 * 1024 * 1024
 export const MAX_STREAM_CHUNK_BYTES = 64 * 1024

@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openbitfun.mobile.app.R
 import com.openbitfun.mobile.app.ui.theme.CodeSyntaxColors
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 import com.openbitfun.mobile.core.feature.workspace.CodeSyntaxHighlighter
 import com.openbitfun.mobile.core.feature.workspace.CodeSyntaxTokenKind
 import com.openbitfun.mobile.core.feature.workspace.FilePreviewFailureKind
@@ -190,7 +190,7 @@ internal fun FilePreviewSurface(
                             .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 28.dp),
                     )
                 } else {
-                    val code = openOpenBitFunColors.code
+                    val code = openBitFunColors.code
                     // Lexing is linear over the whole file, so it is not something
                     // to redo on every recomposition — scrolling is exactly when
                     // that would happen.
@@ -387,7 +387,7 @@ private fun FilePreviewHeader(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (actualSize) {
-                        openOpenBitFunColors.code.function
+                        openBitFunColors.code.function
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },

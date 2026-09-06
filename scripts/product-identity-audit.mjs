@@ -40,7 +40,7 @@ const identityRules = Object.freeze([
     id: 'noncanonical-openbitfun-casing',
     description: 'non-canonical OpenBitFun casing',
     pattern: /openbitfun/giu,
-    isViolation: (value) => !['OpenBitFun', 'openOpenBitFun', 'openbitfun', 'OPENBITFUN'].includes(value),
+    isViolation: (value) => !['OpenBitFun', 'openBitFun', 'openbitfun', 'OPENBITFUN'].includes(value),
     allowedFiles: noncanonicalIdentityDataBoundaryFiles,
   }),
   Object.freeze({

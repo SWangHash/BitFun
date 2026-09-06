@@ -204,7 +204,7 @@ struct ConversationActionsPopover: View {
                 action("停止", icon: "gearshape", perform: model.stopSending)
             }
         }
-        .openOpenBitFunPopoverSurface()
+        .openBitFunPopoverSurface()
         .accessibilityAction(.escape, onDismiss)
     }
 

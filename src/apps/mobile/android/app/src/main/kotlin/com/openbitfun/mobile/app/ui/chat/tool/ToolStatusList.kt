@@ -36,7 +36,7 @@ import com.openbitfun.mobile.core.feature.session.ToolOperation
 import com.openbitfun.mobile.core.feature.session.ToolPhase
 import com.openbitfun.mobile.core.feature.session.ToolRow
 import com.openbitfun.mobile.core.feature.session.collapseToolRows
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 
 /** Anything the desktop must be told about a rejection needs a reason; this is ours. */
 private const val REJECT_REASON = "Rejected from the Android client"
@@ -193,13 +193,13 @@ internal fun ToolStatusRow(
                 color = if (emphasized) {
                     MaterialTheme.colorScheme.surfaceVariant
                 } else {
-                    openOpenBitFunColors.transparent
+                    openBitFunColors.transparent
                 },
                 shape = RoundedCornerShape(if (emphasized) 14.dp else 8.dp),
             )
             .border(
                 width = if (emphasized) 1.dp else 0.dp,
-                color = if (emphasized) MaterialTheme.colorScheme.outlineVariant else openOpenBitFunColors.transparent,
+                color = if (emphasized) MaterialTheme.colorScheme.outlineVariant else openBitFunColors.transparent,
                 shape = RoundedCornerShape(if (emphasized) 14.dp else 8.dp),
             )
             .padding(

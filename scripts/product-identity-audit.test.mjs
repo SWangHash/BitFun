@@ -29,7 +29,7 @@ function violationsFor(content, file = 'src/example.ts') {
 test('accepts the canonical product identity in supported casing and contracts', () => {
   const source = [
     'OpenBitFun',
-    'openOpenBitFunTheme',
+    'openBitFunTheme',
     'openbitfun',
     'OPENBITFUN_USER_ROOT',
     '@openbitfun/ui',

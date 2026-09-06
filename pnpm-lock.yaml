@@ -20,8 +20,8 @@ importers:
         specifier: ^1.17.1
         version: 1.17.1
       pnpm:
-        specifier: ^10.34.5
-        version: 10.34.5
+        specifier: ^10.32.1
+        version: 10.32.1
       pptxgenjs:
         specifier: ^4.0.1
         version: 4.0.1
@@ -4828,8 +4828,8 @@ packages:
   placeholder-loading@0.7.0:
     resolution: {integrity: sha512-C9M9dra5nZF/qfFF0trA3dZTQ2j6qxxoAnqWcyF+bKWhoTQIiCYIptj9BTTuihdQjm9M/vIbbYtTEvvT+8etEg==}
 
-  pnpm@10.34.5:
-    resolution: {integrity: sha512-pO4F8vc2WCVb1qiYWcBlpFwopX2u+uLIk6Fo7itzFow3uR6D5X6mdlStA/AwMXRkMOi84442LgQmBfuKvIAZLg==}
+  pnpm@10.32.1:
+    resolution: {integrity: sha512-pwaTjw6JrBRWtlY+q07fHR+vM2jRGR/FxZeQ6W3JGORFarLmfWE94QQ9LoyB+HMD5rQNT/7KnfFe8a1Wc0jyvg==}
     engines: {node: '>=18.12'}
     hasBin: true
 
@@ -10828,7 +10828,7 @@ snapshots:
 
   placeholder-loading@0.7.0: {}
 
-  pnpm@10.34.5: {}
+  pnpm@10.32.1: {}
 
   pointer-tracker@2.5.3: {}
 

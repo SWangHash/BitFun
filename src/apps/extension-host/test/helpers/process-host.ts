@@ -2,7 +2,6 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises"
 import path from "node:path"
 import { tmpdir } from "node:os"
 import { DEFAULT_MAX_FRAME_BYTES, HOST_CAPABILITIES, OPENCODE_VERSION, PROTOCOL_VERSION } from "../../src/protocol"
-import { DEFAULT_MAX_FRAME_BYTES, OPENCODE_VERSION, PROTOCOL_VERSION } from "../../src/protocol"
 import { RpcPeer } from "../../src/rpc"
 
 type Handshake = {

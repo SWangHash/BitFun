@@ -72,7 +72,7 @@ import com.openbitfun.mobile.core.feature.session.SessionWorkspaceContext
 import com.openbitfun.mobile.core.feature.workspace.RemoteWorkspaceIntent
 import com.openbitfun.mobile.core.feature.workspace.RemoteWorkspaceUiState
 import kotlinx.coroutines.delay
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 
 internal const val SESSION_LIST_TEST_TAG: String = "session-list"
 internal const val SESSION_PROJECTS_TEST_TAG: String = "session-projects"
@@ -786,7 +786,7 @@ private fun SessionRow(
             .heightIn(min = if (metadata.isEmpty()) 46.dp else 56.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(
-                if (selected) MaterialTheme.colorScheme.secondaryContainer else openOpenBitFunColors.transparent,
+                if (selected) MaterialTheme.colorScheme.secondaryContainer else openBitFunColors.transparent,
             )
             .onGloballyPositioned { coordinates ->
                 anchorBounds = coordinates.boundsInWindow().toIntRect()

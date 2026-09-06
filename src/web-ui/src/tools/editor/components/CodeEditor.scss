@@ -98,14 +98,6 @@ $_editor-padding-desktop: 32px;
     }
   }
 
-
-  &.is-error {
-    > .code-editor-tool__content,
-    > .editor-status-bar {
-      display: none;
-    }
-  }
-
   // Overlay Styles
   &__loading-overlay,
   &__error-overlay {

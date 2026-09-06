@@ -389,7 +389,7 @@ test('website, global search, and agent control consume generated semantic proje
     'src/web-ui/src/app/global-search/providers/interactiveCapabilitySearchProvider.ts',
   );
   const searchProviders = await read('src/web-ui/src/app/global-search/providers/index.ts');
-  const controlBridge = await read('src/web-ui/src/app/global-search/openOpenBitFunControlBridge.ts');
+  const controlBridge = await read('src/web-ui/src/app/global-search/openBitFunControlBridge.ts');
   const controlTool = await read(
     'src/crates/assembly/core/src/agentic/tools/implementations/openbitfun_control_tool.rs',
   );
@@ -407,7 +407,7 @@ test('website, global search, and agent control consume generated semantic proje
 
 test('Desktop and Web UI share the OpenBitFunControl transport contract', async () => {
   const host = await read('src/apps/desktop/src/openbitfun_control_host.rs');
-  const bridge = await read('src/web-ui/src/app/global-search/openOpenBitFunControlBridge.ts');
+  const bridge = await read('src/web-ui/src/app/global-search/openBitFunControlBridge.ts');
   const desktopRegistration = await read('src/apps/desktop/src/lib.rs');
 
   for (const source of [host, bridge]) {

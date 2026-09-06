@@ -1,9 +1,9 @@
 {
   "allowToBackupRestore": true,
   "excludes": [
-    "data/storage/el2/base/preferences/openbitfun_remote_identity.xml",
-    "data/storage/el2/base/preferences/openbitfun_cloud_account.xml",
-    "data/storage/el2/base/haps/entry/preferences/openbitfun_remote_identity.xml",
-    "data/storage/el2/base/haps/entry/preferences/openbitfun_cloud_account.xml"
+    "data/storage/el2/base/preferences/bitfun_remote_identity.xml",
+    "data/storage/el2/base/preferences/bitfun_cloud_account.xml",
+    "data/storage/el2/base/haps/entry/preferences/bitfun_remote_identity.xml",
+    "data/storage/el2/base/haps/entry/preferences/bitfun_cloud_account.xml"
   ]
 }

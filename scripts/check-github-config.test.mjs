@@ -1098,6 +1098,18 @@ test('stages unique release asset names before publishing', () => {
   assert.equal(steps[uploadIndex].with.files, 'release-upload-assets/*');
 });
 
+test('Desktop packaging installs Bun before preparing the OpenCode extension Host', () => {
+  const workflow = yaml.parse(
+    readFileSync(path.join(repoRoot, '.github/workflows/desktop-package.yml'), 'utf8'),
+  );
+  const steps = workflow.jobs.package.steps;
+  const bunIndex = steps.findIndex((step) => step.uses === 'oven-sh/setup-bun@v2');
+  const buildIndex = steps.findIndex((step) => step.name === 'Build desktop app');
+  assert.ok(bunIndex >= 0 && bunIndex < buildIndex);
+  assert.equal(steps[bunIndex].if, undefined, 'every Desktop platform needs Bun');
+  assert.equal(steps[bunIndex].with['bun-version'], '1.3.14');
+});
+
 test('Desktop packaging keeps beta identity explicit and stable-safe', () => {
   const workflow = yaml.parse(
     readFileSync(
@@ -1216,6 +1228,59 @@ test('beta publishing cannot advance the Relay latest image tag', () => {
   );
   assert.match(imageTags.run, /RELEASE_CHANNEL.*stable/);
   assert.doesNotMatch(imageTags.run, /RELEASE_PRERELEASE/);
+});
+
+test('beta channel readback retries stale content and fails if it never converges', {
+  skip: process.platform === 'win32' || spawnSync('jq', ['--version'], { windowsHide: true }).status !== 0,
+}, (t) => {
+  const workflow = yaml.parse(readFileSync(
+    path.join(repoRoot, '.github/workflows/desktop-package.yml'), 'utf8',
+  ));
+  const step = workflow.jobs['upload-release-assets'].steps.find(
+    (entry) => entry.name === 'Publish beta channel manifest',
+  );
+  assert.equal(step.env.CANDIDATE_VERSION, '${{ steps.beta-channel.outputs.candidate_version }}');
+  const root = mkdtempSync(path.join(tmpdir(), 'openbitfun-beta-readback-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const bin = path.join(root, 'bin');
+  mkdirSync(bin);
+  for (const command of ['gh', 'sleep']) {
+    writeFileSync(path.join(bin, command), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  }
+  writeFileSync(path.join(bin, 'curl'), `#!/usr/bin/env node
+const fs = require('node:fs');
+const count = fs.existsSync('requests') ? Number(fs.readFileSync('requests', 'utf8')) + 1 : 1;
+fs.writeFileSync('requests', String(count));
+if (process.env.READBACK_CASE === 'transport' && count === 1) process.exit(22);
+const output = process.argv[process.argv.indexOf('-o') + 1];
+const content = process.env.READBACK_CASE === 'malformed' && count === 1
+  ? 'not json'
+  : JSON.stringify({ version: process.env.READBACK_CASE === 'stale' || count === 1 ? '0.2.19-beta.1' : '1.0.0-beta.1' });
+fs.writeFileSync(output, content);
+`, { mode: 0o755 });
+  for (const scenario of ['converges', 'transport', 'malformed', 'stale']) {
+    const cwd = path.join(root, scenario);
+    mkdirSync(cwd);
+    writeFileSync(path.join(cwd, 'latest.published.json'), '{"version":"1.0.0-beta.1"}');
+    const result = spawnSync('bash', ['-c', step.run], {
+      cwd,
+      env: {
+        ...process.env,
+        PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+        READBACK_CASE: scenario,
+        CHANNEL_EXISTS: 'true',
+        GITHUB_REPOSITORY: 'test/repo',
+        CANDIDATE_VERSION: '1.0.0-beta.1',
+      },
+      encoding: 'utf8',
+      timeout: 10000,
+      windowsHide: true,
+    });
+    assert.equal(result.status, scenario === 'stale' ? 1 : 0, `${scenario}: ${result.stderr}`);
+    const requests = Number(readFileSync(path.join(cwd, 'requests'), 'utf8'));
+    assert.ok(requests > 1 && requests <= 12, `${scenario}: bounded content retries`);
+    if (scenario === 'stale') assert.match(result.stderr, /did not converge/);
+  }
 });
 
 test('nightly and beta use the shared build-version projection', () => {

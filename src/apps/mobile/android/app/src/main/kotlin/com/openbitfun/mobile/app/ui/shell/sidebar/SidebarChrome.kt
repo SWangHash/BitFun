@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 import com.openbitfun.mobile.core.feature.connection.ConnectionPhase
 import com.openbitfun.mobile.core.feature.connection.ConnectionStatusPresenter
 import com.openbitfun.mobile.core.feature.connection.ConnectionTone
@@ -66,7 +66,7 @@ internal fun ConnectionDot(phase: ConnectionPhase) {
     // BUSY is the one addition, because a dot that only ever goes green or grey
     // cannot say "connecting" while it is still trying.
     val color: Color = when (tone) {
-        ConnectionTone.OK -> openOpenBitFunColors.statusSuccess
+        ConnectionTone.OK -> openBitFunColors.statusSuccess
         ConnectionTone.BUSY -> MaterialTheme.colorScheme.tertiary
         ConnectionTone.ERROR -> MaterialTheme.colorScheme.error
         ConnectionTone.MUTED -> MaterialTheme.colorScheme.onSurfaceVariant

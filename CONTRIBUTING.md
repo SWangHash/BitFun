@@ -16,8 +16,6 @@ Be respectful, kind, and constructive. We welcome contributors of all background
 - pnpm 10.15.0 via Corepack
 - Rust toolchain (install via [rustup](https://rustup.rs/))
 - [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for desktop development
-- [ohos-rs](https://ohos.rs/docs/basic/quick-start)
-- [DevEco Studio](https://developer.huawei.com/consumer/en/deveco-studio/)
 
 OpenBitFun standardizes local JavaScript builds and CI on Node.js 22.12+. The GitHub
 Actions upgrades in this repository use Node.js 24-compatible action runtimes,
@@ -48,33 +46,6 @@ The check detects:
   downloads from GitHub at build time; if the download fails on poor
   connectivity, set `SHERPA_ONNX_LIB_DIR` to the prebuilt lib directory
   under `target/sherpa-onnx-prebuilt/` to use the local copy)
-
-### Run from source
-
-**Run instructions:**
-
-```bash
-# Install dependencies at the repository root
-pnpm install
-
-# Build the frontend at the repository root
-npm run build
-
-# Build the backend (.so) in the desktop directory
-cd src/apps/desktop && cargo tauri ohos init && cargo tauri ohos build
-
-# Build the desktop frontend
-cd src/web-ui && npm run build
-
-# Build the application
-## 1. Copy the frontend assets
-cp src/web-ui/dist src/apps/ohos/entry/src/main/resources/resfile
-
-## 2. Copy the application executable
-cp target/aarch64-unknow-linux-ohos/release/libopenbitfun_desktop_lib.so src/apps/ohos/entry/libs/arm64-v8a/libopenbitfun_desktop_lib.so
-
-## 3. Build the full application with DevEco Studio
-```
 
 ### Install dependencies
 
@@ -172,6 +143,15 @@ UI changes should include before/after screenshots or a short recording for fast
 If your work is AI-assisted, please note it in the PR and indicate testing level (untested/lightly tested/fully tested) to help reviewers assess risk.
 
 Do not commit transient AI prompts, local absolute paths, generated scratch files, pairing secrets, tokens, certificates, or unrelated artifacts. Keep the PR focused on the intended product or maintenance change.
+
+Git objects larger than 5 MiB are rejected by the Repository Object Sizes check,
+including files added in an intermediate commit and deleted before the PR's final
+commit. Keep build artifacts outside Git. Existing bundled Chinese fonts have
+exact-object exceptions in `scripts/git-object-size-policy.json`; changes to those
+exceptions require review. Check a proposed history with
+`node scripts/check-git-object-sizes.mjs --base origin/main --head HEAD`, or omit
+`--base` to check all reachable history. Verify the checker with
+`node --test scripts/check-git-object-sizes.test.mjs`.
 
 ### Branch management
 

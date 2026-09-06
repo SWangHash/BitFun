@@ -52,7 +52,7 @@ import com.openbitfun.mobile.core.feature.shell.RemoteSidebarSessionRow
 import com.openbitfun.mobile.core.feature.shell.RemoteSidebarWorkspaceRow
 import com.openbitfun.mobile.core.feature.session.RemoteSessionUiState
 import com.openbitfun.mobile.core.feature.workspace.RemoteWorkspaceUiState
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 
 private const val SESSIONS_PER_WORKSPACE = 3
 private const val WORKSPACES_PER_BATCH = 3
@@ -629,7 +629,7 @@ private fun RemoteSessionRow(
             .fillMaxWidth()
             .height(44.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else openOpenBitFunColors.transparent)
+            .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else openBitFunColors.transparent)
             .onGloballyPositioned { coordinates ->
                 anchorBounds = coordinates.boundsInWindow().toIntRect()
             }

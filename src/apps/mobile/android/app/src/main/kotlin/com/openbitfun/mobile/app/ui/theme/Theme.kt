@@ -250,7 +250,7 @@ private val OpenBitFunTypography = androidx.compose.material3.Typography(
 )
 
 /** The extra palette for the theme in scope. Reads like `MaterialTheme.colorScheme`. */
-internal val openOpenBitFunColors: OpenBitFunColors
+internal val openBitFunColors: OpenBitFunColors
     @Composable @ReadOnlyComposable get() = LocalOpenBitFunColors.current
 
 @Composable

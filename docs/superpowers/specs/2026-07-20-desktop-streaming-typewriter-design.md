@@ -5,7 +5,7 @@
 
 ## Problem
 
-openbitfun-desktop session streaming text feels stepped / bursty compared with a smooth typewriter feel (mobile-web cited as a reference, not a target to copy).
+bitfun-desktop session streaming text feels stepped / bursty compared with a smooth typewriter feel (mobile-web cited as a reference, not a target to copy).
 
 ## Root Cause
 

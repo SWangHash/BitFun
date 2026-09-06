@@ -267,6 +267,12 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+          no-cache: true
+
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -818,6 +824,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CHECKOUT_REF: ${{ needs.prepare.outputs.checkout_ref }}
           CHANNEL_EXISTS: ${{ steps.beta-channel.outputs.channel_exists }}
+          CANDIDATE_VERSION: ${{ steps.beta-channel.outputs.candidate_version }}
         run: |
           set -euo pipefail
           if [[ "${CHANNEL_EXISTS}" != "true" ]]; then
@@ -833,11 +840,22 @@ jobs:
           gh release upload channel-beta beta-channel/latest.json \
             --repo "${GITHUB_REPOSITORY}" \
             --clobber
-          curl -fsSL --retry 5 --retry-delay 3 \
-            "https://github.com/${GITHUB_REPOSITORY}/releases/download/channel-beta/latest.json" \
-            -o channel-beta.published.json
-          test "$(jq -r '.version' channel-beta.published.json)" = \
-            "${{ steps.beta-channel.outputs.candidate_version }}"
+          # A successful HTTP response can still contain the previous CDN object.
+          # Retry content validation as well as transport failures after replacement.
+          for attempt in {1..12}; do
+            if curl -fsSL --max-time 30 \
+              "https://github.com/${GITHUB_REPOSITORY}/releases/download/channel-beta/latest.json" \
+              -o channel-beta.published.json && \
+              jq -e --arg version "${CANDIDATE_VERSION}" \
+                '.version == $version' channel-beta.published.json >/dev/null; then
+              echo "Beta channel manifest verified: ${CANDIDATE_VERSION}"
+              exit 0
+            fi
+            echo "Beta channel manifest is not ready (attempt ${attempt}/12)."
+            if [[ "${attempt}" -lt 12 ]]; then sleep 5; fi
+          done
+          echo "Beta channel manifest did not converge to ${CANDIDATE_VERSION}." >&2
+          exit 1
 
       # Nudge the openbitfun.com mirror to sync now instead of on its next
       # 10-minute cron tick. Until the mirror has these bytes, CN clients have

@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openbitfun.mobile.app.R
 import com.openbitfun.mobile.app.ui.account.messageRes
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 import com.openbitfun.mobile.core.feature.account.AccountUiState
 
 internal const val CONNECT_ACCOUNT_DEVICE_TEST_TAG: String = "connect-account-device"
@@ -260,7 +260,7 @@ private fun DeviceListCard(
                                 ),
                                 fontSize = 13.sp,
                                 color = if (device.online) {
-                                    openOpenBitFunColors.statusSuccess
+                                    openBitFunColors.statusSuccess
                                 } else {
                                     MaterialTheme.colorScheme.onSurfaceVariant
                                 },

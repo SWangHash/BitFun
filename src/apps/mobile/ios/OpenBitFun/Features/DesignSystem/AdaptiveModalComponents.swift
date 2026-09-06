@@ -164,15 +164,15 @@ struct OpenBitFunCompactPopoverSurfaceModifier: ViewModifier {
 }
 
 extension View {
-    func openOpenBitFunPopoverSurface() -> some View {
+    func openBitFunPopoverSurface() -> some View {
         modifier(OpenBitFunPopoverSurfaceModifier())
     }
 
-    func openOpenBitFunCompactPopoverSurface() -> some View {
+    func openBitFunCompactPopoverSurface() -> some View {
         modifier(OpenBitFunCompactPopoverSurfaceModifier())
     }
 
-    func openOpenBitFunAdaptiveModal<ModalContent: View>(
+    func openBitFunAdaptiveModal<ModalContent: View>(
         isPresented: Binding<Bool>,
         placement: SettingsPlacement,
         onDismiss: (() -> Void)? = nil,

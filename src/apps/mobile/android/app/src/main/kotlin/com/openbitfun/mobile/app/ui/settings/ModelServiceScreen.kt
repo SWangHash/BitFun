@@ -52,7 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.openbitfun.mobile.app.R
 import com.openbitfun.mobile.app.ui.chat.messageRes
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 import com.openbitfun.mobile.app.ui.theme.generated.MobileDesignGeometry
 import com.openbitfun.mobile.core.feature.generalchat.GeneralChatConfigFailure
 import com.openbitfun.mobile.core.feature.generalchat.GeneralChatConfigUi
@@ -421,7 +421,7 @@ private fun AccountModelSelection(
                     .clip(RoundedCornerShape(9.dp))
                     .background(
                         if (model.id == activeModelId) MaterialTheme.colorScheme.surfaceVariant
-                        else openOpenBitFunColors.transparent,
+                        else openBitFunColors.transparent,
                     )
                     .clickable { onSelect(model.id) }
                     .padding(horizontal = 10.dp),
@@ -791,7 +791,7 @@ private fun LocalModelEditor(
             Text(
                 stringResource(R.string.model_service_test_success),
                 style = MaterialTheme.typography.bodySmall,
-                color = openOpenBitFunColors.statusSuccess,
+                color = openBitFunColors.statusSuccess,
             )
         }
     }
@@ -849,9 +849,9 @@ private fun SoftTextField(
             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            focusedIndicatorColor = openOpenBitFunColors.transparent,
-            unfocusedIndicatorColor = openOpenBitFunColors.transparent,
-            disabledIndicatorColor = openOpenBitFunColors.transparent,
+            focusedIndicatorColor = openBitFunColors.transparent,
+            unfocusedIndicatorColor = openBitFunColors.transparent,
+            disabledIndicatorColor = openBitFunColors.transparent,
         ),
         modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
     )

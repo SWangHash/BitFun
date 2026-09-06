@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.openbitfun.mobile.app.R
 import com.openbitfun.mobile.core.feature.shell.SidebarSections
 import com.openbitfun.mobile.core.feature.shell.SidebarSessionRow
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 
 internal const val SIDEBAR_PINNED_TEST_TAG: String = "app-sidebar-pinned"
 internal const val SIDEBAR_ARCHIVED_TEST_TAG: String = "app-sidebar-archived"
@@ -186,7 +186,7 @@ private fun SessionRow(
             .fillMaxWidth()
             .height(44.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else openOpenBitFunColors.transparent)
+            .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else openBitFunColors.transparent)
             .onGloballyPositioned { coordinates ->
                 anchorBounds = coordinates.boundsInWindow().toIntRect()
             }
@@ -252,7 +252,7 @@ private fun ArchivedDisclosureRow(count: Int, expanded: Boolean, onToggle: () ->
             .padding(top = 8.dp)
             .height(46.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (expanded) MaterialTheme.colorScheme.surfaceVariant else openOpenBitFunColors.transparent)
+            .background(if (expanded) MaterialTheme.colorScheme.surfaceVariant else openBitFunColors.transparent)
             .clickable(role = Role.Button, onClick = onToggle)
             .semantics(mergeDescendants = true) {
                 contentDescription = archivedLabel

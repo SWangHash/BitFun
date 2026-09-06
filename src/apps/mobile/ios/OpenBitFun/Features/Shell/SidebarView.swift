@@ -743,7 +743,7 @@ struct SidebarView: View {
                 model.createRemoteSession(in: workspace, agentType: "Cowork")
             }
         }
-        .openOpenBitFunCompactPopoverSurface()
+        .openBitFunCompactPopoverSurface()
     }
 
     private func workspaceCreateMenuRow(_ title: String, action: @escaping () -> Void) -> some View {

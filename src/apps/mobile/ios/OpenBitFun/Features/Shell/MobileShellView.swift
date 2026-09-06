@@ -250,38 +250,38 @@ struct MobileShellView: View {
         .sheet(item: previewForSheet, onDismiss: model.dismissFilePreview) { preview in
             RemoteFilePreviewSheet(model: model, preview: preview)
         }
-        .openOpenBitFunAdaptiveModal(
+        .openBitFunAdaptiveModal(
             isPresented: $model.settingsOpen,
             placement: settingsPlacement
         ) {
             SettingsView(model: model)
         }
-        .openOpenBitFunAdaptiveModal(
+        .openBitFunAdaptiveModal(
             isPresented: $model.remoteControlSettingsOpen,
             placement: settingsPlacement
         ) {
             RemoteControlSettingsView(model: model)
         }
-        .openOpenBitFunAdaptiveModal(
+        .openBitFunAdaptiveModal(
             isPresented: $model.remoteViewSettingsOpen,
             placement: remoteViewSettingsPlacement
         ) {
             RemoteViewSettingsView(model: model)
         }
-        .openOpenBitFunAdaptiveModal(
+        .openBitFunAdaptiveModal(
             isPresented: $model.pairingSheetOpen,
             placement: connectPlacement,
             onDismiss: model.dismissPairing
         ) {
             PairingSheet(model: model)
         }
-        .openOpenBitFunAdaptiveModal(
+        .openBitFunAdaptiveModal(
             isPresented: $model.accountSheetOpen,
             placement: settingsPlacement
         ) {
             AccountSettingsView(model: model)
         }
-        .openOpenBitFunAdaptiveModal(
+        .openBitFunAdaptiveModal(
             isPresented: Binding(
                 get: { model.sessionDetails != nil },
                 set: { if !$0 { model.dismissSessionDetails() } }

@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openbitfun.mobile.app.R
 import com.openbitfun.mobile.app.ui.common.chatStatusBarCopy
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 import com.openbitfun.mobile.core.feature.connection.ConnectionPhase
 import com.openbitfun.mobile.core.feature.connection.ConnectionStatusPresenter
 import com.openbitfun.mobile.core.feature.connection.ConnectionTone
@@ -55,7 +55,7 @@ internal fun ChatStatusBar(
     val stopLabel = stringResource(R.string.message_stop)
     val statusLabel = if (detail != title) "$title · $detail" else title
     val statusColor = when (ConnectionStatusPresenter.tone(phase)) {
-        ConnectionTone.OK -> openOpenBitFunColors.statusSuccess
+        ConnectionTone.OK -> openBitFunColors.statusSuccess
         ConnectionTone.BUSY -> MaterialTheme.colorScheme.onSurfaceVariant
         ConnectionTone.ERROR -> MaterialTheme.colorScheme.error
         ConnectionTone.MUTED -> MaterialTheme.colorScheme.onSurfaceVariant

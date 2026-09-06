@@ -71,7 +71,7 @@ import com.openbitfun.mobile.app.R
 import com.openbitfun.mobile.app.ui.theme.OpenBitFunEaseOut
 import com.openbitfun.mobile.app.ui.theme.MotionQuickMillis
 import com.openbitfun.mobile.app.ui.theme.MotionStructureMillis
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 import com.openbitfun.mobile.app.ui.theme.generated.MobileDesignBreakpoints
 import com.openbitfun.mobile.app.ui.theme.generated.MobileDesignGeometry
 import com.openbitfun.mobile.core.feature.connection.ConnectionPhase
@@ -602,7 +602,7 @@ private fun ModelSelectorContent(
                             )
                             .background(
                                 if (option.selected) MaterialTheme.colorScheme.surfaceVariant
-                                else openOpenBitFunColors.transparent,
+                                else openBitFunColors.transparent,
                             )
                             .clickable { onSelect(option.id) }
                             .semantics {
@@ -688,7 +688,7 @@ private fun PrimaryActionButton(
         modifier = Modifier
             .size(ActionSize)
             .clip(CircleShape)
-            .background(if (action == ComposerPrimaryAction.STOP) colors.error else openOpenBitFunColors.transparent)
+            .background(if (action == ComposerPrimaryAction.STOP) colors.error else openBitFunColors.transparent)
             .clickable(enabled = enabled) {
                 when (action) {
                     ComposerPrimaryAction.STOP -> onStop()
@@ -784,7 +784,7 @@ private fun AttachmentStrip(
                         .align(Alignment.TopEnd)
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(openOpenBitFunColors.mediaScrim)
+                        .background(openBitFunColors.mediaScrim)
                         .clickable(role = Role.Button, enabled = enabled) { onRemove(image.id) }
                         .semantics { contentDescription = removeLabel },
                 ) {

@@ -1079,12 +1079,6 @@ $skills-installed-columns: minmax(220px, 1fr) minmax(82px, 0.24fr) minmax(96px, 
   &__detail-link {
     text-decoration: underline;
     text-underline-offset: 2px;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    font: inherit;
-    text-align: left;
   }
 
   &__path-input {
@@ -1141,15 +1135,6 @@ $skills-installed-columns: minmax(220px, 1fr) minmax(82px, 0.24fr) minmax(96px, 
     margin-top: var(--openbitfun-space-1);
     padding-top: var(--openbitfun-space-3);
     border-top: 1px solid var(--openbitfun-color-border-subtle);
-  }
-
-  // Hint shown in the skill detail modal when project-level install is
-  // unavailable (assistant or remote workspace is active).
-  &__modal-project-hint {
-    margin: 0;
-    font-size: var(--bf-appearance-token-font-size-xs);
-    color: var(--bf-appearance-token-color-text-muted);
-    opacity: 0.85;
   }
 }
 

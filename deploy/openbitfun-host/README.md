@@ -412,7 +412,7 @@ test "$(git -C /srv/openbitfun-skin-market/app rev-parse HEAD)" = "$SKIN_REV"'
   recreate / 验证，不要走「初次开放市场」生成新 OAuth。
 - Skin：[../skin-market/README.md](../skin-market/README.md) 同样只 recreate。
 
-#### 从 OpenBitFun 0.2.x 原地升级时的一次性数据转换
+#### 从 BitFun 0.2.x 原地升级时的一次性数据转换
 
 新服务只接受 `minOpenBitFunVersion`、`openbitfun.appearance`、
 `.openbitfun-appearance` 和 `openbitfun_relay.db`，运行时不保留旧字段或旧文件名回退。
@@ -424,21 +424,21 @@ test "$(git -C /srv/openbitfun-skin-market/app rev-parse HEAD)" = "$SKIN_REV"'
 python3 /root/repos/OpenBitFun/deploy/openbitfun-host/migrate-market-data-v1.py \
   miniapp \
   --database /srv/openbitfun-miniapp-market/data/market.sqlite \
-  --live-database /srv/openbitfun-miniapp-market/data/market.sqlite
+  --live-database /srv/bitfun-miniapp-market/data/market.sqlite
 
 python3 /root/repos/OpenBitFun/deploy/openbitfun-host/migrate-market-data-v1.py \
   skin \
   --database /srv/openbitfun-skin-market/data/market.sqlite \
   --artifacts /srv/openbitfun-skin-market/artifacts \
-  --live-database /srv/openbitfun-skin-market/data/market.sqlite \
-  --live-artifacts /srv/openbitfun-skin-market/artifacts
+  --live-database /srv/bitfun-skin-market/data/market.sqlite \
+  --live-artifacts /srv/bitfun-skin-market/artifacts
 ```
 
 Skin 工具会重写包内 schema，重新计算包 SHA、大小和审核 bundle hash，并把旧扩展名
-文件移动到新 artifacts 目录内的 `migrated-openbitfun-v1/`，以便人工回滚。运行后必须
+文件移动到新 artifacts 目录内的 `migrated-bitfun-v1/`，以便人工回滚。运行后必须
 检查 SQLite `integrity_check`、确认活跃 `packages/` 中没有旧扩展名，再启动新容器。
 Relay 是零知识存储，不能在服务端改写加密设置内容；停止旧 Relay 后，用 SQLite
-`.backup` 把卷内 `openbitfun_relay.db` 复制为 `openbitfun_relay.db`，保留旧文件作为回滚
+`.backup` 把卷内 `bitfun_relay.db` 复制为 `openbitfun_relay.db`，保留旧文件作为回滚
 副本。旧云设置由新版客户端明确选择“使用本地配置”覆盖，不能静默兼容解析。
 
 ### 8. New API

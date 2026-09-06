@@ -57,7 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openbitfun.mobile.app.R
 import com.openbitfun.mobile.app.ui.common.SignedOutConnectionActions
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 import com.openbitfun.mobile.core.feature.pairing.PairingIntent
 import com.openbitfun.mobile.core.feature.pairing.PairingUiState
 import com.openbitfun.mobile.core.feature.pairing.inspectPairingLink
@@ -504,7 +504,7 @@ private fun PairingPillField(
  */
 @Composable
 private fun Hero(height: Dp = 282.dp) {
-    val extras = openOpenBitFunColors
+    val extras = openBitFunColors
     Surface(
         color = extras.heroBackground,
         shape = RoundedCornerShape(36.dp),
@@ -525,7 +525,7 @@ private fun CameraFrame() {
         modifier = Modifier
             .size(282.dp)
             .clip(RoundedCornerShape(40.dp))
-            .background(openOpenBitFunColors.shadowMedium),
+            .background(openBitFunColors.shadowMedium),
     ) {
         ScanCorner(accent, Alignment.TopStart, true, true)
         ScanCorner(accent, Alignment.TopEnd, false, true)

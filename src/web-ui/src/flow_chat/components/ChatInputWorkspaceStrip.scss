@@ -157,16 +157,6 @@ $track-item-gap: 10px;
     opacity: 0.6;
   }
 
-  &__voice-control {
-    display: inline-flex;
-    align-items: center;
-    flex: none;
-  }
-
-  &__voice-control .openbitfun-chat-input__voice-cluster {
-    min-height: 18px;
-  }
-
   &__permission {
     position: relative;
     display: inline-flex;

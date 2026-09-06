@@ -69,7 +69,7 @@ struct RemoteCreateSessionView: View {
                             .contentShape(Rectangle())
                             .onTapGesture { pickerKind = nil }
                         selectionContent(kind: kind, includeHeader: false)
-                            .openOpenBitFunPopoverSurface()
+                            .openBitFunPopoverSurface()
                             .fixedSize(horizontal: false, vertical: true)
                             .position(
                                 x: min(

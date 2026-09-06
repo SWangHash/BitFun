@@ -18,8 +18,7 @@
     "canvas:sdk:generate": "node scripts/generate-canvas-sdk-contract.mjs",
     "canvas:sdk:check": "node scripts/generate-canvas-sdk-contract.mjs --check",
     "generate-all": "pnpm run generate-version && pnpm run generate-startup-appearance-bootstrap",
-    "postinstall": "pnpm run ohos:sign && pnpm run copy-assets",
-    "ohos:sign": "node scripts/ohos-sign-native.mjs",
+    "postinstall": "pnpm run copy-assets",
     "dev": "node scripts/dev.cjs web",
     "dev:web": "pnpm --dir src/web-ui dev",
     "dev:mobile-web": "pnpm --dir src/mobile-web dev",
@@ -86,8 +85,7 @@
     "prebuild": "pnpm run prebuild:web",
     "prebuild:web": "pnpm run copy-assets --silent && pnpm run generate-all --silent",
     "type-check:web": "pnpm --dir src/web-ui run type-check",
-    "build": "pnpm run ohos:sign && pnpm run build:web",
-    "build:frontend-only": "pnpm run appearance:contract-audit && node scripts/build-web-parallel.mjs --skip-gen-types && pnpm run verify:monaco-assets && pnpm run prepare:mobile-web",
+    "build": "pnpm run build:web",
     "verify:monaco-assets": "node scripts/verify-monaco-assets.cjs",
     "verify:webkit-compatibility": "node scripts/verify-webkit-compatibility.cjs",
     "verify:webkit-compatibility:test": "node --test scripts/verify-webkit-compatibility.test.mjs",
@@ -111,9 +109,9 @@
     "preview": "pnpm --dir src/web-ui preview",
     "desktop:dev": "node scripts/dev.cjs desktop",
     "desktop:preview:debug": "node scripts/dev.cjs desktop-preview",
+    "desktop:preview:release-letter": "cross-env VITE_OPENBITFUN_ANNOUNCEMENT_PREVIEW_ID=release_letter_1_0_0 node scripts/dev.cjs desktop-preview",
     "desktop:dev:raw": "cross-env-shell CI=true \"cd src/apps/desktop && tauri dev\"",
     "target:gc": "node scripts/cargo-target-gc.mjs",
-    "feedback:mock": "node scripts/feedback-mock-server.mjs",
     "product:check": "node scripts/product-customization/cli.mjs check",
     "product:explain": "node scripts/product-customization/cli.mjs explain",
     "product:test": "node --test --test-concurrency=1 scripts/product-customization/*.test.mjs scripts/cli-product.test.mjs scripts/desktop-tauri-build.test.mjs",
@@ -182,7 +180,7 @@
   "dependencies": {
     "jszip": "^3.10.1",
     "pdf-lib": "^1.17.1",
-    "pnpm": "^10.34.5",
+    "pnpm": "^10.32.1",
     "pptxgenjs": "^4.0.1"
   }
 }

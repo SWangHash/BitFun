@@ -56,7 +56,7 @@ import com.openbitfun.mobile.app.viewmodel.AccountViewModel
 import com.openbitfun.mobile.core.feature.account.AccountFailureReason
 import com.openbitfun.mobile.core.feature.account.AccountIntent
 import com.openbitfun.mobile.core.feature.account.AccountUiState
-import com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors
+import com.openbitfun.mobile.app.ui.theme.openBitFunColors
 
 private val AccountCardShape = RoundedCornerShape(24.dp)
 
@@ -177,8 +177,8 @@ private fun AccountInput(
             focusedContainerColor = MaterialTheme.colorScheme.surface,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
             disabledContainerColor = MaterialTheme.colorScheme.surface,
-            focusedIndicatorColor = openOpenBitFunColors.transparent,
-            unfocusedIndicatorColor = openOpenBitFunColors.transparent,
+            focusedIndicatorColor = openBitFunColors.transparent,
+            unfocusedIndicatorColor = openBitFunColors.transparent,
             cursorColor = MaterialTheme.colorScheme.onSurface,
             focusedTextColor = MaterialTheme.colorScheme.onSurface,
             unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -222,7 +222,7 @@ private fun AccountProfilePage(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.account_openbitfun_account), fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.weight(1f))
-                    Text(stringResource(R.string.remote_settings_account_signed_in), fontSize = 14.sp, color = com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors.statusSuccess)
+                    Text(stringResource(R.string.remote_settings_account_signed_in), fontSize = 14.sp, color = com.openbitfun.mobile.app.ui.theme.openBitFunColors.statusSuccess)
                 }
                 Text(stringResource(R.string.account_signed_in_body, state.username), fontSize = 14.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -254,7 +254,7 @@ private fun AccountProfilePage(
                                         },
                                     ),
                                     fontSize = 13.sp,
-                                    color = if (device.online) com.openbitfun.mobile.app.ui.theme.openOpenBitFunColors.statusSuccess else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = if (device.online) com.openbitfun.mobile.app.ui.theme.openBitFunColors.statusSuccess else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             if (reconnectable) Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(14.dp)) {
