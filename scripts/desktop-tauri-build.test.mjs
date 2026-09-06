@@ -170,12 +170,16 @@ function retryFixture() {
     'macos',
     'OpenBitFun.app'
   );
+  const executableDir = join(appDir, 'Contents', 'MacOS');
+  const executablePath = join(executableDir, 'openbitfun-desktop');
   mkdirSync(desktopDir, { recursive: true });
-  mkdirSync(appDir, { recursive: true });
+  mkdirSync(executableDir, { recursive: true });
+  writeFileSync(executablePath, 'test executable');
 
   return {
     appDir,
     desktopDir,
+    executablePath,
     runtime: {
       cargoTargetDir: targetDir,
       githubActions: 'true',
@@ -195,6 +199,28 @@ test('retries a failed GitHub Actions DMG bundle after a fresh app bundle', () =
         DMG_ARGS,
         fixture.desktopDir,
         Date.now(),
+        fixture.runtime
+      ),
+      true
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test('retries when a restored app directory contains a freshly bundled executable', () => {
+  const fixture = retryFixture();
+  try {
+    const buildStartedAt = Date.now();
+    const staleTime = new Date(buildStartedAt - 60_000);
+    utimesSync(fixture.appDir, staleTime, staleTime);
+
+    assert.equal(
+      shouldRetryMacDmgBuild(
+        FAILED_BUILD,
+        DMG_ARGS,
+        fixture.desktopDir,
+        buildStartedAt,
         fixture.runtime
       ),
       true
@@ -228,6 +254,7 @@ test('does not retry failures outside the narrow DMG bundling boundary', () => {
 
     const staleTime = new Date(Date.now() - 60_000);
     utimesSync(fixture.appDir, staleTime, staleTime);
+    utimesSync(fixture.executablePath, staleTime, staleTime);
     assert.equal(
       shouldRetryMacDmgBuild(
         FAILED_BUILD,

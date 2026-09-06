@@ -71,14 +71,23 @@ async function main() {
   });
   const tauriBin = join(ROOT, 'node_modules', '.bin', 'tauri');
   const tauriArgs = ['build', '--config', tauriConfig, ...forward];
-  const buildStartedAtMs = Date.now();
+  let attemptStartedAtMs = Date.now();
   let r = runTauriBuild(tauriBin, tauriArgs, desktopDir);
 
-  if (!r.error && shouldRetryMacDmgBuild(r, forward, desktopDir, buildStartedAtMs)) {
+  const maxMacDmgBuildAttempts = 3;
+  for (
+    let attempt = 1;
+    attempt < maxMacDmgBuildAttempts
+      && !r.error
+      && shouldRetryMacDmgBuild(r, forward, desktopDir, attemptStartedAtMs);
+    attempt += 1
+  ) {
+    const retryDelaySeconds = attempt * 10;
     console.warn(
-      '[tauri-build] DMG bundling failed after the macOS app bundle was created; retrying once in 10 seconds.'
+      `[tauri-build] DMG bundling failed after the macOS app bundle was refreshed; retrying build attempt ${attempt + 1}/${maxMacDmgBuildAttempts} in ${retryDelaySeconds} seconds.`
     );
-    await new Promise((resolveRetry) => setTimeout(resolveRetry, 10_000));
+    await new Promise((resolveRetry) => setTimeout(resolveRetry, retryDelaySeconds * 1_000));
+    attemptStartedAtMs = Date.now();
     r = runTauriBuild(tauriBin, tauriArgs, desktopDir);
   }
 
@@ -169,13 +178,28 @@ export function shouldRetryMacDmgBuild(
     'macos'
   );
 
+  const freshAfterMs = buildStartedAtMs - 1_000;
   try {
-    return readdirSync(bundleDir, { withFileTypes: true }).some(
-      (entry) =>
-        entry.isDirectory() &&
-        entry.name.endsWith('.app') &&
-        statSync(join(bundleDir, entry.name)).mtimeMs >= buildStartedAtMs - 1_000
-    );
+    return readdirSync(bundleDir, { withFileTypes: true }).some((entry) => {
+      if (!entry.isDirectory() || !entry.name.endsWith('.app')) {
+        return false;
+      }
+
+      const appDir = join(bundleDir, entry.name);
+      if (statSync(appDir).mtimeMs >= freshAfterMs) {
+        return true;
+      }
+
+      // The Rust cache can restore an existing app directory without changing
+      // its own mtime. Tauri still refreshes the executable inside it before
+      // codesigning, so use that file as the reliable bundling boundary.
+      const executableDir = join(appDir, 'Contents', 'MacOS');
+      return readdirSync(executableDir, { withFileTypes: true }).some(
+        (executable) =>
+          executable.isFile()
+          && statSync(join(executableDir, executable.name)).mtimeMs >= freshAfterMs
+      );
+    });
   } catch {
     return false;
   }
