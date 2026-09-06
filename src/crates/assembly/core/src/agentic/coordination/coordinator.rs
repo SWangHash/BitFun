@@ -2179,6 +2179,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                 preflight_ms: None,
                 confirmation_wait_ms: None,
                 execution_ms: Some(outcome.duration_ms),
+                question_request: None,
             }],
             thinking_items: Vec::new(),
             start_time: started_at,
