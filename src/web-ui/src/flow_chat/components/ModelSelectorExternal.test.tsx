@@ -495,7 +495,7 @@ describe('ModelSelector external transport reuse', () => {
     )).toBeNull();
   });
 
-  it('reads reasoning presets from this device when the target reported none', async () => {
+  it('does not infer target reasoning from a controller catalog after restoring a dispatch session', async () => {
     aiApiMocks.getModelCatalog.mockResolvedValueOnce({
       version: 1,
       default_models: { primary: 'model-a' },
@@ -545,14 +545,10 @@ describe('ModelSelector external transport reuse', () => {
     const reasoningRow = document.body.querySelector<HTMLButtonElement>(
       '[data-testid="chat-model-selector-settings-reasoning"]',
     );
-    expect(reasoningRow).not.toBeNull();
-    expect(document.body.querySelector('[data-testid="chat-model-selector-settings-model"]')).not.toBeNull();
-    await act(async () => { reasoningRow?.click(); });
-    await act(async () => {
-      document.body.querySelector<HTMLButtonElement>('[data-preset-id="high"]')?.click();
-      await Promise.resolve();
-    });
-    expect(onSelectReasoningPreset).toHaveBeenCalledWith('high');
+    expect(reasoningRow).toBeNull();
+    expect(document.body.querySelector('[data-testid="chat-model-selector-option"][data-model-id="model-a"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="chat-model-selector-trigger-reasoning"]')).toBeNull();
+    expect(onSelectReasoningPreset).not.toHaveBeenCalled();
   });
 
   it('hides reasoning when the target did not report a catalog', async () => {

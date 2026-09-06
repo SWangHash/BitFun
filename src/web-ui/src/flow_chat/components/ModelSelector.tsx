@@ -702,21 +702,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   );
   const externalReasoningProjection = useMemo((): ReasoningCatalogProjection | null => {
     if (!externalSelection || !externalCurrentModelId) return null;
-    // The target's catalog wins where it has an entry: it is what the worker
-    // will actually execute. The local catalog covers a model this device just
-    // offered, and a projection restored without a probe snapshot at all.
-    const catalogs = [
-      externalSelection.reasoningCatalog,
-      ...(externalSelection.includeLocalCatalog && modelCatalog ? [modelCatalog] : []),
-    ];
-    for (const catalog of catalogs) {
-      const reasoning = catalog?.models.find(
-        model => model.id === externalCurrentModelId,
-      )?.reasoning;
-      if (reasoning) return reasoning;
-    }
-    return null;
-  }, [externalCurrentModelId, externalSelection, modelCatalog]);
+    // Copying model credentials does not copy the target's reasoning support.
+    // Restored projections without a target catalog must not infer presets
+    // from a controller that can have a different provider/runtime version.
+    return externalSelection.reasoningCatalog?.models.find(
+      model => model.id === externalCurrentModelId,
+    )?.reasoning ?? null;
+  }, [externalCurrentModelId, externalSelection]);
 
   const acpFastMode = useMemo(
     () => resolveAcpFastModeState(acpOptions?.configOptions ?? []),
