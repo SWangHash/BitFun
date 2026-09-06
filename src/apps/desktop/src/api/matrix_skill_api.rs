@@ -22,8 +22,8 @@
 use tauri::State;
 
 use crate::api::AppState;
-use bitfun_core::agentic::tools::implementations::skills::SkillLocation;
-use bitfun_core::service::remote_ssh::workspace_state::is_remote_path;
+use openbitfun_core::agentic::tools::implementations::skills::SkillLocation;
+use openbitfun_core::service::remote_ssh::workspace_state::is_remote_path;
 use openbitfun_matrix_adapter::{
     check_checksum, install_skill_to_root, list_categories, list_organizations, list_skills,
     list_tags, resolve_matrix_skills_root, MatrixApiError, MatrixApiErrorKind, MatrixCategoryItem,

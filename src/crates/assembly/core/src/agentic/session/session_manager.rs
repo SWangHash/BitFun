@@ -1,4 +1,4 @@
-//! Session Manager
+﻿//! Session Manager
 //!
 //! Responsible for session CRUD, lifecycle management, and resource association
 
@@ -404,7 +404,7 @@ pub struct SessionManager {
     /// pattern: the in-memory copy serves the answer-submission validation path
     /// and is persisted in session metadata for restore/fork.
     intake_state_store:
-        Arc<DashMap<String, bitfun_agent_runtime::intake_state::IntakeStateSnapshot>>,
+        Arc<DashMap<String, openbitfun_agent_runtime::intake_state::IntakeStateSnapshot>>,
     /// Session-scoped QtMigration activation flag. True once the analyzer
     /// confirmed an app_migration request for this session. Lets the gate fail
     /// closed when the intake snapshot is missing instead of treating absence
@@ -435,7 +435,7 @@ fn clear_session_runtime_stores(
     skill_agent_baseline_override_snapshot_store: &DashMap<String, TurnSkillAgentSnapshot>,
     file_read_state_store: &FileReadStateStore,
     evidence_ledger: &SessionEvidenceLedger,
-    intake_state_store: &DashMap<String, bitfun_agent_runtime::intake_state::IntakeStateSnapshot>,
+    intake_state_store: &DashMap<String, openbitfun_agent_runtime::intake_state::IntakeStateSnapshot>,
     migration_active_store: &DashMap<String, bool>,
 ) {
     context_store.delete_session(session_id);
@@ -891,8 +891,8 @@ impl SessionManager {
             return truncated_chars.iter().collect();
         }
 
-        let sentence_break_chars = ['。', '！', '？', '；', '.', '!', '?'];
-        let break_chars = ['。', '！', '？', '；', '.', '!', '?', '，', ',', ' '];
+        let sentence_break_chars = ['銆?, '锛?, '锛?, '锛?, '.', '!', '?'];
+        let break_chars = ['銆?, '锛?, '锛?, '锛?, '.', '!', '?', '锛?, ',', ' '];
         let min_break_index = max_length / 2;
         let mut best_break_index: Option<usize> = None;
 
@@ -2358,7 +2358,7 @@ impl SessionManager {
     ///
     /// `model_id` is treated as "usable" when:
     /// - it is a special selector (`primary` / `fast` /
-    ///   empty) — these are evaluated again at request time against
+    ///   empty) 鈥?these are evaluated again at request time against
     ///   `default_models`, so their long-term validity is governed elsewhere;
     /// - it resolves to a model that exists AND is enabled.
     fn is_session_model_id_usable(
@@ -3490,7 +3490,7 @@ impl SessionManager {
     pub fn intake_state(
         &self,
         session_id: &str,
-    ) -> Option<bitfun_agent_runtime::intake_state::IntakeStateSnapshot> {
+    ) -> Option<openbitfun_agent_runtime::intake_state::IntakeStateSnapshot> {
         self.intake_state_store
             .get(session_id)
             .map(|value| value.clone())
@@ -3501,7 +3501,7 @@ impl SessionManager {
     pub async fn remember_intake_state(
         &self,
         session_id: &str,
-        snapshot: bitfun_agent_runtime::intake_state::IntakeStateSnapshot,
+        snapshot: openbitfun_agent_runtime::intake_state::IntakeStateSnapshot,
     ) {
         self.intake_state_store
             .insert(session_id.to_string(), snapshot.clone());
@@ -3526,7 +3526,7 @@ impl SessionManager {
 
     fn intake_state_from_metadata(
         metadata: Option<&SessionMetadata>,
-    ) -> Option<bitfun_agent_runtime::intake_state::IntakeStateSnapshot> {
+    ) -> Option<openbitfun_agent_runtime::intake_state::IntakeStateSnapshot> {
         let value = metadata?
             .custom_metadata
             .as_ref()?
@@ -7741,8 +7741,8 @@ impl SessionManager {
     /// plain questions or unknown template ids so unchanged records serialize
     /// without the extra field.
     fn build_ask_user_question_request(arguments: &serde_json::Value) -> Option<serde_json::Value> {
-        use bitfun_agent_runtime::question_templates::resolve_question_template_full;
-        use bitfun_agent_runtime::user_questions::ResolvedQuestionRequest;
+        use openbitfun_agent_runtime::question_templates::resolve_question_template_full;
+        use openbitfun_agent_runtime::user_questions::ResolvedQuestionRequest;
 
         let template_id = arguments
             .get("templateId")
@@ -18919,39 +18919,39 @@ mod tests {
 
         assert!(manager.intake_state(&session.session_id).is_none());
 
-        let snapshot = bitfun_agent_runtime::intake_state::IntakeStateSnapshot {
+        let snapshot = openbitfun_agent_runtime::intake_state::IntakeStateSnapshot {
             schema_version: 1,
             fields: std::collections::BTreeMap::from([
                 (
                     "source_project".to_string(),
-                    bitfun_agent_runtime::intake_state::IntakeFieldState {
-                        state: bitfun_agent_runtime::intake_state::FieldResolutionState::Resolved,
+                    openbitfun_agent_runtime::intake_state::IntakeFieldState {
+                        state: openbitfun_agent_runtime::intake_state::FieldResolutionState::Resolved,
                         value: Some("D:/work/myqt".to_string()),
                     },
                 ),
                 (
                     "output_project".to_string(),
-                    bitfun_agent_runtime::intake_state::IntakeFieldState {
-                        state: bitfun_agent_runtime::intake_state::FieldResolutionState::Resolved,
+                    openbitfun_agent_runtime::intake_state::IntakeFieldState {
+                        state: openbitfun_agent_runtime::intake_state::FieldResolutionState::Resolved,
                         value: Some("D:/out/hm".to_string()),
                     },
                 ),
                 (
                     "toolchain".to_string(),
-                    bitfun_agent_runtime::intake_state::IntakeFieldState {
-                        state: bitfun_agent_runtime::intake_state::FieldResolutionState::Resolved,
+                    openbitfun_agent_runtime::intake_state::IntakeFieldState {
+                        state: openbitfun_agent_runtime::intake_state::FieldResolutionState::Resolved,
                         value: Some("D:/sdk/ohos".to_string()),
                     },
                 ),
                 (
                     "template".to_string(),
-                    bitfun_agent_runtime::intake_state::IntakeFieldState {
-                        state: bitfun_agent_runtime::intake_state::FieldResolutionState::Resolved,
+                    openbitfun_agent_runtime::intake_state::IntakeFieldState {
+                        state: openbitfun_agent_runtime::intake_state::FieldResolutionState::Resolved,
                         value: Some("qt-hm-template-1".to_string()),
                     },
                 ),
             ]),
-            status: bitfun_agent_runtime::intake_state::IntakeStatus::NeedsValidation,
+            status: openbitfun_agent_runtime::intake_state::IntakeStatus::NeedsValidation,
             loaded_skill_receipt: None,
         };
         manager
@@ -19022,7 +19022,7 @@ mod tests {
             .as_array()
             .expect("resolved questions present");
         assert_eq!(questions.len(), 4);
-        assert_eq!(questions[0]["options"][0]["label"], "默认路径");
+        assert_eq!(questions[0]["options"][0]["label"], "榛樿璺緞");
         assert_eq!(questions[0]["options"][0]["description"], "D:/work/myqt");
 
         // Plain (inline questions) AskUserQuestion calls carry the questions in

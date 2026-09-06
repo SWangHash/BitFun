@@ -1,4 +1,4 @@
-//! QtMigration admission gate.
+﻿//! QtMigration admission gate.
 //!
 //! Dispatch-time check at the unified tool execution boundary
 //! (`call_with_tool_runtime_hooks`). When a QtMigration session has an
@@ -10,7 +10,7 @@
 use crate::agentic::coordination::get_global_coordinator;
 use crate::agentic::tools::framework::ToolUseContext;
 use crate::util::errors::{BitFunError, BitFunResult};
-use bitfun_agent_runtime::intake_state::{
+use openbitfun_agent_runtime::intake_state::{
     is_valid_qt_migration_receipt, IntakeStateSnapshot, IntakeStatus, INTAKE_REQUIRED_FIELDS,
 };
 
@@ -114,7 +114,7 @@ pub(crate) fn check_admission_for_intake(
         return Ok(());
     }
     // Terminal states: a migration that is Blocked, Failed or Completed must
-    // not accept further side effects even with a valid receipt — the
+    // not accept further side effects even with a valid receipt 鈥?the
     // workflow has ended.
     match intake.status {
         IntakeStatus::Blocked | IntakeStatus::Failed | IntakeStatus::Completed => {
@@ -178,7 +178,7 @@ pub(crate) fn check_admission_for_intake(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitfun_agent_runtime::intake_state::{
+    use openbitfun_agent_runtime::intake_state::{
         FieldResolutionState, IntakeFieldState, LoadedSkillReceipt, INTAKE_REQUIRED_FIELDS,
         OHOS_QT_SKILLS_DIR,
     };
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn bootstrap_tools_allowed_without_receipt() {
         // Bootstrap tools (including Skill itself) run even before the receipt
-        // exists — loading the skill is the bootstrap action that produces it.
+        // exists 鈥?loading the skill is the bootstrap action that produces it.
         let intake = snapshot(
             IntakeStatus::NeedsValidation,
             FieldResolutionState::Resolved,
@@ -362,7 +362,7 @@ mod tests {
     #[test]
     fn inconsistent_status_with_unresolved_fields_rejects() {
         // Corrupted/hand-constructed snapshot: status claims Ready but a field
-        // is still Missing — the gate must verify fields directly, not trust
+        // is still Missing 鈥?the gate must verify fields directly, not trust
         // status.
         let mut intake = snapshot(IntakeStatus::Ready, FieldResolutionState::Resolved);
         intake.fields.get_mut("toolchain").unwrap().state = FieldResolutionState::Missing;

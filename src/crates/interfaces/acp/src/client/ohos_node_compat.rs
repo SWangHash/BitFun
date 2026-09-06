@@ -1,13 +1,13 @@
-use std::collections::HashMap;
+﻿use std::collections::HashMap;
 use std::path::Path;
 
 #[cfg(target_env = "ohos")]
 use std::path::PathBuf;
 
-use bitfun_core::infrastructure::PathManager;
+use openbitfun_core::infrastructure::PathManager;
 #[cfg(target_env = "ohos")]
-use bitfun_core::util::errors::BitFunError;
-use bitfun_core::util::errors::BitFunResult;
+use openbitfun_core::util::errors::BitFunError;
+use openbitfun_core::util::errors::BitFunResult;
 use tokio::process::Command;
 
 #[cfg(target_env = "ohos")]
