@@ -356,7 +356,7 @@ const NavSearchDialog: React.FC<NavSearchDialogProps> = ({ open, onClose }) => {
           <Search
             data-openbitfun-component="nav-search-dialog"
             data-openbitfun-part="search"
-            inputTestId="nav-search-input"
+            data-testid="nav-search-input"
             ref={inputRef}
             className="bitfun-nav-search-dialog__search"
             placeholder={t('nav.search.inputPlaceholder')}
