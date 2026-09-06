@@ -125,3 +125,13 @@ On Windows with an initialized WSL distribution, set `OPENBITFUN_TEST_WSL_DISTRO
 and run `cargo test -p openbitfun-services-integrations --no-default-features
 --features remote-ssh-concrete --lib wsl_windows_workspace_transport -- --ignored`
 for binary filesystem/stdio, exit status, cancellation, and saved reconnect.
+
+For SFTP handle ownership and cancellation regressions, run
+`cargo test --locked -p openbitfun-services-integrations --no-default-features
+--features remote-ssh-concrete --lib
+remote_ssh::manager::tests::workspace_sftp::`. These loopback SSH/SFTP tests
+advertise a small handle limit and are included in the existing CI
+`workspace_` filter. To exercise real OpenSSH file IO over loopback SSH, set
+`OPENBITFUN_TEST_SFTP_SERVER` to an installed `sftp-server` executable and run
+the same command with the filter ending in
+`workspace_sftp::openssh_real_files_over_loopback_ssh -- --ignored`.

@@ -47,3 +47,21 @@ controls can continue driving a host session, but do not expose WSL connection
 setup. Detached Dispatch does not provision WSL connections. SSH port forwarding
 is unavailable for native WSL targets; use Windows WSL networking to reach a
 Linux service.
+
+## Remote SSH file handle errors
+
+If writing files and browsing directories both start failing with
+`Limit exceeded: handle limit reached`, update OpenBitFun to a build containing
+the SFTP handle-lifecycle fix. Earlier builds can exhaust a client-side counter
+even when the server has already closed the files. Save ongoing work before
+manually disconnecting and reconnecting the remote workspace as a temporary
+recovery; reconnecting can interrupt its terminals and commands.
+
+This message alone does not establish a server configuration problem. Raising
+server limits only delays a leaked-counter failure. Running `ulimit` in a new
+SSH shell does not change the limits of the already-running SFTP subsystem.
+OpenBitFun does not modify the remote user's shell startup files, SSH daemon
+configuration, or OS limits automatically. If the problem persists after the
+fix, capture the OpenBitFun version and logs plus the server's SFTP implementation
+and advertised limits so genuine concurrent-handle or server resource exhaustion
+can be distinguished from a client lifecycle problem.

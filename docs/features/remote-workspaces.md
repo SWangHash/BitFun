@@ -99,6 +99,27 @@ The configured Docker CLI remains the security boundary. OpenBitFun does not exp
 the Docker daemon over the network or bypass the current user's Docker
 permissions.
 
+### SFTP handle ownership
+
+Whole-file SFTP transfers wait for CLOSE acknowledgement before reporting
+success, including reads. The file guard retains cleanup ownership after cancellation,
+I/O errors, or a dropped streaming reader; it also receives and closes late OPEN
+replies after the caller stops waiting. Writes are not replayed if their outcome
+is uncertain. A failed close or timed-out OPEN retires the affected SFTP subsystem
+so its unknown handles and client accounting cannot poison later operations.
+
+Full and bounded directory enumeration use the same serialized raw SFTP path,
+which closes directory handles on errors as well as success. Cancellation retires
+that directory subsystem, and subsequent enumeration replaces it without
+invalidating the SSH transport or the separate file subsystem. No persisted
+profile, workspace, or wire shape changes are required.
+
+The locked russh-sftp 2.3 dependency sends CLOSE on ordinary file drop without
+reducing its client-side handle count. Relying on that drop alone can therefore
+produce `Limit exceeded: handle limit reached` even after the server has closed
+every file. See [Desktop troubleshooting](../../src/apps/desktop/README.md#remote-ssh-file-handle-errors)
+for recovery guidance.
+
 ## Search on hosts without ripgrep
 
 Agent Grep keeps one matching and result-processing implementation. For
