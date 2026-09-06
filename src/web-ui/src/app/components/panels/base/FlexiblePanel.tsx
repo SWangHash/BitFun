@@ -526,6 +526,7 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
             workspacePath={editorWorkspacePath}
             fileName={fileName}
             language={editorLanguage}
+            initialContent={typeof editorData.initialContent === 'string' ? editorData.initialContent : undefined}
             readOnly={editorData.readOnly || false}
             autoSave={editorData.autoSave === true}
             autoSaveDelayMs={typeof editorData.autoSaveDelayMs === 'number' ? editorData.autoSaveDelayMs : undefined}

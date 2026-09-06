@@ -541,13 +541,15 @@ describe('UserMessageItem steering tag', () => {
     });
   });
 
-  it('disables file-consistent rollback and message editing for remote workspaces', () => {
+  it.each([
+    { binding: { remoteConnectionId: 'ssh:user@example.com:22', remoteSshHost: 'example.com', config: {} }, reason: 'Remote' },
+    { binding: { config: { dispatchJobId: 'job-a100' } }, reason: 'Dispatch' },
+    { binding: { config: { dispatchTarget: { kind: 'device', deviceId: 'target', workspacePath: '/w', displayName: 'Target' } } }, reason: 'Dispatch' },
+  ])('disables file-consistent rollback and message editing for $reason sessions', ({ binding, reason }) => {
     activeSessionRef.current = {
       sessionId: 'remote-session',
       sessionKind: 'normal',
-      remoteConnectionId: 'ssh:user@example.com:22',
-      remoteSshHost: 'example.com',
-      config: {},
+      ...binding,
       dialogTurns: [
         {
           id: 'turn-1',
@@ -583,9 +585,9 @@ describe('UserMessageItem steering tag', () => {
     const editButton = container.querySelector<HTMLButtonElement>('.user-message-item__edit-btn');
 
     expect(rollbackButton?.disabled).toBe(true);
-    expect(rollbackButton?.title).toContain('message.rollbackDisabledRemote');
+    expect(rollbackButton?.title).toContain(`message.rollbackDisabled${reason}`);
     expect(editButton?.disabled).toBe(true);
-    expect(editButton?.title).toContain('message.editDisabledRemote');
+    expect(editButton?.title).toContain(`message.editDisabled${reason}`);
   });
 
   it('hides the edit button when the panel context disables user message editing', () => {

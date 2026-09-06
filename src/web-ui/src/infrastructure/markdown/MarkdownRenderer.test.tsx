@@ -397,6 +397,24 @@ describe('Markdown file links', () => {
     }));
   });
 
+  it('routes detached HTML and unknown file types through the target callback and disables host actions', async () => {
+    container.className = 'openbitfun-session-scene modern-flowchat-container';
+    await act(async () => {
+      root.render(<MarkdownRenderer content={'[Preview](page.html) [Binary](result.bin)'} basePath="/target" fileActionsViaCallbackOnly onFileViewRequest={onFileViewRequest} />);
+    });
+    const links = container.querySelectorAll<HTMLButtonElement>('button.file-link');
+    act(() => links[1].click());
+    expect(onFileViewRequest).toHaveBeenCalledWith('/target/result.bin', 'result.bin', undefined);
+    act(() => links[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })));
+    const items = mocks.showContextMenu.mock.calls[0][1] as MenuItem[];
+    expect(items.find(item => item.id === 'markdown-open-in-explorer')?.disabled).toBe(true);
+    expect(items.some(item => item.id === 'markdown-open-html-in-system-browser')).toBe(false);
+    await items.find(item => item.id === 'markdown-open-remote-file')?.onClick?.(mocks.showContextMenu.mock.calls[0][2]);
+    expect(onFileViewRequest).toHaveBeenCalledWith('/target/page.html', 'page.html', undefined);
+    expect(mocks.openFileInBestTarget).not.toHaveBeenCalled();
+    expect(mocks.revealInExplorer).not.toHaveBeenCalled();
+  });
+
   it('routes same-label relative, absolute, and computer links independently', async () => {
     const content = [
       '1. [README.md](.\\README.md)',

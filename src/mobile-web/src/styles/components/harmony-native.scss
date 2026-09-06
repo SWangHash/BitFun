@@ -426,6 +426,22 @@
   text-align: left;
 }
 
+.harmony-sidebar__workspace-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.harmony-sidebar__workspace-host {
+  overflow: hidden;
+  color: var(--openbitfun-color-content-secondary);
+  font-size: var(--openbitfun-type-meta-font-size);
+  line-height: var(--openbitfun-type-modifier-leading-balanced-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .harmony-sidebar__row-plus {
   display: grid;
   place-items: center;

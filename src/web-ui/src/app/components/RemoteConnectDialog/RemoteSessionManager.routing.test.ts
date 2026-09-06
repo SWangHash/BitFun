@@ -16,6 +16,28 @@ function deferred<T>() {
 }
 
 describe('mobile RemoteSessionManager target routing', () => {
+  it('attaches request-proven SSH identity to legacy session rows sharing one path', async () => {
+    const client = new RelayHttpClient('https://relay.example.com', 'room');
+    const send = vi.spyOn(client, 'sendCommand').mockResolvedValue({
+      resp: 'sessions',
+      sessions: [{ session_id: 'legacy-session', workspace_path: '/projects/herdr' }],
+      has_more: false,
+    });
+    const manager = new RemoteSessionManager(client);
+    for (const host of ['a', 'b']) {
+      const result = await manager.listSessions('/projects/herdr', 30, 0, '', {
+        remoteConnectionId: `ssh-${host}`, remoteSshHost: `host-${host}`,
+      });
+      expect(send).toHaveBeenLastCalledWith(expect.objectContaining({
+        cmd: 'list_sessions', workspace_path: '/projects/herdr',
+        remote_connection_id: `ssh-${host}`, remote_ssh_host: `host-${host}`,
+      }), expect.anything());
+      expect(result.sessions[0].workspace_identity).toEqual({
+        path: '/projects/herdr', remote_connection_id: `ssh-${host}`, remote_ssh_host: `host-${host}`,
+      });
+    }
+  });
+
   it('invalidates an active room request and starts a usable generation after late identity', async () => {
     const client = new RelayHttpClient('https://relay.example.com', 'room');
     const workspace = deferred<any>();

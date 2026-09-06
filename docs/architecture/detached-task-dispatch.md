@@ -373,13 +373,20 @@ Every submit requires an explicit policy:
 
 - `auto` uses the shared Runtime auto-approval metadata.
 - `reject-and-report` fails closed when confirmation is required.
-- `remote` disables inherited auto-approval while keeping user input
-  available. The worker persists the safe presentation DTO, status exposes it,
+- `remote` disables inherited auto-approval and supports remote permission
+  decisions. The worker persists the safe presentation DTO, status exposes it,
   and `answer` records a user-sourced reply before execution resumes.
 
 Permission responses and appended messages are target-owned mailboxes. They are
 idempotent across controller retries and do not depend on the controller that
 originally submitted the job.
+
+The current dispatch protocol has no user-question mailbox or answer operation.
+All three policies therefore declare interactive user input unavailable through
+the shared Runtime context. `AskUserQuestion` must fail explicitly instead of
+waiting for an answer that no controller can deliver. Enabling it requires a
+negotiated capability and durable question/reply support on both sides; permission
+supervision alone is not evidence of that capability.
 
 ## Failure rules
 
@@ -404,3 +411,17 @@ originally submitted the job.
   directories or silently run against an unrelated target directory.
 - A missing baseline worktree or rejected fast-forward leaves both Git histories
   intact and returns a visible synchronization error.
+
+### Target-owned file previews
+
+Detached transcript file links and file-operation cards read through `dispatch query` with
+`kind: "readFile"` and `filePath`. Both SSH and account-device controllers first require the
+optional `query_file_content` capability; older targets keep their existing query and execution
+paths and return an explicit update-or-sync instruction for file previews. This capability does
+not change protocol version 6 or the required submission capabilities. The target resolves the
+path inside the job workspace, checks canonical containment (including symlinks), and returns
+UTF-8 text up to 4 MiB. The controller displays a read-only memory editor, never watches or
+reads the target path on its own filesystem, and drops replies after a device-surface switch.
+Binary or larger files can be inspected after result synchronization. Detached projections do
+not expose controller-local snapshot rollback or message editing until a target-side history
+mutation capability exists.

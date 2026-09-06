@@ -1670,7 +1670,15 @@ impl WorkspaceLock {
             .open(path)
             .with_context(|| format!("open workspace dispatch lock {}", path.display()))?;
         set_private_file_permissions(path)?;
-        try_lock_file_exclusive(&file).map(|acquired| acquired.then_some(Self { _file: file }))
+        try_lock_file_exclusive(&file).map(|acquired| acquired.then(|| Self { _file: file }))
+    }
+}
+
+impl Drop for WorkspaceLock {
+    fn drop(&mut self) {
+        if let Err(error) = fs2::FileExt::unlock(&self._file) {
+            tracing::warn!("Failed to release dispatch workspace lock: {error}");
+        }
     }
 }
 
@@ -1688,7 +1696,18 @@ impl DispatchLease {
             .open(path)
             .with_context(|| format!("open dispatch lease {}", path.display()))?;
         set_private_file_permissions(path)?;
-        try_lock_file_exclusive(&file).map(|acquired| acquired.then_some(Self { _file: file }))
+        try_lock_file_exclusive(&file).map(|acquired| acquired.then(|| Self { _file: file }))
+    }
+}
+
+impl Drop for DispatchLease {
+    fn drop(&mut self) {
+        // A concurrent child spawn can briefly inherit the open file
+        // description before exec closes it. Closing this handle alone leaves
+        // its flock held by that child; the lease owner must release it.
+        if let Err(error) = fs2::FileExt::unlock(&self._file) {
+            tracing::warn!("Failed to release dispatch worker lease: {error}");
+        }
     }
 }
 
@@ -1710,7 +1729,7 @@ impl JobLock {
             .open(path)
             .with_context(|| format!("open dispatch job lock {}", path.display()))?;
         set_private_file_permissions(path)?;
-        try_lock_file_exclusive(&file).map(|acquired| acquired.then_some(Self { _file: file }))
+        try_lock_file_exclusive(&file).map(|acquired| acquired.then(|| Self { _file: file }))
     }
 
     fn shared(path: &Path) -> Result<Self> {
@@ -2732,10 +2751,26 @@ mod tests {
             .try_acquire_worker_lease("job-worker-lease")
             .expect("contended lease")
             .is_none());
+        let _inherited_handle = first._file.try_clone().expect("inherited handle");
         drop(first);
         assert!(store
             .try_acquire_worker_lease("job-worker-lease")
             .expect("released lease")
+            .is_some());
+    }
+
+    #[test]
+    fn workspace_lock_release_does_not_wait_for_an_inherited_handle() {
+        let (dir, _store) = store();
+        let path = dir.path().join("workspace.lock");
+        let first = WorkspaceLock::acquire(&path).expect("first lock");
+        assert!(WorkspaceLock::try_acquire(&path)
+            .expect("contended lock")
+            .is_none());
+        let _inherited_handle = first._file.try_clone().expect("inherited handle");
+        drop(first);
+        assert!(WorkspaceLock::try_acquire(&path)
+            .expect("released lock")
             .is_some());
     }
 

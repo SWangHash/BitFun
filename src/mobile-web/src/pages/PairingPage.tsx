@@ -12,10 +12,16 @@ import {
 import { normalizeRelayUrl, validPairingSecret } from '../services/pairingLink';
 import { RelayHttpClient } from '../services/RelayHttpClient';
 import { RemoteSessionManager } from '../services/RemoteSessionManager';
+import { loadMobileNavigation, type PairedNavigation } from '../services/MobileNavigationStore';
 import { useMobileStore } from '../services/store';
 
 interface PairingPageProps {
-  onPaired: (client: RelayHttpClient, sessionMgr: RemoteSessionManager, preferredDeviceId?: string) => void;
+  onPaired: (
+    client: RelayHttpClient,
+    sessionMgr: RemoteSessionManager,
+    preferredDeviceId?: string,
+    navigation?: PairedNavigation,
+  ) => void;
 }
 
 interface PairAttemptOptions {
@@ -297,7 +303,21 @@ const PairingPageContent: React.FC<PairingPageProps> = ({ onPaired }) => {
         setFailureCount(0);
         setLockUntil(null);
         setPassword('');
-        onPairedRef.current(client, new RemoteSessionManager(client), pairingTarget.targetDeviceId?.trim() || undefined);
+        const navigationScope = {
+          accountId: accountSession.userId,
+          controllerDeviceId: currentInstallId,
+          relayUrl: httpBaseUrl,
+          routeKey: currentPairingRouteKey(),
+        };
+        // Only a same-tab reconnect may resume a previously chosen device.
+        // Scanning another QR or signing in manually keeps explicit targeting.
+        const restoredNavigation = autoReconnect ? loadMobileNavigation(navigationScope) : null;
+        onPairedRef.current(
+          client,
+          new RemoteSessionManager(client),
+          restoredNavigation?.deviceId || pairingTarget.targetDeviceId?.trim() || undefined,
+          { scope: navigationScope, restored: restoredNavigation },
+        );
         return;
       }
 

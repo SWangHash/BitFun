@@ -38,6 +38,7 @@ const MAX_NONCE_BYTES: usize = 256;
 const RATE_LIMIT_WINDOW: Duration = Duration::from_secs(60);
 const MAX_MESSAGES_PER_WINDOW: u32 = i32::MAX as u32;
 const DEVICE_TOKEN_REVALIDATION_INTERVAL: Duration = Duration::from_secs(5);
+const SOCKET_CLOSE_GRACE: Duration = Duration::from_secs(5);
 
 struct ConnectionRateLimiter {
     window_started: Instant,
@@ -221,21 +222,24 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     let write_task = tokio::spawn(async move {
         loop {
             tokio::select! {
+                biased;
                 changed = writer_force_close_rx.changed() => {
                     if changed.is_ok() && *writer_force_close_rx.borrow() {
                         info!("Closing revoked WebSocket connection");
-                        let _ = ws_sender.send(Message::Close(None)).await;
                     }
                     break;
                 }
                 msg = out_rx.recv() => {
                     let Some(msg) = msg else { break };
-                    if !msg.text.is_empty()
-                        && ws_sender
-                            .send(Message::Text(msg.text.into()))
-                            .await
-                            .is_err()
-                    {
+                    if msg.text.is_empty() {
+                        continue;
+                    }
+                    let sent = tokio::select! {
+                        biased;
+                        _ = writer_force_close_rx.changed() => break,
+                        result = ws_sender.send(Message::Text(msg.text.into())) => result,
+                    };
+                    if sent.is_err() {
                         // The read half can remain open after a write-half
                         // failure. Wake the owner loop so it promptly removes
                         // routing/presence instead of leaving a half-open
@@ -246,6 +250,10 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                 }
             }
         }
+        // Receiving Close queues Tungstenite's acknowledgement on the shared
+        // socket. The split writer must flush it before either half is dropped.
+        // This also sends Close when the server initiates disconnection.
+        let _ = tokio::time::timeout(SOCKET_CLOSE_GRACE, ws_sender.close()).await;
     });
 
     loop {
@@ -334,8 +342,21 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     }
     drop(_presence_projection_guard);
     drop(out_tx);
-    let _ = write_task.await;
+    finish_socket_writer(write_task).await;
     info!("WebSocket disconnected: conn_id={conn_id}");
+}
+
+async fn finish_socket_writer(mut write_task: tokio::task::JoinHandle<()>) {
+    if tokio::time::timeout(SOCKET_CLOSE_GRACE, &mut write_task)
+        .await
+        .is_err()
+    {
+        // A peer that stopped reading must not retain a detached writer and
+        // its queued messages after routing and presence have been removed.
+        warn!("WebSocket writer exceeded close deadline");
+        write_task.abort();
+        let _ = write_task.await;
+    }
 }
 
 fn ensure_device_token_revalidator(state: &AppState) {
@@ -960,6 +981,86 @@ mod tests {
     use crate::relay::DeviceManager;
     use axum::http::{header, HeaderMap};
     use tokio::sync::{mpsc, watch};
+
+    #[tokio::test]
+    async fn disconnect_releases_a_stalled_writer() {
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (released_tx, released_rx) = tokio::sync::oneshot::channel::<()>();
+        let writer = tokio::spawn(async move {
+            let _resource = released_tx;
+            let _ = started_tx.send(());
+            std::future::pending::<()>().await;
+        });
+        started_rx.await.unwrap();
+        tokio::time::timeout(
+            super::SOCKET_CLOSE_GRACE + std::time::Duration::from_secs(1),
+            super::finish_socket_writer(writer),
+        )
+        .await
+        .expect("stalled writer must be cancelled and joined");
+        assert!(
+            released_rx.await.is_err(),
+            "writer resources must be dropped"
+        );
+    }
+
+    #[tokio::test]
+    async fn client_close_receives_ack_and_removes_room_routing() {
+        use futures_util::{SinkExt, StreamExt};
+        use tokio_tungstenite::tungstenite::{
+            protocol::{frame::coding::CloseCode, CloseFrame},
+            Message,
+        };
+
+        let rooms = crate::RoomManager::new();
+        let app = crate::build_relay_router(
+            rooms.clone(),
+            std::sync::Arc::new(crate::MemoryAssetStore::new()),
+            std::time::Instant::now(),
+            None,
+            "test",
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let (mut client, _) = tokio_tungstenite::connect_async(format!("ws://{address}/ws"))
+            .await
+            .unwrap();
+        client
+            .send(Message::Text(
+                serde_json::json!({
+                    "type": "create_room",
+                    "device_id": "close-test",
+                    "device_type": "desktop",
+                    "public_key": "test-public-key"
+                })
+                .to_string()
+                .into(),
+            ))
+            .await
+            .unwrap();
+        let registered = client.next().await.unwrap().unwrap();
+        assert!(registered.into_text().unwrap().contains("room_created"));
+        assert_eq!(rooms.connection_count(), 1);
+
+        let close = CloseFrame {
+            code: CloseCode::Normal,
+            reason: "completed".into(),
+        };
+        client
+            .send(Message::Close(Some(close.clone())))
+            .await
+            .unwrap();
+        let response = tokio::time::timeout(std::time::Duration::from_secs(2), client.next())
+            .await
+            .expect("close acknowledgement deadline")
+            .expect("close acknowledgement frame")
+            .expect("clean WebSocket close");
+        assert_eq!(response, Message::Close(Some(close)));
+        assert_eq!(rooms.connection_count(), 0);
+        server.abort();
+        let _ = server.await;
+    }
 
     #[test]
     fn best_effort_control_response_does_not_block_on_full_queue() {

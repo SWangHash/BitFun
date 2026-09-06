@@ -91,6 +91,8 @@ export interface SessionInfo {
   message_count: number;
   workspace_path?: string;
   workspace_name?: string;
+  /** Client-side provenance of a scoped listing; older cache records omit it. */
+  workspace_identity?: Pick<RecentWorkspaceEntry, 'path' | 'remote_connection_id' | 'remote_ssh_host'>;
 }
 
 export interface RemoteModelConfig {
@@ -390,7 +392,15 @@ export class RemoteSessionManager {
       query: query?.trim() || null,
     });
     return {
-      sessions: resp.sessions || [],
+      sessions: (resp.sessions || []).map((session) => workspacePath ? {
+        ...session,
+        workspace_path: session.workspace_path || workspacePath,
+        workspace_identity: {
+          path: workspacePath,
+          remote_connection_id: identity?.remoteConnectionId,
+          remote_ssh_host: identity?.remoteSshHost,
+        },
+      } : session),
       has_more: resp.has_more ?? false,
     };
   }
