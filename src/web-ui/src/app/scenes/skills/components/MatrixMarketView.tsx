@@ -443,23 +443,26 @@ const MatrixMarketView: React.FC<MatrixMarketViewProps> = ({
                     data-skill-installed={isInstalled ? 'true' : 'false'}
                     name={skill.name || skill.enName}
                     description={skill.description ?? ''}
-                    leftContent={(
+                    iconKind="market"
+                    meta={(
                       <span className="skills-card__count">
                         <TrendingUp size={12} />
                         {skill.download ?? 0}
                       </span>
                     )}
-                    rightAction={{
-                      label: isInstalled ? t('matrix.item.installed') : t('installSkill'),
+                    actions={[{
+                      id: 'install',
                       icon: isInstalled ? <CheckCircle2 size={13} /> : <Download size={13} />,
+                      ariaLabel: isInstalled ? t('matrix.item.installed') : t('installSkill'),
                       disabled:
                         isInstalling
                         || isInstalled
                         || !hasWorkspace
                         || isRemoteWorkspace
                         || isAssistantWorkspace,
+                      tone: isInstalled ? 'success' : 'primary',
                       onClick: () => void onInstall(skill, 'project'),
-                    }}
+                    }]}
                     onOpenDetails={() => onOpenDetails(skill)}
                   />
                 );

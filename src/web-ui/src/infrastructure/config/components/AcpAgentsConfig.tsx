@@ -396,6 +396,8 @@ function agentStatusTone(status: AgentRowStatus): StatusPillTone {
     case 'enabled':
     case 'ready':
       return 'success';
+    case 'disabled':
+      return 'neutral';
     case 'partial':
       return 'warning';
     case 'invalid':

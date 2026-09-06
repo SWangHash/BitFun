@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from '@openbitfun/ui';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FolderOpen, Layers, Package, ShieldAlert, ShieldCheck, TrendingUp, Zap } from 'lucide-react';
+import { FolderOpen, Layers, Loader2, Package, ShieldAlert, ShieldCheck, TrendingUp, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 
@@ -43,6 +43,7 @@ import { useSkillMarket } from './hooks/useSkillMarket';
 import { useMatrixSkillMarket } from './hooks/useMatrixSkillMarket';
 import SkillCard from './components/SkillCard';
 import SkillsSuiteView from './components/SkillsSuiteView';
+import SkillsLoadMoreSentinel from './components/SkillsLoadMoreSentinel';
 import MatrixMarketView from './components/MatrixMarketView';
 import type { MatrixSkillSummary } from '@/infrastructure/api/service-api/MatrixSkillAPI';
 import './SkillsScene.scss';
@@ -791,35 +792,31 @@ const SkillsScene: React.FC = () => {
                     })}
                   </div>
 
-                  {(market.totalPages > 1 || market.hasMore) && (
-                    <div className="skills-discover__pagination" data-openbitfun-scene="skills" data-openbitfun-part="pagination">
+                  <SkillsLoadMoreSentinel
+                    active={market.hasMore && !market.loadingMore && !market.loadMoreError}
+                    onLoad={() => void market.goToNextPage()}
+                  />
+                  {market.loadingMore && (
+                    <div className="skills-load-more-row">
+                      <Loader2 className="skills-load-more-spinner" size={14} />
+                      <span>{t('list.loading')}</span>
+                    </div>
+                  )}
+                  {market.loadMoreError && (
+                    <div className="skills-load-more-row">
+                      <span>{t('list.loadMoreFailed')}</span>
                       <button
                         type="button"
-                        className="skills-discover__page-btn"
-                        onClick={market.goToPrevPage}
-                        disabled={market.currentPage === 0 || market.loadingMore}
-                        aria-label={t('market.pagination.prev')}
-                        data-openbitfun-scene="skills"
-                        data-openbitfun-part="pageButton"
+                        className="skills-load-more-retry"
+                        onClick={() => market.retryLoadMore()}
                       >
-                        <Icon name="chevron-left" size="sm" />
+                        {t('list.retry')}
                       </button>
-                      <span className="skills-discover__page-info" data-openbitfun-scene="skills" data-openbitfun-part="pageInfo">
-                        {market.hasMore
-                          ? t('market.pagination.infoMore', { current: market.currentPage + 1 })
-                          : t('market.pagination.info', { current: market.currentPage + 1, total: market.totalPages })}
-                      </span>
-                      <button
-                        type="button"
-                        className="skills-discover__page-btn"
-                        onClick={() => void market.goToNextPage()}
-                        disabled={(!market.hasMore && market.currentPage >= market.totalPages - 1) || market.loadingMore}
-                        aria-label={t('market.pagination.next')}
-                        data-openbitfun-scene="skills"
-                        data-openbitfun-part="pageButton"
-                      >
-                        <Icon name="chevron-right" size="sm" />
-                      </button>
+                    </div>
+                  )}
+                  {!market.loadingMore && !market.loadMoreError && !market.hasMore && market.marketSkills.length > 0 && (
+                    <div className="skills-load-more-row">
+                      <span>{t('list.noMore')}</span>
                     </div>
                   )}
                 </>
