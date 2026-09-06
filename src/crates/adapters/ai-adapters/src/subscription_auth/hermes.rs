@@ -6,6 +6,7 @@
 //! inference host, with `anthropic/*` models using Messages and all other
 //! models using OpenAI Chat Completions.
 
+use super::device_flow::{poll_device_code, DevicePoll};
 use super::jwt;
 use super::store::{self, StoredCredential};
 use super::{ResolvedCredential, StartedLogin, SubscriptionHttpOptions};
@@ -15,7 +16,6 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
-const PORTAL_BASE_URL: &str = "https://portal.nousresearch.com";
 const DEVICE_CODE_URL: &str = "https://portal.nousresearch.com/api/oauth/device/code";
 const TOKEN_URL: &str = "https://portal.nousresearch.com/api/oauth/token";
 const CLIENT_ID: &str = "hermes-cli";
@@ -28,8 +28,7 @@ const DEFAULT_MODEL: &str = "z-ai/glm-5.2";
 const STORE_KEY: &str = "hermes";
 const DEFAULT_TOKEN_LIFETIME_SECS: i64 = 60 * 60;
 const DEFAULT_DEVICE_LIFETIME_SECS: i64 = 5 * 60;
-const DEFAULT_POLL_INTERVAL_SECS: i64 = 1;
-const MAX_POLL_INTERVAL_SECS: i64 = 30;
+const DEFAULT_POLL_INTERVAL_SECS: i64 = 5;
 const REFRESH_LEEWAY_MS: i64 = 2 * 60 * 1000;
 
 pub(crate) const MANAGEMENT_URL: &str = "https://portal.nousresearch.com/manage-subscription";
@@ -67,12 +66,6 @@ struct TokenErrorResponse {
     error: String,
     #[serde(default)]
     error_description: Option<String>,
-}
-
-enum DevicePoll {
-    Authorized(TokenResponse),
-    Pending,
-    SlowDown,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -272,7 +265,7 @@ async fn request_device_code(client: &reqwest::Client) -> Result<DeviceCodeRespo
 fn classify_device_poll_error(
     status: reqwest::StatusCode,
     error: &TokenErrorResponse,
-) -> Result<DevicePoll> {
+) -> Result<DevicePoll<TokenResponse>> {
     match error.error.as_str() {
         "authorization_pending" => Ok(DevicePoll::Pending),
         "slow_down" => Ok(DevicePoll::SlowDown),
@@ -299,7 +292,10 @@ fn classify_device_poll_error(
     }
 }
 
-async fn poll_once(client: &reqwest::Client, device_code: &str) -> Result<DevicePoll> {
+async fn poll_once(
+    client: &reqwest::Client,
+    device_code: &str,
+) -> Result<DevicePoll<TokenResponse>> {
     let response = client
         .post(TOKEN_URL)
         .header(reqwest::header::ACCEPT, "application/json")
@@ -394,8 +390,7 @@ pub(crate) async fn begin_login(
 ) -> Result<StartedLogin> {
     let client = http_client(&options)?;
     let device = request_device_code(&client).await?;
-    let interval = positive_seconds(device.interval, DEFAULT_POLL_INTERVAL_SECS)
-        .min(DEFAULT_POLL_INTERVAL_SECS);
+    let interval = positive_seconds(device.interval, DEFAULT_POLL_INTERVAL_SECS);
     let expires_in = positive_seconds(device.expires_in, DEFAULT_DEVICE_LIFETIME_SECS)
         .min(super::LOGIN_TIMEOUT.as_secs() as i64);
     let device_code = device.device_code.clone();
@@ -407,24 +402,15 @@ pub(crate) async fn begin_login(
             super::SubscriptionProvider::Hermes,
             cancel,
             async {
-                let deadline = tokio::time::Instant::now() + Duration::from_secs(expires_in as u64);
-                let mut wait = interval;
-                loop {
-                    match poll_once(&client, &device_code).await? {
-                        DevicePoll::Authorized(tokens) => return Ok(tokens),
-                        DevicePoll::Pending => wait = interval,
-                        DevicePoll::SlowDown => {
-                            wait = wait.saturating_add(1).min(MAX_POLL_INTERVAL_SECS)
-                        }
-                    }
-                    let sleep = Duration::from_secs(wait as u64);
-                    if tokio::time::Instant::now() + sleep > deadline {
-                        return Err(anyhow!(
-                            "Nous Portal device authorization timed out; finish signing in at {PORTAL_BASE_URL}/login and try again"
-                        ));
-                    }
-                    tokio::time::sleep(sleep).await;
-                }
+                poll_device_code(
+                    Duration::from_secs(interval as u64),
+                    Duration::from_secs(expires_in as u64),
+                    Duration::ZERO,
+                    true,
+                    || poll_once(&client, &device_code),
+                )
+                .await
+                .context("complete Nous Portal device authorization")
             },
             move |tokens| persist_tokens(tokens, expected_revision),
         )

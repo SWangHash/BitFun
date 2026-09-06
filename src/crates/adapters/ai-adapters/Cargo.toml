@@ -83,7 +83,7 @@ system-vault = [
 [dev-dependencies]
 axum = { workspace = true }
 openbitfun-events = { path = "../../contracts/events" }
-tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread", "test-util"] }
 
 [lints]
 workspace = true

@@ -41,6 +41,15 @@ pub(crate) fn expires_at_ms(token: &str) -> Option<i64> {
         .map(|expires| expires.saturating_mul(1000))
 }
 
+/// Bound both proactive refresh and the caller's model-client cache by the
+/// earlier deadline. Legacy stores may have guessed an hour when the provider
+/// omitted expires_in, even though the issued JWT only lasts a few minutes.
+pub(crate) fn effective_expiry_ms(token: &str, stored_expiry: i64) -> i64 {
+    expires_at_ms(token)
+        .map(|expiry| expiry.min(stored_expiry))
+        .unwrap_or(stored_expiry)
+}
+
 fn extend_scopes(scopes: &mut HashSet<String>, value: &Value) {
     match value {
         Value::String(raw) => {
@@ -167,6 +176,20 @@ mod tests {
         assert!(expires_within(&token, 1_799_999_900_000, 120_000));
         assert!(!expires_within(&token, 1_799_999_000_000, 120_000));
         assert!(!expires_within("opaque-token", 1_799_999_900_000, 120_000));
+    }
+
+    #[test]
+    fn effective_expiry_never_extends_either_deadline() {
+        let token = make_token(serde_json::json!({ "exp": 1_800_000_000i64 }));
+        assert_eq!(
+            effective_expiry_ms(&token, 1_800_003_600_000),
+            1_800_000_000_000
+        );
+        assert_eq!(
+            effective_expiry_ms(&token, 1_799_999_000_000),
+            1_799_999_000_000
+        );
+        assert_eq!(effective_expiry_ms("opaque", 1234), 1234);
     }
 
     #[test]

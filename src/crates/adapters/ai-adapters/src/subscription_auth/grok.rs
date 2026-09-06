@@ -4,6 +4,7 @@
 //! device flow. Subscription inference uses xAI's normal Responses endpoint,
 //! matching OpenCode's built-in xAI auth plugin.
 
+use super::device_flow::{poll_device_code, DevicePoll};
 use super::jwt;
 use super::store::{self, StoredCredential};
 use super::{ResolvedCredential, StartedLogin, SubscriptionHttpOptions};
@@ -25,7 +26,6 @@ const STORE_KEY: &str = "grok";
 const DEFAULT_TOKEN_LIFETIME_SECS: i64 = 60 * 60;
 const DEFAULT_DEVICE_LIFETIME_SECS: i64 = 5 * 60;
 const DEFAULT_POLL_INTERVAL_SECS: i64 = 5;
-const SLOW_DOWN_INCREMENT_SECS: i64 = 5;
 const SHORT_TOKEN_REFRESH_LEEWAY_MS: i64 = 2 * 60 * 1000;
 const LONG_TOKEN_REFRESH_LEEWAY_MS: i64 = 60 * 60 * 1000;
 const SHORT_TOKEN_THRESHOLD_MS: i64 = 45 * 60 * 1000;
@@ -177,16 +177,10 @@ async fn request_device_code(options: &SubscriptionHttpOptions) -> Result<Device
     Ok(device)
 }
 
-enum DevicePoll {
-    Authorized(TokenResponse),
-    Pending,
-    SlowDown,
-}
-
 fn classify_device_poll_error(
     status: reqwest::StatusCode,
     error: &TokenErrorResponse,
-) -> Result<DevicePoll> {
+) -> Result<DevicePoll<TokenResponse>> {
     match error.error.as_str() {
         "authorization_pending" => Ok(DevicePoll::Pending),
         "slow_down" => Ok(DevicePoll::SlowDown),
@@ -213,7 +207,10 @@ fn classify_device_poll_error(
     }
 }
 
-async fn poll_once(device_code: &str, options: &SubscriptionHttpOptions) -> Result<DevicePoll> {
+async fn poll_once(
+    device_code: &str,
+    options: &SubscriptionHttpOptions,
+) -> Result<DevicePoll<TokenResponse>> {
     let client = http_client(options)?;
     let response = oauth_request(client.post(TOKEN_URL))
         .form(&[
@@ -277,6 +274,7 @@ async fn persist_tokens(tokens: TokenResponse, expected_revision: u64) -> Result
         .filter(|token| !token.trim().is_empty())
         .ok_or_else(|| anyhow!("xAI token response missing refresh_token"))?;
     let expires = expires_at_ms(tokens.expires_in);
+    let expires = jwt::effective_expiry_ms(&tokens.access_token, expires);
     let account_id = account_id_from(&tokens);
     let metadata = metadata_from(&tokens, None);
     let outcome = store::upsert_if_revision(
@@ -341,25 +339,15 @@ pub(crate) async fn begin_login(
             super::SubscriptionProvider::Grok,
             cancel,
             async {
-                let deadline = tokio::time::Instant::now() + Duration::from_secs(expires_in as u64);
-                let mut wait = interval;
-                loop {
-                    match poll_once(&device_code, &options).await? {
-                        DevicePoll::Authorized(tokens) => return Ok(tokens),
-                        DevicePoll::Pending => wait = interval,
-                        DevicePoll::SlowDown => {
-                            wait = wait.saturating_add(SLOW_DOWN_INCREMENT_SECS)
-                        }
-                    }
-                    // OpenCode adds a small safety margin after the provider's
-                    // advertised interval and increases it by five seconds on
-                    // RFC 8628 `slow_down` responses.
-                    let sleep = Duration::from_secs(wait.saturating_add(3) as u64);
-                    if tokio::time::Instant::now() + sleep > deadline {
-                        return Err(anyhow!("xAI device authorization code expired"));
-                    }
-                    tokio::time::sleep(sleep).await;
-                }
+                poll_device_code(
+                    Duration::from_secs(interval as u64),
+                    Duration::from_secs(expires_in as u64),
+                    Duration::from_secs(3),
+                    true,
+                    || poll_once(&device_code, &options),
+                )
+                .await
+                .context("complete xAI device authorization")
             },
             move |tokens| persist_tokens(tokens, expected_revision),
         )
@@ -394,6 +382,7 @@ async fn ensure_fresh(options: &SubscriptionHttpOptions) -> Result<(String, i64)
     };
 
     let now = now_ms();
+    let expires = jwt::effective_expiry_ms(&access, expires);
     let refresh_leeway = refresh_leeway_ms(&access, expires, now);
     if expires > now + refresh_leeway && !super::jwt::expires_within(&access, now, refresh_leeway) {
         return Ok((access, expires));
@@ -409,6 +398,7 @@ async fn ensure_fresh(options: &SubscriptionHttpOptions) -> Result<(String, i64)
         .filter(|token| !token.trim().is_empty())
         .unwrap_or(refresh_token);
     let new_expires = expires_at_ms(refreshed.expires_in);
+    let new_expires = jwt::effective_expiry_ms(&refreshed.access_token, new_expires);
     let new_account_id = account_id_from(&refreshed).or(account_id);
     let new_metadata = metadata_from(&refreshed, metadata);
     let new_access = refreshed.access_token.clone();
@@ -438,8 +428,9 @@ async fn ensure_fresh(options: &SubscriptionHttpOptions) -> Result<(String, i64)
             match current.credential {
                 Some(StoredCredential::Oauth {
                     access, expires, ..
-                }) if expires > now_ms() => {
+                }) if jwt::effective_expiry_ms(&access, expires) > now_ms() => {
                     log::info!("xAI refresh reused tokens committed by a concurrent refresh");
+                    let expires = jwt::effective_expiry_ms(&access, expires);
                     Ok((access, expires))
                 }
                 _ => Err(super::store_revision_conflict(

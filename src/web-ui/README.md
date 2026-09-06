@@ -88,6 +88,26 @@ VITE_BUILD_TARGET=web pnpm --dir src/web-ui run build
 # output: dist/
 ```
 
+## Subscription models
+
+In **Settings → Models → Subscription accounts**, sign in, choose **Use**, and
+open the model picker. **Refresh models** fetches the account's current list
+without signing out or reopening the editor. Saved models remain selectable;
+you can also enter a provider-supported model ID manually.
+
+Antigravity queries its authenticated `fetchAvailableModels` endpoint; Codex
+uses its subscription catalog, including models unavailable through the public
+OpenAI API. OpenCode separates Go/Zen and Chat Completions/Responses/Messages.
+xAI and Hermes query their model endpoints; Hermes routes `anthropic/*` models
+through Messages with the Nous OAuth bearer.
+
+The account's returned IDs determine availability. A familiar or older ID does
+not prove the underlying model is outdated, and a model advertised by a vendor
+is not necessarily available through every subscription or OAuth client. A
+failed subscription lookup shows an error instead of presenting preset models
+as an account result. Antigravity browser login requires the local desktop;
+device-code login can authorize the other providers from another browser.
+
 ## Related docs (within this package)
 
 - [Logging guide](LOGGING.md)

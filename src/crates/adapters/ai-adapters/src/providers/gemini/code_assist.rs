@@ -12,7 +12,7 @@ use crate::providers::shared;
 use crate::stream::handle_gemini_stream;
 use crate::trace::ModelExchangeTraceConfig;
 use crate::types::{Message, RemoteModelInfo, ToolDefinition};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use log::{debug, warn};
 use openbitfun_core_types::errors::AiProviderError;
 use reqwest::RequestBuilder;
@@ -28,6 +28,7 @@ const ANTIGRAVITY_DEFAULT_PROJECT: &str = "rising-fact-p41fc";
 const STREAM_ENDPOINT: &str = "/v1internal:streamGenerateContent?alt=sse";
 const LOAD_CODE_ASSIST_ENDPOINT: &str = "/v1internal:loadCodeAssist";
 const ONBOARD_USER_ENDPOINT: &str = "/v1internal:onboardUser";
+const AVAILABLE_MODELS_ENDPOINT: &str = "/v1internal:fetchAvailableModels";
 
 fn cached_project() -> &'static Mutex<Option<(String, String)>> {
     static CACHE: OnceLock<Mutex<Option<(String, String)>>> = OnceLock::new();
@@ -148,6 +149,10 @@ fn resolve_antigravity_model(
     configured_model: &str,
     request: &serde_json::Value,
 ) -> AntigravityModelRoute {
+    let wire_model = configured_model.trim();
+    let wire_model = wire_model
+        .strip_prefix("antigravity-")
+        .unwrap_or(wire_model);
     let normalized = configured_model.trim().to_ascii_lowercase();
     let normalized = normalized
         .strip_prefix("antigravity-")
@@ -161,7 +166,7 @@ fn resolve_antigravity_model(
     let (base, requested_tier) = strip_thinking_tier(&normalized);
     let configured_level = configured_thinking_level(request);
 
-    if base.starts_with("gemini-3") && base.contains("-pro") && !base.contains("image") {
+    if matches!(base, "gemini-3-pro" | "gemini-3.1-pro") {
         let level = match requested_tier.or(configured_level.as_deref()) {
             Some("high") => "high",
             _ => "low",
@@ -173,7 +178,7 @@ fn resolve_antigravity_model(
         };
     }
 
-    if base.starts_with("gemini-3") && base.contains("-flash") {
+    if base == "gemini-3-flash" {
         let level = match requested_tier.or(configured_level.as_deref()) {
             Some(level @ ("minimal" | "low" | "medium" | "high")) => level,
             _ => "low",
@@ -200,7 +205,9 @@ fn resolve_antigravity_model(
     }
 
     AntigravityModelRoute {
-        model: normalized,
+        // New catalog IDs are already wire IDs. Only the legacy aliases above
+        // need translation; do not strip a future model's preview/tier suffix.
+        model: wire_model.to_string(),
         thinking_level: None,
         thinking_budget: None,
     }
@@ -673,15 +680,79 @@ const DEFAULT_CODE_ASSIST_MODELS: &[(&str, &str)] = &[
     ("gemini-2.5-flash-lite", "Gemini 2.5 Flash-Lite"),
 ];
 
-const DEFAULT_ANTIGRAVITY_MODELS: &[(&str, &str)] = &[
-    ("gemini-3.1-pro-high", "Gemini 3.1 Pro (High)"),
-    ("gemini-3.1-pro-low", "Gemini 3.1 Pro (Low)"),
-    ("gemini-3-pro-high", "Gemini 3 Pro (High)"),
-    ("gemini-3-pro-low", "Gemini 3 Pro (Low)"),
-    ("gemini-3-flash", "Gemini 3 Flash"),
-    ("claude-sonnet-4-6", "Claude Sonnet 4.6"),
-    ("claude-opus-4-6-thinking", "Claude Opus 4.6 Thinking"),
-];
+#[derive(Deserialize)]
+struct AvailableModelsResponse {
+    models: std::collections::BTreeMap<String, AvailableModel>,
+}
+
+#[derive(Deserialize)]
+struct AvailableModel {
+    #[serde(default, rename = "displayName")]
+    display_name: Option<String>,
+}
+
+async fn list_antigravity_models(
+    client: &AIClient,
+    endpoints: &[&str],
+) -> Result<Vec<RemoteModelInfo>> {
+    // The upstream Antigravity plugin calls the production endpoint with an
+    // optional project. Listing must not provision a project just to open a
+    // picker, or borrow a different account's cached project.
+    let mut body = serde_json::json!({});
+    if let Some((credential, project)) = cached_project().lock().await.as_ref() {
+        if credential == &client.config.api_key && project != ANTIGRAVITY_DEFAULT_PROJECT {
+            body["project"] = serde_json::json!(project);
+        }
+    }
+    let mut last_error = None;
+    for endpoint in endpoints {
+        let url = format!("{endpoint}{AVAILABLE_MODELS_ENDPOINT}");
+        let response = match apply_headers(client, client.client.post(&url))
+            .timeout(std::time::Duration::from_secs(10))
+            .json(&body)
+            .send()
+            .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                last_error = Some(anyhow!(error).context("fetch Antigravity model catalog"));
+                continue;
+            }
+        };
+        let status = response.status();
+        if !status.is_success() {
+            let error = anyhow!("Antigravity model discovery failed: HTTP {status}");
+            if matches!(status.as_u16(), 403 | 404) || status.is_server_error() {
+                last_error = Some(error);
+                continue;
+            }
+            return Err(error);
+        }
+        let payload = response
+            .json::<AvailableModelsResponse>()
+            .await
+            .context("parse Antigravity model catalog")?;
+        let models = crate::client::utils::dedupe_remote_models(
+            payload
+                .models
+                .into_iter()
+                .map(|(id, model)| RemoteModelInfo {
+                    // Map keys are wire IDs. Display names and quota state must
+                    // never rename or hide newly published/account-specific IDs.
+                    id,
+                    display_name: model.display_name,
+                })
+                .collect(),
+        );
+        if models.is_empty() {
+            return Err(anyhow!(
+                "Antigravity returned no available models for this account"
+            ));
+        }
+        return Ok(models);
+    }
+    Err(last_error.unwrap_or_else(|| anyhow!("No Antigravity model endpoint was available")))
+}
 
 fn gemini_home_dir() -> Option<PathBuf> {
     std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".gemini"))
@@ -750,19 +821,19 @@ fn read_gemini_env_model(gemini_home: &Path) -> Option<String> {
     })
 }
 
-/// Code Assist (`cloudcode-pa.googleapis.com`) does not expose a list-models
-/// endpoint; the upstream `gemini-cli` ships a hard-coded `VALID_GEMINI_MODELS`
-/// set in `packages/core/src/config/models.ts`. We mirror its stable entries and
-/// preserve the user's local configured model when present.
+/// Antigravity exposes an authenticated model catalog, distinct from Gemini
+/// CLI's static defaults. Never report those defaults as live account models.
 pub(crate) async fn list_models(client: &AIClient) -> Result<Vec<RemoteModelInfo>> {
     if is_antigravity(client) {
-        return Ok(DEFAULT_ANTIGRAVITY_MODELS
-            .iter()
-            .map(|(id, display_name)| RemoteModelInfo {
-                id: (*id).to_string(),
-                display_name: Some((*display_name).to_string()),
-            })
-            .collect());
+        return list_antigravity_models(
+            client,
+            &[
+                CODE_ASSIST_BASE,
+                ANTIGRAVITY_DAILY_BASE,
+                ANTIGRAVITY_AUTOPUSH_BASE,
+            ],
+        )
+        .await;
     }
 
     let mut models = Vec::new();
@@ -795,6 +866,106 @@ mod tests {
         resolve_antigravity_model, should_try_next_antigravity_endpoint, AiProviderError,
         CodeAssistTier, LoadCodeAssistResponse, ANTIGRAVITY_DEFAULT_PROJECT,
     };
+
+    #[tokio::test]
+    async fn discovers_live_account_models_and_preserves_their_wire_ids() {
+        use axum::{
+            http::{HeaderMap, StatusCode},
+            routing::post,
+            Json, Router,
+        };
+        use serde_json::{json, Value};
+        let app = Router::new()
+            .route("/unavailable/v1internal:fetchAvailableModels", post(|| async { StatusCode::NOT_FOUND }))
+            .route("/live/v1internal:fetchAvailableModels", post(|headers: HeaderMap, Json(body): Json<Value>| async move {
+                assert_eq!(headers["authorization"], "Bearer antigravity-catalog-test");
+                assert_eq!(headers["user-agent"], "antigravity/test");
+                assert_eq!(body, json!({}));
+                Json(json!({"models": {
+                    "gemini-3.8-flash-medium": {"displayName": "Gemini 3.8 Flash (Medium)"},
+                    "future-preview": {"displayName": "Future model", "quotaInfo": {"remainingFraction": 0}},
+                    "gpt-oss-120b-medium": {"displayName": "GPT-OSS 120B"}
+                }}))
+            }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        let client = super::AIClient::new(serde_json::from_value(json!({
+            "name": "catalog-test", "base_url": base, "request_url": base,
+            "api_key": "antigravity-catalog-test", "model": "", "format": "gemini-code-assist",
+            "context_window": 128000, "inline_think_in_text": false, "skip_ssl_verify": false,
+            "custom_headers": {"User-Agent": "antigravity/test", "Client-Metadata": "ANTIGRAVITY"}
+        })).unwrap());
+        let unavailable = format!("{base}/unavailable");
+        let live = format!("{base}/live");
+        let models = super::list_antigravity_models(&client, &[&unavailable, &live])
+            .await
+            .unwrap();
+        server.abort();
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| model.id.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "future-preview",
+                "gemini-3.8-flash-medium",
+                "gpt-oss-120b-medium"
+            ]
+        );
+        assert_eq!(
+            models[1].display_name.as_deref(),
+            Some("Gemini 3.8 Flash (Medium)")
+        );
+        for model in models {
+            assert_eq!(
+                resolve_antigravity_model(&model.id, &json!({})).model,
+                model.id
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn catalog_failure_does_not_masquerade_as_a_static_success() {
+        use axum::{http::StatusCode, routing::post, Json, Router};
+        use serde_json::json;
+        let app = Router::new()
+            .route(
+                "/denied/v1internal:fetchAvailableModels",
+                post(|| async { StatusCode::UNAUTHORIZED }),
+            )
+            .route(
+                "/empty/v1internal:fetchAvailableModels",
+                post(|| async { Json(json!({"models": {}})) }),
+            )
+            .route(
+                "/malformed/v1internal:fetchAvailableModels",
+                post(|| async { Json(json!({"unrecognized": []})) }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        let client = super::AIClient::new(
+            serde_json::from_value(json!({
+                "name": "catalog-test", "base_url": base, "request_url": base,
+                "api_key": "synthetic", "model": "", "format": "gemini-code-assist",
+                "context_window": 128000, "inline_think_in_text": false, "skip_ssl_verify": false
+            }))
+            .unwrap(),
+        );
+        for path in ["denied", "empty", "malformed"] {
+            let endpoint = format!("{base}/{path}");
+            let error = super::list_antigravity_models(&client, &[&endpoint])
+                .await
+                .unwrap_err();
+            assert!(error.to_string().contains("Antigravity"), "{error:#}");
+        }
+        server.abort();
+    }
 
     #[test]
     fn accepts_string_and_object_project_shapes() {

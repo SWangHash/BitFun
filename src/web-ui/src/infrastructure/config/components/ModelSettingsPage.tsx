@@ -92,6 +92,7 @@ import { i18nService } from '@/infrastructure/i18n';
 import { isTauriRuntime } from '@/infrastructure/runtime';
 import { isPeerDeviceModeActive } from '@/infrastructure/peer-device/peerModeFlag';
 import { usePeerDeviceModeOptional } from '@/infrastructure/peer-device/peerDeviceContextState';
+import { getActiveSurfaceScope } from '@/infrastructure/peer-device/deviceSurface';
 import { LONG_CONTEXT_WARNING_THRESHOLD_TOKENS } from '@/shared/constants/modelContext';
 import {
   preferredSubscriptionLoginMethod,
@@ -100,6 +101,7 @@ import {
   SubscriptionLoginCoordinator,
   type SubscriptionLoginOperation,
 } from './subscriptionLoginCoordinator';
+import { ModelDiscoveryCoordinator, openCodeOfferingModels } from './modelDiscoveryCoordinator';
 import './ModelSettingsPage.scss';
 
 const log = createLogger('ModelSettings');
@@ -455,8 +457,7 @@ const ModelSettingsPage: React.FC = () => {
   const [subscriptionLoginClock, setSubscriptionLoginClock] = useState(() => Date.now());
   const [subscriptionLogoutRequest, setSubscriptionLogoutRequest] = useState<SubscriptionLogoutRequest | null>(null);
   const [deleteRequest, setDeleteRequest] = useState<DeleteRequest | null>(null);
-  const lastRemoteFetchSignatureRef = React.useRef<string | null>(null);
-  const activeRemoteFetchSignatureRef = React.useRef<string | null>(null);
+  const modelDiscoveryRef = React.useRef(new ModelDiscoveryCoordinator());
   const editorSavingRef = React.useRef(false);
   const pendingEditorOpenRef = React.useRef<PendingEditorOpen | null>(null);
   const activeConnectionTestsRef = React.useRef<Record<string, ActiveConnectionTest>>({});
@@ -739,9 +740,15 @@ const ModelSettingsPage: React.FC = () => {
     setIsFetchingRemoteModels(false);
     setRemoteModelsError(null);
     setHasAttemptedRemoteFetch(false);
-    lastRemoteFetchSignatureRef.current = null;
-    activeRemoteFetchSignatureRef.current = null;
+    modelDiscoveryRef.current.reset();
   }, []);
+
+  const modelDiscoverySurface = peerDevice?.peerMode.active ? peerDevice.peerMode.deviceId : 'local';
+  useEffect(() => {
+    const coordinator = modelDiscoveryRef.current;
+    resetRemoteModelDiscovery();
+    return () => coordinator.reset();
+  }, [modelDiscoverySurface, resetRemoteModelDiscovery]);
 
   const getOpenCodePlanLabel = useCallback((plan: OpenCodePlan): string => (
     plan === 'go'
@@ -981,9 +988,8 @@ const ModelSettingsPage: React.FC = () => {
     auth: config.auth || { type: 'api_key' },
   });
 
-  const fetchRemoteModels = async (config: Partial<AIModelConfigType> | null) => {
+  const fetchRemoteModels = async (config: Partial<AIModelConfigType> | null, force = false) => {
     if (!config) return;
-
     const discoveryConfig = buildModelDiscoveryConfig(config);
     if (!discoveryConfig) {
       setRemoteModelOptions([]);
@@ -991,44 +997,48 @@ const ModelSettingsPage: React.FC = () => {
       setHasAttemptedRemoteFetch(true);
       return;
     }
-
-    const requestSignature = buildModelDiscoverySignature(discoveryConfig);
-    if (activeRemoteFetchSignatureRef.current === requestSignature) {
-      return;
-    }
-    if (lastRemoteFetchSignatureRef.current === requestSignature) {
-      return;
-    }
-
+    const coordinator = modelDiscoveryRef.current;
+    const scope = getActiveSurfaceScope();
+    const operation = coordinator.begin(scope.key(buildModelDiscoverySignature(discoveryConfig)), force);
+    if (!operation) return;
+    const subscription = discoveryConfig.auth?.type === 'subscription';
     setIsFetchingRemoteModels(true);
     setRemoteModelsError(null);
     setHasAttemptedRemoteFetch(true);
-    lastRemoteFetchSignatureRef.current = requestSignature;
-    activeRemoteFetchSignatureRef.current = requestSignature;
-
+    let succeeded = false;
     try {
-      const remoteModels = await aiApi.listModelsByConfig(discoveryConfig);
+      let remoteModels: RemoteModelOption[];
+      if (discoveryConfig.auth?.type === 'subscription' && discoveryConfig.auth.provider === 'opencode') {
+        const account = await aiApi.refreshSubscriptionAccount('opencode');
+        if (!scope.isCurrent() || !coordinator.isCurrent(operation)) return;
+        setSubscriptionAccounts(current => current.map(item => item.provider === 'opencode' ? account : item));
+        remoteModels = openCodeOfferingModels(
+          account.api_offerings ?? [], discoveryConfig.auth.plan, discoveryConfig.provider,
+        ).map(model => ({ id: model.id, display_name: model.display_name || undefined }));
+      } else {
+        remoteModels = await aiApi.listModelsByConfig(discoveryConfig);
+      }
+      if (!scope.isCurrent() || !coordinator.isCurrent(operation)) return;
       const dedupedModels = remoteModels.filter((model, index, arr) => (
         !!model.id && arr.findIndex(item => item.id === model.id) === index
       ));
-
+      setRemoteModelOptions(dedupedModels);
       if (dedupedModels.length === 0) {
-        setRemoteModelOptions([]);
-        setRemoteModelsError(t('providerSelection.fetchEmptyFallback'));
+        setRemoteModelsError(t(subscription
+          ? 'providerSelection.subscriptionFetchEmpty'
+          : 'providerSelection.fetchEmptyFallback'));
         return;
       }
-
-      setRemoteModelOptions(dedupedModels);
-      setRemoteModelsError(null);
+      succeeded = true;
     } catch (error) {
-      log.warn('Failed to fetch remote model list, falling back to presets', { error });
+      if (!scope.isCurrent() || !coordinator.isCurrent(operation)) return;
+      log.warn('Failed to fetch remote model list', { error });
       setRemoteModelOptions([]);
-      setRemoteModelsError(t('providerSelection.fetchFailedFallback'));
+      setRemoteModelsError(t(subscription
+        ? 'providerSelection.subscriptionFetchFailed'
+        : 'providerSelection.fetchFailedFallback'));
     } finally {
-      setIsFetchingRemoteModels(false);
-      if (activeRemoteFetchSignatureRef.current === requestSignature) {
-        activeRemoteFetchSignatureRef.current = null;
-      }
+      if (coordinator.complete(operation, succeeded) && scope.isCurrent()) setIsFetchingRemoteModels(false);
     }
   };
 
@@ -1076,17 +1086,9 @@ const ModelSettingsPage: React.FC = () => {
     account: SubscriptionAccount,
     offering?: SubscriptionApiOffering,
   ) => {
-    const targetKey = `new-provider:subscription:${account.provider}:${offering?.plan || offering?.format || 'default'}`;
+    const targetKey = `new-provider:subscription:${account.provider}:${offering?.plan || 'default'}:${offering?.format || 'default'}`;
     requestEditorOpen(targetKey, () => {
       resetRemoteModelDiscovery();
-      const offeringModels = (offering?.models || []).map((model) => ({
-        id: model.id,
-        display_name: model.display_name || undefined,
-      }));
-      if (offeringModels.length > 0) {
-        setRemoteModelOptions(offeringModels);
-        setHasAttemptedRemoteFetch(true);
-      }
       setManualModelInput('');
       setShowApiKey(false);
       setSelectedProviderId(null);
@@ -1171,7 +1173,7 @@ const ModelSettingsPage: React.FC = () => {
   }, []);
 
   const handleSubscriptionLogin = useCallback(async (provider: SubscriptionProvider) => {
-    if (isPeerDeviceModeActive() && subscriptionLoginRequiresLocalDevice(provider)) {
+    if ((!isTauriRuntime() || isPeerDeviceModeActive()) && subscriptionLoginRequiresLocalDevice(provider)) {
       notification.error(t('subscriptionAuth.peerLoginRequiresLocalDevice'));
       return;
     }
@@ -2369,7 +2371,9 @@ const ModelSettingsPage: React.FC = () => {
             'data-model-name': model.id,
           },
         }))
-      : catalogModelOptions.length > 0
+      : editingConfig.auth?.type === 'subscription'
+        ? []
+        : catalogModelOptions.length > 0
         ? catalogModelOptions
         : (currentTemplate?.models || []).map(model => ({
           label: model,
@@ -2871,6 +2875,15 @@ const ModelSettingsPage: React.FC = () => {
                         {modelFetchHint}
                       </small>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="settings-model-refresh-btn"
+                      disabled={isFetchingRemoteModels}
+                      onClick={() => void fetchRemoteModels(editingConfig, true)}
+                    >
+                      {t('providerSelection.refreshModels')}
+                    </Button>
                     {renderSelectedModelRows()}
                   </div>
                 </ConfigPageRow>
@@ -2994,6 +3007,15 @@ const ModelSettingsPage: React.FC = () => {
                         {modelFetchHint}
                       </small>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="settings-model-refresh-btn"
+                      disabled={isFetchingRemoteModels}
+                      onClick={() => void fetchRemoteModels(editingConfig, true)}
+                    >
+                      {t('providerSelection.refreshModels')}
+                    </Button>
                     {renderSelectedModelRows()}
                   </div>
                 </ConfigPageRow>
