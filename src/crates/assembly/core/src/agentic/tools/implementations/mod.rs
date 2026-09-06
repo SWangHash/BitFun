@@ -3,18 +3,16 @@
 pub mod agent_wait_tool;
 #[cfg(feature = "tools-image-analysis")]
 pub mod analyze_image_tool;
-pub mod analyze_migration_request_tool;
 #[cfg(feature = "tools-miniapp")]
 pub mod appearance_publish_tool;
 pub mod arkts_knowledge_search_tool;
 pub mod ask_user_question_tool;
 pub mod bash_tool;
 pub mod build_project_tool;
-pub mod check_arkts_files_tool;
-pub mod check_cpp_files_tool;
-pub mod switch_cwd_tool;
 #[cfg(feature = "tools-canvas")]
 pub mod canvas_tools;
+pub mod check_arkts_files_tool;
+pub mod check_cpp_files_tool;
 pub mod code_review_tool;
 #[cfg(feature = "tools-computer-use")]
 pub mod computer_use_actions;
@@ -29,9 +27,9 @@ pub mod control_hub_tool;
 pub mod create_plan_tool;
 #[cfg(feature = "tools-agent-control")]
 pub mod cron_tool;
-pub mod devecocli_run;
-pub mod deveco_mcp_check;
 pub mod delete_file_tool;
+pub mod deveco_mcp_check;
+pub mod devecocli_run;
 pub mod exec_command;
 pub mod file_edit_tool;
 pub mod file_read_tool;
@@ -65,16 +63,18 @@ pub mod page_deploy_tool;
 pub mod page_publish_tool;
 #[cfg(feature = "tools-miniapp")]
 pub mod playbook_tool;
+pub mod qt_migration_intake_tool;
 #[cfg(feature = "tools-git")]
 pub mod review_platform_tool;
 pub mod save_ui_screenshot_tool;
-pub mod session_cwd;
 pub mod session_control_tool;
+pub mod session_cwd;
 pub mod session_history_tool;
 pub mod session_message_tool;
 pub mod skill_tool;
 pub mod skills;
 pub mod start_app_tool;
+pub mod switch_cwd_tool;
 pub mod task;
 pub mod terminal_control_tool;
 pub mod thread_goal_tools;
@@ -94,16 +94,16 @@ pub use crate::agentic::tools::product_runtime::GetToolSpecTool;
 pub use agent_wait_tool::AgentWaitTool;
 #[cfg(feature = "tools-image-analysis")]
 pub use analyze_image_tool::AnalyzeImageTool;
-pub use analyze_migration_request_tool::AnalyzeMigrationRequestTool;
 #[cfg(feature = "tools-miniapp")]
 pub use appearance_publish_tool::PublishAppearanceTool;
+pub use arkts_knowledge_search_tool::ArktsKnowledgeSearchTool;
 pub use ask_user_question_tool::AskUserQuestionTool;
 pub use bash_tool::BashTool;
-pub use check_arkts_files_tool::CheckArktsFilesTool;
-pub use check_cpp_files_tool::CheckCppFilesTool;
-pub use switch_cwd_tool::SwitchCwdTool;
+pub use build_project_tool::BuildProjectTool;
 #[cfg(feature = "tools-canvas")]
 pub use canvas_tools::{CreateCanvasTool, PatchCanvasTool, ReadCanvasTool, UpdateCanvasTool};
+pub use check_arkts_files_tool::CheckArktsFilesTool;
+pub use check_cpp_files_tool::CheckCppFilesTool;
 pub use code_review_tool::CodeReviewTool;
 #[cfg(feature = "tools-computer-use")]
 pub use computer_use_tool::ComputerUseTool;
@@ -127,10 +127,7 @@ pub use get_ui_verification_log_tool::GetUiVerificationLogTool;
 pub use git_tool::GitTool;
 pub use glob_tool::GlobTool;
 pub use grep_tool::GrepTool;
-pub use arkts_knowledge_search_tool::ArktsKnowledgeSearchTool;
-pub use build_project_tool::BuildProjectTool;
 pub use hdc_log_tool::HdcLogTool;
-pub use start_app_tool::StartAppTool;
 pub use list_models_tool::ListModelsTool;
 pub use ls_tool::LSTool;
 #[cfg(feature = "tools-mcp")]
@@ -149,6 +146,7 @@ pub use page_deploy_tool::PageDeployTool;
 pub use page_publish_tool::PagePublishTool;
 #[cfg(feature = "tools-miniapp")]
 pub use playbook_tool::PlaybookTool;
+pub use qt_migration_intake_tool::QtMigrationIntakeTool;
 #[cfg(feature = "tools-git")]
 pub use review_platform_tool::ReviewPlatformTool;
 pub use save_ui_screenshot_tool::SaveUiScreenshotTool;
@@ -156,6 +154,8 @@ pub use session_control_tool::SessionControlTool;
 pub use session_history_tool::SessionHistoryTool;
 pub use session_message_tool::SessionMessageTool;
 pub use skill_tool::SkillTool;
+pub use start_app_tool::StartAppTool;
+pub use switch_cwd_tool::SwitchCwdTool;
 pub use task::{LaunchReviewAgentTool, TaskTool};
 pub use terminal_control_tool::TerminalControlTool;
 pub use thread_goal_tools::{CreateGoalTool, GetGoalTool, UpdateGoalTool};
