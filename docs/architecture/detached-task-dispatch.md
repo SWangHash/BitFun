@@ -351,6 +351,14 @@ corrupt, mismatched, or above the size ceiling replays the job from byte zero.
 The controller stores the projection verbatim and never interprets it; caching
 it creates no durable session and acquires no runtime ownership.
 
+The controller also persists the projected session title and whether it came from
+a target event or a manual rename. Submission titles in the outbound index are
+fallback metadata; polling must not replace a later projected title. Manual names
+win over replayed generated-title events. Transcript caches carry this metadata
+with their cursor, and caches written before title projection replay once after
+an upgrade to recover the title event. This changes controller presentation only;
+it does not rename the target-owned job or session.
+
 Target and outbound records are retained for 30 days after terminal state, as
 are the cached transcripts, which are also dropped as soon as a projection is
 deleted or archived. Garbage collection never removes queued or running jobs.
