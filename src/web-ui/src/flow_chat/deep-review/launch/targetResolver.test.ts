@@ -145,6 +145,21 @@ describe('Deep Review target resolver', () => {
     expect(mockSystemCheckPathExists).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { path: 'src/old.ts', status: 'deleted', old_path: undefined },
+    { path: 'src/new.ts', status: 'renamed', old_path: 'src/old.ts' },
+  ])('keeps an explicit old path reviewable from Git evidence: $status', async (change) => {
+    mockSystemCheckPathExists.mockResolvedValue(false);
+    mockGitGetChangedFiles.mockResolvedValue([change]);
+    mockGitGetDiff.mockResolvedValue('-old line\n');
+    const result = await resolveSlashCommandReviewTarget('src/old.ts', '/workspace');
+    expect(mockSystemCheckPathExists).not.toHaveBeenCalled();
+    expect(result.targetEvidence.limitations).not.toContain('explicit_target_path_not_found');
+    expect(result.targetEvidence.files).toEqual([
+      expect.objectContaining({ path: change.path, status: change.status }),
+    ]);
+  });
+
   it('reports a missing absolute POSIX target', async () => {
     mockSystemCheckPathExists.mockResolvedValueOnce(false);
 
@@ -155,7 +170,6 @@ describe('Deep Review target resolver', () => {
 
     expect(mockSystemCheckPathExists).toHaveBeenCalledWith(
       '/storage/Users/currentUser/files/git_code/BitFun/tests/missing.ts',
-      undefined,
     );
     expect(result.target.files.map((file) => file.normalizedPath)).toEqual([
       'tests/missing.ts',
@@ -174,7 +188,6 @@ describe('Deep Review target resolver', () => {
 
     expect(mockSystemCheckPathExists).toHaveBeenCalledWith(
       '/storage/Users/currentUser/files/git_code/BitFun/tests/unchanged.ts',
-      undefined,
     );
     expect(result.target.files.map((file) => file.normalizedPath)).toEqual([
       'tests/unchanged.ts',
@@ -378,17 +391,20 @@ describe('Deep Review target resolver', () => {
     });
   });
 
-  it('checks an explicit remote POSIX target without local fallback', async () => {
+  it.each(['exists', 'missing', 'offline'])('rejects an explicit remote target without probing when the host is %s', async (hostState) => {
+    mockSystemCheckPathExists.mockImplementation(async () => {
+      if (hostState === 'offline') throw new Error('remote host disconnected');
+      return hostState === 'exists';
+    });
     const result = await resolveSlashCommandReviewTarget(
       '/remote/workspace/src/existing.ts',
       '/remote/workspace',
       'remote-1',
     );
 
-    expect(mockSystemCheckPathExists).toHaveBeenCalledWith(
-      '/remote/workspace/src/existing.ts',
-      'remote-1',
-    );
+    expect(mockSystemCheckPathExists).not.toHaveBeenCalled();
+    expect(mockWorkspaceReadFile).not.toHaveBeenCalled();
+    expect(mockWorkspaceGetFileMetadata).not.toHaveBeenCalled();
     expect(mockGitGetStatus).not.toHaveBeenCalled();
     expect(mockGitGetChangedFiles).not.toHaveBeenCalled();
     expect(mockGitGetDiff).not.toHaveBeenCalled();

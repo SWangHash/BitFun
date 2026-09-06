@@ -46,7 +46,7 @@ import { useSettingsStore } from '@/app/scenes/settings/settingsStore';
 import { useSceneStore } from '@/app/stores/sceneStore';
 import type { SettingsPageId } from '@/app/scenes/settings/settingsTypes';
 import {
-  classifyReviewActionErrorMessage,
+  getReviewActionErrorMessage,
   formatElapsedTime,
 } from './actionBarFormatting';
 import { CapacityQueueNotice } from './CapacityQueueNotice';
@@ -519,14 +519,11 @@ export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({ childSessionId
       log.error('Failed to start review remediation', { childSessionId, reviewMode, error });
       const msg = error instanceof Error ? error.message : String(error);
       const isTimeout = /timeout/i.test(msg);
-      store.updatePhase(isTimeout ? 'fix_timeout' : 'fix_failed', msg, childSessionId);
+      const message = getReviewActionErrorMessage(error, t, t('deepReviewActionBar.actionStartFailed'));
+      store.updatePhase(isTimeout ? 'fix_timeout' : 'fix_failed', message, childSessionId);
       store.restore(childSessionId ?? undefined);
       notificationService.error(
-        error instanceof Error
-          ? error.message
-          : t('toolCards.codeReview.reviewFailed', {
-              error: t('toolCards.codeReview.unknownError'),
-            }),
+        message,
         { duration: 5000 },
       );
     } finally {
@@ -660,7 +657,7 @@ export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({ childSessionId
         reviewMode,
         error,
       });
-      const message = normalizeActionErrorMessage(error);
+      const message = getReviewActionErrorMessage(error, t, t('deepReviewActionBar.actionStartFailed'));
       notificationService.error(message, { duration: 5000 });
     } finally {
       store.setActiveAction(null, undefined, childSessionId);
@@ -724,9 +721,7 @@ export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({ childSessionId
       store.minimize(childSessionId);
     } catch (error) {
       log.error('Failed to start DeepReview retry coverage', { childSessionId, error });
-      const message = error instanceof Error
-        ? error.message
-        : t('deepReviewActionBar.retryIncompleteFailed');
+      const message = getReviewActionErrorMessage(error, t, t('deepReviewActionBar.retryIncompleteFailed'));
       notificationService.error(message, { duration: 5000 });
     } finally {
       store.setActiveAction(null, undefined, childSessionId);
@@ -835,16 +830,7 @@ export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({ childSessionId
   const displayErrorMessage = useMemo(() => {
     if (!errorMessage) return null;
 
-    const presentation = classifyReviewActionErrorMessage(errorMessage);
-    if (presentation.kind === 'raw') {
-      return presentation.message;
-    }
-
-    return presentation.reason
-      ? t('deepReviewActionBar.actionStartFailedWithReason', {
-        reason: presentation.reason,
-      })
-      : t('deepReviewActionBar.actionStartFailed');
+    return getReviewActionErrorMessage(errorMessage, t, t('deepReviewActionBar.actionStartFailed'));
   }, [errorMessage, t]);
 
   const handleCopyDiagnostics = useCallback(async () => {

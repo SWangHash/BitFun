@@ -290,13 +290,11 @@ function workspaceFilePath(workspacePath: string, filePath: string): string {
 async function findMissingWorkspacePaths(
   workspacePath: string,
   paths: string[],
-  remoteConnectionId?: string,
 ): Promise<string[]> {
   const results = await Promise.all([...new Set(paths)].map(async (path) => ({
     path,
     exists: await systemAPI.checkPathExists(
       workspaceFilePath(workspacePath, path),
-      remoteConnectionId,
     ),
   })));
   return results.flatMap(({ path, exists }) => exists ? [] : [path]);
@@ -646,16 +644,6 @@ export async function resolveSlashCommandReviewTarget(
 
     try {
       if (remoteConnectionId) {
-        const missingPaths = await findMissingWorkspacePaths(
-          workspacePath,
-          workspaceTarget.files
-            .filter((file) => !file.excluded)
-            .map((file) => file.normalizedPath),
-          remoteConnectionId,
-        );
-        if (missingPaths.length > 0) {
-          return missingExplicitTarget(workspaceTarget);
-        }
         return resolveCurrentFileReviewSnapshot(
           workspacePath,
           workspaceTarget,

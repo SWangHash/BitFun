@@ -823,17 +823,17 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const next = await withGitRepositoryTrustRecovery(
-        () => detailOnly
-          ? reviewPlatformAPI.getWorkspaceContext(workspacePath, requestedRemoteId ?? null)
-          : reviewPlatformAPI.getWorkspaceSnapshot(
-              workspacePath,
-              requestedRemoteId ?? null,
-              requestedPage,
-              PR_PAGE_SIZE,
-            ),
-        { userInitiated: options?.userInitiated },
-      );
+      const fetchSnapshot = () => detailOnly
+        ? reviewPlatformAPI.getWorkspaceContext(workspacePath, requestedRemoteId ?? null)
+        : reviewPlatformAPI.getWorkspaceSnapshot(
+            workspacePath,
+            requestedRemoteId ?? null,
+            requestedPage,
+            PR_PAGE_SIZE,
+          );
+      const next = options?.userInitiated
+        ? await withGitRepositoryTrustRecovery(fetchSnapshot, { userInitiated: true })
+        : await fetchSnapshot();
       if (snapshotRequestSeq.current !== requestSeq) return;
       setSnapshot(next);
       const remoteId = next.selectedRemoteId ?? next.remotes[0]?.id ?? null;
