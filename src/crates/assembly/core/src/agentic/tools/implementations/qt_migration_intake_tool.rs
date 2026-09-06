@@ -1,4 +1,4 @@
-//! AnalyzeMigrationRequest tool implementation.
+//! QtMigrationIntake tool implementation.
 //!
 //! Routes a Qt -> HarmonyOS request. It returns a structured
 //! `taskType` (aligned with `ohos-qt-skills/_index/_task-routing.md`), a
@@ -16,7 +16,7 @@
 //!   (string layer); `validated` is produced by the execution boundary.
 //!
 //! The analyzer is a pure, synchronous function
-//! ([`AnalyzeMigrationRequestTool::analyze_request`]) so the turn-level gate in
+//! ([`QtMigrationIntakeTool::analyze_request`]) so the turn-level gate in
 //! the execution engine can reuse it without constructing a `ToolUseContext`.
 //! The same logic is also exposed as a normal (read-only, no-UI) tool.
 
@@ -57,16 +57,16 @@ impl FieldLevel {
     }
 }
 
-/// AnalyzeMigrationRequest tool - routes a Qt migration request.
-pub struct AnalyzeMigrationRequestTool;
+/// QtMigrationIntake tool - routes a Qt migration request.
+pub struct QtMigrationIntakeTool;
 
-impl Default for AnalyzeMigrationRequestTool {
+impl Default for QtMigrationIntakeTool {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl AnalyzeMigrationRequestTool {
+impl QtMigrationIntakeTool {
     pub fn new() -> Self {
         Self
     }
@@ -504,7 +504,7 @@ fn analyze_internal(request: &str) -> (String, Vec<String>, bool, Value, String)
 }
 
 #[async_trait]
-impl Tool for AnalyzeMigrationRequestTool {
+impl Tool for QtMigrationIntakeTool {
     fn name(&self) -> &str {
         "QtMigrationIntake"
     }
@@ -582,7 +582,7 @@ mod tests {
 
     #[test]
     fn full_chinese_migration_request_is_app_migration() {
-        let d = AnalyzeMigrationRequestTool::analyze_request(
+        let d = QtMigrationIntakeTool::analyze_request(
             "请我帮你把 Qt 工程搬到鸿蒙化，并且编译构建，部署，验证",
         );
         assert_eq!(d["taskType"], "app_migration");
@@ -594,7 +594,7 @@ mod tests {
 
     #[test]
     fn full_english_migration_request_is_app_migration() {
-        let d = AnalyzeMigrationRequestTool::analyze_request(
+        let d = QtMigrationIntakeTool::analyze_request(
             "Migrate my Qt 5.15 project to OpenHarmony and build it.",
         );
         assert_eq!(d["taskType"], "app_migration");
@@ -603,31 +603,28 @@ mod tests {
     #[test]
     fn port_substring_collisions_do_not_trigger_migration() {
         // `report`, `portable`, `viewport`, `support` must not match `port`.
-        let d = AnalyzeMigrationRequestTool::analyze_request(
-            "Why does my portable report render wrong?",
-        );
+        let d = QtMigrationIntakeTool::analyze_request("Why does my portable report render wrong?");
         assert_ne!(d["taskType"], "app_migration");
-        let d2 =
-            AnalyzeMigrationRequestTool::analyze_request("The viewport is broken on this page.");
+        let d2 = QtMigrationIntakeTool::analyze_request("The viewport is broken on this page.");
         assert_ne!(d2["taskType"], "app_migration");
     }
 
     #[test]
     fn qt_only_query_routes_to_module_support_not_migration() {
-        let d = AnalyzeMigrationRequestTool::analyze_request("Qt6 在鸿蒙上支持哪些模块？");
+        let d = QtMigrationIntakeTool::analyze_request("Qt6 在鸿蒙上支持哪些模块？");
         assert_eq!(d["taskType"], "module_support");
         assert_ne!(d["taskType"], "app_migration");
     }
 
     #[test]
     fn build_troubleshooting_without_migration_action_is_not_migration() {
-        let d = AnalyzeMigrationRequestTool::analyze_request("Qt 工程编译失败，帮我排查");
+        let d = QtMigrationIntakeTool::analyze_request("Qt 工程编译失败，帮我排查");
         assert_eq!(d["taskType"], "build_troubleshooting");
     }
 
     #[test]
     fn compound_request_keeps_primary_and_secondary() {
-        let d = AnalyzeMigrationRequestTool::analyze_request(
+        let d = QtMigrationIntakeTool::analyze_request(
             "把这个 Qt 工程迁移到鸿蒙，并且解决现有编译错误",
         );
         assert_eq!(d["taskType"], "app_migration");
@@ -640,22 +637,21 @@ mod tests {
 
     #[test]
     fn harmonyos_only_mentions_are_ambiguous() {
-        let d = AnalyzeMigrationRequestTool::analyze_request("鸿蒙上这个怎么处理？");
+        let d = QtMigrationIntakeTool::analyze_request("鸿蒙上这个怎么处理？");
         assert_eq!(d["taskType"], "ambiguous");
         assert_eq!(d["requiresClarification"], true);
     }
 
     #[test]
     fn unrelated_request_is_other() {
-        let d = AnalyzeMigrationRequestTool::analyze_request("帮我重构一下这个模块的接口设计");
+        let d = QtMigrationIntakeTool::analyze_request("帮我重构一下这个模块的接口设计");
         assert_eq!(d["taskType"], "other");
     }
 
     #[test]
     fn single_absolute_path_does_not_satisfy_output() {
-        let d = AnalyzeMigrationRequestTool::analyze_request(
-            "把 D:/workspace/myqt 这个 Qt 工程迁移到鸿蒙",
-        );
+        let d =
+            QtMigrationIntakeTool::analyze_request("把 D:/workspace/myqt 这个 Qt 工程迁移到鸿蒙");
         assert_eq!(d["taskType"], "app_migration");
         let (source, output, _tc, _tp) = fields_of(&d);
         assert_eq!(source, FieldLevel::Resolved);
@@ -668,7 +664,7 @@ mod tests {
 
     #[test]
     fn output_anchor_binds_path_to_output() {
-        let d = AnalyzeMigrationRequestTool::analyze_request(
+        let d = QtMigrationIntakeTool::analyze_request(
             "把 D:/workspace/myqt 迁移到鸿蒙，输出到 D:/out",
         );
         let (source, output, _tc, _tp) = fields_of(&d);
@@ -679,17 +675,15 @@ mod tests {
     #[test]
     fn bare_keyword_toolchain_stays_missing_or_referenced_not_resolved() {
         // "官方工具链" is a placeholder word with no bindable value.
-        let d =
-            AnalyzeMigrationRequestTool::analyze_request("把 D:/proj 迁移到鸿蒙，使用官方工具链");
+        let d = QtMigrationIntakeTool::analyze_request("把 D:/proj 迁移到鸿蒙，使用官方工具链");
         assert_eq!(d["fields"]["toolchain"], "referenced");
         assert_ne!(d["fields"]["toolchain"], "resolved");
     }
 
     #[test]
     fn bound_toolchain_path_resolves() {
-        let d = AnalyzeMigrationRequestTool::analyze_request(
-            "把 D:/proj 迁移到鸿蒙，工具链用 D:/sdk/ohos",
-        );
+        let d =
+            QtMigrationIntakeTool::analyze_request("把 D:/proj 迁移到鸿蒙，工具链用 D:/sdk/ohos");
         assert_eq!(d["fields"]["toolchain"], "resolved");
     }
 
@@ -697,20 +691,20 @@ mod tests {
     fn incomplete_migration_semantics_remain_ordinary_requests() {
         for request in ["将QT工程迁移", "把工程迁移成鸿蒙工程", "看看这个Qt工程"]
         {
-            let decision = AnalyzeMigrationRequestTool::analyze_request(request);
+            let decision = QtMigrationIntakeTool::analyze_request(request);
             assert_ne!(decision["taskType"], "app_migration", "request: {request}");
         }
     }
 
     #[test]
     fn complete_migration_semantics_are_app_migration() {
-        let decision = AnalyzeMigrationRequestTool::analyze_request("将QT工程迁移成鸿蒙工程");
+        let decision = QtMigrationIntakeTool::analyze_request("将QT工程迁移成鸿蒙工程");
         assert_eq!(decision["taskType"], "app_migration");
     }
 
     #[test]
     fn ohos_is_a_harmonyos_target() {
-        let decision = AnalyzeMigrationRequestTool::analyze_request("将QT工程迁移成OHOS工程");
+        let decision = QtMigrationIntakeTool::analyze_request("将QT工程迁移成OHOS工程");
         assert_eq!(decision["taskType"], "app_migration");
     }
 }
