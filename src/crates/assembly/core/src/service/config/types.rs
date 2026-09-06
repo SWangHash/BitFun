@@ -75,6 +75,8 @@ pub struct GlobalConfig {
     /// Version of the persisted configuration schema. This is intentionally
     /// independent from the OpenBitFun application version stored in `version`.
     pub schema_version: u32,
+    /// Application build that most recently wrote this document. Informational
+    /// only; compatibility is determined by `schema_version`.
     pub version: String,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub last_modified: chrono::DateTime<chrono::Utc>,
