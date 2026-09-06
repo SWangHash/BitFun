@@ -1076,7 +1076,10 @@ fn record_control_ping_if_owner(
 ) {
     with_device_routing_state(|state| {
         if state.owner.as_ref() == Some(owner) && state.control_ping_generation == generation {
-            state.last_control_ping = Some(now);
+            // Concurrent replies can finish out of order. Preserve the latest
+            // received heartbeat without extending a delayed request's lease.
+            state.last_control_ping =
+                Some(state.last_control_ping.map_or(now, |last| last.max(now)));
         }
     });
 }
@@ -3052,6 +3055,7 @@ pub async fn account_connect_devices() -> Result<Vec<OnlineDeviceInfo>, String> 
                                     let rpc_owner = event_owner.clone();
                                     let rpc_session = event_session.clone();
                                     let ping_generation = control_ping_generation(&rpc_owner);
+                                    let ping_received_at = std::time::Instant::now();
                                     tokio::spawn(async move {
                                         // Held for the whole call: teardown takes
                                         // the write lease, so an in-flight RPC now
@@ -3086,7 +3090,7 @@ pub async fn account_connect_devices() -> Result<Vec<OnlineDeviceInfo>, String> 
                                                     record_control_ping_if_owner(
                                                         &rpc_owner,
                                                         generation,
-                                                        std::time::Instant::now(),
+                                                        ping_received_at,
                                                     );
                                                 }
                                             }
@@ -4850,6 +4854,17 @@ mod sync_state_tests {
         record_control_ping_if_owner(&second, 0, now);
         clear_control_ping_if_owner(&first);
         assert!(has_recent_control_ping(&second, now));
+        let newer = now + std::time::Duration::from_secs(1);
+        record_control_ping_if_owner(&second, 0, newer);
+        record_control_ping_if_owner(&second, 0, now);
+        assert!(has_recent_control_ping(
+            &second,
+            now + RELAY_INBOUND_IDLE_TIMEOUT
+        ));
+        assert!(!has_recent_control_ping(
+            &second,
+            newer + RELAY_INBOUND_IDLE_TIMEOUT
+        ));
         clear_device_routing_state();
         assert!(!has_recent_control_ping(&second, now));
     }
