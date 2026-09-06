@@ -16,7 +16,6 @@ export const skillsAppearanceDescriptor: AppearanceSurfaceDescriptor = {
     { id: 'installedCardMeta' }, { id: 'installedCardSource' }, { id: 'installedCardLevel' },
     { id: 'installedCardStatus' }, { id: 'installedCardActions' }, { id: 'installedCardDetails' },
     { id: 'installedCardDelete' },
-    { id: 'pagination' }, { id: 'pageButton' }, { id: 'pageInfo' },
     { id: 'discover' }, { id: 'discoverHero' }, { id: 'discoverHeroContent' },
     { id: 'discoverTitle' }, { id: 'discoverSubtitle' }, { id: 'discoverSearch' },
     { id: 'resultsInfo' },
