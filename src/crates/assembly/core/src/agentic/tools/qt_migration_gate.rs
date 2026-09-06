@@ -19,7 +19,7 @@ use bitfun_agent_runtime::intake_state::{
 /// no migration side effects. Tools that mutate persistent state (TodoWrite,
 /// goal tools) stay gated.
 const BOOTSTRAP_ALLOWED_TOOLS: &[&str] = &[
-    "AnalyzeMigrationRequest",
+    "QtMigrationIntake",
     "AskUserQuestion",
     "Skill",
     "Read",
@@ -229,7 +229,7 @@ mod tests {
     fn needs_input_allows_bootstrap_tools() {
         let intake = snapshot(IntakeStatus::NeedsInput, FieldResolutionState::Missing);
         for tool in [
-            "AnalyzeMigrationRequest",
+            "QtMigrationIntake",
             "AskUserQuestion",
             "Skill",
             "Read",
@@ -314,7 +314,7 @@ mod tests {
             FieldResolutionState::Resolved,
         );
         for tool in [
-            "AnalyzeMigrationRequest",
+            "QtMigrationIntake",
             "AskUserQuestion",
             "Skill",
             "Read",

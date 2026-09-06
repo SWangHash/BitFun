@@ -506,7 +506,7 @@ fn analyze_internal(request: &str) -> (String, Vec<String>, bool, Value, String)
 #[async_trait]
 impl Tool for AnalyzeMigrationRequestTool {
     fn name(&self) -> &str {
-        "AnalyzeMigrationRequest"
+        "QtMigrationIntake"
     }
 
     async fn description(&self) -> BitFunResult<String> {
