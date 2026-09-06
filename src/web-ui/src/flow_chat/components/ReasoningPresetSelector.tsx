@@ -35,11 +35,10 @@ function presetLabel(
 
 export function presetDisplayLabel(
   preset: ReasoningPresetDescriptor,
-  orderedPresets: ReasoningPresetDescriptor[],
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
   const fallback = presetLabel(preset, t);
-  const semanticKey = presetVisualSemanticKey(preset, orderedPresets);
+  const semanticKey = presetSemanticKey(preset);
   return semanticKey
     ? t(`reasoningSelector.levels.${semanticKey}`, { defaultValue: fallback })
     : fallback;
@@ -129,31 +128,6 @@ export function reasoningIntensityLevel(
     4,
     Math.max(1, Math.round((activeIndex / (activePresets.length - 1)) * 3) + 1),
   ) as 1 | 2 | 3 | 4;
-}
-
-function presetVisualSemanticKey(
-  preset: ReasoningPresetDescriptor,
-  orderedPresets: ReasoningPresetDescriptor[],
-): ReasoningPresetSemanticKey | undefined {
-  if (presetDisablesReasoning(preset)) return 'off';
-
-  const includesUnscopedOnPreset = orderedPresets.some(item => (
-    !presetDisablesReasoning(item) && presetSemanticKey(item) === 'on'
-  ));
-  if (!includesUnscopedOnPreset) return presetSemanticKey(preset);
-
-  switch (reasoningIntensityLevel(preset, orderedPresets)) {
-    case 1:
-      return 'low';
-    case 2:
-      return 'medium';
-    case 3:
-      return 'high';
-    case 4:
-      return 'max';
-    case 0:
-      return 'off';
-  }
 }
 
 interface ReasoningIntensityMarkProps {
@@ -299,7 +273,7 @@ export const ReasoningPresetSelector: React.FC<ReasoningPresetSelectorProps> = (
 
   const orderedPresets = [...presets].sort((left, right) => left.order - right.order);
   const presetLabels = orderedPresets.map(preset => (
-    presetDisplayLabel(preset, orderedPresets, t)
+    presetDisplayLabel(preset, t)
   ));
 
   const currentLabel = selected
@@ -308,11 +282,11 @@ export const ReasoningPresetSelector: React.FC<ReasoningPresetSelectorProps> = (
   const effectivePreset = selected ?? defaultPreset;
   const intensityLevel = reasoningIntensityLevel(effectivePreset, orderedPresets);
   const statusLabel = effectivePreset
-    ? presetDisplayLabel(effectivePreset, orderedPresets, t)
+    ? presetDisplayLabel(effectivePreset, t)
     : currentLabel;
   // The trigger is the meter and nothing else, so this string is both the hover
-  // text and the control's accessible name. It names the level the meter draws
-  // rather than the preset's raw id, because that is what the shape shows.
+  // text and the control's accessible name. Preserve the preset's actual meaning:
+  // its position in the visual series must not rename an on toggle to low effort.
   const tooltip = selected
     ? t('reasoningSelector.current', { preset: statusLabel })
     : t('reasoningSelector.currentAuto', {
