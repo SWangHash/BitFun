@@ -22,7 +22,7 @@ import { MarkdownRenderer } from '@/infrastructure/markdown';
 import { reviewPlatformAPI, systemAPI, type ReviewPlatformAccount, type ReviewPlatformAuthChallenge, type ReviewPlatformCiItem, type ReviewPlatformCiLog, type ReviewPlatformCommit, type ReviewPlatformDetailSection, type ReviewPlatformFile, type ReviewPlatformPagination, type ReviewPlatformPullRequest, type ReviewPlatformPullRequestDetail, type ReviewPlatformPullRequestDetailPage, type ReviewPlatformRemote, type ReviewPlatformRepositoryRef, type ReviewPlatformThread, type ReviewPlatformWorkspaceSnapshot } from '@/infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
 import { notificationService } from '@/shared/notification-system';
-import { i18nService } from '@/infrastructure/i18n';
+import { i18nService, useI18n } from '@/infrastructure/i18n';
 import { openMainSession } from '@/flow_chat/services/sessionActivation';
 import { openBtwSessionInAuxPane } from '@/flow_chat/services/btwSessionPane';
 import {
@@ -46,10 +46,14 @@ import {
   currentPullRequestReviewStatusText,
   effectivePullRequestReviewFreshness,
   mergeChangedFileCount,
+  mergeLineStats,
+  mergePullRequestDetailLimitations,
   mergeRevalidatedPullRequestOverview,
   pullRequestReviewFreshness,
   pullRequestReviewLaunchKey,
   resolvedChangedFileCount,
+  resolvedLineStats,
+  resolvedPullRequestStatistics,
   samePullRequestRevisions,
   samePullRequestIdentity,
   type PullRequestReviewFreshness,
@@ -166,8 +170,8 @@ function detailPageInfo(pagination: ReviewPlatformPagination, itemCount: number)
   };
 }
 
-function snapshotCacheKey(workspacePath: string, remoteId: string | null, page: number, perPage: number, mode: 'list' | 'context'): string {
-  return `${workspacePath}::${remoteId ?? 'default'}::${page}::${perPage}::${mode}`;
+function snapshotCacheKey(workspacePath: string, remoteId: string | null, page: number, perPage: number, mode: 'list' | 'context', state: ListStateFilter): string {
+  return `${workspacePath}::${remoteId ?? 'default'}::${page}::${perPage}::${mode}::${state}`;
 }
 
 function detailCacheKey(workspacePath: string, remoteId: string, pullRequestId: string): string {
@@ -199,8 +203,8 @@ function mergeDetailPage(
   return {
     ...base,
     ...page,
-    additions: page.additions || base.additions,
-    deletions: page.deletions || base.deletions,
+    limitations: mergePullRequestDetailLimitations(base.limitations, page.limitations, page.section),
+    ...mergeLineStats(base, page),
     ...mergeChangedFileCount(base, page),
     ci: page.section === 'ci' ? page.ci : base.ci,
     files: page.section === 'files' ? page.files : base.files,
@@ -304,6 +308,8 @@ function providerLabel(remote: ReviewPlatformRemote | ReviewPlatformAccount | nu
       return 'GitLab';
     case 'gitcode':
       return 'GitCode';
+    case 'gitee':
+      return 'Gitee';
     default:
       return 'Git';
   }
@@ -661,6 +667,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
   initialPullRequestUrl,
   detailOnly = false,
 }) => {
+  const { t } = useI18n('panels/git');
   const snapshotRequestSeq = useRef(0);
   const detailRequestSeq = useRef(0);
   const detailSectionRequestSeq = useRef(0);
@@ -679,6 +686,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [stateFilter, setStateFilter] = useState<ListStateFilter>('all');
+  const serverStateFilter = useRef<ListStateFilter>('all');
   const [pageIndex, setPageIndex] = useState(0);
   const [ciPageIndex, setCiPageIndex] = useState(0);
   const [changePageIndex, setChangePageIndex] = useState(0);
@@ -770,9 +778,11 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
 
   const loadSnapshot = useCallback(async (
     nextRemoteId?: string | null,
-    options?: { force?: boolean; page?: number; userInitiated?: boolean },
+    options?: { force?: boolean; page?: number; state?: ListStateFilter; userInitiated?: boolean },
   ) => {
     const requestSeq = ++snapshotRequestSeq.current;
+    detailRequestSeq.current += 1;
+    detailSectionRequestSeq.current += 1;
     if (!workspacePath) {
       setSnapshot(emptySnapshot());
       setSelectedRemoteId(null);
@@ -792,9 +802,10 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
         ? readRememberedRemote(workspacePath)
         : null;
     const requestedPage = Math.max(1, options?.page ?? 1);
+    const requestedState = detailOnly ? 'all' : options?.state ?? serverStateFilter.current;
     const snapshotMode = detailOnly ? 'context' : 'list';
     setListRemoteId(requestedRemoteId ?? null);
-    const requestedCacheKey = snapshotCacheKey(workspacePath, requestedRemoteId ?? null, requestedPage, PR_PAGE_SIZE, snapshotMode);
+    const requestedCacheKey = snapshotCacheKey(workspacePath, requestedRemoteId ?? null, requestedPage, PR_PAGE_SIZE, snapshotMode, requestedState);
     const cached = snapshotCache.get(requestedCacheKey);
     const force = options?.force === true;
 
@@ -812,7 +823,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
       setLoading(false);
       return;
     } else {
-      setSnapshot(emptySnapshot());
+      setSnapshot(current => ({ ...current, pullRequests: [], pagination: emptyPagination(requestedPage, PR_PAGE_SIZE) }));
       setSelectedPrId(null);
       setDetail(null);
       setVerifiedDetailKey(null);
@@ -830,6 +841,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
             requestedRemoteId ?? null,
             requestedPage,
             PR_PAGE_SIZE,
+            requestedState,
           );
       const next = options?.userInitiated
         ? await withGitRepositoryTrustRecovery(fetchSnapshot, { userInitiated: true })
@@ -847,16 +859,13 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
       const entry = { snapshot: next, fetchedAt: Date.now() };
       snapshotCache.set(requestedCacheKey, entry);
       if (remoteId) {
-        snapshotCache.set(snapshotCacheKey(workspacePath, remoteId, requestedPage, PR_PAGE_SIZE, snapshotMode), entry);
+        snapshotCache.set(snapshotCacheKey(workspacePath, remoteId, requestedPage, PR_PAGE_SIZE, snapshotMode, requestedState), entry);
       }
       setSnapshotCacheState('cached');
     } catch (err) {
       if (snapshotRequestSeq.current !== requestSeq) return;
       const message = reviewPlatformErrorMessage(err, 'Failed to load pull requests');
       setError(message);
-      if (!cached) {
-        setSnapshot(emptySnapshot());
-      }
       log.error('Failed to load review platform snapshot', { workspacePath, error: err });
     } finally {
       if (snapshotRequestSeq.current === requestSeq) {
@@ -993,7 +1002,10 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
   }, [applySectionPagination, loadDetail, workspacePath]);
 
   useEffect(() => {
-    void loadSnapshot(detailOnly && initialRemoteId ? initialRemoteId : undefined);
+    serverStateFilter.current = 'all';
+    setStateFilter('all');
+    setSnapshot(emptySnapshot());
+    void loadSnapshot(detailOnly && initialRemoteId ? initialRemoteId : undefined, { state: 'all' });
   }, [detailOnly, initialRemoteId, loadSnapshot]);
 
   useEffect(() => flowChatStore.subscribe(setFlowState), []);
@@ -1087,16 +1099,24 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
 
   useEffect(() => {
     if (!hasDetail || !selectedRemoteId || !selectedPrId || (!repository && !workspacePath)) return;
+    if (verifiedDetailKey !== detailCacheKey(workspacePath || repository?.workspacePath || '', selectedRemoteId, selectedPrId)) return;
+    let disposed = false;
     if (activeTab === 'overview') {
       void (async () => {
         await loadDetailSection(repository, selectedRemoteId, selectedPrId, 'ci', ciPageIndex, CI_PAGE_SIZE);
-        await loadDetailSection(repository, selectedRemoteId, selectedPrId, 'reviews', reviewPageIndex, REVIEW_PAGE_SIZE);
+        if (!disposed) {
+          await loadDetailSection(repository, selectedRemoteId, selectedPrId, 'reviews', reviewPageIndex, REVIEW_PAGE_SIZE);
+        }
       })();
     } else if (activeTab === 'changes') {
       void loadDetailSection(repository, selectedRemoteId, selectedPrId, 'files', changePageIndex, CHANGE_PAGE_SIZE);
     } else if (activeTab === 'commits') {
       void loadDetailSection(repository, selectedRemoteId, selectedPrId, 'commits', commitPageIndex, COMMIT_PAGE_SIZE);
     }
+    return () => {
+      disposed = true;
+      detailSectionRequestSeq.current += 1;
+    };
   }, [
     activeTab,
     ciPageIndex,
@@ -1110,6 +1130,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
     reviewPageIndex,
     selectedPrId,
     selectedRemoteId,
+    verifiedDetailKey,
     workspacePath,
   ]);
 
@@ -1271,10 +1292,21 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
     setDetail(null);
     setDetailError(null);
     setStateFilter('all');
+    serverStateFilter.current = 'all';
     setPageIndex(0);
     rememberRemote(workspacePath, remoteId || null);
-    void loadSnapshot(remoteId || null, { page: 1 });
+    setSnapshot(emptySnapshot());
+    void loadSnapshot(remoteId || null, { page: 1, state: 'all' });
   }, [loadSnapshot, workspacePath]);
+
+  const handleStateChange = useCallback((state: ListStateFilter) => {
+    setStateFilter(state);
+    if (snapshot.capabilities.supportedPullRequestStates?.includes(state)) {
+      serverStateFilter.current = state;
+      setPageIndex(0);
+      void loadSnapshot(listRemoteId, { page: 1, state });
+    }
+  }, [listRemoteId, loadSnapshot, snapshot.capabilities.supportedPullRequestStates]);
 
   const handlePageChange = useCallback((nextPageIndex: number) => {
     const nextPage = Math.max(1, nextPageIndex + 1);
@@ -1825,6 +1857,10 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
     ? `${providerLabel(selectedRemote)} · ${authLabel(account)}`
     : 'No remote detected';
   const displayPr = currentPullRequest;
+  const displayStatistics = selectedPrFromList && (!detail || samePullRequestRevisions(selectedPrFromList, detail))
+    ? resolvedPullRequestStatistics(selectedPrFromList, detail)
+    : displayPr;
+  const displayLineStats = resolvedLineStats(displayStatistics);
   const checksText = displayPr && displayPr.checks.total > 0
     ? `${displayPr.checks.passed}/${displayPr.checks.total}`
     : 'N/A';
@@ -1933,6 +1969,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
             <Tooltip content="Refresh">
               <IconButton
                 aria-label="Refresh"
+                data-testid="review-platform-refresh"
                 className="review-platform__icon-button"
                 size="sm"
                 onClick={() => void loadSnapshot(listRemoteId, { force: true, page: currentPageIndex + 1, userInitiated: true })}
@@ -1988,23 +2025,29 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                     key={state}
                     type="button"
                     className={`review-platform__state-chip${stateFilter === state ? ' is-active' : ''}`}
-                    onClick={() => setStateFilter(state)}
+                    data-testid={`review-platform-filter-${state}`}
+                    aria-pressed={stateFilter === state}
+                    disabled={selectedRemote?.platform === 'gitee' && state !== 'all' && !snapshot.capabilities.supportedPullRequestStates?.includes(state)}
+                    onClick={() => handleStateChange(state)}
                   >
                     {state === 'all' ? 'All' : stateLabel(state)}
                   </button>
                 ))}
               </div>
             )}
+            {selectedRemote?.platform === 'gitee' && !snapshot.capabilities.supportedPullRequestStates?.length && (
+              <div role="status">{t('reviewPlatform.stateFilterUnsupported')}</div>
+            )}
           </div>
 
           <ScrollArea className="review-platform__list-scroll" data-openbitfun-component="review-platform" data-openbitfun-part="listScroll">
             {loading && (
-              <div className="review-platform__empty-state" data-openbitfun-component="review-platform" data-openbitfun-part="emptyState">Loading pull requests...</div>
+              <div data-testid="review-platform-list-loading" className="review-platform__empty-state" data-openbitfun-component="review-platform" data-openbitfun-part="emptyState">Loading pull requests...</div>
             )}
             {error && (
               <div className="review-platform__error-state" data-openbitfun-component="review-platform" data-openbitfun-part="errorState">
                 <Icon name="xmark" size="md" />
-                <span>{error}</span>
+                <span>{error.includes('review_platform_state_filter_unsupported') ? t('reviewPlatform.stateFilterUnsupported') : error}</span>
                 <Button size="sm" variant="outline" onClick={() => void loadSnapshot(listRemoteId, { force: true, page: currentPageIndex + 1, userInitiated: true })}>
                   Retry
                 </Button>
@@ -2021,8 +2064,16 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                 const pullRequestRemote = pr.providerId
                   ? snapshot.remotes.find(remote => remote.id === pr.providerId)
                   : selectedRemote;
+                const cachedDetail = pullRequestRemote
+                  ? detailCache.get(detailCacheKey(workspacePath || repository?.workspacePath || '', pullRequestRemote.id, pr.id))
+                  : undefined;
+                const statistics = resolvedPullRequestStatistics(pr, cachedDetail?.detail);
+                const lineStats = resolvedLineStats(statistics);
                 return (
                   <button data-openbitfun-component="review-platform" data-openbitfun-part="listItem"
+                    data-testid="review-platform-pr-row"
+                    data-pr-number={pr.number}
+                    data-pr-state={pr.state}
                     data-openbitfun-state={selectedPrId === pr.id && (!pr.providerId || pr.providerId === selectedRemoteId) ? 'selected' : ''}
                     key={`${pr.providerId ?? selectedRemoteId ?? 'remote'}:${pr.id}`}
                     type="button"
@@ -2050,9 +2101,9 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                         {decisionLabel(pr.reviewDecision)}
                       </span>
                       <span className="review-platform__counts">
-                        <span>{resolvedChangedFileCount(pr) ?? '—'} files</span>
-                        <span className="review-platform__additions">+{pr.additions}</span>
-                        <span className="review-platform__deletions">-{pr.deletions}</span>
+                        <span data-testid="review-platform-pr-files">{resolvedChangedFileCount(statistics) ?? '—'} files</span>
+                        <span data-testid="review-platform-pr-additions" className="review-platform__additions">{lineStats ? `+${lineStats.additions}` : '—'}</span>
+                        <span data-testid="review-platform-pr-deletions" className="review-platform__deletions">{lineStats ? `-${lineStats.deletions}` : '—'}</span>
                       </span>
                     </span>
                   </button>
@@ -2061,10 +2112,11 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
             ))}
           </ScrollArea>
           {!loading && !error && (totalPages > 1 || pagination.hasNext) && (
-            <div className="review-platform__pagination" data-openbitfun-component="review-platform" data-openbitfun-part="pagination">
+            <div data-testid="review-platform-pagination" className="review-platform__pagination" data-openbitfun-component="review-platform" data-openbitfun-part="pagination">
               <Tooltip content="Previous page">
                 <IconButton
                   aria-label="Previous page"
+                  data-testid="review-platform-previous-page"
                   className="review-platform__icon-button"
                   size="sm"
                   disabled={currentPageIndex === 0}
@@ -2078,6 +2130,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
               <Tooltip content="Next page">
                 <IconButton
                   aria-label="Next page"
+                  data-testid="review-platform-next-page"
                   className="review-platform__icon-button"
                   size="sm"
                   disabled={!pagination.hasNext && currentPageIndex >= totalPages - 1}
@@ -2166,7 +2219,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                   <div className="review-platform__detail-title-row">
                     {getPrIcon(selectedPr)}
                     <h3>{selectedPr.title}</h3>
-                    <span className={`review-platform__detail-state review-platform__detail-state--${displayPr?.state ?? selectedPr.state}`} data-openbitfun-component="review-platform" data-openbitfun-part="detailState">
+                    <span data-testid="review-platform-detail-state" className={`review-platform__detail-state review-platform__detail-state--${displayPr?.state ?? selectedPr.state}`} data-openbitfun-component="review-platform" data-openbitfun-part="detailState">
                       {stateLabel(displayPr?.state ?? selectedPr.state)}
                     </span>
                   </div>
@@ -2235,9 +2288,9 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                     <strong>{displayPr?.sourceBranch ?? selectedPr.sourceBranch}</strong>
                     <Icon name="chevron-right" size="xs" />
                     <strong>{displayPr?.targetBranch ?? selectedPr.targetBranch}</strong>
-                    <span>{resolvedChangedFileCount(displayPr, selectedPr) ?? '—'} files</span>
-                    <span className="review-platform__additions">+{displayPr?.additions ?? selectedPr.additions}</span>
-                    <span className="review-platform__deletions">-{displayPr?.deletions ?? selectedPr.deletions}</span>
+                    <span data-testid="review-platform-detail-files">{resolvedChangedFileCount(displayStatistics) ?? '—'} files</span>
+                    <span data-testid="review-platform-detail-additions" className="review-platform__additions">{displayLineStats ? `+${displayLineStats.additions}` : '—'}</span>
+                    <span data-testid="review-platform-detail-deletions" className="review-platform__deletions">{displayLineStats ? `-${displayLineStats.deletions}` : '—'}</span>
                   </div>
                 </div>
                 <div className="review-platform__fact-row">
@@ -2271,6 +2324,20 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
               </div>
 
               <div className="review-platform__tabs" data-openbitfun-component="review-platform" data-openbitfun-part="tabs">
+                {(detail?.limitations?.length ?? 0) > 0 && (
+                  <div className="review-platform__detail-error" role="status">
+                    <span>{detail!.limitations!.map(limitation => {
+                      switch (limitation) {
+                        case 'gitee_file_list_limit': return t('reviewPlatform.fileLimit');
+                        case 'gitee_commit_list_limit': return t('reviewPlatform.commitLimit');
+                        case 'provider_comment_list_incomplete': return t('reviewPlatform.commentsLimited');
+                        case 'provider_ci_list_incomplete': return t('reviewPlatform.checksLimited');
+                        case 'provider_ci_head_unavailable': return t('reviewPlatform.ciHeadUnavailable');
+                        default: return t('reviewPlatform.limited');
+                      }
+                    }).join(' ')}</span>
+                  </div>
+                )}
                 <div className="review-platform__tab-bar" data-openbitfun-component="review-platform" data-openbitfun-part="tabBar">
                   <TabGroup
                     items={[

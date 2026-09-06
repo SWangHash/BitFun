@@ -37,3 +37,28 @@ pnpm --dir tests/e2e exec wdio run ./config/wdio.conf.ts --spec "./specs/<file>.
 ## Verification
 
 Prefer the narrowest relevant spec first, then broaden only if needed.
+
+Markdown editor browser interaction tests (no desktop binary required):
+
+```bash
+pnpm --dir tests/e2e exec wdio run ./config/wdio.markdown-browser.ts
+```
+
+This focused runner mounts the production file editor with temporary file IO
+through a test adapter; it does not replace desktop or remote transport coverage.
+See `src/web-ui/src/tools/editor/AGENTS.md` for scope and output locations.
+
+For the real desktop Markdown workflow, build the desktop and current frontend,
+then run `pnpm --dir tests/e2e exec wdio run ./config/wdio.markdown-native.ts`
+from the repository root. This focused runner uses packaged frontend assets and
+a fresh temporary application profile; it does not use another checkout's dev server.
+
+For Gitee list filters and pagination against the public `dromara/sa-token`
+repository, build the desktop and current frontend, then run
+`pnpm --dir tests/e2e exec wdio run ./config/wdio.gitee-native.ts`.
+This read-only live test uses a temporary application profile and Git remote,
+checks the actual UI against independent Gitee API responses, and retains
+screenshots plus `result.json` under the printed temporary evidence directory.
+Set `GITEE_TOKEN` in the runner environment to authenticate both the desktop
+and independent API reads when anonymous quota is exhausted. Do not put tokens
+in the test source, command arguments, or retained evidence.

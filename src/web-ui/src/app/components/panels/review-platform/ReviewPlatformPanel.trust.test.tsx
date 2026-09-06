@@ -17,6 +17,7 @@ vi.mock('@/infrastructure/api', () => ({
 vi.mock('@/infrastructure/confirm-dialog', () => ({ confirmWarning: mocks.confirm }));
 vi.mock('@/infrastructure/i18n', () => ({
   i18nService: { t: (key: string) => key },
+  useI18n: () => ({ t: (key: string) => key }),
 }));
 vi.mock('@/shared/utils/logger', () => ({
   createLogger: () => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),
