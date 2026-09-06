@@ -14,7 +14,7 @@ import { useReportTypewriterReveal } from '../hooks/typewriterRevealGateContext'
 import { isStartupRenderTraceEnabled } from '@/shared/utils/startupTrace';
 import { DeepResearchProtocolGroup } from '../deep-research/DeepResearchProtocolGroup';
 import { parseDeepResearchContent } from '../deep-research/deepResearchProtocol';
-import { isDispatchFileSession } from '@/features/dispatch/dispatchFileNavigation';
+import { hasSessionFileProvider } from '../session-drivers/sessionFileNavigation';
 import { resolveSessionDriverId } from '../session-drivers/resolve';
 import './FlowTextBlock.scss';
 
@@ -68,7 +68,7 @@ export const FlowTextBlock = React.memo<FlowTextBlockProps>(({
     || activeSessionOverride?.config?.remoteSshHost;
   const isDispatchSession = activeSessionOverride
     ? resolveSessionDriverId(activeSessionOverride.sessionId, activeSessionOverride) === 'dispatch'
-    : isDispatchFileSession(sessionId);
+    : hasSessionFileProvider(sessionId);
   // Stable callback so the memoized Markdown component is not re-rendered
   // (and re-parsed) just because this block re-rendered.
   const handleOpenVisualization = useCallback((visualization: any) => {

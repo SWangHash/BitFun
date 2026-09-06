@@ -1616,6 +1616,7 @@ export const MarkdownRenderer = React.memo<MarkdownRendererProps>(({
     basePathRef,
     currentWorkspacePathRef,
     expandDetailsByDefaultRef,
+    fileActionsViaCallbackOnlyRef,
     isLightRef,
     markdownContentRef,
     onHttpLinkClickRef,

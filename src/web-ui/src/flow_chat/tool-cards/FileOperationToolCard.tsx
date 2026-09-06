@@ -36,7 +36,7 @@ import { extractFilePathFromJsonBuffer, splitFilePathAndContent } from '@/shared
 import { i18nService } from '@/infrastructure/i18n';
 import { WritePlanDisplay } from './WritePlanDisplay';
 import { getActiveSurfaceScope } from '@/infrastructure/peer-device/deviceSurface';
-import { isDispatchFileSession, openDispatchSessionFile } from '@/features/dispatch/dispatchFileNavigation';
+import { hasSessionFileProvider, openFileThroughSession } from '../session-drivers/sessionFileNavigation';
 
 const log = createLogger('FileOperationToolCard');
 const FILE_OPERATION_STREAMING_MAX_HEIGHT = 4 * 22; // 88px – compact while streaming
@@ -167,7 +167,7 @@ const GenericFileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   } = useSnapshotState(sessionId);
   // A recorded operation is viewable even when older Session history has no
   // complete snapshot coverage. Absence preserves compatibility with old hosts.
-  const isDispatchSession = isDispatchFileSession(sessionId);
+  const isDispatchSession = hasSessionFileProvider(sessionId);
   const operationSnapshotAvailable = !isDispatchSession
     && (snapshotsAvailable || toolResult?.result?.snapshot_recorded === true);
   const eventBus = SnapshotEventBus.getInstance();
@@ -570,8 +570,7 @@ const GenericFileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
   };
 
   const handleOpenInCodeEditor = useCallback(async () => {
-    if (sessionId && isDispatchFileSession(sessionId)) {
-      await openDispatchSessionFile(sessionId, currentFilePath, fileName);
+    if (openFileThroughSession(sessionId, currentFilePath, fileName)) {
       return;
     }
     if (!currentFilePath) return;
@@ -676,8 +675,7 @@ const GenericFileOperationToolCard: React.FC<FileOperationToolCardProps> = ({
 
   const handleCodeLineClick = useCallback(async (lineNumber: number, filePath?: string) => {
     if (!filePath) return;
-    if (sessionId && isDispatchFileSession(sessionId)) {
-      await openDispatchSessionFile(sessionId, filePath, fileName, { start: lineNumber });
+    if (openFileThroughSession(sessionId, filePath, fileName, { start: lineNumber })) {
       return;
     }
     

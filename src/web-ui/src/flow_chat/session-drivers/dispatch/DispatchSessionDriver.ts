@@ -41,6 +41,7 @@ import { dispatchJobStore } from '@/features/dispatch/dispatchJobStore';
 import { forgetDispatchTranscript } from '@/features/dispatch/dispatchTranscriptCache';
 import { requestDispatchJobRefresh } from '@/features/dispatch/DispatchJobObserver';
 import { markOptimisticDispatchTurnMetadata } from '@/features/dispatch/optimisticDispatchTurn';
+import { openDispatchSessionFile } from '@/features/dispatch/dispatchFileNavigation';
 import { cleanupSaveState } from '../../services/flow-chat-manager/PersistenceModule';
 import { cleanupSessionBuffers } from '../../services/flow-chat-manager/TextChunkModule';
 import { sessionProjectWorkspacePath } from '../../utils/sessionWorkspace';
@@ -296,6 +297,7 @@ function removeProjectionLocally(
 }
 
 export const dispatchSessionDriver: SessionDriver = {
+  fileAccess: { open: openDispatchSessionFile },
   id: 'dispatch',
 
   async createSession(context: FlowChatContext, seed: SessionCreationSeed): Promise<string> {

@@ -9,7 +9,7 @@ import { notificationService } from '@/shared/notification-system';
 import { fileTabManager } from '@/shared/services/FileTabManager';
 import { type LineRange } from '@/shared/editor/LineRange';
 import { hasNonFileUriScheme } from '@/shared/utils/pathUtils';
-import { isDispatchFileSession, openDispatchSessionFile } from '@/features/dispatch/dispatchFileNavigation';
+import { openFileThroughSession } from '../../session-drivers/sessionFileNavigation';
 
 const log = createLogger('useFlowChatFileActions');
 
@@ -36,8 +36,7 @@ export function useFlowChatFileActions({
       hasExternalCallback: !!onFileViewRequest,
     });
 
-    if (sessionId && isDispatchFileSession(sessionId)) {
-      void openDispatchSessionFile(sessionId, filePath, fileName, lineRange);
+    if (openFileThroughSession(sessionId, filePath, fileName, lineRange)) {
       return;
     }
     if (onFileViewRequest) {

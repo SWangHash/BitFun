@@ -11,7 +11,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const mocks = vi.hoisted(() => ({
   dispatchSession: false,
-  openDispatchFile: vi.fn(async () => undefined),
+  openDispatchFile: vi.fn<(...args: unknown[]) => Promise<void>>(async () => undefined),
   snapshotsAvailable: true,
   emitSnapshotEvent: vi.fn(),
   getOperationSummary: vi.fn(async () => null),
@@ -29,9 +29,13 @@ const mocks = vi.hoisted(() => ({
   writePlanDisplayProps: [] as Array<Record<string, unknown>>,
 }));
 
-vi.mock('@/features/dispatch/dispatchFileNavigation', () => ({
-  isDispatchFileSession: () => mocks.dispatchSession,
-  openDispatchSessionFile: mocks.openDispatchFile,
+vi.mock('../session-drivers/sessionFileNavigation', () => ({
+  hasSessionFileProvider: () => mocks.dispatchSession,
+  openFileThroughSession: (...args: unknown[]) => {
+    if (!mocks.dispatchSession) return false;
+    void mocks.openDispatchFile(...args);
+    return true;
+  },
 }));
 
 vi.mock('./WritePlanDisplay', () => ({
