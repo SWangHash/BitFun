@@ -40,6 +40,8 @@ import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useAccountLoginState } from '@/infrastructure/account/useAccountLoginState';
+import { remoteConnectStatusSource, useRemoteConnectStatus } from '@/infrastructure/remote-connect/remoteConnectStatus';
+import { remoteNetworkMethod, selectRemoteNetworkConnection, type RemoteNetworkMethod } from '@/infrastructure/remote-connect/remoteConnectionState';
 import { useNotification } from '@/shared/notification-system';
 import { copyTextToClipboard } from '@/shared/utils/textSelection';
 import { AccountPanel } from './AccountPanel';
@@ -73,7 +75,7 @@ import './RemoteConnectDialog.scss';
 type ActiveGroup = 'network' | 'bot' | 'account';
 type ActiveView = 'overview' | ActiveGroup;
 type ConnectionOwner = Exclude<ActiveGroup, 'account'>;
-type NetworkTab = 'lan' | 'ngrok' | 'openbitfun_server' | 'custom_server';
+type NetworkTab = RemoteNetworkMethod;
 type BotTab = 'telegram' | 'feishu' | 'weixin';
 
 /**
@@ -138,14 +140,7 @@ function parseRelayServer(value: string): URL | null {
   }
 }
 
-const methodToNetworkTab = (method: string | null | undefined): NetworkTab | null => {
-  if (!method) return null;
-  if (method.startsWith('Lan')) return 'lan';
-  if (method.startsWith('Ngrok')) return 'ngrok';
-  if (method.startsWith('OpenBitFunServer')) return 'openbitfun_server';
-  if (method.startsWith('CustomServer')) return 'custom_server';
-  return null;
-};
+const methodToNetworkTab = remoteNetworkMethod;
 
 const botInfoToBotTab = (info: string | null | undefined): BotTab | null => {
   if (!info) return null;
@@ -186,7 +181,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
 
   const [connectionResult, setConnectionResult] = useState<ConnectionResult | null>(null);
   const [connectionOwner, setConnectionOwner] = useState<ConnectionOwner | null>(null);
-  const [status, setStatus] = useState<RemoteConnectStatus | null>(null);
+  const { status, state: statusState } = useRemoteConnectStatus();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lanNetworkInfo, setLanNetworkInfo] = useState<{
@@ -225,9 +220,11 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollGenerationRef = useRef(0);
+  const networkSelectionGenerationRef = useRef(0);
   const operationGenerationRef = useRef(0);
   const pendingOwnerRef = useRef<ConnectionOwner | null>(null);
   const connectionOwnerRef = useRef<ConnectionOwner | null>(null);
+  const connectionResultRef = useRef<ConnectionResult | null>(null);
   const pendingStartRef = useRef<{
     owner: ConnectionOwner;
     generation: number;
@@ -237,22 +234,26 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
   const weixinVerifyCodeRef = useRef<string | null>(null);
   const isOpenRef = useRef(isOpen);
   connectionOwnerRef.current = connectionOwner;
+  connectionResultRef.current = connectionResult;
   isOpenRef.current = isOpen;
 
   // ── Derived state ────────────────────────────────────────────────
 
-  const isRelayConnected = remotePairingStateName(status?.pairing_state) === 'connected';
+  const networkConnection = selectRemoteNetworkConnection(status, connectionResult);
+  const isRelayConnected = networkConnection.connected;
   const isBotConnected = !!status?.bot_connected;
-  const connectedNetworkTab = methodToNetworkTab(status?.active_method);
+  const connectedNetworkTab = networkConnection.method;
   const connectedBotTab = botInfoToBotTab(status?.bot_connected);
 
   const cancelPendingWork = useCallback(async () => {
     operationGenerationRef.current += 1;
-    pollGenerationRef.current += 1;
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = null;
-
-    const owner = pendingOwnerRef.current ?? connectionOwnerRef.current;
+    const currentStatus = remoteConnectStatusSource.getSnapshot().status;
+    const candidateOwner = pendingOwnerRef.current ?? connectionOwnerRef.current;
+    // Leaving a view cancels only its unfinished invitation. A completed room
+    // or bot connection requires its explicit Disconnect action.
+    const owner = (candidateOwner === 'network' && selectRemoteNetworkConnection(currentStatus).roomConnected)
+      || (candidateOwner === 'bot' && currentStatus?.bot_connected)
+      ? null : candidateOwner;
     const pendingStart = pendingStartRef.current;
     pendingOwnerRef.current = null;
     connectionOwnerRef.current = null;
@@ -278,9 +279,15 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           }
           try {
             if (owner === 'bot') {
+              remoteConnectStatusSource.invalidateReads();
               await remoteConnectAPI.stopBot();
             } else if (owner === 'network') {
+              remoteConnectStatusSource.invalidateReads();
               await remoteConnectAPI.stopConnection();
+            }
+            if (owner) {
+              remoteConnectStatusSource.invalidateReads();
+              await remoteConnectStatusSource.refresh();
             }
           } catch {
             // Best-effort cleanup; the generation still blocks late UI writes.
@@ -313,41 +320,56 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     if (!isOpen) void cancelPendingWork();
   }, [cancelPendingWork, isOpen]);
 
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+    return () => {
+      isOpenRef.current = false;
+      void cancelPendingWork();
+    };
+  }, [cancelPendingWork, isOpen]);
+
   // ── Polling ──────────────────────────────────────────────────────
 
-  const applyStatus = useCallback((nextStatus: RemoteConnectStatus) => {
-    setStatus(nextStatus);
+  const applyStatus = useCallback((nextStatus: RemoteConnectStatus, restoreSelection = false) => {
+    const network = selectRemoteNetworkConnection(nextStatus, connectionResultRef.current);
 
     // Relay and bot connections can coexist. Restore both selected subtabs
     // before choosing which group to show, otherwise the bot-first open path
     // can leave a connected OpenBitFun Server relay rendering the default LAN UI.
-    if (remotePairingStateName(nextStatus.pairing_state) === 'connected') {
-      const connectedTab = methodToNetworkTab(nextStatus.active_method);
+    const hasPendingInvitation = connectionOwnerRef.current === 'network' && connectionResultRef.current !== null;
+    if (network.roomConnected || (restoreSelection && network.accountConnected
+      && (!hasPendingInvitation || network.invitationAccountConnected))) {
+      const connectedTab = network.method;
       if (connectedTab) setNetworkTab(connectedTab);
     }
     const connectedBot = botInfoToBotTab(nextStatus.bot_connected);
     if (connectedBot) setBotTab(connectedBot);
+    const owner = connectionOwnerRef.current;
+    if ((owner === 'network' && network.roomConnected) || (owner === 'bot' && connectedBot)) {
+      pendingOwnerRef.current = null;
+      connectionOwnerRef.current = null;
+      setConnectionOwner(null);
+      setConnectionResult(null);
+    } else if (owner === 'network' && !nextStatus.active_method && !pendingStartRef.current) {
+      pendingOwnerRef.current = null;
+      connectionOwnerRef.current = null;
+      setConnectionOwner(null);
+      setConnectionResult(null);
+    }
   }, []);
 
-  const startPolling = useCallback((target: 'relay' | 'bot') => {
+  useEffect(() => {
+    if (isOpen && status) applyStatus(status);
+  }, [applyStatus, isOpen, status]);
+
+  const startPolling = useCallback((_target?: 'relay' | 'bot') => {
     const pollGeneration = ++pollGenerationRef.current;
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       try {
-        const s = await remoteConnectAPI.getStatus();
-        if (!isOpenRef.current || pollGenerationRef.current !== pollGeneration) return;
+        const s = await remoteConnectStatusSource.refresh();
+        if (!s || !isOpenRef.current || pollGenerationRef.current !== pollGeneration) return;
         applyStatus(s);
-        const done = target === 'relay'
-          ? remotePairingStateName(s.pairing_state) === 'connected'
-          : !!s.bot_connected;
-        if (done) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          pollRef.current = null;
-          pendingOwnerRef.current = null;
-          connectionOwnerRef.current = null;
-          setConnectionOwner(null);
-          setConnectionResult(null);
-        }
       } catch { /* ignore */ }
     }, 2000);
   }, [applyStatus]);
@@ -363,21 +385,26 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     const agreed = getRemoteConnectDisclaimerAgreed();
     setHasAgreedDisclaimer(agreed);
     if (!agreed) return;
+    // Overview and established connections still need expiry/reconnect updates.
+    startPolling();
 
     let cancelled = false;
+    const networkSelectionGeneration = networkSelectionGenerationRef.current;
     const checkExisting = async () => {
+      let restoreSelection = true;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const s = await remoteConnectAPI.getStatus();
-          if (cancelled) return;
-          applyStatus(s);
+          const s = await remoteConnectStatusSource.refresh();
+          if (cancelled || !s) return;
+          applyStatus(s, restoreSelection && networkSelectionGenerationRef.current === networkSelectionGeneration);
+          restoreSelection = false;
           setBotVerboseMode(s.bot_verbose_mode);
 
-          if (['waiting_for_scan', 'verifying', 'handshaking'].includes(
+          if (!pendingOwnerRef.current && !connectionOwnerRef.current && ['waiting_for_scan', 'verifying', 'handshaking'].includes(
             remotePairingStateName(s.pairing_state),
           )) {
             const tab = methodToNetworkTab(s.active_method);
-            setActiveView('network');
+            if (!selectRemoteNetworkConnection(s).connected) setActiveView('network');
             if (tab) setNetworkTab(tab);
             pendingOwnerRef.current = 'network';
             connectionOwnerRef.current = 'network';
@@ -397,6 +424,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             startPolling('relay');
             return;
           }
+          if (selectRemoteNetworkConnection(s).connected || s.bot_connected) return;
         } catch { /* ignore */ }
         if (attempt < 2) {
           await new Promise(r => setTimeout(r, 1500));
@@ -477,7 +505,9 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
         // Account changes rotate an unpaired QR invitation, but an established
         // room is an independent control channel and stays connected. Refresh
         // first, then clear only UI state that the backend actually retired.
-        void remoteConnectAPI.getStatus().then((nextStatus) => {
+        remoteConnectStatusSource.invalidate();
+        void remoteConnectStatusSource.refresh().then((nextStatus) => {
+          if (!nextStatus) return;
           if (!isOpenRef.current) return;
           applyStatus(nextStatus);
           if (remotePairingStateName(nextStatus.pairing_state) !== 'connected') {
@@ -543,7 +573,11 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
       weixinBaseUrl: baseUrl || undefined,
       weixinBotAccountId: botAccountId,
     });
-    return await remoteConnectAPI.startConnection('bot_weixin');
+    remoteConnectStatusSource.invalidateReads();
+    const result = await remoteConnectAPI.startConnection('bot_weixin');
+    remoteConnectStatusSource.invalidateReads();
+    void remoteConnectStatusSource.refresh().catch(() => undefined);
+    return result;
   }, []);
 
   // WeChat QR login: poll iLink until confirmed or error (session key cleared on completion).
@@ -755,10 +789,12 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
         if (networkTab === 'custom_server') serverUrl = customUrl || undefined;
       }
       const lanIp = networkTab === 'lan' ? (selectedLanIp || undefined) : undefined;
+      remoteConnectStatusSource.invalidateReads();
       const startPromise = remoteConnectAPI.startConnection(method, serverUrl, lanIp);
       const pendingStart = { owner, generation: operationGeneration, promise: startPromise };
       pendingStartRef.current = pendingStart;
       const result = await startPromise;
+      remoteConnectStatusSource.invalidateReads();
       if (pendingStartRef.current === pendingStart) pendingStartRef.current = null;
       if (!isCurrent()) return;
       connectionOwnerRef.current = owner;
@@ -766,6 +802,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
       setConnectionResult(result);
       ownsConnection = true;
       startPolling(owner === 'bot' ? 'bot' : 'relay');
+      void remoteConnectStatusSource.refresh().catch(() => undefined);
     } catch (e: any) {
       if (pendingStartRef.current?.generation === operationGeneration) {
         pendingStartRef.current = null;
@@ -832,25 +869,29 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
 
   const handleDisconnectRelay = useCallback(async () => {
     try {
+      remoteConnectStatusSource.invalidateReads();
       await remoteConnectAPI.stopConnection();
+      remoteConnectStatusSource.invalidateReads();
       pendingOwnerRef.current = null;
       connectionOwnerRef.current = null;
       setConnectionOwner(null);
       setConnectionResult(null);
-      const s = await remoteConnectAPI.getStatus();
-      applyStatus(s);
+      const s = await remoteConnectStatusSource.refresh();
+      if (s) applyStatus(s);
     } catch { /* best effort */ }
   }, [applyStatus]);
 
   const handleDisconnectBot = useCallback(async () => {
     try {
+      remoteConnectStatusSource.invalidateReads();
       await remoteConnectAPI.stopBot();
+      remoteConnectStatusSource.invalidateReads();
       pendingOwnerRef.current = null;
       connectionOwnerRef.current = null;
       setConnectionOwner(null);
       setConnectionResult(null);
-      const s = await remoteConnectAPI.getStatus();
-      applyStatus(s);
+      const s = await remoteConnectStatusSource.refresh();
+      if (s) applyStatus(s);
     } catch { /* best effort */ }
   }, [applyStatus]);
 
@@ -864,8 +905,8 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     await cancelPendingWork();
     if (!isOpenRef.current) return;
     try {
-      const s = await remoteConnectAPI.getStatus();
-      if (isOpenRef.current) applyStatus(s);
+      const s = await remoteConnectStatusSource.refresh();
+      if (s && isOpenRef.current) applyStatus(s);
     } catch { /* best effort */ }
   }, [applyStatus, cancelPendingWork]);
 
@@ -934,7 +975,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
   // ── Sub-tab disabled logic ───────────────────────────────────────
 
   const isNetworkSubDisabled = (tabId: NetworkTab): boolean => {
-    if (isRelayConnected && connectedNetworkTab && connectedNetworkTab !== tabId) return true;
+    if (networkConnection.roomConnected && networkConnection.roomMethod && networkConnection.roomMethod !== tabId) return true;
     return false;
   };
 
@@ -1003,15 +1044,19 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           qrUrl={connectionResult.qr_url}
           pairingCode={connectionResult.bot_pairing_code}
           owner={connectionOwner === 'bot' ? 'bot' : 'network'}
-          connected={connectionOwner === 'network' && status?.account_control_connected === true}
+          connected={connectionOwner === 'network' && networkConnection.invitationAccountConnected}
+          statusState={statusState}
           copied={qrCopied}
           onCopyUrl={handleCopyPairingUrl}
         />
         <div className="openbitfun-remote-connect__pairing-actions">
           <Button variant="outline" size="sm" onClick={handleCancelConnect}>
-            {t('remoteConnect.cancel')}
+            {connectionOwner === 'network' ? t('remoteConnect.cancelInvitation') : t('remoteConnect.cancel')}
           </Button>
         </div>
+        {connectionOwner === 'network' && networkConnection.invitationAccountConnected && (
+          <p className="openbitfun-remote-connect__hint">{t('remoteConnect.accountConnectedHint')}</p>
+        )}
       </div>
     );
   };
@@ -1026,7 +1071,10 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
   };
 
   const renderNetworkContent = () => {
-    if (isRelayConnected && connectedNetworkTab === networkTab) {
+    if (statusState !== 'ready' && !connectionResult) {
+      return <RemotePairingCard owner="network" statusState={statusState} copied={false} onCopyUrl={() => {}} />;
+    }
+    if (networkConnection.roomConnected && networkConnection.roomMethod === networkTab) {
       return (
         <>
           {networkTab === 'ngrok' && (
@@ -1058,6 +1106,12 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
         data-openbitfun-part="body"
         className="openbitfun-remote-connect__body openbitfun-remote-connect__body--network"
       >
+        {networkConnection.accountConnected && networkConnection.accountMethod === networkTab && (
+          <div className="openbitfun-remote-connect__connected">
+            <RemotePairingCard owner="network" connected copied={false} onCopyUrl={() => {}} />
+            <p className="openbitfun-remote-connect__hint">{t('remoteConnect.accountConnectedHint')}</p>
+          </div>
+        )}
         <section className="openbitfun-remote-connect__network-card" aria-labelledby="remote-connect-method-title">
           <div className="openbitfun-remote-connect__network-heading">
             <Icon name="browser" size="lg" aria-hidden="true" />
@@ -1168,6 +1222,9 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
   // ── Bot group content ────────────────────────────────────────────
 
   const renderBotContent = () => {
+    if (statusState !== 'ready' && !connectionResult && !weixinQrSessionKey && !loading) {
+      return <RemotePairingCard owner="bot" statusState={statusState} copied={false} onCopyUrl={() => {}} />;
+    }
     if (isBotConnected && connectedBotTab === botTab) {
       const connectedLabel = botLabel(botTab) ?? botTab;
       const connectedDescription = t('remoteConnect.botConnectedDescription');
@@ -1455,7 +1512,8 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
 
   // ── Layout ───────────────────────────────────────────────────────
 
-  const isNetworkConnecting = !!connectionResult && connectionOwner === 'network' && !isRelayConnected;
+  const isNetworkConnecting = !!connectionResult && connectionOwner === 'network'
+    && !networkConnection.roomConnected && !networkConnection.invitationAccountConnected;
   const isBotConnecting = !!connectionResult && connectionOwner === 'bot' && !isBotConnected;
   const isCurrentViewPairing = activeView === 'network'
     ? isNetworkConnecting || (loading && pendingOwnerRef.current === 'network')
@@ -1598,9 +1656,13 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             description: t('remoteConnect.mobileBrowserDescription'),
             statusLabel: !hasWorkspace
               ? t('remoteConnect.requiresWorkspace')
-              : isRelayConnected
-                ? t('remoteConnect.stateConnected')
-                : t('remoteConnect.notConnected'),
+              : statusState === 'unavailable'
+                ? t('remoteConnect.statusUnavailable')
+                : statusState === 'loading'
+                  ? t('remoteConnect.statusChecking')
+                  : isRelayConnected
+                    ? t('remoteConnect.stateConnected')
+                    : t('remoteConnect.notConnected'),
             statusDetail: hasWorkspace && isRelayConnected
               ? networkLabel(connectedNetworkTab)
               : null,
@@ -1627,9 +1689,13 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             description: t('remoteConnect.chatAppsDescription'),
             statusLabel: !hasWorkspace
               ? t('remoteConnect.requiresWorkspace')
-              : isBotConnected
-                ? t('remoteConnect.stateConnected')
-                : t('remoteConnect.notConnected'),
+              : statusState === 'unavailable'
+                ? t('remoteConnect.statusUnavailable')
+                : statusState === 'loading'
+                  ? t('remoteConnect.statusChecking')
+                  : isBotConnected
+                    ? t('remoteConnect.stateConnected')
+                    : t('remoteConnect.notConnected'),
             statusDetail: hasWorkspace && isBotConnected
               ? botLabel(connectedBotTab)
               : null,
@@ -1709,7 +1775,8 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     id: `remote-connect-network-tab-${tab.id}`,
     label: renderConnectionTabLabel(
       t(tab.labelKey),
-      isRelayConnected && connectedNetworkTab === tab.id,
+      (networkConnection.roomConnected && networkConnection.roomMethod === tab.id)
+        || (networkConnection.accountConnected && networkConnection.accountMethod === tab.id),
     ),
     panelId: 'remote-connect-network-tabpanel',
     value: tab.id,
@@ -1727,6 +1794,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
   }));
 
   const handleNetworkTabValueChange = (value: string) => {
+    networkSelectionGenerationRef.current += 1;
     const nextTab = value as NetworkTab;
     if (nextTab === networkTab) return;
     void cancelPendingWork();
@@ -1820,6 +1888,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                       className="openbitfun-remote-connect__tab-group"
                       size="sm"
                       items={networkTabItems}
+                      onClickCapture={() => { networkSelectionGenerationRef.current += 1; }}
                       onValueChange={handleNetworkTabValueChange}
                       value={networkTab}
                     />

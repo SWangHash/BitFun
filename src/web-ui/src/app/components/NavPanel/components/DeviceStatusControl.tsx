@@ -91,7 +91,7 @@ const DeviceStatusControl: React.FC<DeviceStatusControlProps> = ({
     overview,
     refresh,
     accountService,
-  } = useDeviceInterconnectionOverview(localDeviceLabel);
+  } = useDeviceInterconnectionOverview(localDeviceLabel, t('remoteConnect.mobileBrowserTitle'));
   const [returningLocal, setReturningLocal] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);

@@ -404,11 +404,11 @@ describe('Remote Connect safety contracts', () => {
       dialogSource.indexOf("activeView !== 'network'"),
     );
     const connectedRestore = restoreFlow.slice(
-      restoreFlow.indexOf('applyStatus(s)'),
-      restoreFlow.indexOf("if (['waiting_for_scan'"),
+      restoreFlow.indexOf('applyStatus(s, restoreSelection'),
+      restoreFlow.indexOf("if (!pendingOwnerRef.current"),
     );
 
-    expect(applyStatus).toContain("remotePairingStateName(nextStatus.pairing_state) === 'connected'");
+    expect(applyStatus).toContain('selectRemoteNetworkConnection(nextStatus, connectionResultRef.current)');
     expect(applyStatus).toContain('setNetworkTab(connectedTab)');
     expect(applyStatus).toContain('setBotTab(connectedBot)');
     expect(dialogSource).toContain("useState<ActiveView>(initialGroup ?? 'overview')");
