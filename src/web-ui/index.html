@@ -16,6 +16,7 @@
             loadingApp: 'Starting OpenBitFun...',
             minimize: 'Minimize',
             maximize: 'Maximize',
+            restore: 'Restore',
             close: 'Close',
             petLoading: 'Loading companion...'
           },
@@ -23,6 +24,7 @@
             loadingApp: '正在启动 OpenBitFun...',
             minimize: '最小化',
             maximize: '最大化',
+            restore: '还原',
             close: '关闭',
             petLoading: '正在加载助手...'
           },
@@ -30,6 +32,7 @@
             loadingApp: '正在啟動 OpenBitFun...',
             minimize: '最小化',
             maximize: '最大化',
+            restore: '還原',
             close: '關閉',
             petLoading: '正在載入助手...'
           }
@@ -70,6 +73,8 @@
       })();
     </script>
     <link rel="stylesheet" href="/src/design-system-theme.css" />
+    <!-- Keep the pre-React controls on the same visual contract as the app chrome. -->
+    <link rel="stylesheet" href="/src/app/components/WindowControls/WindowControls.scss" />
     <!-- OPENBITFUN_FONT_PROFILE_STYLESHEET -->
     <style>
       @layer openbitfun.tokens.system, openbitfun.tokens.theme, openbitfun.reset, openbitfun.base, openbitfun.components, openbitfun.overrides;
@@ -139,89 +144,17 @@
         animation: openbitfun-startup-overlay-exit 0.24s ease-in-out both;
       }
 
-      .openbitfun-startup-window-controls {
+      .window-controls.openbitfun-startup-window-controls {
         position: fixed;
-        top: 8px;
-        right: 10px;
+        top: 0;
+        right: 0;
         z-index: 2;
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        opacity: 0.72;
+        height: var(--openbitfun-layout-toolbar-md-height);
         pointer-events: auto;
       }
 
       .openbitfun-startup-window-controls[hidden] {
         display: none;
-      }
-
-      .openbitfun-startup-window-controls__btn {
-        width: 28px;
-        height: 28px;
-        display: grid;
-        place-items: center;
-        padding: 0;
-        border: 1px solid transparent;
-        border-radius: 6px;
-        background: transparent;
-        color: var(--openbitfun-color-content-muted);
-        cursor: pointer;
-        transition: background 0.15s ease, color 0.15s ease;
-      }
-
-      .openbitfun-startup-window-controls__btn:hover {
-        background: var(--openbitfun-color-action-quiet-hover);
-        color: var(--openbitfun-color-content-primary);
-      }
-
-      .openbitfun-startup-window-controls__btn--close:hover {
-        color: var(--openbitfun-color-status-danger-content);
-      }
-
-      .openbitfun-startup-window-controls__glyph {
-        position: relative;
-        width: 12px;
-        height: 12px;
-        display: block;
-      }
-
-      .openbitfun-startup-window-controls__glyph--minimize::before {
-        content: "";
-        position: absolute;
-        left: 2px;
-        right: 2px;
-        top: 6px;
-        height: 1.5px;
-        border-radius: 999px;
-        background: currentColor;
-      }
-
-      .openbitfun-startup-window-controls__glyph--maximize::before {
-        content: "";
-        position: absolute;
-        inset: 2px;
-        border: 1.5px solid currentColor;
-        border-radius: 2px;
-      }
-
-      .openbitfun-startup-window-controls__glyph--close::before,
-      .openbitfun-startup-window-controls__glyph--close::after {
-        content: "";
-        position: absolute;
-        left: 2px;
-        right: 2px;
-        top: 5px;
-        height: 1.5px;
-        border-radius: 999px;
-        background: currentColor;
-      }
-
-      .openbitfun-startup-window-controls__glyph--close::before {
-        transform: rotate(45deg);
-      }
-
-      .openbitfun-startup-window-controls__glyph--close::after {
-        transform: rotate(-45deg);
       }
 
       .splash-screen__center {
@@ -364,15 +297,44 @@
     <div id="root"></div>
     <div id="openbitfun-startup-overlay">
       <div class="splash-screen">
-        <div class="openbitfun-startup-window-controls" data-startup-window-controls hidden>
-          <button class="openbitfun-startup-window-controls__btn" type="button" data-startup-window-action="minimize">
-            <span class="openbitfun-startup-window-controls__glyph openbitfun-startup-window-controls__glyph--minimize" aria-hidden="true"></span>
+        <div
+          class="window-controls openbitfun-startup-window-controls"
+          data-openbitfun-component="window-controls"
+          data-openbitfun-part="root"
+          data-startup-window-controls
+          hidden
+        >
+          <button class="window-controls__btn window-controls__btn--minimize" type="button" data-startup-window-action="minimize">
+            <svg data-startup-window-control-platform="windows" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1 6.5h10" stroke="currentColor" stroke-width="1" />
+            </svg>
+            <svg data-startup-window-control-platform="generic" width="10" height="10" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
           </button>
-          <button class="openbitfun-startup-window-controls__btn" type="button" data-startup-window-action="toggle_maximize">
-            <span class="openbitfun-startup-window-controls__glyph openbitfun-startup-window-controls__glyph--maximize" aria-hidden="true"></span>
+          <button class="window-controls__btn window-controls__btn--maximize" type="button" data-startup-window-action="toggle_maximize">
+            <svg data-startup-window-control-platform="windows" data-startup-window-control-state="normal" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1.5 1.5h9v9h-9z" stroke="currentColor" stroke-width="1" />
+            </svg>
+            <svg data-startup-window-control-platform="windows" data-startup-window-control-state="maximized" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true" style="display: none">
+              <path d="M3.5 3.5v-2h7v7h-2 M1.5 3.5h7v7h-7z" stroke="currentColor" stroke-width="1" />
+            </svg>
+            <svg data-startup-window-control-platform="generic" data-startup-window-control-state="normal" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <rect x="2" y="2" width="8" height="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <svg data-startup-window-control-platform="generic" data-startup-window-control-state="maximized" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true" style="display: none">
+              <path d="M4 4V1.5Q4 1 4.5 1h6q.5 0 .5.5v6q0 .5-.5.5H8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              <rect x="1" y="4" width="7" height="7" rx="0.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
           </button>
-          <button class="openbitfun-startup-window-controls__btn openbitfun-startup-window-controls__btn--close" type="button" data-startup-window-action="close">
-            <span class="openbitfun-startup-window-controls__glyph openbitfun-startup-window-controls__glyph--close" aria-hidden="true"></span>
+          <button class="window-controls__btn window-controls__btn--close" type="button" data-startup-window-action="close">
+            <svg data-startup-window-control-platform="windows" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="m1.5 1.5 9 9 m0-9-9 9" stroke="currentColor" stroke-width="1" />
+            </svg>
+            <svg data-startup-window-control-platform="generic" width="10" height="10" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <line x1="3" y1="3" x2="11" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="11" y1="3" x2="3" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
           </button>
         </div>
         <div class="splash-screen__center">
@@ -404,7 +366,7 @@
         var isPetWindow = params.get('openbitfunWindow') === 'agent-companion';
         var messages = window.__OPENBITFUN_RESOLVE_BOOTSTRAP_MESSAGES__
           ? window.__OPENBITFUN_RESOLVE_BOOTSTRAP_MESSAGES__()
-          : { loadingApp: 'Starting OpenBitFun...', minimize: 'Minimize', maximize: 'Maximize', close: 'Close', petLoading: 'Loading companion...' };
+          : { loadingApp: 'Starting OpenBitFun...', minimize: 'Minimize', maximize: 'Maximize', restore: 'Restore', close: 'Close', petLoading: 'Loading companion...' };
         var locale = window.__OPENBITFUN_RESOLVE_BOOTSTRAP_LOCALE__
           ? window.__OPENBITFUN_RESOLVE_BOOTSTRAP_LOCALE__()
           : 'en-US';
@@ -433,25 +395,70 @@
 
         var controls = document.querySelector('[data-startup-window-controls]');
         if (controls && window.__OPENBITFUN_SHOW_STARTUP_WINDOW_CONTROLS__) {
+          var isWindows = (
+            (typeof navigator.userAgent === 'string' && navigator.userAgent.toUpperCase().includes('WINDOWS'))
+            || (typeof navigator.platform === 'string' && navigator.platform.toUpperCase().includes('WIN'))
+          );
+          controls.classList.toggle('window-controls--windows', isWindows);
+          controls.querySelectorAll('[data-startup-window-control-platform]').forEach(function (glyph) {
+            if (glyph.getAttribute('data-startup-window-control-platform') !== (isWindows ? 'windows' : 'generic')) {
+              glyph.remove();
+            } else {
+              glyph.removeAttribute('data-startup-window-control-platform');
+            }
+          });
           controls.hidden = false;
+          var tauri = window.__TAURI_INTERNALS__;
+          var stateRequestVersion = 0;
           var labels = {
             minimize: messages.minimize,
             toggle_maximize: messages.maximize,
             close: messages.close
           };
+          var maximizeButton = controls.querySelector('[data-startup-window-action="toggle_maximize"]');
+          function setButtonLabel(button, label) {
+            if (!button) return;
+            button.setAttribute('aria-label', label);
+            button.setAttribute('title', label);
+          }
+          function applyWindowState(response) {
+            if (!response || typeof response.isMaximized !== 'boolean') return;
+            var isMaximized = response.isMaximized;
+            if (isMaximized) {
+              controls.setAttribute('data-openbitfun-state', 'maximized');
+            } else {
+              controls.removeAttribute('data-openbitfun-state');
+            }
+            setButtonLabel(maximizeButton, isMaximized ? messages.restore : messages.maximize);
+            if (maximizeButton) {
+              maximizeButton.querySelectorAll('[data-startup-window-control-state]').forEach(function (glyph) {
+                glyph.style.display = glyph.getAttribute('data-startup-window-control-state') === (isMaximized ? 'maximized' : 'normal') ? '' : 'none';
+              });
+            }
+          }
+          function invokeWindowControl(action) {
+            if (!tauri || typeof tauri.invoke !== 'function') return;
+            var requestVersion = ++stateRequestVersion;
+            tauri.invoke('startup_window_control', { request: { action: action } })
+              .then(function (response) {
+                if (requestVersion === stateRequestVersion) applyWindowState(response);
+              })
+              .catch(function () {});
+          }
           controls.querySelectorAll('[data-startup-window-action]').forEach(function (button) {
             var action = button.getAttribute('data-startup-window-action');
             var label = labels[action] || action;
-            button.setAttribute('aria-label', label);
-            button.setAttribute('title', label);
+            setButtonLabel(button, label);
             button.addEventListener('click', function (event) {
               event.preventDefault();
               event.stopPropagation();
-              var tauri = window.__TAURI_INTERNALS__;
-              if (!tauri || typeof tauri.invoke !== 'function') return;
-              tauri.invoke('startup_window_control', { request: { action: action } }).catch(function () {});
+              invokeWindowControl(action);
             });
           });
+          invokeWindowControl('get_state');
+          window.setTimeout(function () {
+            if (controls.isConnected) invokeWindowControl('get_state');
+          }, 120);
         }
       })();
     </script>

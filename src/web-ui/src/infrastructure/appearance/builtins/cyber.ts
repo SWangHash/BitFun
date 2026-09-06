@@ -27,6 +27,7 @@ const CYBER_SUCCESS = '#00ff9f';
 const CYBER_WARNING = '#ffcc00';
 const CYBER_ERROR = '#ff0055';
 const CYBER_SURFACE_SECONDARY = '#1c1c1f';
+const CYBER_SURFACE_RAISED = '#2b2d30';
 
 const cyberAccent = (alpha: number | string) => rgbaFromHex(CYBER_ACCENT, alpha);
 
@@ -37,7 +38,7 @@ export const openOpenBitFunCyberPalette: AppearancePalette = {
   type: 'dark',
   description: 'Tech-style appearance - Deep black hole, neon future, ultimate tech aesthetics',
   author: 'OpenBitFun Team',
-  version: '1.0.0',
+  version: '1.1.0',
 
 
   colors: {
@@ -45,7 +46,7 @@ export const openOpenBitFunCyberPalette: AppearancePalette = {
       primary: CYBER_BACKGROUND,
       secondary: CYBER_SURFACE_SECONDARY,
       tertiary: CYBER_SURFACE_SECONDARY,
-      elevated: CYBER_BACKGROUND,
+      elevated: CYBER_SURFACE_RAISED,
       workbench: CYBER_BACKGROUND,
       scene: CYBER_SURFACE_SECONDARY,
     },

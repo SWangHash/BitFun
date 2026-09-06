@@ -980,9 +980,16 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
                 >
                   {t('nav.workspaces.actions.reveal')}
                 </MenuItem>
+                <MenuSeparator />
+                <MenuItem
+                  leading={<Icon glyph={ListChecks} />}
+                  onClick={handleOpenSessionBatchModal}
+                  data-testid="nav-workspace-menu-manage-sessions"
+                >
+                  {t('nav.sessions.manage')}
+                </MenuItem>
                 {(isDefaultAssistantWorkspace || isDeletableAssistantWorkspace) ? (
                   <>
-                    <MenuSeparator />
                     {isDefaultAssistantWorkspace ? (
                       <MenuItem
                         leading={<RotateCcw size={13} />}
@@ -1052,6 +1059,18 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
           confirmDanger
           preview={`${t('nav.workspaces.resetWorkspaceDialog.pathLabel')}\n${workspace.rootPath}`}
         />
+        <RetainedMountBoundary present={sessionBatchModalOpen}>
+          <Suspense fallback={null}>
+            <WorkspaceSessionBatchModal
+              isOpen={sessionBatchModalOpen}
+              onClose={() => setSessionBatchModalOpen(false)}
+              workspacePath={workspace.rootPath}
+              workspaceLabel={workspaceDisplayName}
+              remoteConnectionId={isRemoteWorkspace(workspace) ? workspace.connectionId : null}
+              remoteSshHost={isRemoteWorkspace(workspace) ? workspace.sshHost : null}
+            />
+          </Suspense>
+        </RetainedMountBoundary>
         <RetainedMountBoundary present={scheduledJobsModalOpen}>
           <Suspense fallback={null}>
             <ScheduledJobsModal
@@ -1466,7 +1485,11 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
                   {t('nav.workspaces.actions.reveal')}
                 </MenuItem>
                 <MenuSeparator />
-                <MenuItem leading={<ListChecks size={13} />} onClick={handleOpenSessionBatchModal}>
+                <MenuItem
+                  leading={<ListChecks size={13} />}
+                  onClick={handleOpenSessionBatchModal}
+                  data-testid="nav-workspace-menu-manage-sessions"
+                >
                   {t('nav.sessions.manage')}
                 </MenuItem>
                 <MenuItem

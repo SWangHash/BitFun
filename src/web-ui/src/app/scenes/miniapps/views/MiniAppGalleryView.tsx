@@ -9,7 +9,7 @@ import {
   PackagePlus,
 } from 'lucide-react';
 import { useSceneManager } from '@/app/hooks/useSceneManager';
-import { useApp } from '@/app/hooks/useApp';
+import { openMainSession } from '@/flow_chat/services/sessionActivation';
 import { flowChatSessionConfigForCurrentWorkspace } from '@/app/utils/projectSessionWorkspace';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { isRemoteWorkspace } from '@/shared/types';
@@ -76,7 +76,6 @@ const MiniAppGalleryView: React.FC<MiniAppGalleryViewProps> = ({ tabs }) => {
   const markWorkerStopped = useMiniAppStore((state) => state.markWorkerStopped);
   const { workspace, workspacePath } = useCurrentWorkspace();
   const notification = useNotification();
-  const { switchLeftPanelTab } = useApp();
   const { openScene, activateScene, closeScene, openTabs } = useSceneManager();
   const { t, currentLanguage } = useI18n('scenes/miniapp');
   const miniAppActivities = useMiniAppActivity();
@@ -351,13 +350,12 @@ const MiniAppGalleryView: React.FC<MiniAppGalleryViewProps> = ({ tabs }) => {
 
     setCreatingWithCreative(true);
     closeImportMenu();
-    openScene('session');
-    switchLeftPanelTab('sessions');
     try {
-      await flowChatManager.createChatSession(
+      const sessionId = await flowChatManager.createChatSession(
         flowChatSessionConfigForCurrentWorkspace(workspace),
         'Creative',
       );
+      await openMainSession(sessionId);
       notification.success(t('creationMode.started'));
     } catch (error) {
       log.error('Failed to start Creative MiniApp session', error);
@@ -369,8 +367,6 @@ const MiniAppGalleryView: React.FC<MiniAppGalleryViewProps> = ({ tabs }) => {
     closeImportMenu,
     creatingWithCreative,
     notification,
-    openScene,
-    switchLeftPanelTab,
     t,
     workspace,
   ]);

@@ -24,10 +24,7 @@ import {
   openBtwSessionInAuxPane,
   selectActiveBtwSessionTab,
 } from '@/flow_chat/services/btwSessionPane';
-import {
-  closeSessionSceneAfterActiveSessionArchive,
-  openMainSession,
-} from '@/flow_chat/services/sessionActivation';
+import { openMainSession } from '@/flow_chat/services/sessionActivation';
 import {
   dispatchHistorySessionOpenIntent,
   shouldShowHistorySessionOpenIntent,
@@ -62,7 +59,7 @@ import type {
 import { computeFixedPopoverPosition } from '@/shared/utils/fixedPopoverViewport';
 import { exportSessionToMarkdown } from '@/flow_chat/services/sessionMarkdownExport';
 import type { TranscriptExportScope } from '@/flow_chat/utils/dialogTranscriptExport';
-import { confirmWarning } from '@/infrastructure/confirm-dialog';
+import { confirmDanger } from '@/infrastructure/confirm-dialog';
 import {
   AssistantAvatar,
   type AssistantAvatarStatus,
@@ -1282,33 +1279,36 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
   const handleDelete = useCallback(
     async (e: React.MouseEvent, sessionId: string) => {
       e.stopPropagation();
+      const session = flowChatStore.getState().sessions.get(sessionId);
+      const confirmed = await confirmDanger(
+        t('nav.sessions.deleteConfirmTitle'),
+        t('nav.sessions.deleteConfirmMessage', {
+          name: session ? resolveSessionTitle(session) : t('nav.sessions.untitled'),
+        }),
+        { confirmText: t('nav.sessions.delete') },
+      );
+      if (!confirmed) return;
+
       try {
         await flowChatManager.deleteChatSession(sessionId);
       } catch (err) {
         log.error('Failed to delete session', err);
       }
     },
-    []
+    [resolveSessionTitle, t]
   );
 
   const handleArchive = useCallback(
     async (e: React.MouseEvent, sessionId: string) => {
       e.stopPropagation();
-      const confirmed = await confirmWarning(
-        t('nav.sessions.archiveConfirmTitle'),
-        t('nav.sessions.archiveConfirmMessage')
-      );
-      if (!confirmed) return;
       try {
-        const activeSessionIdBeforeArchive = flowChatStore.getState().activeSessionId;
         await flowChatManager.archiveChatSession(sessionId);
-        closeSessionSceneAfterActiveSessionArchive(activeSessionIdBeforeArchive);
         window.dispatchEvent(new CustomEvent('openbitfun:session-archived'));
       } catch (err) {
         log.error('Failed to archive session', err);
       }
     },
-    [t]
+    []
   );
 
   const handleCopySessionId = useCallback(

@@ -71,7 +71,7 @@ describe('composer context track layout', () => {
       /branch-quick-switch__item \{[\s\S]*?min-height: var\(--openbitfun-control-height-sm\);/,
     );
     expect(branchPicker).toMatch(
-      /branch-quick-switch__list \[data-openbitfun-part='list'\] \{\n  gap: calc\(var\(--openbitfun-space-1\) \/ 2\);/,
+      /branch-quick-switch__list \[data-openbitfun-part='list'\] \{[\s\S]*?gap: calc\(var\(--openbitfun-space-1\) \/ 2\);/,
     );
     expect(targetPicker).toMatch(
       /&__option-row \{[\s\S]*?min-height: var\(--openbitfun-control-height-md\);/,
@@ -93,6 +93,20 @@ describe('composer context track layout', () => {
     );
     expect(targetPicker).toMatch(
       /small \{[\s\S]*?color: var\(--openbitfun-color-content-muted\);[\s\S]*?opacity: 0\.5;/,
+    );
+  });
+
+  it('reserves one responsive branch-list height across loading and loaded states', () => {
+    const branchPicker = readBranchQuickSwitchStylesheet();
+
+    expect(branchPicker).toMatch(
+      /branch-quick-switch__list \{[\s\S]*?block-size: clamp\(0px, calc\(100vh - 96px\), 280px\);/,
+    );
+    expect(branchPicker).toMatch(
+      /branch-quick-switch__list \[data-openbitfun-part='list'\] \{[\s\S]*?min-block-size: 100%;/,
+    );
+    expect(branchPicker).toMatch(
+      /branch-quick-switch__loading,[\s\S]*?branch-quick-switch__empty \{[\s\S]*?flex: 1 1 auto;/,
     );
   });
 

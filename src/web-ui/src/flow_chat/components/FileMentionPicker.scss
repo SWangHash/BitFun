@@ -134,18 +134,14 @@
   }
 
   :root[data-openbitfun-appearance-mode="light"] &,
-  :root[data-openbitfun-appearance-mode="light"] &,
   .light & {
-    // Blur over chat content reads as muddy/dark; use a solid elevated surface
-    background: var(--openbitfun-color-surface-raised);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    // Keep the lighter edge treatment without overriding the shared frosted
+    // floating-surface background and filter.
     border-color: var(--openbitfun-color-border-subtle);
     box-shadow:
       0 4px 18px color-mix(in srgb, var(--openbitfun-color-content-muted) 4%, transparent),
       0 1px 3px color-mix(in srgb, var(--openbitfun-color-content-muted) 4%, transparent),
       inset 0 1px 0 color-mix(in srgb, var(--openbitfun-color-content-on-dark) 95%, transparent);
-
   }
 }
 

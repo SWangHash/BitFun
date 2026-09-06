@@ -121,6 +121,18 @@ Web UI Appearance 的当前 schema 固定为 v2。颜色入口是 `theme-tokens`
 - Widget、Desktop 首屏 bootstrap 和生成式 UI 提示只消费同一 canonical 源生成的 allowlist 产物，
   不能反向成为主题 owner。
 
+### 内置主题的工作区层级
+
+侧栏与导航由 `color.surface.chrome` 承载，主内容由 `color.surface.scene` 承载。两者相邻且常驻，
+不能只依靠阴影或拖拽时出现的边线区分。参照 Light 的中性灰外壳与白色内容关系，命名主题在自身色调内
+拉开明度：墨韵使用暖灰宣纸外壳、浅宣纸内容与白色浮层；墨夜和午夜使用深墨外壳、炭灰内容与更亮的面板；
+Tokyo Night 使用夜靛外壳、storm 靛蓝内容与蓝紫浮层。Cyber 保留黑底与霓虹强调，其浮层比内容更亮。
+
+`color.surface.tertiary` 与 `color.surface.workbench` 用于内嵌分组及工作台；hover、selection、focus
+继续使用已有交互 Token。Monaco 当前行与输入面板保留独立色阶。辅助文字和边框按新的相邻底色调整，
+而不通过局部组件色值修补。上述配色由 builtin palette 声明，并同步生成启动页和生成式 UI 配色清单；
+不为每款主题新增 Token 名称或主题专属布局分支。
+
 旧 CSS-token adapter、Token 投影层、`css-tokens` renderer 和 `--openbitfun-appearance-token-*`
 运行时变量均已退休并从源码删除。不得为第三方包、旧组件或测试重新引入这些接口。
 

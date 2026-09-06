@@ -45,6 +45,12 @@
     }
   }
 
+  // Keep a window drag target outside the scrolling tabs, even at overflow.
+  &__drag-space {
+    align-self: stretch;
+    flex: 0 0 48px;
+  }
+
   &__actions {
     display: flex;
     align-items: center;
@@ -56,6 +62,14 @@
     &:empty {
       display: none;
     }
+  }
+
+  &__actions-divider {
+    margin-inline-start: var(--openbitfun-space-2);
+  }
+
+  &__actions:empty + &__actions-divider {
+    display: none;
   }
 
   &__window-controls {

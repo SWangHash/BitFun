@@ -16,7 +16,8 @@ import {
 } from './paletteHelpers';
 
 const MIDNIGHT_BACKGROUND = '#2b2d30';
-const MIDNIGHT_BACKGROUND_SECONDARY = '#1c1c1f';
+const MIDNIGHT_CHROME = '#1c1c1f';
+const MIDNIGHT_BACKGROUND_SECONDARY = '#313335';
 const MIDNIGHT_TEXT_PRIMARY = '#c8c8c8';
 const MIDNIGHT_BUTTON_TEXT = '#b0b0b0';
 const MIDNIGHT_ACCENT = '#60a5fa';
@@ -37,23 +38,25 @@ export const openOpenBitFunMidnightPalette: AppearancePalette = {
   type: 'dark',
   description: 'Midnight gray dark appearance - Professional and elegant, inspired by JetBrains IDE',
   author: 'OpenBitFun Team',
-  version: '1.0.0',
+  version: '1.1.0',
 
 
   colors: {
     background: {
+      // Recess navigation and keep content, fields, and overlays progressively lighter.
       primary: MIDNIGHT_BACKGROUND,
       secondary: MIDNIGHT_BACKGROUND_SECONDARY,
-      tertiary: '#313335',
-      elevated: MIDNIGHT_BACKGROUND,
-      workbench: MIDNIGHT_BACKGROUND_SECONDARY,
+      tertiary: MIDNIGHT_CHROME,
+      elevated: MIDNIGHT_BACKGROUND_SECONDARY,
+      workbench: MIDNIGHT_CHROME,
       scene: MIDNIGHT_BACKGROUND,
+      chrome: MIDNIGHT_CHROME,
     },
 
     text: {
       primary: MIDNIGHT_TEXT_PRIMARY,
-      secondary: '#a1a1aa',
-      muted: '#6f737a',
+      secondary: MIDNIGHT_BUTTON_TEXT,
+      muted: '#a1a1aa',
       disabled: '#555555',
     },
 
@@ -69,11 +72,11 @@ export const openOpenBitFunMidnightPalette: AppearancePalette = {
     }),
 
     border: {
-      subtle: overlayWhite(0.08),
-      base: overlayWhite(0.14),
-      medium: overlayWhite(0.2),
-      strong: overlayWhite(0.26),
-      prominent: overlayWhite(0.35),
+      subtle: overlayWhite(0.12),
+      base: overlayWhite(0.18),
+      medium: overlayWhite(0.24),
+      strong: overlayWhite(0.3),
+      prominent: overlayWhite(0.4),
     },
 
     element: {

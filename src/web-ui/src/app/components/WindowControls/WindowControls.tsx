@@ -2,7 +2,8 @@ import React from 'react';
 import { Tooltip } from '@openbitfun/ui';
 import { useTranslation } from 'react-i18next';
 import { isWindowsDesktopRuntime } from '@/infrastructure/runtime';
-import './WindowControls.scss';
+
+// Loaded from index.html so the pre-React splash and app chrome share one stylesheet instance.
 
 export interface WindowControlsProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {

@@ -30,7 +30,7 @@ import {
   GalleryPageHeader,
   GallerySkeleton,
 } from '@/app/components';
-import { useApp } from '@/app/hooks/useApp';
+import { openMainSession } from '@/flow_chat/services/sessionActivation';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
 import { useSceneManager } from '@/app/hooks/useSceneManager';
 import { flowChatSessionConfigForCurrentWorkspace } from '@/app/utils/projectSessionWorkspace';
@@ -113,7 +113,6 @@ const MiniAppLibraryView: React.FC<MiniAppLibraryViewProps> = ({ tabs }) => {
   const markWorkerStopped = useMiniAppStore((state) => state.markWorkerStopped);
   const { workspace, workspacePath } = useCurrentWorkspace();
   const notification = useNotification();
-  const { switchLeftPanelTab } = useApp();
   const { openScene, activateScene, closeScene, openTabs } = useSceneManager();
   const { t, formatNumber, currentLanguage } = useI18n('scenes/miniapp');
   const miniAppActivities = useMiniAppActivity();
@@ -421,13 +420,12 @@ const MiniAppLibraryView: React.FC<MiniAppLibraryViewProps> = ({ tabs }) => {
 
     setCreatingWithCreative(true);
     closeImportMenu();
-    openScene('session');
-    switchLeftPanelTab('sessions');
     try {
-      await flowChatManager.createChatSession(
+      const sessionId = await flowChatManager.createChatSession(
         flowChatSessionConfigForCurrentWorkspace(workspace),
         'Creative',
       );
+      await openMainSession(sessionId);
       notification.success(t('creationMode.started'));
     } catch (error) {
       log.error('Failed to start Creative MiniApp session', error);
@@ -439,8 +437,6 @@ const MiniAppLibraryView: React.FC<MiniAppLibraryViewProps> = ({ tabs }) => {
     closeImportMenu,
     creatingWithCreative,
     notification,
-    openScene,
-    switchLeftPanelTab,
     t,
     workspace,
   ]);

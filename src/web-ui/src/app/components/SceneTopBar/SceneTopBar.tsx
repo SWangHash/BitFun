@@ -1,5 +1,5 @@
-import React, { useCallback, useRef } from 'react';
-import { Toolbar } from '@openbitfun/ui';
+import React, { useCallback } from 'react';
+import { Toolbar, ToolbarSeparator } from '@openbitfun/ui';
 import { WindowControls } from '@/app/components/WindowControls';
 import { supportsNativeWindowDragging, usesHostWindowControls } from '@/infrastructure/runtime';
 import { workspaceAPI } from '@/infrastructure/api';
@@ -12,11 +12,23 @@ import './SceneTopBar.scss';
 const log = createLogger('SceneTopBar');
 
 const INTERACTIVE_SELECTOR =
-  'button, input, textarea, select, a, [role="button"], [contenteditable="true"], .window-controls';
+  'button, input, textarea, select, a, [role="button"], [role="tab"], [role="menu"], [contenteditable]:not([contenteditable="false"]), [draggable="true"], .window-controls';
 
-function blocksWindowChromeInteraction(target: HTMLElement): boolean {
-  const interactive = target.closest<HTMLElement>(INTERACTIVE_SELECTOR);
-  return interactive !== null && interactive.getAttribute('role') !== 'tab';
+function blocksWindowChromeInteraction(
+  event: React.MouseEvent<HTMLDivElement>,
+  allowTabDragging: boolean,
+): boolean {
+  const target = event.target;
+  if (event.defaultPrevented || !(target instanceof Element) || !event.currentTarget.contains(target)) {
+    return true;
+  }
+
+  // Tab count changes the tab hit target, never the surrounding window chrome.
+  if (!allowTabDragging && target.closest('[data-openbitfun-component="tab-group"] [data-openbitfun-part="item"]')) {
+    return true;
+  }
+  const interactive = target.closest(INTERACTIVE_SELECTOR);
+  return interactive !== null && !(allowTabDragging && interactive.getAttribute('role') === 'tab');
 }
 
 interface SceneTopBarProps {
@@ -38,16 +50,15 @@ const SceneTopBar: React.FC<SceneTopBarProps> = ({
   const hasTabs = openTabCount > 0;
   const isSingleTab = openTabCount <= 1;
   const canDragWindow = supportsNativeWindowDragging();
-  const lastMouseDownTimeRef = useRef(0);
   const hasWindowControls = Boolean(onMinimize && onMaximize && onClose);
   // The OpenHarmony host paints its own minimize/maximize/close buttons in
   // this corner, so reserve the strip instead of drawing an overlapping set.
   const showHostWindowChromePlaceholder = usesHostWindowControls();
+  const lastMouseDownTimeRef = React.useRef(0);
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    if (!canDragWindow || !isSingleTab || event.button !== 0) return;
-    const target = event.target as HTMLElement | null;
-    if (!target || blocksWindowChromeInteraction(target)) return;
+    if (!canDragWindow || event.button !== 0 || event.detail > 1) return;
+    if (blocksWindowChromeInteraction(event, isSingleTab)) return;
 
     const now = Date.now();
     const timeSinceLastMouseDown = now - lastMouseDownTimeRef.current;
@@ -64,11 +75,9 @@ const SceneTopBar: React.FC<SceneTopBarProps> = ({
   }, [canDragWindow, isSingleTab]);
 
   const handleDoubleClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    if (!isSingleTab) return;
-    const target = event.target as HTMLElement | null;
-    if (!target || blocksWindowChromeInteraction(target)) return;
+    if (!canDragWindow || event.button !== 0 || blocksWindowChromeInteraction(event, isSingleTab)) return;
     onMaximize?.();
-  }, [isSingleTab, onMaximize]);
+  }, [canDragWindow, isSingleTab, onMaximize]);
 
   return (
     <Toolbar
@@ -78,7 +87,12 @@ const SceneTopBar: React.FC<SceneTopBarProps> = ({
       onDoubleClick={handleDoubleClick}
       data-openbitfun-scene="workbench"
       data-openbitfun-part="topBar"
-      leading={<SceneBar />}
+      leading={<>
+        <SceneBar />
+        {canDragWindow && (
+          <div className="openbitfun-scene-top-bar__drag-space" aria-hidden="true" />
+        )}
+      </>}
       size="md"
       trailing={<>
       <SceneChromeHost

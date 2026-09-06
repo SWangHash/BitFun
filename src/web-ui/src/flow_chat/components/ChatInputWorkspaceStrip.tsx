@@ -775,7 +775,7 @@ export const ChatInputWorkspaceStrip: React.FC<ChatInputWorkspaceStripProps> = (
         {label ? (
           <span className="openbitfun-chat-input-workspace-strip__location">
             {renderWorkspaceControl()}
-            {renderBranchChip()}
+            {isGitWorkspace ? renderBranchChip() : null}
           </span>
         ) : null}
         {showDispatchPicker && label ? renderDivider('context-target') : null}

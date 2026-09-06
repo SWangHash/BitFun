@@ -89,3 +89,10 @@ an intent-review inventory, not a pass/fail gate; do not mechanically replace
 deliberate layout transitions or animate virtualized content. Rely on CI for
 full lint, build, and broad test coverage unless the local change specifically
 needs it.
+
+For Session selection, presentation synchronization, and scene lifetime changes,
+also run the focused state contracts:
+
+```bash
+pnpm --dir src/web-ui run test:run src/app/services/sessionSceneLifecycle.test.ts src/flow_chat/services/sessionActivation.test.ts src/flow_chat/services/storeSync.test.ts src/app/stores/sceneStore.test.ts
+```

@@ -16,6 +16,8 @@ import {
 } from './paletteHelpers';
 
 const CHINA_STYLE_PAPER = '#faf8f0';
+const CHINA_STYLE_CHROME = '#f0ede0';
+const CHINA_STYLE_SURFACE_INSET = '#f5f3e8';
 const CHINA_STYLE_INK = '#1c1c1f';
 const CHINA_STYLE_BUTTON_TEXT = '#3d3d3d';
 const CHINA_STYLE_BLUE = '#2e5e8a';
@@ -37,17 +39,19 @@ export const openOpenBitFunChinaStylePalette: AppearancePalette = {
   type: 'light',
   description: 'Chinese style appearance - Rice paper and ink, blue and vermilion, warm and elegant',
   author: 'OpenBitFun Team',
-  version: '1.0.0',
+  version: '1.1.0',
 
 
   colors: {
     background: {
+      // Warm structural chrome frames the rice-paper content and white overlays.
       primary: CHINA_STYLE_PAPER,
-      secondary: '#f5f3e8',
-      tertiary: '#f0ede0',
-      elevated: '#f0ede0',
-      workbench: CHINA_STYLE_PAPER,
+      secondary: CHINA_STYLE_PAPER,
+      tertiary: CHINA_STYLE_SURFACE_INSET,
+      elevated: STATIC_WHITE,
+      workbench: CHINA_STYLE_SURFACE_INSET,
       scene: CHINA_STYLE_PAPER,
+      chrome: CHINA_STYLE_CHROME,
     },
 
     text: {

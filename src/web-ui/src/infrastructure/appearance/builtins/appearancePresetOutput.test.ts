@@ -375,27 +375,27 @@ describe('builtin appearance preset output', () => {
           "type": "dark",
         },
         {
-          "hash": "326680e416018b02899682a3903b6a17e81099e50553386bf018f22d21c8a13e",
+          "hash": "9dae2590fc72fb4e8a759eadc7b1ff7c42b9e2864027683aafadbdd4057ced5b",
           "id": "openbitfun-midnight",
           "type": "dark",
         },
         {
-          "hash": "8b4f1e1437d1105c0033ec2ac7a3191e318ca0329521933a2bbe7f9aad715345",
+          "hash": "9adb639858fa52ff427c5c931a21de805e5f9aa4576839a293ae4d9915baa532",
           "id": "openbitfun-china-style",
           "type": "light",
         },
         {
-          "hash": "661f9bbd92c166cd3e18d931fa2072547223abbe2a39b03be81d3cdfea147b95",
+          "hash": "b5adfb440ba46c1549990ce0e5ea05bf929dd7caee9b9ecc6baf8331b5c5e7f2",
           "id": "openbitfun-china-night",
           "type": "dark",
         },
         {
-          "hash": "e06490cefa484ce9765e0ac199440f9d9ccedf05f3b5d35acd47ce3fd9a02257",
+          "hash": "6c450fe83517666bf4c8c99c1d0463b583e4abc8b08bc919c89e108100ea410c",
           "id": "openbitfun-cyber",
           "type": "dark",
         },
         {
-          "hash": "e6647f3450dba47be1059bea47c06bbc6463461636079e85b73446ae9a8afcb4",
+          "hash": "279e1980c2e15258107983155b26f9a6a06001b1adbfc9f59071f603d0f9f40e",
           "id": "openbitfun-tokyo-night",
           "type": "dark",
         },

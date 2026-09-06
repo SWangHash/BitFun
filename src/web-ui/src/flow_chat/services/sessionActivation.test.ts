@@ -6,9 +6,9 @@ const mocks = vi.hoisted(() => ({
     sessions: new Map<string, unknown>(),
   },
   sceneState: {
-    openTabs: [] as Array<{ id: string }>,
-    closeScene: vi.fn(),
+    openScene: vi.fn(),
   },
+  switchChatSession: vi.fn(),
 }));
 
 vi.mock('@/app/services/AppManager', () => ({
@@ -28,45 +28,70 @@ vi.mock('../store/FlowChatStore', () => ({
 }));
 
 vi.mock('./FlowChatManager', () => ({
-  flowChatManager: { switchChatSession: vi.fn() },
+  flowChatManager: { switchChatSession: mocks.switchChatSession },
 }));
 
 vi.mock('./storeSync', () => ({
   syncSessionToModernStore: vi.fn(),
 }));
 
-import { closeSessionSceneAfterActiveSessionArchive } from './sessionActivation';
+import { openMainSession } from './sessionActivation';
+import { syncSessionToModernStore } from './storeSync';
 
-describe('closeSessionSceneAfterActiveSessionArchive', () => {
+describe('openMainSession resource activation', () => {
   beforeEach(() => {
     mocks.flowChatState.activeSessionId = null;
     mocks.flowChatState.sessions = new Map();
-    mocks.sceneState.openTabs = [{ id: 'session' }];
-    mocks.sceneState.closeScene.mockReset();
+    vi.clearAllMocks();
+    mocks.switchChatSession.mockReset();
   });
 
-  it('closes the Session scene after the archived active session is removed', () => {
-    expect(closeSessionSceneAfterActiveSessionArchive('active-1')).toBe(true);
-    expect(mocks.sceneState.closeScene).toHaveBeenCalledWith('session');
+  it('does not open a scene for a missing or removed session', async () => {
+    await openMainSession('missing');
+    expect(mocks.sceneState.openScene).not.toHaveBeenCalled();
+    expect(mocks.switchChatSession).not.toHaveBeenCalled();
   });
 
-  it('keeps the Session scene when another session became active', () => {
-    mocks.flowChatState.activeSessionId = 'replacement-1';
+  it('opens an existing selected session and synchronizes its presentation', async () => {
+    mocks.flowChatState.activeSessionId = 'active';
+    mocks.flowChatState.sessions.set('active', { sessionId: 'active' });
 
-    expect(closeSessionSceneAfterActiveSessionArchive('active-1')).toBe(false);
-    expect(mocks.sceneState.closeScene).not.toHaveBeenCalled();
+    await openMainSession('active');
+
+    expect(syncSessionToModernStore).toHaveBeenCalledWith('active');
+    expect(mocks.sceneState.openScene).toHaveBeenCalledWith('session');
   });
 
-  it('keeps the Session scene when the archive did not remove the active session', () => {
-    mocks.flowChatState.activeSessionId = 'active-1';
-    mocks.flowChatState.sessions.set('active-1', {});
+  it('waits for successful activation before opening the scene', async () => {
+    mocks.flowChatState.sessions.set('target', { sessionId: 'target' });
+    mocks.switchChatSession.mockImplementation(async () => {
+      expect(mocks.sceneState.openScene).not.toHaveBeenCalled();
+      mocks.flowChatState.activeSessionId = 'target';
+    });
 
-    expect(closeSessionSceneAfterActiveSessionArchive('active-1')).toBe(false);
-    expect(mocks.sceneState.closeScene).not.toHaveBeenCalled();
+    await openMainSession('target');
+
+    expect(mocks.sceneState.openScene).toHaveBeenCalledWith('session');
   });
 
-  it('does nothing when a non-active session was archived', () => {
-    expect(closeSessionSceneAfterActiveSessionArchive(null)).toBe(false);
-    expect(mocks.sceneState.closeScene).not.toHaveBeenCalled();
+  it('does not reopen a session removed while activation was pending', async () => {
+    mocks.flowChatState.sessions.set('target', { sessionId: 'target' });
+    mocks.switchChatSession.mockImplementation(async () => {
+      mocks.flowChatState.activeSessionId = 'target';
+      mocks.flowChatState.sessions.delete('target');
+    });
+
+    await openMainSession('target');
+
+    expect(mocks.sceneState.openScene).not.toHaveBeenCalled();
+    expect(syncSessionToModernStore).not.toHaveBeenCalled();
+  });
+
+  it('does not open a scene when activation fails', async () => {
+    mocks.flowChatState.sessions.set('target', { sessionId: 'target' });
+    mocks.switchChatSession.mockRejectedValue(new Error('Host unavailable'));
+
+    await expect(openMainSession('target')).rejects.toThrow('Host unavailable');
+    expect(mocks.sceneState.openScene).not.toHaveBeenCalled();
   });
 });
