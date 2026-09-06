@@ -50,6 +50,7 @@ import { localModelApi } from './service-api/LocalModelAPI';
 export { workspaceAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, productControlAPI, feedbackAPI, localModelApi, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, permissionAPI, pageAPI, gitAPI, gitAgentAPI, sessionAPI, i18nAPI, btwAPI, editorAiAPI, reviewPlatformAPI, insightsApi, tokenUsageStatisticsApi, speechAPI, worktreeAPI };
 export { TokenUsageStatisticsUnavailableError } from './tokenUsageStatisticsApi';
 export * from './service-api/ReviewPlatformAPI';
+export { matrixSkillAPI } from './service-api/MatrixSkillAPI';
 export type {
   TokenUsageStatisticsRequest,
   UsageAttributionStatus,

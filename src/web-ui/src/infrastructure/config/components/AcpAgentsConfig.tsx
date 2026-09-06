@@ -304,7 +304,7 @@ function requirementTone(
 }
 
 type RegistryFilter = 'all' | 'installed' | 'not_installed' | 'invalid';
-type AgentRowStatus = 'enabled' | 'ready' | 'partial' | 'not_installed' | 'invalid' | 'checking';
+type AgentRowStatus = 'enabled' | 'disabled' | 'ready' | 'partial' | 'not_installed' | 'invalid' | 'checking';
 
 type RequirementIssueKind =
   | 'none'
