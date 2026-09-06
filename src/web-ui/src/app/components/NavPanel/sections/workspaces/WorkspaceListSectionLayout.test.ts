@@ -211,7 +211,7 @@ describe('WorkspaceListSection layout styles', () => {
     expect(source).toContain('behavior="marquee"');
     expect(searchIndicatorStart).toBeGreaterThan(remoteNameStart);
     expect(remoteMetaStart).toBeGreaterThan(searchIndicatorStart);
-    expect(remoteMetaMarkup).toContain('remoteMeta.hostLabel');
+    expect(remoteMetaMarkup).toContain('remoteMeta.connectionLabel');
     expect(remoteMetaMarkup.indexOf('workspace-item-status-dot'))
       .toBeLessThan(remoteMetaMarkup.indexOf('workspace-item-remote-host'));
     expect(source).not.toContain('workspace-item-subtitle');

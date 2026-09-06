@@ -248,7 +248,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
     return {
       status,
       statusLabel,
-      hostLabel,
+      connectionLabel,
       /** A green dot already reads as "fine"; spell out only the states that need attention. */
       showStatusText: status !== 'connected',
       tooltip: t('nav.workspaces.remote.tooltip', {
@@ -257,7 +257,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
         status: statusLabel,
       }),
       ariaLabel: t('nav.workspaces.remote.ariaLabel', {
-        connection: hostLabel,
+        connection: connectionLabel,
         status: statusLabel,
       }),
     };
@@ -1358,7 +1358,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
                       aria-hidden="true"
                     />
                     <span className="openbitfun-nav-panel__workspace-item-remote-host">
-                      {remoteMeta.hostLabel}
+                      {remoteMeta.connectionLabel}
                     </span>
                     {remoteMeta.showStatusText ? (
                       <span className="openbitfun-nav-panel__workspace-item-remote-status">
