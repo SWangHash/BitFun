@@ -1,4 +1,4 @@
-import {
+﻿import {
   Button,
   ConfirmDialog,
   Field,
@@ -357,7 +357,7 @@ const SkillsScene: React.FC = () => {
                     >
                       <span className="skills-sidebar__item-icon" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemIcon">{cat.icon}</span>
                       <span className="skills-sidebar__item-label" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemLabel">{t(cat.labelKey)}</span>
-                      <span className="skills-sidebar__item-count" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemCount">{isEmpty ? '—' : count}</span>
+                      <span className="skills-sidebar__item-count" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemCount">{isEmpty ? '鈥? : count}</span>
                     </button>
                   );
                 })}
@@ -614,7 +614,7 @@ const SkillsScene: React.FC = () => {
                                   }}
                                 />
                               ) : (
-                                <span className="skills-card__status-unavailable" aria-hidden="true">—</span>
+                                <span className="skills-card__status-unavailable" aria-hidden="true">鈥?/span>
                               )}
                             </div>
 
@@ -829,14 +829,14 @@ const SkillsScene: React.FC = () => {
         )}
 
         {desktopConfigAvailable && activeTab === 'matrix' && (
-          <div className="skills-discover" data-openbitfun-scene="skills" data-openbitfun-part="matrix">
-            <div className="skills-discover__hero" data-openbitfun-scene="skills" data-openbitfun-part="matrixHero">
-              <div className="skills-discover__hero-content" data-openbitfun-scene="skills" data-openbitfun-part="matrixHeroContent">
-                <h1 className="skills-discover__title" data-openbitfun-scene="skills" data-openbitfun-part="matrixTitle">{t('matrix.title')}</h1>
-                <p className="skills-discover__subtitle" data-openbitfun-scene="skills" data-openbitfun-part="matrixSubtitle">
+          <div className="skills-discover" data-openbitfun-scene="skills" data-openbitfun-part="discover">
+            <div className="skills-discover__hero" data-openbitfun-scene="skills" data-openbitfun-part="discoverHero">
+              <div className="skills-discover__hero-content" data-openbitfun-scene="skills" data-openbitfun-part="discoverHeroContent">
+                <h1 className="skills-discover__title" data-openbitfun-scene="skills" data-openbitfun-part="discoverTitle">{t('matrix.title')}</h1>
+                <p className="skills-discover__subtitle" data-openbitfun-scene="skills" data-openbitfun-part="discoverSubtitle">
                   {t('matrix.subtitle')}
                 </p>
-                <div className="skills-discover__search-wrapper" data-openbitfun-scene="skills" data-openbitfun-part="matrixSearch">
+                <div className="skills-discover__search-wrapper" data-openbitfun-scene="skills" data-openbitfun-part="discoverSearch">
                   <SearchField
                     className="skills-discover__search"
                     value={matrix.keyword}
