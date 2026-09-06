@@ -52,7 +52,6 @@
     "empty": "No industry agents available",
     "workflowLabel": "Built-in domain workflow",
     "qtMigration": {
-      "name": "QT Migration Expert",
       "description": "Qt 5.12/5.15 to HarmonyOS migration: assess -> 8-step code migration -> build -> deploy -> verify -> issue-fixing loop, with fully visualized task progress."
     }
   },
