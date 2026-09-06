@@ -522,7 +522,7 @@ where
     if let Some(workspace) =
         remote_session_restore_target(session_exists, binding_workspace.as_ref())
     {
-        let _ = host.restore_remote_session(&session_id, workspace).await;
+        host.restore_remote_session(&session_id, workspace).await?;
     }
 
     host.prewarm_remote_terminal(RemoteTerminalPrewarmRequest {

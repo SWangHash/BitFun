@@ -1431,10 +1431,10 @@ fn remote_connect_dialog_submit_outcome_builder_preserves_scheduler_shape() {
 }
 
 #[tokio::test]
-async fn remote_connect_dialog_runtime_keeps_legacy_restore_failure_tolerance() {
+async fn remote_connect_dialog_runtime_stops_before_prewarm_when_restore_fails() {
     let host = RecordingDialogHost::new(false, Some("D:/workspace/project")).with_restore_error();
 
-    submit_remote_dialog(
+    let error = submit_remote_dialog(
         &host,
         RemoteDialogSubmissionRequest {
             session_id: "session-1".to_string(),
@@ -1447,7 +1447,8 @@ async fn remote_connect_dialog_runtime_keeps_legacy_restore_failure_tolerance() 
         },
     )
     .await
-    .expect("restore failure is still tolerated before scheduler submit");
+    .expect_err("restore failure must not submit against a partially restored session");
+    assert_eq!(error, "restore failed");
 
     assert_eq!(
         host.events(),
@@ -1456,11 +1457,9 @@ async fn remote_connect_dialog_runtime_keeps_legacy_restore_failure_tolerance() 
             "resolve_workspace:session-1",
             "session_exists:session-1",
             "restore:session-1:D:/workspace/project:<none>:<none>",
-            "prewarm:session-1:D:/workspace/project",
-            "submit:session-1",
         ]
     );
-    assert_eq!(host.submitted().turn_id, "turn-1");
+    assert!(host.submitted.lock().unwrap().is_none());
 }
 
 #[tokio::test]
