@@ -62,9 +62,8 @@ const MiniAppEntry: React.FC<MiniAppEntryProps> = ({
         }}
         role="button"
         tabIndex={0}
-        data-testid="nav-miniapp-entry"
-        aria-label={t('scenes.miniApps')}
         data-testid="nav-miniapps-entry"
+        aria-label={t('scenes.miniApps')}
       >
         <span className="openbitfun-nav-panel__miniapp-entry-main">
           <span className="openbitfun-nav-panel__miniapp-entry-icon" aria-hidden="true">
