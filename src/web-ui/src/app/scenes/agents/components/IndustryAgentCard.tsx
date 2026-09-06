@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Bot } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/component-library';
@@ -8,7 +8,7 @@ import { getCardGradient } from '@/shared/utils/cardGradients';
 import './AgentCard.scss';
 
 /**
- * Industry agent card — renders a real backend-registered agent (e.g.
+ * Industry agent card 鈥?renders a real backend-registered agent (e.g.
  * QtMigration) with a vertical-domain presentation: localized name/description
  * and an "industry agent" badge. Reuses `.agent-card` styling and the shared
  * AGENT_ICON_MAP icon source so it renders consistently with AgentCard.
@@ -30,8 +30,8 @@ const IndustryAgentCard: React.FC<IndustryAgentCardProps> = ({
 
   return (
     <div
-      data-bf-component="industry-agent-card"
-      data-bf-part="root"
+      data-openbitfun-component="industry-agent-card"
+      data-openbitfun-part="root"
       className="agent-card"
       style={{
         '--surface-stagger-index': index,
@@ -46,32 +46,32 @@ const IndustryAgentCard: React.FC<IndustryAgentCardProps> = ({
       data-agent-id={agent.id}
       data-agent-name={agent.name}
     >
-      <div className="agent-card__header" data-bf-component="industry-agent-card" data-bf-part="header">
-        <div className="agent-card__icon-area" data-bf-component="industry-agent-card" data-bf-part="iconArea">
-          <div className="agent-card__icon" data-bf-component="industry-agent-card" data-bf-part="icon">
+      <div className="agent-card__header" data-openbitfun-component="industry-agent-card" data-openbitfun-part="header">
+        <div className="agent-card__icon-area" data-openbitfun-component="industry-agent-card" data-openbitfun-part="iconArea">
+          <div className="agent-card__icon" data-openbitfun-component="industry-agent-card" data-openbitfun-part="icon">
             <Icon size={20} strokeWidth={1.6} />
           </div>
         </div>
-        <div className="agent-card__header-info" data-bf-component="industry-agent-card" data-bf-part="headerInfo">
-          <div className="agent-card__title-row" data-bf-component="industry-agent-card" data-bf-part="titleRow">
-            <span className="agent-card__name" data-bf-component="industry-agent-card" data-bf-part="name" data-testid="agent-list-item-title">
+        <div className="agent-card__header-info" data-openbitfun-component="industry-agent-card" data-openbitfun-part="headerInfo">
+          <div className="agent-card__title-row" data-openbitfun-component="industry-agent-card" data-openbitfun-part="titleRow">
+            <span className="agent-card__name" data-openbitfun-component="industry-agent-card" data-openbitfun-part="name" data-testid="agent-list-item-title">
               {t('industryAgentsZone.qtMigration.name')}
             </span>
-            <div className="agent-card__badges" data-bf-component="industry-agent-card" data-bf-part="badges">
+            <div className="agent-card__badges" data-openbitfun-component="industry-agent-card" data-openbitfun-part="badges">
               <Badge variant="accent">{t('industryAgentsZone.badge')}</Badge>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="agent-card__body" data-bf-component="industry-agent-card" data-bf-part="body">
-        <p className="agent-card__desc" data-bf-component="industry-agent-card" data-bf-part="description" data-testid="agent-list-item-description">
+      <div className="agent-card__body" data-openbitfun-component="industry-agent-card" data-openbitfun-part="body">
+        <p className="agent-card__desc" data-openbitfun-component="industry-agent-card" data-openbitfun-part="description" data-testid="agent-list-item-description">
           {t('industryAgentsZone.qtMigration.description')}
         </p>
       </div>
 
-      <div className="agent-card__footer" data-bf-component="industry-agent-card" data-bf-part="footer">
-        <div className="agent-card__meta" data-bf-component="industry-agent-card" data-bf-part="meta">
+      <div className="agent-card__footer" data-openbitfun-component="industry-agent-card" data-openbitfun-part="footer">
+        <div className="agent-card__meta" data-openbitfun-component="industry-agent-card" data-openbitfun-part="meta">
           <span className="agent-card__meta-item">
             <Icon size={12} />
             {t('industryAgentsZone.workflowLabel')}

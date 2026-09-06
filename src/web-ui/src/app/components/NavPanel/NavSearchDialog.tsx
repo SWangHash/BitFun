@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
 import { FolderOpen, User, MessageSquare } from 'lucide-react';
@@ -62,7 +62,7 @@ const NavSearchDialog: React.FC<NavSearchDialogProps> = ({ open, onClose }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [flowChatState, setFlowChatState] = useState<FlowChatState>(() => flowChatStore.getState());
-  /** Persisted session rows for opened workspaces — filled when dialog opens (search filters client-side). */
+  /** Persisted session rows for opened workspaces 鈥?filled when dialog opens (search filters client-side). */
   const [persistedOpenWorkspaceSessions, setPersistedOpenWorkspaceSessions] = useState<
     Array<{ meta: SessionMetadata; workspace: WorkspaceInfo }>
   >([]);
@@ -275,7 +275,7 @@ const NavSearchDialog: React.FC<NavSearchDialogProps> = ({ open, onClose }) => {
     }
   }, [onClose, setActiveWorkspace, setSelectedAssistantWorkspaceId, openNurseryAssistant, switchLeftPanelTab, openScene]);
 
-  // Passed to Search component's onKeyDown — called before its built-in handling.
+  // Passed to Search component's onKeyDown 鈥?called before its built-in handling.
   // Use e.preventDefault() to suppress Search's own Enter/Escape logic when needed.
   const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
@@ -322,12 +322,12 @@ const NavSearchDialog: React.FC<NavSearchDialogProps> = ({ open, onClose }) => {
     const startIndex = globalIndex;
     globalIndex += items.length;
     return (
-      <div data-bf-component="nav-search-dialog" data-bf-part="group" className="bitfun-nav-search-dialog__group" key={groupLabel}>
-        <div data-bf-component="nav-search-dialog" data-bf-part="groupLabel" className="bitfun-nav-search-dialog__group-label">{groupLabel}</div>
+      <div data-openbitfun-component="nav-search-dialog" data-openbitfun-part="group" className="bitfun-nav-search-dialog__group" key={groupLabel}>
+        <div data-openbitfun-component="nav-search-dialog" data-openbitfun-part="groupLabel" className="bitfun-nav-search-dialog__group-label">{groupLabel}</div>
         {items.map((item, i) => {
           const idx = startIndex + i;
           return (
-            <button data-bf-component="nav-search-dialog" data-bf-part="item" data-bf-state={idx === activeIndex ? 'active' : undefined}
+            <button data-openbitfun-component="nav-search-dialog" data-openbitfun-part="item" data-openbitfun-state={idx === activeIndex ? 'active' : undefined}
               key={item.id}
               data-testid={`nav-search-result-${item.id}`}
               type="button"
@@ -335,11 +335,11 @@ const NavSearchDialog: React.FC<NavSearchDialogProps> = ({ open, onClose }) => {
               onMouseEnter={() => setActiveIndex(idx)}
               onClick={() => void handleSelect(item)}
             >
-              <span data-bf-component="nav-search-dialog" data-bf-part="itemIcon" className="bitfun-nav-search-dialog__item-icon">{icon(item)}</span>
-              <span data-bf-component="nav-search-dialog" data-bf-part="itemContent" className="bitfun-nav-search-dialog__item-content">
-                <span data-bf-component="nav-search-dialog" data-bf-part="itemLabel" className="bitfun-nav-search-dialog__item-label">{item.label}</span>
+              <span data-openbitfun-component="nav-search-dialog" data-openbitfun-part="itemIcon" className="bitfun-nav-search-dialog__item-icon">{icon(item)}</span>
+              <span data-openbitfun-component="nav-search-dialog" data-openbitfun-part="itemContent" className="bitfun-nav-search-dialog__item-content">
+                <span data-openbitfun-component="nav-search-dialog" data-openbitfun-part="itemLabel" className="bitfun-nav-search-dialog__item-label">{item.label}</span>
                 {item.sublabel && (
-                  <span data-bf-component="nav-search-dialog" data-bf-part="itemSublabel" className="bitfun-nav-search-dialog__item-sublabel">{item.sublabel}</span>
+                  <span data-openbitfun-component="nav-search-dialog" data-openbitfun-part="itemSublabel" className="bitfun-nav-search-dialog__item-sublabel">{item.sublabel}</span>
                 )}
               </span>
             </button>
@@ -350,12 +350,12 @@ const NavSearchDialog: React.FC<NavSearchDialogProps> = ({ open, onClose }) => {
   };
 
   const dialog = (
-    <div data-bf-component="nav-search-dialog" data-bf-part="root" className="bitfun-nav-search-dialog__overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div data-bf-component="nav-search-dialog" data-bf-part="card" className="bitfun-nav-search-dialog__card" ref={cardRef}>
-        <div data-bf-component="nav-search-dialog" data-bf-part="inputRow" className="bitfun-nav-search-dialog__input-row">
+    <div data-openbitfun-component="nav-search-dialog" data-openbitfun-part="root" className="bitfun-nav-search-dialog__overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div data-openbitfun-component="nav-search-dialog" data-openbitfun-part="card" className="bitfun-nav-search-dialog__card" ref={cardRef}>
+        <div data-openbitfun-component="nav-search-dialog" data-openbitfun-part="inputRow" className="bitfun-nav-search-dialog__input-row">
           <Search
-            data-bf-component="nav-search-dialog"
-            data-bf-part="search"
+            data-openbitfun-component="nav-search-dialog"
+            data-openbitfun-part="search"
             inputTestId="nav-search-input"
             ref={inputRef}
             className="bitfun-nav-search-dialog__search"
@@ -369,17 +369,17 @@ const NavSearchDialog: React.FC<NavSearchDialogProps> = ({ open, onClose }) => {
             autoFocus
           />
         </div>
-        <div data-bf-component="nav-search-dialog" data-bf-part="results" className="bitfun-nav-search-dialog__results" ref={listRef}>
+        <div data-openbitfun-component="nav-search-dialog" data-openbitfun-part="results" className="bitfun-nav-search-dialog__results" ref={listRef}>
           {results.length === 0 && !showDefaultSessionColumn ? (
-            <div data-bf-component="nav-search-dialog" data-bf-part="empty" className="bitfun-nav-search-dialog__empty">{t('nav.search.empty')}</div>
+            <div data-openbitfun-component="nav-search-dialog" data-openbitfun-part="empty" className="bitfun-nav-search-dialog__empty">{t('nav.search.empty')}</div>
           ) : (
             <>
               {renderGroup(t('nav.search.groupWorkspaces'), workspaceItems, () => <FolderOpen size={14} />)}
               {renderGroup(t('nav.search.groupAssistants'), assistantItems, () => <User size={14} />)}
               {showDefaultSessionColumn ? (
-                <div data-bf-component="nav-search-dialog" data-bf-part="group" className="bitfun-nav-search-dialog__group" key="nav-search-sessions-default">
-                  <div data-bf-component="nav-search-dialog" data-bf-part="groupLabel" className="bitfun-nav-search-dialog__group-label">{t('nav.search.groupSessions')}</div>
-                  <div data-bf-component="nav-search-dialog" data-bf-part="sessionHint" className="bitfun-nav-search-dialog__session-hint" role="status">
+                <div data-openbitfun-component="nav-search-dialog" data-openbitfun-part="group" className="bitfun-nav-search-dialog__group" key="nav-search-sessions-default">
+                  <div data-openbitfun-component="nav-search-dialog" data-openbitfun-part="groupLabel" className="bitfun-nav-search-dialog__group-label">{t('nav.search.groupSessions')}</div>
+                  <div data-openbitfun-component="nav-search-dialog" data-openbitfun-part="sessionHint" className="bitfun-nav-search-dialog__session-hint" role="status">
                     {t('nav.search.sessionSearchHintDefault')}
                   </div>
                 </div>

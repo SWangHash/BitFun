@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Files } from 'lucide-react';
 import { IconButton } from '@/component-library';
@@ -28,17 +28,17 @@ function basename(path: string): string {
  * Header button that lists files the agent wrote during the current session.
  * Sibling of `SessionTreePopover` in the FlowChat header right-actions area.
  *
- * Only renders on the OpenHarmony host — `isOpenHarmonyRuntime()` returns
+ * Only renders on the OpenHarmony host 鈥?`isOpenHarmonyRuntime()` returns
  * false everywhere else, so the button stays hidden and the file-list fetch
  * is the only cost on unsupported runtimes. The file list itself comes from
  * the existing snapshot system (`useSnapshotState`), which already tracks
  * agent write_file / edit_file / create_file operations, so no new tracking
  * is introduced.
  *
- * UX (current scope — list-only):
- *  1. Click the files icon → popover lists session files (basename + path).
+ * UX (current scope 鈥?list-only):
+ *  1. Click the files icon 鈫?popover lists session files (basename + path).
  *
- * The per-file share actions (隔空传送 / 碰一碰) are intentionally not
+ * The per-file share actions (闅旂┖浼犻€?/ 纰颁竴纰? are intentionally not
  * surfaced here. The underlying `share_file_ohos` ArkTS bridge and the
  * `shareLocalFile` helper in `services/fileShare` remain available for
  * when the share-mode UX is re-introduced.
@@ -119,7 +119,7 @@ export const SessionShareFilesButton: React.FC<SessionShareFilesButtonProps> = (
   const buttonLabel = t('flow-chat:sessionShare.button');
 
   return (
-    <div className="session-share-files-button" data-bf-component="flow-chat-header" data-bf-part="shareFiles">
+    <div className="session-share-files-button" data-openbitfun-component="flow-chat-header" data-openbitfun-part="shareFiles">
       <IconButton
         ref={triggerRef}
         className={[
@@ -134,8 +134,8 @@ export const SessionShareFilesButton: React.FC<SessionShareFilesButtonProps> = (
         aria-expanded={isOpen}
         onClick={handleTriggerClick}
         data-testid="flowchat-header-session-share-files"
-        data-bf-component="flow-chat-header"
-        data-bf-part="shareFilesTrigger"
+        data-openbitfun-component="flow-chat-header"
+        data-openbitfun-part="shareFilesTrigger"
       >
         <Files size={14} />
       </IconButton>
@@ -147,13 +147,13 @@ export const SessionShareFilesButton: React.FC<SessionShareFilesButtonProps> = (
           style={{ top: panelPos.top, left: panelPos.left }}
           role="dialog"
           aria-label={buttonLabel}
-          data-bf-component="flow-chat-header"
-          data-bf-part="shareFilesPanel"
+          data-openbitfun-component="flow-chat-header"
+          data-openbitfun-part="shareFilesPanel"
         >
           <div
             className="session-share-files-button__panel-header"
-            data-bf-component="flow-chat-header"
-            data-bf-part="shareFilesHeader"
+            data-openbitfun-component="flow-chat-header"
+            data-openbitfun-part="shareFilesHeader"
           >
             <span className="session-share-files-button__panel-title">
               {t('flow-chat:sessionShare.title')}
@@ -164,8 +164,8 @@ export const SessionShareFilesButton: React.FC<SessionShareFilesButtonProps> = (
           </div>
           <ul
             className="session-share-files-button__file-list"
-            data-bf-component="flow-chat-header"
-            data-bf-part="shareFilesList"
+            data-openbitfun-component="flow-chat-header"
+            data-openbitfun-part="shareFilesList"
           >
             {files.map(file => {
               const name = basename(file.filePath);
@@ -173,8 +173,8 @@ export const SessionShareFilesButton: React.FC<SessionShareFilesButtonProps> = (
                 <li
                   key={file.filePath}
                   className="session-share-files-button__file-item"
-                  data-bf-component="flow-chat-header"
-                  data-bf-part="shareFilesItem"
+                  data-openbitfun-component="flow-chat-header"
+                  data-openbitfun-part="shareFilesItem"
                 >
                   <div className="session-share-files-button__file-name" title={file.filePath}>
                     {name}
