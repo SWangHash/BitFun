@@ -263,6 +263,35 @@ impl PathManager {
         self.user_skills_dir().join(".system")
     }
 
+    /// Get the shared Qt migration resource root.
+    pub fn qt_migration_root_dir(&self) -> PathBuf {
+        Self::env_path("OPENBITFUN_QT_MIGRATION_ROOT").unwrap_or_else(|| {
+            self.user_skills_dir()
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| self.user_root.clone())
+                .join("data")
+                .join("qt-migration")
+        })
+    }
+
+    /// Get installed Qt migration toolchains shared across workspaces.
+    pub fn qt_migration_toolchains_dir(&self) -> PathBuf {
+        self.qt_migration_root_dir().join("toolchains")
+    }
+
+    /// Get installed Qt migration templates shared across workspaces.
+    pub fn qt_migration_templates_dir(&self) -> PathBuf {
+        self.qt_migration_root_dir().join("templates")
+    }
+
+    /// Get temporary Qt migration downloads.
+    pub fn qt_migration_downloads_dir(&self) -> PathBuf {
+        self.cache_root()
+            .join("qt-migration")
+            .join("downloads")
+    }
+
     /// Get cache root directory: ~/.config/openbitfun/cache/
     pub fn cache_root(&self) -> PathBuf {
         self.user_root.join("cache")
