@@ -45,7 +45,10 @@ import { isTauriRuntime } from '@/infrastructure/runtime';
 import { useSettingsStore } from '@/app/scenes/settings/settingsStore';
 import { useSceneStore } from '@/app/stores/sceneStore';
 import type { SettingsPageId } from '@/app/scenes/settings/settingsTypes';
-import { formatElapsedTime } from './actionBarFormatting';
+import {
+  classifyReviewActionErrorMessage,
+  formatElapsedTime,
+} from './actionBarFormatting';
 import { CapacityQueueNotice } from './CapacityQueueNotice';
 import { DecisionExecutionGate } from './DecisionExecutionGate';
 import { buildInterruptionDiagnostics } from './interruptionDiagnostics';
@@ -829,6 +832,21 @@ export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({ childSessionId
     }
   }, []);
 
+  const displayErrorMessage = useMemo(() => {
+    if (!errorMessage) return null;
+
+    const presentation = classifyReviewActionErrorMessage(errorMessage);
+    if (presentation.kind === 'raw') {
+      return presentation.message;
+    }
+
+    return presentation.reason
+      ? t('deepReviewActionBar.actionStartFailedWithReason', {
+        reason: presentation.reason,
+      })
+      : t('deepReviewActionBar.actionStartFailed');
+  }, [errorMessage, t]);
+
   const handleCopyDiagnostics = useCallback(async () => {
     const detail = interruption?.errorDetail;
     if (!detail) return;
@@ -924,7 +942,7 @@ export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({ childSessionId
         PhaseIcon={PhaseIcon}
         phaseIconClass={phaseConfig.iconClass}
         phaseTitle={phaseTitle}
-        errorMessage={errorMessage}
+        errorMessage={displayErrorMessage}
         minimizeLabel={t('deepReviewActionBar.minimize')}
         onMinimize={handleMinimize}
       />
