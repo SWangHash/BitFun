@@ -44,8 +44,14 @@ export function remotePairingFailureReason(
     : null;
 }
 
+/** Fresh results use Rust's externally tagged enum; restored status uses a Debug string. */
+export type RemoteConnectionMethod =
+  | string
+  | { lan: { ip: string | null } }
+  | { custom_server: { url: string } };
+
 export interface ConnectionResult {
-  method: string;
+  method: RemoteConnectionMethod;
   qr_data: string | null;
   qr_svg: string | null;
   qr_url: string | null;
@@ -62,6 +68,8 @@ export interface RemoteConnectStatus {
   peer_user_id: string | null;
   /** Added by hosts that track authenticated account-route control heartbeats. */
   account_control_connected?: boolean;
+  /** Relay of the live account route; independent of the temporary QR invitation. */
+  account_control_relay_url?: string | null;
   bot_connected: string | null;
   bot_verbose_mode: boolean;
 }

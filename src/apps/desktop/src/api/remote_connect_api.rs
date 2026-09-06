@@ -1108,34 +1108,22 @@ fn is_successful_control_ping(
     response: &serde_json::Value,
 ) -> bool {
     use openbitfun_core::service::remote_connect::remote_server::RemoteCommand;
-    match command {
-        RemoteCommand::Ping => response.get("resp").and_then(|v| v.as_str()) == Some("pong"),
-        RemoteCommand::HostInvoke { command, .. } if command == "peer_mode_ping" => {
-            response.get("resp").and_then(|v| v.as_str()) == Some("host_invoke_result")
-                && response.get("ok").and_then(|v| v.as_bool()) == Some(true)
-        }
-        _ => false,
-    }
+    // The mobile/browser connection-health loop pings its selected target.
+    // `peer_mode_ping` is also used before attaching or switching a device;
+    // accepting that capability probe would manufacture a mobile connection.
+    matches!(command, RemoteCommand::Ping)
+        && response.get("resp").and_then(|v| v.as_str()) == Some("pong")
 }
 
-fn connection_method_matches_account_relay(
-    method: Option<&ConnectionMethod>,
-    relay_url: &str,
-) -> bool {
-    let method_url = match method {
-        Some(ConnectionMethod::OpenBitFunServer) => {
-            RemoteConnectConfig::default().openbitfun_server_url
-        }
-        Some(ConnectionMethod::CustomServer { url }) => url.clone(),
-        _ => return false,
-    };
-    match (
-        normalize_relay_url(&method_url),
-        normalize_relay_url(relay_url),
-    ) {
-        (Ok(method_url), Ok(account_url)) => method_url == account_url,
-        _ => false,
-    }
+async fn account_control_relay_url(now: std::time::Instant) -> Option<String> {
+    let generation = account_context_generation();
+    let (session, relay_url) = read_account_context_for_generation(generation).await.ok()?;
+    let owner = device_routing_owner_for_account(generation, &session.token)?;
+    // Account control outlives the temporary QR invitation. Its own route and
+    // heartbeat lease are authoritative even when the room has been stopped
+    // or a different relay/LAN invitation is currently open.
+    (has_recent_control_ping(&owner, now) && account_context_is_current(generation))
+        .then_some(relay_url)
 }
 
 fn device_routing_owner_is_registered(owner: &DeviceRoutingOwner) -> bool {
@@ -1791,10 +1779,13 @@ pub struct RemoteConnectStatusResponse {
     pub active_method: Option<String>,
     pub peer_device_name: Option<String>,
     pub peer_user_id: Option<String>,
-    /// A browser/phone has reached this host through the active account relay.
-    /// This does not alter the independent QR-room pairing state.
+    /// A browser/phone has reached this host through its authenticated account route.
+    /// This is independent of the temporary QR-room invitation and pairing state.
     #[serde(default)]
     pub account_control_connected: bool,
+    /// Source of the live account control channel, separate from `active_method`.
+    #[serde(default)]
+    pub account_control_relay_url: Option<String>,
     /// Independent bot connection info — e.g. "Telegram(7096812005)".
     /// Present when a bot is active, regardless of relay pairing state.
     pub bot_connected: Option<String>,
@@ -2173,13 +2164,7 @@ pub async fn remote_connect_status() -> Result<RemoteConnectStatusResponse, Stri
     let peer_user_id = service.trusted_mobile_user_id().await;
     let bot_connected = service.bot_connected_info().await;
     let bot_verbose_mode = bot::load_bot_persistence().verbose_mode;
-    let account_control_connected = if let Ok((session, relay_url)) = read_account_context().await {
-        connection_method_matches_account_relay(method.as_ref(), &relay_url)
-            && device_routing_owner_for_account(account_context_generation(), &session.token)
-                .is_some_and(|owner| has_recent_control_ping(&owner, std::time::Instant::now()))
-    } else {
-        false
-    };
+    let account_control_relay_url = account_control_relay_url(std::time::Instant::now()).await;
 
     Ok(RemoteConnectStatusResponse {
         is_connected: state == PairingState::Connected,
@@ -2187,7 +2172,8 @@ pub async fn remote_connect_status() -> Result<RemoteConnectStatusResponse, Stri
         active_method: method.map(|m| format!("{m:?}")),
         peer_device_name: peer,
         peer_user_id,
-        account_control_connected,
+        account_control_connected: account_control_relay_url.is_some(),
+        account_control_relay_url,
         bot_connected,
         bot_verbose_mode,
     })
@@ -4804,7 +4790,7 @@ mod sync_state_tests {
             command: "peer_mode_ping".into(),
             args: serde_json::json!({}),
         };
-        assert!(is_successful_control_ping(
+        assert!(!is_successful_control_ping(
             &peer_ping,
             &serde_json::json!({"resp": "host_invoke_result", "ok": true})
         ));
@@ -4869,33 +4855,56 @@ mod sync_state_tests {
         assert!(!has_recent_control_ping(&second, now));
     }
 
-    #[test]
-    fn account_control_status_is_scoped_to_the_invitation_relay() {
-        let official = RemoteConnectConfig::default().openbitfun_server_url;
-        assert!(connection_method_matches_account_relay(
-            Some(&ConnectionMethod::OpenBitFunServer),
-            &official
-        ));
-        let custom = ConnectionMethod::CustomServer {
-            url: "https://relay.example/base/".into(),
-        };
-        assert!(connection_method_matches_account_relay(
-            Some(&custom),
-            "https://relay.example/base"
-        ));
-        assert!(!connection_method_matches_account_relay(
-            Some(&custom),
-            "https://other.example/base"
-        ));
-        assert!(!connection_method_matches_account_relay(
-            Some(&custom),
-            "https://relay.example/other"
-        ));
-        assert!(!connection_method_matches_account_relay(
-            Some(&ConnectionMethod::Lan { ip: None }),
-            &official
-        ));
-        assert!(!connection_method_matches_account_relay(None, &official));
+    #[tokio::test(flavor = "current_thread")]
+    async fn account_control_status_uses_its_own_route_without_a_room_invitation() {
+        use openbitfun_services_integrations::remote_connect::relay_client::RELAY_INBOUND_IDLE_TIMEOUT;
+        let _test_guard = ACCOUNT_CONTEXT_TEST_LOCK.lock().await;
+        let relay_url = "https://relay.example/base/";
+        *get_account_context().write().await = Some(AccountContextState {
+            session: AccountSession {
+                token: "control-token".into(),
+                user_id: "control-user".into(),
+                master_key: [7; 32],
+            },
+            relay_url: relay_url.into(),
+        });
+        let owner = new_device_routing_owner(account_context_generation(), "control-token", 1);
+        install_device_routing_owner(owner.clone());
+        let now = std::time::Instant::now();
+        assert_eq!(
+            account_control_relay_url(now).await,
+            None,
+            "login alone is not a connection"
+        );
+
+        record_control_ping_if_owner(&owner, 0, now);
+        assert_eq!(
+            account_control_relay_url(now).await.as_deref(),
+            Some(relay_url)
+        );
+        assert_eq!(
+            account_control_relay_url(now + RELAY_INBOUND_IDLE_TIMEOUT).await,
+            None
+        );
+        clear_control_ping_if_owner(&owner);
+        assert_eq!(account_control_relay_url(now).await, None);
+
+        let reconnect_generation = control_ping_generation(&owner).unwrap();
+        record_control_ping_if_owner(&owner, reconnect_generation, now);
+        assert_eq!(
+            account_control_relay_url(now).await.as_deref(),
+            Some(relay_url)
+        );
+        let transition = AccountContextTransitionPermit::begin();
+        assert_eq!(account_control_relay_url(now).await, None);
+        drop(transition);
+        assert_eq!(
+            account_control_relay_url(now).await,
+            None,
+            "a previous account route cannot revive after a transition"
+        );
+        clear_device_routing_state();
+        *get_account_context().write().await = None;
     }
 
     #[test]
@@ -4912,7 +4921,9 @@ mod sync_state_tests {
         let mut status: RemoteConnectStatusResponse =
             serde_json::from_value(legacy.clone()).unwrap();
         assert!(!status.account_control_connected);
+        assert!(status.account_control_relay_url.is_none());
         status.account_control_connected = true;
+        status.account_control_relay_url = Some("https://relay.example/base".into());
         let mut serialized = serde_json::to_value(&status).unwrap();
         assert_eq!(serialized["pairing_state"], "waiting_for_scan");
         assert_eq!(serialized["is_connected"], false);
@@ -4922,6 +4933,13 @@ mod sync_state_tests {
                 .unwrap()
                 .remove("account_control_connected"),
             Some(serde_json::json!(true))
+        );
+        assert_eq!(
+            serialized
+                .as_object_mut()
+                .unwrap()
+                .remove("account_control_relay_url"),
+            Some(serde_json::json!("https://relay.example/base"))
         );
         assert_eq!(serialized, legacy);
     }
