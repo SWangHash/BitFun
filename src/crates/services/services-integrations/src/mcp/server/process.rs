@@ -385,6 +385,14 @@ impl MCPServerProcess {
         *last_error_message = error;
     }
 
+    /// Force-set the process status. Used by the reconnect monitor to override
+    /// `Failed` with `Reconnecting` after a reconnect attempt fails, so the UI
+    /// shows "Reconnecting" instead of "Failed" while the monitor keeps retrying.
+    pub async fn force_status(&self, status: MCPServerStatus) {
+        let mut current_status = self.status.write().await;
+        *current_status = status;
+    }
+
     /// Gets status.
     pub async fn status(&self) -> MCPServerStatus {
         *self.status.read().await

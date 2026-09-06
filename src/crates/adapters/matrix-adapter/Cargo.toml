@@ -9,11 +9,11 @@ description = "OpenHarmony Matrix skill market adapter for BitFun (protocol tran
 path = "src/lib.rs"
 
 [dependencies]
-# HTTP client (json + native-tls + stream are the only features this crate
+# HTTP client (json + rustls + stream are the only features this crate
 # relies on; workspace = true inherits the broader workspace version pin, and
 # per repo policy this crate declares only the slices it actually uses since
 # the workspace disables reqwest defaults).
-reqwest = { workspace = true, features = ["json", "native-tls", "stream"] }
+reqwest = { workspace = true, features = ["json", "rustls-no-provider", "stream"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
