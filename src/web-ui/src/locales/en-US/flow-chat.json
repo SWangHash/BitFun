@@ -177,7 +177,7 @@
     },
     "loading": {
       "title": "Generating usage report",
-      "description": "Reading local session records and preparing a privacy-safe summary.",
+      "description": "Reading session records and preparing a privacy-safe summary.",
       "steps": {
         "collecting": "Reading session records",
         "tokens": "Summarizing token and tool activity",

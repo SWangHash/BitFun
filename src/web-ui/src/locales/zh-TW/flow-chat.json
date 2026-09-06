@@ -177,7 +177,7 @@
     },
     "loading": {
       "title": "正在產生用量報告",
-      "description": "正在讀取本機工作階段記錄，並整理隱私安全的統計摘要。",
+      "description": "正在讀取工作階段記錄，並整理隱私安全的統計摘要。",
       "steps": {
         "collecting": "讀取工作階段記錄",
         "tokens": "彙總 Token 和工具活動",

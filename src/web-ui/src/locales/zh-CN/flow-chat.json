@@ -177,7 +177,7 @@
     },
     "loading": {
       "title": "正在生成用量报告",
-      "description": "正在读取本地会话记录，并整理隐私安全的统计摘要。",
+      "description": "正在读取会话记录，并整理隐私安全的统计摘要。",
       "steps": {
         "collecting": "读取会话记录",
         "tokens": "汇总 Token 和工具活动",
