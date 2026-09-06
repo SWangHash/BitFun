@@ -5,7 +5,7 @@ export const askUserQuestionCardAppearanceDescriptor: AppearanceSurfaceDescripto
   parts: [
     { id: 'root' }, { id: 'header' }, { id: 'questions' }, { id: 'question' },
     { id: 'options' }, { id: 'option' }, { id: 'customInput' }, { id: 'footer' },
-    { id: 'status' }, { id: 'summary' }, { id: 'loading' }, { id: 'error' },
+    { id: 'status' }, { id: 'summary' }, { id: 'loading' },
     { id: 'browse' }, { id: 'intro' }, { id: 'hint' },
   ],
   states: [
