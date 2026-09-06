@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use super::skills::{get_skill_registry, render_loaded_skill_for_assistant};
 use crate::agentic::tools::implementations::analyze_migration_request_tool::AnalyzeMigrationRequestTool;
 use openbitfun_agent_runtime::intake_state::{IntakeStatus, LoadedSkillReceipt, OHOS_QT_SKILLS_DIR};
-use openbitfun_agent_runtime::skills::BITFUN_SYSTEM_SKILL_SLOT;
+use openbitfun_agent_runtime::skills::OPENBITFUN_SYSTEM_SKILL_SLOT;
 
 /// Skill tool
 pub struct SkillTool;
@@ -267,7 +267,7 @@ impl Tool for SkillTool {
                         })
                 });
             if !enabled {
-                return Err(BitFunError::tool(
+                return Err(OpenBitFunError::tool(
                     "ohos-qt-skills is available only for a classified Qt to HarmonyOS migration request".to_string(),
                 ));
             }
@@ -395,7 +395,7 @@ async fn record_qt_migration_skill_receipt(
     content: &str,
     context: &ToolUseContext,
 ) {
-    if dir_name != OHOS_QT_SKILLS_DIR || source_slot != BITFUN_SYSTEM_SKILL_SLOT {
+    if dir_name != OHOS_QT_SKILLS_DIR || source_slot != OPENBITFUN_SYSTEM_SKILL_SLOT {
         return;
     }
     let Some(session_id) = context.session_id.as_deref() else {
