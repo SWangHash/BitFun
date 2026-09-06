@@ -60,6 +60,8 @@ export interface RemoteConnectStatus {
   active_method: string | null;
   peer_device_name: string | null;
   peer_user_id: string | null;
+  /** Added by hosts that track authenticated account-route control heartbeats. */
+  account_control_connected?: boolean;
   bot_connected: string | null;
   bot_verbose_mode: boolean;
 }

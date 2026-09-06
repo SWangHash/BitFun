@@ -1003,6 +1003,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           qrUrl={connectionResult.qr_url}
           pairingCode={connectionResult.bot_pairing_code}
           owner={connectionOwner === 'bot' ? 'bot' : 'network'}
+          connected={connectionOwner === 'network' && status?.account_control_connected === true}
           copied={qrCopied}
           onCopyUrl={handleCopyPairingUrl}
         />

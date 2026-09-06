@@ -6,12 +6,13 @@ interface RemotePairingCardProps {
   qrUrl?: string | null;
   pairingCode?: string | null;
   owner: 'bot' | 'network';
+  connected?: boolean;
   copied: boolean;
   onCopyUrl: () => void | Promise<void>;
 }
 
 /** One shared pending state for chat-app codes, network QR links, and restored connections. */
-export function RemotePairingCard({ qrUrl, pairingCode, owner, copied, onCopyUrl }: RemotePairingCardProps) {
+export function RemotePairingCard({ qrUrl, pairingCode, owner, connected = false, copied, onCopyUrl }: RemotePairingCardProps) {
   const { t } = useI18n('common');
   const hasCopiedUrl = Boolean(qrUrl && copied);
 
@@ -43,10 +44,12 @@ export function RemotePairingCard({ qrUrl, pairingCode, owner, copied, onCopyUrl
       )}
       <div className="openbitfun-remote-connect__pairing-details">
         <div className="openbitfun-remote-connect__pairing-status" role="status">
-          <StatusPill tone={hasCopiedUrl ? 'success' : 'warning'}>
+          <StatusPill tone={hasCopiedUrl || connected ? 'success' : 'warning'}>
             {hasCopiedUrl
               ? t('remoteConnect.urlCopied')
-              : owner === 'bot'
+              : connected
+                ? t('remoteConnect.stateConnected')
+                : owner === 'bot'
                 ? t('remoteConnect.stateWaitingBot')
                 : t('remoteConnect.stateWaiting')}
           </StatusPill>

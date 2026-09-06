@@ -38,7 +38,7 @@ const RELAY_DIAL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1
 /// Heartbeats are sent every 30 seconds. Two missed acknowledgements plus
 /// scheduling/network slack indicates a half-open socket that should be
 /// replaced even when the OS has not surfaced a read error yet.
-const RELAY_INBOUND_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(75);
+pub const RELAY_INBOUND_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(75);
 
 /// Messages in the relay protocol (both directions).
 #[derive(Debug, Clone, Serialize, Deserialize)]
