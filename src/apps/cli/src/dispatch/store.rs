@@ -178,6 +178,20 @@ pub(crate) struct StoredFollowUpTurn {
 }
 
 impl StoredFollowUpTurn {
+    fn from_request(request: &DispatchContinueRequest) -> Self {
+        Self {
+            turn_id: request.turn_id.clone(),
+            prompt: request.prompt.clone(),
+            display_content: request.display_content.clone(),
+            model: request.model.clone(),
+            reasoning_preset: request.reasoning_preset.clone(),
+            approval_policy: request.approval_policy,
+            kind: request.kind,
+            attachments: request.attachments.clone(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        }
+    }
+
     /// A retried turnId must carry the same submission, options included.
     fn same_submission(&self, other: &Self) -> bool {
         self.prompt == other.prompt
@@ -385,6 +399,7 @@ impl DispatchStore {
         let _lock = JobLock::exclusive(&job_dir.join(".lock"))?;
         let mut current = self.load_state_unlocked(&job_dir)?;
         if current.state.is_terminal() {
+            self.settle_unsubmitted_follow_ups_unlocked(&job_dir, &current)?;
             return Ok((current, false));
         }
         if current.state == state {
@@ -415,6 +430,9 @@ impl DispatchStore {
         }
         atomic_write_json(&job_dir.join(STATE_FILE), &current)?;
         self.append_event_unlocked(&job_dir, &DispatchEvent::job_state(state, message))?;
+        if state.is_terminal() {
+            self.settle_unsubmitted_follow_ups_unlocked(&job_dir, &current)?;
+        }
         Ok((current, true))
     }
 
@@ -721,6 +739,74 @@ impl DispatchStore {
         }
     }
 
+    /// A retry of an accepted turn keeps its identity even if model readiness
+    /// or the target catalog has changed since its first acceptance.
+    pub(crate) fn load_existing_follow_up_for_intent(
+        &self,
+        request: &DispatchContinueRequest,
+    ) -> Result<Option<DispatchStateRecord>> {
+        validate_id("turnId", &request.turn_id)?;
+        let job_dir = self.existing_job_dir(&request.job_id)?;
+        let _lock = JobLock::shared(&job_dir.join(".lock"))?;
+        self.existing_follow_up_state_unlocked(&job_dir, &StoredFollowUpTurn::from_request(request))
+    }
+
+    fn existing_follow_up_state_unlocked(
+        &self,
+        job_dir: &Path,
+        submitted: &StoredFollowUpTurn,
+    ) -> Result<Option<DispatchStateRecord>> {
+        for directory in [CONSUMED_TURNS_DIR, PENDING_TURNS_DIR] {
+            let path = mailbox_path(job_dir, directory, &submitted.turn_id)?;
+            if let Some(existing) = read_optional_regular_json::<StoredFollowUpTurn>(&path)? {
+                if !existing.same_submission(submitted) {
+                    bail!("dispatch turnId is already bound to different content");
+                }
+                return self.load_state_unlocked(job_dir).map(Some);
+            }
+        }
+        Ok(None)
+    }
+
+    /// Keep accepted but unsubmitted prompts as consumed records with an audit
+    /// event. They belong to the run that ended, and must never displace a later
+    /// follow-up after a bootstrap failure or queued cancellation.
+    fn settle_unsubmitted_follow_ups_unlocked(
+        &self,
+        job_dir: &Path,
+        state: &DispatchStateRecord,
+    ) -> Result<()> {
+        debug_assert!(state.state.is_terminal());
+        for turn in read_json_directory::<StoredFollowUpTurn>(&job_dir.join(PENDING_TURNS_DIR))? {
+            let consumed_path = mailbox_path(job_dir, CONSUMED_TURNS_DIR, &turn.turn_id)?;
+            if let Some(consumed) =
+                read_optional_regular_json::<StoredFollowUpTurn>(&consumed_path)?
+            {
+                if !consumed.same_submission(&turn) {
+                    bail!("dispatch pending and consumed turn records conflict");
+                }
+            } else {
+                self.append_event_unlocked(
+                    job_dir,
+                    &DispatchEvent::Audit {
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        action: "followUpNotSubmitted".to_string(),
+                        details: serde_json::json!({
+                            "turnId": turn.turn_id,
+                            "terminalState": state.state,
+                            "lastError": state.last_error,
+                        }),
+                    },
+                )?;
+                write_json_if_absent_or_equal(&consumed_path, &turn)?;
+            }
+            let pending_path = mailbox_path(job_dir, PENDING_TURNS_DIR, &turn.turn_id)?;
+            fs::remove_file(&pending_path)
+                .with_context(|| format!("settle dispatch follow-up {}", pending_path.display()))?;
+        }
+        Ok(())
+    }
+
     /// Queue the next turn for a job whose previous turn has finished.
     ///
     /// This is what makes a dispatch session a conversation rather than a
@@ -734,38 +820,21 @@ impl DispatchStore {
         let job_dir = self.existing_job_dir(&request.job_id)?;
         let _lock = JobLock::exclusive(&job_dir.join(".lock"))?;
 
-        let stored = StoredFollowUpTurn {
-            turn_id: request.turn_id.clone(),
-            prompt: request.prompt.clone(),
-            display_content: request.display_content.clone(),
-            model: request.model.clone(),
-            reasoning_preset: request.reasoning_preset.clone(),
-            approval_policy: request.approval_policy,
-            kind: request.kind,
-            attachments: request.attachments.clone(),
-            created_at: chrono::Utc::now().to_rfc3339(),
-        };
+        let stored = StoredFollowUpTurn::from_request(request);
         // A retried request must not start a second turn. Both mailboxes are
         // checked because the worker may already have claimed this one.
-        let consumed_path = mailbox_path(&job_dir, CONSUMED_TURNS_DIR, &request.turn_id)?;
-        if let Some(existing) = read_optional_regular_json::<StoredFollowUpTurn>(&consumed_path)? {
-            if !existing.same_submission(&stored) {
-                bail!("dispatch turnId is already bound to different content");
-            }
-            return self.load_state_unlocked(&job_dir);
-        }
-        let pending_path = mailbox_path(&job_dir, PENDING_TURNS_DIR, &request.turn_id)?;
-        if let Some(existing) = read_optional_regular_json::<StoredFollowUpTurn>(&pending_path)? {
-            if !existing.same_submission(&stored) {
-                bail!("dispatch turnId is already bound to different content");
-            }
-            return self.load_state_unlocked(&job_dir);
+        if let Some(state) = self.existing_follow_up_state_unlocked(&job_dir, &stored)? {
+            return Ok(state);
         }
 
         let mut state = self.load_state_unlocked(&job_dir)?;
         if !state.state.is_terminal() {
             bail!("this dispatch job is still running; steer it with an appended message instead");
         }
+        // Older workers could fail before claiming a queued turn. Preserve and
+        // settle that legacy mailbox before accepting another prompt.
+        self.settle_unsubmitted_follow_ups_unlocked(&job_dir, &state)?;
+        let pending_path = mailbox_path(&job_dir, PENDING_TURNS_DIR, &request.turn_id)?;
         write_json_if_absent_or_equal(&pending_path, &stored)?;
 
         // Rewind only the run state. `started_at` is left alone so the job keeps
@@ -2436,6 +2505,162 @@ mod tests {
 
         let conflicting = continue_request("job-1", "turn-2", "something else");
         assert!(store.queue_follow_up_turn(&conflicting).is_err());
+    }
+
+    #[test]
+    fn unsubmitted_follow_up_is_preserved_when_bootstrap_fails_or_queue_is_cancelled() {
+        for terminal in [DispatchJobState::Failed, DispatchJobState::Cancelled] {
+            let (_dir, store) = store();
+            store
+                .create_job(request("job-1"), "Task".to_string())
+                .unwrap();
+            store
+                .mark_state("job-1", DispatchJobState::Succeeded, None, None)
+                .unwrap();
+            let old = continue_request("job-1", "turn-2", "preserve the unsubmitted prompt");
+            store.queue_follow_up_turn(&old).unwrap();
+            let job_dir = store.existing_job_dir("job-1").unwrap();
+            let pending_path = mailbox_path(&job_dir, PENDING_TURNS_DIR, "turn-2").unwrap();
+            let original = fs::read(&pending_path).unwrap();
+
+            store
+                .mark_state(
+                    "job-1",
+                    terminal,
+                    None,
+                    Some("target model unavailable".to_string()),
+                )
+                .unwrap();
+            assert!(store.peek_follow_up_turn("job-1").unwrap().is_none());
+            let consumed_path = mailbox_path(&job_dir, CONSUMED_TURNS_DIR, "turn-2").unwrap();
+            let preserved: StoredFollowUpTurn = read_json(&consumed_path).unwrap();
+            let original: StoredFollowUpTurn = serde_json::from_slice(&original).unwrap();
+            assert_eq!(preserved, original);
+            assert_eq!(
+                store
+                    .load_existing_follow_up_for_intent(&old)
+                    .unwrap()
+                    .unwrap()
+                    .state,
+                terminal
+            );
+            assert_eq!(store.queue_follow_up_turn(&old).unwrap().state, terminal);
+            let events = fs::read_to_string(job_dir.join(EVENTS_FILE)).unwrap();
+            let settled = events
+                .lines()
+                .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+                .filter(|event| {
+                    event.get("action").and_then(|v| v.as_str()) == Some("followUpNotSubmitted")
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(settled.len(), 1);
+            assert_eq!(settled[0]["details"]["turnId"], "turn-2");
+
+            store
+                .queue_follow_up_turn(&continue_request(
+                    "job-1",
+                    "turn-3",
+                    "run only this new prompt",
+                ))
+                .unwrap();
+            let next = store
+                .claim_follow_up_turn("job-1", "runtime-turn-3")
+                .unwrap()
+                .unwrap();
+            assert_eq!(next.turn_id, "turn-3");
+            assert_eq!(next.prompt, "run only this new prompt");
+            assert!(store
+                .queue_follow_up_turn(&continue_request("job-1", "turn-2", "changed old prompt"))
+                .is_err());
+        }
+    }
+
+    #[test]
+    fn a_new_follow_up_recovers_a_legacy_failed_unclaimed_mailbox_without_replaying_it() {
+        let (_dir, store) = store();
+        store
+            .create_job(request("job-1"), "Task".to_string())
+            .unwrap();
+        store
+            .mark_state(
+                "job-1",
+                DispatchJobState::Failed,
+                None,
+                Some("legacy bootstrap failure".to_string()),
+            )
+            .unwrap();
+        let job_dir = store.existing_job_dir("job-1").unwrap();
+        let old_payload = serde_json::json!({
+            "turnId": "legacy-turn", "prompt": "never replay this old prompt",
+            "createdAt": "2026-01-01T00:00:00Z"
+        });
+        // Older workers marked the job failed while leaving this original
+        // mailbox shape untouched. Recovery must not require manual removal.
+        let pending_path = mailbox_path(&job_dir, PENDING_TURNS_DIR, "legacy-turn").unwrap();
+        atomic_write_json(&pending_path, &old_payload).unwrap();
+
+        store
+            .queue_follow_up_turn(&continue_request("job-1", "new-turn", "new request"))
+            .unwrap();
+        assert!(!pending_path.exists());
+        let consumed_path = mailbox_path(&job_dir, CONSUMED_TURNS_DIR, "legacy-turn").unwrap();
+        let preserved: StoredFollowUpTurn = read_json(&consumed_path).unwrap();
+        let round_trip = serde_json::to_value(&preserved).unwrap();
+        for field in ["turnId", "prompt", "createdAt"] {
+            assert_eq!(round_trip[field], old_payload[field]);
+        }
+        assert_eq!(preserved.model, None);
+        assert_eq!(preserved.reasoning_preset, None);
+        assert!(preserved.attachments.is_empty());
+        let next = store
+            .claim_follow_up_turn("job-1", "runtime-new-turn")
+            .unwrap()
+            .unwrap();
+        assert_eq!(next.turn_id, "new-turn");
+        let events = fs::read_to_string(job_dir.join(EVENTS_FILE)).unwrap();
+        assert!(events.contains("followUpNotSubmitted"));
+        assert!(events.contains("legacy bootstrap failure"));
+    }
+
+    #[test]
+    fn accepted_follow_up_intent_lookup_is_read_only_and_rejects_conflicts() {
+        let (_dir, store) = store();
+        store
+            .create_job(request("job-1"), "Task".to_string())
+            .unwrap();
+        store
+            .mark_state("job-1", DispatchJobState::Succeeded, None, None)
+            .unwrap();
+        let submitted = continue_request("job-1", "turn-2", "accepted once");
+        assert!(store
+            .load_existing_follow_up_for_intent(&submitted)
+            .unwrap()
+            .is_none());
+        store.queue_follow_up_turn(&submitted).unwrap();
+        let job_dir = store.existing_job_dir("job-1").unwrap();
+        let before = fs::read(job_dir.join(EVENTS_FILE)).unwrap();
+        let state_before = fs::read(job_dir.join(STATE_FILE)).unwrap();
+        assert_eq!(
+            store
+                .load_existing_follow_up_for_intent(&submitted)
+                .unwrap()
+                .unwrap()
+                .state,
+            DispatchJobState::Queued
+        );
+        assert!(store
+            .load_existing_follow_up_for_intent(&continue_request(
+                "job-1",
+                "turn-2",
+                "different intent"
+            ))
+            .is_err());
+        assert_eq!(fs::read(job_dir.join(EVENTS_FILE)).unwrap(), before);
+        assert_eq!(fs::read(job_dir.join(STATE_FILE)).unwrap(), state_before);
+        assert_eq!(
+            store.peek_follow_up_turn("job-1").unwrap().unwrap().prompt,
+            "accepted once"
+        );
     }
 
     #[test]

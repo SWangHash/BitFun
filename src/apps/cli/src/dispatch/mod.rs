@@ -64,7 +64,7 @@ pub(crate) async fn run_dispatch_verb(
             serde_json::to_value(answer(parse(input)?)?).context("encode permission answer")
         }
         "append" => serde_json::to_value(append(parse(input)?)?).context("encode appended message"),
-        "continue" => serde_json::to_value(continue_job(parse(input)?)?)
+        "continue" => serde_json::to_value(continue_job(parse(input)?).await?)
             .context("encode follow-up turn response"),
         "query" => query(parse(input)?).await.context("encode query response"),
         "workspace-provision" => serde_json::to_value(workspace::provision(parse::<
@@ -225,7 +225,7 @@ async fn submit(mut request: DispatchSubmitRequest) -> Result<DispatchSubmitResp
 /// rewinds so a fresh worker can pick up the queued prompt. That is what makes
 /// the controller's projection a continuous transcript instead of one job per
 /// message.
-fn continue_job(request: DispatchContinueRequest) -> Result<DispatchContinueResponse> {
+async fn continue_job(request: DispatchContinueRequest) -> Result<DispatchContinueResponse> {
     if request.protocol_version != DISPATCH_PROTOCOL_VERSION {
         bail!(
             "unsupported dispatch protocolVersion {}; target requires {}",
@@ -270,7 +270,23 @@ fn continue_job(request: DispatchContinueRequest) -> Result<DispatchContinueResp
     let job = store.load_job(&request.job_id)?;
     // A worker may still be settling the previous turn's terminal state.
     reconcile_worker_liveness(&store, &request.job_id)?;
-    let state = store.queue_follow_up_turn(&request)?;
+    let state = if let Some(state) = store.load_existing_follow_up_for_intent(&request)? {
+        state
+    } else {
+        // Validate before acceptance, just as submit does. The worker still
+        // revalidates in case target configuration changes before it starts.
+        let selected_model =
+            select_ready_model(request.model.as_deref().or(job.request.model.as_deref())).await?;
+        validate_reasoning_preset(
+            &selected_model,
+            request
+                .reasoning_preset
+                .as_deref()
+                .or(job.request.reasoning_preset.as_deref()),
+        )
+        .await?;
+        store.queue_follow_up_turn(&request)?
+    };
     ensure_worker_spawned(&store, &request.job_id, state.state)?;
     Ok(DispatchContinueResponse {
         accepted: true,
