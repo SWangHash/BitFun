@@ -30,7 +30,7 @@ export const skillsAppearanceDescriptor: AppearanceSurfaceDescriptor = {
     { id: 'suiteSkill' }, { id: 'suiteSkillName' }, { id: 'suiteSkillStatus' },
   ],
   facets: [
-    { id: 'tab', attribute: 'data-openbitfun-tab', values: ['installed', 'discover'] },
+    { id: 'tab', attribute: 'data-openbitfun-tab', values: ['installed', 'discover', 'matrix'] },
     { id: 'category', attribute: 'data-openbitfun-category', values: ['all', 'builtin', 'user', 'project', 'suite'] },
     { id: 'level', attribute: 'data-openbitfun-level', values: ['user', 'project'] },
     { id: 'mode', attribute: 'data-openbitfun-mode', values: ['agentic', 'Cowork', 'Claw'] },

@@ -288,6 +288,7 @@ import {
 import { voiceInputConfigAppearanceDescriptor } from '@/infrastructure/config/components/VoiceInputConfig.appearance';
 import { worktreeSettingsAppearanceDescriptor } from '@/infrastructure/config/components/WorktreeSettingsPage.appearance';
 import { usageStatisticsConfigAppearanceDescriptor } from '@/infrastructure/config/components/UsageStatisticsConfig.appearance';
+import { navSearchDialogAppearanceDescriptor } from '@/app/components/NavPanel/NavSearchDialog.appearance';
 import { turnCompletionNoticeAppearanceDescriptor } from '@/flow_chat/components/modern/TurnCompletionNoticeItem.appearance';
 import { turnFailureNoticeAppearanceDescriptor } from '@/flow_chat/components/modern/TurnFailureNoticeItem.appearance';
 import { virtualItemAppearanceDescriptor } from '@/flow_chat/components/modern/VirtualItemRenderer.appearance';
@@ -558,6 +559,7 @@ export function createDefaultAppearanceRegistry(): AppearanceRegistry {
     .registerComponent(dispatchTargetPickerAppearanceDescriptor)
     .registerComponent(voiceInputConfigAppearanceDescriptor)
     .registerComponent(worktreeSettingsAppearanceDescriptor)
+    .registerComponent(navSearchDialogAppearanceDescriptor)
     .registerComponent(turnCompletionNoticeAppearanceDescriptor)
     .registerComponent(turnFailureNoticeAppearanceDescriptor)
     .registerComponent(virtualItemAppearanceDescriptor)
