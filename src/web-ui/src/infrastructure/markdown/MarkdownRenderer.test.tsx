@@ -542,6 +542,46 @@ describe('Markdown file links', () => {
     expect(mocks.getCurrentWorkspacePath).not.toHaveBeenCalled();
   });
 
+  it.each(['dispatch-private.png', '/srv/private/dispatch-private.png'])(
+    'does not read controller images or resolve its workspace for dispatch observers: %s',
+    async (imagePath) => {
+      await act(async () => {
+        root.render(<MarkdownRenderer content={`![Target image](${imagePath})`} fileActionsViaCallbackOnly />);
+      });
+
+      expect(mocks.readFileContent).not.toHaveBeenCalled();
+      expect(mocks.getCurrentWorkspacePath).not.toHaveBeenCalled();
+      expect(container.querySelector('img')).toBeNull();
+      expect(container.textContent).toContain('Target image');
+      expect(container.textContent).toContain('components:markdown.remoteImageUnavailable');
+    },
+  );
+
+  it('does not reuse a cached controller image when switching to a dispatch observer', async () => {
+    const content = '![Private controller image](cached-controller-image.png)';
+    await act(async () => {
+      root.render(<MarkdownRenderer content={content} basePath="/srv/project" />);
+    });
+    expect(mocks.readFileContent).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('img')?.src).toContain('data:image/png;base64,');
+
+    await act(async () => {
+      root.render(<MarkdownRenderer content={content} basePath="/srv/project" fileActionsViaCallbackOnly />);
+    });
+    expect(container.querySelector('img')).toBeNull();
+    expect(mocks.readFileContent).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain('components:markdown.remoteImageUnavailable');
+  });
+
+  it('keeps externally hosted images available to dispatch observers', async () => {
+    await act(async () => {
+      root.render(<MarkdownRenderer content="![Public image](https://example.com/image.png)" fileActionsViaCallbackOnly />);
+    });
+    expect(container.querySelector('img')?.src).toBe('https://example.com/image.png');
+    expect(mocks.readFileContent).not.toHaveBeenCalled();
+    expect(mocks.getCurrentWorkspacePath).not.toHaveBeenCalled();
+  });
+
   it('preserves existing markdown nodes while streaming content is appended', async () => {
     const initialContent = [
       'Before image',

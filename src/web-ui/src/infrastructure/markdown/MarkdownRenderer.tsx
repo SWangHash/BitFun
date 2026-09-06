@@ -914,7 +914,7 @@ export const MarkdownRenderer = React.memo<MarkdownRendererProps>(({
   );
 
   useEffect(() => {
-    if (!needsWorkspacePathForLinks || currentWorkspacePath || basePath) {
+    if (fileActionsViaCallbackOnly || !needsWorkspacePathForLinks || currentWorkspacePath || basePath) {
       return;
     }
 
@@ -933,7 +933,7 @@ export const MarkdownRenderer = React.memo<MarkdownRendererProps>(({
     return () => {
       cancelled = true;
     };
-  }, [basePath, currentWorkspacePath, needsWorkspacePathForLinks]);
+  }, [basePath, currentWorkspacePath, fileActionsViaCallbackOnly, needsWorkspacePathForLinks]);
 
   const markdownFeatureProfile = useMemo(() => ({
     contentLength: markdownContent.length,
@@ -1552,6 +1552,22 @@ export const MarkdownRenderer = React.memo<MarkdownRendererProps>(({
     },
 
     img({ node: _node, ...props }: any) {
+      // Dispatch observers have no local filesystem ownership. Do not mount
+      // MarkdownImage here: even its initial state can reuse controller bytes
+      // from the local image cache before its read effect runs.
+      if (fileActionsViaCallbackOnlyRef.current && !/^(https?:|data:)/i.test(props.src || '')) {
+        const label = translateMarkdownLabel('markdown.remoteImageUnavailable');
+        return (
+          <span
+            className="markdown-image-fallback"
+            data-openbitfun-component="markdown"
+            data-openbitfun-part="imageFallback"
+            title={label}
+          >
+            {props.alt ? `${props.alt} — ${label}` : label}
+          </span>
+        );
+      }
       return (
         <MarkdownImage
           {...props}
