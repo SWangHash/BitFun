@@ -1,12 +1,12 @@
 [package]
-name = "openbitfun-desktop"
+name = "bitfun-desktop"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 description = "OpenBitFun Desktop Application (Tauri)"
 
 [lib]
-name = "openbitfun_desktop_lib"
+name = "bitfun_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
