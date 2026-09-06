@@ -372,9 +372,7 @@ impl WeixinBot {
 
             let ret = resp["ret"].as_i64().unwrap_or(0);
             let errcode = resp["errcode"].as_i64().unwrap_or(0);
-            if (ret != 0 && ret != WEIXIN_SESSION_EXPIRED_ERRCODE)
-                || (errcode != 0 && errcode != WEIXIN_SESSION_EXPIRED_ERRCODE)
-            {
+            if weixin_provider::updates_failed(&resp) {
                 if errcode == WEIXIN_SESSION_EXPIRED_ERRCODE
                     || ret == WEIXIN_SESSION_EXPIRED_ERRCODE
                 {
@@ -386,7 +384,10 @@ impl WeixinBot {
                 continue;
             }
 
-            if let Some(new_buf) = resp["get_updates_buf"].as_str() {
+            if let Some(new_buf) = resp["get_updates_buf"]
+                .as_str()
+                .filter(|buf| !buf.is_empty())
+            {
                 buf = new_buf.to_string();
                 weixin_provider::save_sync_buf(&self.api.config().bot_account_id, &buf);
             }
@@ -489,9 +490,7 @@ impl WeixinBot {
 
             let ret = resp["ret"].as_i64().unwrap_or(0);
             let errcode = resp["errcode"].as_i64().unwrap_or(0);
-            if (ret != 0 && ret != WEIXIN_SESSION_EXPIRED_ERRCODE)
-                || (errcode != 0 && errcode != WEIXIN_SESSION_EXPIRED_ERRCODE)
-            {
+            if weixin_provider::updates_failed(&resp) {
                 if errcode == WEIXIN_SESSION_EXPIRED_ERRCODE
                     || ret == WEIXIN_SESSION_EXPIRED_ERRCODE
                 {
@@ -502,7 +501,10 @@ impl WeixinBot {
                 continue;
             }
 
-            if let Some(new_buf) = resp["get_updates_buf"].as_str() {
+            if let Some(new_buf) = resp["get_updates_buf"]
+                .as_str()
+                .filter(|buf| !buf.is_empty())
+            {
                 buf = new_buf.to_string();
                 weixin_provider::save_sync_buf(&self.api.config().bot_account_id, &buf);
             }

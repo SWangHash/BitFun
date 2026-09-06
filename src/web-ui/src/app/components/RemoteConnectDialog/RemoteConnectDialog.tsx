@@ -65,6 +65,7 @@ import {
 } from './remoteConnectOperationCleanup';
 import { ChatAppBrandIcon } from './ChatAppBrandIcon';
 import { RemotePairingCard } from './RemotePairingCard';
+import { WeixinLoginProgress } from './WeixinLoginProgress';
 import './RemoteConnectDialog.scss';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -1367,7 +1368,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                         />
                       </div>
                     )}
-                    <p className="openbitfun-remote-connect__hint">{t('remoteConnect.botWeixinPolling')}</p>
+                    <WeixinLoginProgress phase="scan" />
                     <Button variant="outline" size="sm" onClick={handleCancelWeixinQr}>
                       {t('remoteConnect.botWeixinQrCancel')}
                     </Button>
@@ -1375,9 +1376,17 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 )}
                 {weixinQrSessionKey && !weixinQrImageUrl && weixinAwaitingPhoneConfirm && (
                   <div className="openbitfun-remote-connect__weixin-qr openbitfun-remote-connect__weixin-qr--await">
-                    <p className="openbitfun-remote-connect__hint">{t('remoteConnect.botWeixinAwaitingPhoneConfirm')}</p>
+                    <WeixinLoginProgress phase="confirm" />
                     <Button variant="outline" size="sm" onClick={handleCancelWeixinQr}>
                       {t('remoteConnect.botWeixinQrCancel')}
+                    </Button>
+                  </div>
+                )}
+                {weixinQrSessionKey && !weixinQrImageUrl && !weixinAwaitingPhoneConfirm && !weixinNeedsVerifyCode && (
+                  <div className="openbitfun-remote-connect__weixin-qr">
+                    <WeixinLoginProgress phase={loading ? 'starting' : 'confirm'} />
+                    <Button variant="outline" size="sm" onClick={handleCancelWeixinQr}>
+                      {t('remoteConnect.cancel')}
                     </Button>
                   </div>
                 )}
