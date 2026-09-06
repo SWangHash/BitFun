@@ -1044,6 +1044,62 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn prerelease_config_survives_load_save_and_restart() {
+        for version in ["1.0.0-beta.1", "1.0.0-nightly.20260906"] {
+            let name = "prerelease-config-restart";
+            let (service, dir) = test_service(name).await;
+            let mut config: GlobalConfig = service.get_config(None).await.unwrap();
+            config.version = version.to_string();
+            config.app.language = "zh-CN".to_string();
+            drop(service);
+
+            let config_file = dir.path().join(name).join("config").join("app.json");
+            let original = serde_json::to_string_pretty(&config).unwrap();
+            tokio::fs::write(&config_file, &original).await.unwrap();
+            let service = restart_test_service(&dir, name).await;
+            let loaded: GlobalConfig = service.get_config(None).await.unwrap();
+            assert_eq!(loaded.version, version);
+            assert_eq!(loaded.app.language, "zh-CN");
+            assert_eq!(
+                tokio::fs::read_to_string(&config_file).await.unwrap(),
+                original
+            );
+
+            service.set_config("app.language", &"en-US").await.unwrap();
+            drop(service);
+            let restarted = restart_test_service(&dir, name).await;
+            let saved: GlobalConfig = restarted.get_config(None).await.unwrap();
+            assert_eq!(saved.version, env!("CARGO_PKG_VERSION"));
+            assert_eq!(saved.app.language, "en-US");
+        }
+    }
+
+    #[tokio::test]
+    async fn prerelease_exports_support_explicit_import_and_account_settings() {
+        for version in ["1.0.0-beta.1", "1.0.0-nightly.20260906"] {
+            for account_sync in [false, true] {
+                let (service, _dir) = test_service("prerelease-config-import").await;
+                let mut export = current_export(GlobalConfig::default());
+                export.version = version.to_string();
+                export.config.version = version.to_string();
+                export.config.app.language = "zh-CN".to_string();
+                let export: ConfigExport =
+                    serde_json::from_str(&serde_json::to_string(&export).unwrap()).unwrap();
+
+                let imported = if account_sync {
+                    service.import_account_settings(export).await.unwrap()
+                } else {
+                    service.import_config(export).await.unwrap()
+                };
+                assert!(imported.success, "{:?}", imported.errors);
+                let config: GlobalConfig = service.get_config(None).await.unwrap();
+                assert_eq!(config.app.language, "zh-CN");
+                assert_eq!(config.version, env!("CARGO_PKG_VERSION"));
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn pre_1_0_exports_are_rejected_without_changing_current_config() {
         for account_sync in [false, true] {
             let (service, _dir) = test_service("pre-1-export-rejected").await;

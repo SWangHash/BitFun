@@ -29,11 +29,11 @@ fn invalid_config_error(context: &str, result: &ConfigValidationResult) -> OpenB
 
 const MIN_OPENBITFUN_CONFIG_VERSION: (u64, u64, u64) = (1, 0, 0);
 
-fn parse_semver_floor(version: &str) -> Option<((u64, u64, u64), bool)> {
+fn parse_semver_floor(version: &str) -> Option<(u64, u64, u64)> {
     let without_build = version.split_once('+').map_or(version, |(value, _)| value);
-    let (core, has_prerelease) = without_build
+    let core = without_build
         .split_once('-')
-        .map_or((without_build, false), |(value, _)| (value, true));
+        .map_or(without_build, |(value, _)| value);
     let mut parts = core.split('.');
     let parsed = (
         parts.next()?.parse().ok()?,
@@ -43,7 +43,7 @@ fn parse_semver_floor(version: &str) -> Option<((u64, u64, u64), bool)> {
     if parts.next().is_some() {
         return None;
     }
-    Some((parsed, has_prerelease))
+    Some(parsed)
 }
 
 pub(crate) fn validate_openbitfun_product_version(
@@ -58,14 +58,14 @@ pub(crate) fn validate_openbitfun_product_version(
         )));
     }
 
-    let Some((parsed, has_prerelease)) = parse_semver_floor(version) else {
+    let Some(parsed) = parse_semver_floor(version) else {
         return Err(OpenBitFunError::validation(format!(
             "{context} version '{version}' is not a valid OpenBitFun version"
         )));
     };
-    if parsed < MIN_OPENBITFUN_CONFIG_VERSION
-        || (parsed == MIN_OPENBITFUN_CONFIG_VERSION && has_prerelease)
-    {
+    // This floor separates product generations, not release-channel precedence.
+    // OpenBitFun 1.0 prereleases write the same product identity and schema.
+    if parsed < MIN_OPENBITFUN_CONFIG_VERSION {
         return Err(OpenBitFunError::validation(format!(
             "{context} version '{version}' predates OpenBitFun 1.0.0"
         )));
@@ -931,6 +931,30 @@ mod tests {
             invalid.as_object_mut().unwrap().remove(field);
             let error = validate_current_config_value(&invalid, "test config").unwrap_err();
             assert!(error.to_string().contains(field), "{error}");
+        }
+    }
+
+    #[test]
+    fn current_config_contract_accepts_openbitfun_prerelease_versions() {
+        for version in [
+            "1.0.0-beta.1",
+            "1.0.0-beta.2+build.7",
+            "1.0.0-nightly.20260906",
+            "1.0.0-rc.1",
+            "1.0.0",
+            "1.0.1-beta.1",
+        ] {
+            let mut current = serde_json::to_value(GlobalConfig::default()).unwrap();
+            current["version"] = serde_json::json!(version);
+            validate_current_config_value(&current, "test config")
+                .unwrap_or_else(|error| panic!("{version}: {error}"));
+        }
+
+        for version in ["0.2.19", "0.9.9-beta.1", "0.9.9+build.7"] {
+            let mut legacy = serde_json::to_value(GlobalConfig::default()).unwrap();
+            legacy["version"] = serde_json::json!(version);
+            let error = validate_current_config_value(&legacy, "test config").unwrap_err();
+            assert!(error.to_string().contains("predates OpenBitFun 1.0.0"));
         }
     }
 
