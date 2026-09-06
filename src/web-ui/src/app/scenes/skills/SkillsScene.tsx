@@ -1,4 +1,4 @@
-﻿import {
+import {
   Button,
   ConfirmDialog,
   Field,
@@ -357,7 +357,7 @@ const SkillsScene: React.FC = () => {
                     >
                       <span className="skills-sidebar__item-icon" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemIcon">{cat.icon}</span>
                       <span className="skills-sidebar__item-label" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemLabel">{t(cat.labelKey)}</span>
-                      <span className="skills-sidebar__item-count" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemCount">{isEmpty ? '鈥? : count}</span>
+                      <span className="skills-sidebar__item-count" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemCount">{isEmpty ? '—' : count}</span>
                     </button>
                   );
                 })}
@@ -614,7 +614,7 @@ const SkillsScene: React.FC = () => {
                                   }}
                                 />
                               ) : (
-                                <span className="skills-card__status-unavailable" aria-hidden="true">鈥?/span>
+                                <span className="skills-card__status-unavailable" aria-hidden="true">—</span>
                               )}
                             </div>
 

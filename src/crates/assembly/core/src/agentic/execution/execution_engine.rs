@@ -6379,8 +6379,8 @@ mod tests {
     #[test]
     fn tool_signature_args_summary_truncates_on_utf8_boundary() {
         let args = format!("{}{}", "a".repeat(62), "妗?.repeat(30));
-        let args_hash = hex::encode(Sha256::digest(args.as_bytes()));
 
+        let args = format!("{}{}", "a".repeat(62), "案".repeat(30));
         let summary = ExecutionEngine::tool_signature_args_summary(&args);
 
         assert_eq!(
