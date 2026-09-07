@@ -2268,6 +2268,13 @@ pub enum RemotePermissionMode {
     FullAccess,
 }
 
+/// Display-only identity for a live browser connection, never an authorization identity.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RemoteControlClient {
+    pub id: String,
+    pub name: String,
+}
+
 /// Commands that remote clients can send to the desktop runtime.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
@@ -2428,7 +2435,10 @@ pub enum RemoteCommand {
         device_name: String,
         request_id: String,
     },
-    Ping,
+    Ping {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        client: Option<RemoteControlClient>,
+    },
 
     // ── Device-to-device distributed control ──────────────────────────────
     //
@@ -2728,7 +2738,7 @@ where
     H: RemoteCommandRuntimeHost + ?Sized,
 {
     match command {
-        RemoteCommand::Ping => RemoteResponse::Pong,
+        RemoteCommand::Ping { .. } => RemoteResponse::Pong,
 
         RemoteCommand::GetWorkspaceInfo
         | RemoteCommand::ListRecentWorkspaces

@@ -1472,8 +1472,8 @@ $_section-header-height: 22px;
   line-height: var(--openbitfun-type-modifier-leading-dense-line-height);
 }
 
-// Attached remote parties are shown once per device kind. Message-app marks
-// stay unframed and inherit the theme foreground; connection state is already
+// Attached remote parties are shown once per device kind with unframed icons.
+// Message-app marks inherit the theme foreground; connection state is already
 // communicated by the device overview rather than by recoloring the brand.
 .openbitfun-nav-panel__footer-device-status-attached {
   display: flex;
@@ -1492,14 +1492,9 @@ $_section-header-height: 22px;
   justify-content: center;
   gap: 1px;
   box-sizing: border-box;
-  border: 1px solid var(--openbitfun-color-border-subtle);
-  border-radius: var(--openbitfun-radius-sm);
-  background: var(--openbitfun-color-surface-subtle);
   line-height: var(--openbitfun-type-modifier-leading-none-line-height);
 
   &[data-openbitfun-device-kind='message-app'] {
-    border: 0;
-    background: transparent;
     color: var(--openbitfun-color-content-primary);
   }
 }

@@ -1190,3 +1190,85 @@
     transition: none;
   }
 }
+
+.openbitfun-remote-connect__relay-address {
+  padding: var(--openbitfun-space-4) var(--openbitfun-space-5);
+}
+
+.openbitfun-remote-connect__connections-content {
+  padding: var(--openbitfun-space-4) var(--openbitfun-space-5);
+  border-top: var(--openbitfun-border-width-default) solid var(--openbitfun-color-border-subtle);
+}
+
+.openbitfun-remote-connect__connections-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--openbitfun-space-2);
+
+  h4 {
+    margin: 0;
+    color: var(--openbitfun-color-content-secondary);
+    font-size: var(--openbitfun-type-label-sm-font-size);
+    font-weight: var(--openbitfun-type-label-selected-font-weight);
+    line-height: var(--openbitfun-type-body-sm-line-height);
+  }
+}
+
+.openbitfun-remote-connect__connections-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--openbitfun-space-2) 0 0;
+  max-height: 132px;
+  overflow-y: auto;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: var(--openbitfun-space-3);
+    padding-block: var(--openbitfun-space-2);
+    color: var(--openbitfun-color-content-secondary);
+    font-size: var(--openbitfun-type-body-sm-font-size);
+    line-height: var(--openbitfun-type-body-sm-line-height);
+  }
+
+  strong {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--openbitfun-color-content-primary);
+    font-weight: var(--openbitfun-type-label-selected-font-weight);
+  }
+}
+
+.openbitfun-remote-connect__connections-note {
+  margin: var(--openbitfun-space-2) 0 0;
+  color: var(--openbitfun-color-content-secondary);
+  font-size: var(--openbitfun-type-body-sm-font-size);
+  line-height: var(--openbitfun-type-body-sm-line-height);
+}
+
+.openbitfun-remote-connect__relay-actions {
+  padding: var(--openbitfun-space-3) var(--openbitfun-space-5);
+  border-top: var(--openbitfun-border-width-default) solid var(--openbitfun-color-border-subtle);
+}
+
+.openbitfun-remote-connect__relay-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--openbitfun-space-3);
+}
+
+.openbitfun-remote-connect__relay-invitation {
+  padding: var(--openbitfun-space-4) var(--openbitfun-space-5);
+  border-top: var(--openbitfun-border-width-default) solid var(--openbitfun-color-border-subtle);
+
+  .openbitfun-remote-connect__pairing-card {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+  }
+}

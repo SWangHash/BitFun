@@ -16,6 +16,7 @@ export const remoteConnectDialogAppearanceDescriptor: AppearanceSurfaceDescripto
     { id: 'panel' },
     { id: 'body' },
     { id: 'pairingCard' },
+    { id: 'connections' },
     { id: 'botCard' },
     { id: 'status' },
     { id: 'error' },

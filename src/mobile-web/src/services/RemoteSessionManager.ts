@@ -12,6 +12,7 @@ import {
   RelayHttpClient,
   type ControlTargetSnapshot,
 } from './RelayHttpClient';
+import { getControlClientIdentity } from './controlClientIdentity';
 
 export class RemoteControlTargetChangedError extends Error {
   constructor() {
@@ -571,7 +572,7 @@ export class RemoteSessionManager {
   }
 
   async ping(): Promise<void> {
-    await this.request({ cmd: 'ping' });
+    await this.request({ cmd: 'ping', client: getControlClientIdentity() });
   }
 
   /**

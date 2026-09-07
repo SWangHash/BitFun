@@ -107,8 +107,9 @@ struct DeviceRoutingState {
     online_devices: Vec<OnlineDeviceInfo>,
     /// Account-auth QR clients use HTTP device RPC instead of the QR room.
     /// A successful control heartbeat proves that a client reached this host.
-    last_control_ping: Option<std::time::Instant>,
     control_ping_generation: u64,
+    control_clients: std::collections::BTreeMap<String, (String, std::time::Instant)>,
+    last_unidentified_control_ping: Option<std::time::Instant>,
 }
 
 static DEVICE_ROUTING_STATE: OnceLock<std::sync::Mutex<DeviceRoutingState>> = OnceLock::new();
@@ -1058,7 +1059,8 @@ fn install_device_routing_owner(owner: DeviceRoutingOwner) {
     with_device_routing_state(|state| {
         state.owner = Some(owner);
         state.online_devices.clear();
-        state.last_control_ping = None;
+        state.control_clients.clear();
+        state.last_unidentified_control_ping = None;
         state.control_ping_generation = 0;
     });
 }
@@ -1073,13 +1075,38 @@ fn record_control_ping_if_owner(
     owner: &DeviceRoutingOwner,
     generation: u64,
     now: std::time::Instant,
+    client: Option<&openbitfun_services_integrations::remote_connect::RemoteControlClient>,
 ) {
     with_device_routing_state(|state| {
         if state.owner.as_ref() == Some(owner) && state.control_ping_generation == generation {
-            // Concurrent replies can finish out of order. Preserve the latest
-            // received heartbeat without extending a delayed request's lease.
-            state.last_control_ping =
-                Some(state.last_control_ping.map_or(now, |last| last.max(now)));
+            // Leases use receipt time, not the completion time of queued replies.
+            use openbitfun_services_integrations::remote_connect::relay_client::RELAY_INBOUND_IDLE_TIMEOUT;
+            state.control_clients.retain(|_, (_, last)| {
+                now.saturating_duration_since(*last) < RELAY_INBOUND_IDLE_TIMEOUT
+            });
+            if let Some(client) =
+                client.filter(|client| !client.id.trim().is_empty() && client.id.len() <= 128)
+            {
+                let name: String = client
+                    .name
+                    .chars()
+                    .filter(|c| !c.is_control())
+                    .take(120)
+                    .collect();
+                let entry = state
+                    .control_clients
+                    .entry(client.id.clone())
+                    .or_insert((name.clone(), now));
+                if now >= entry.1 {
+                    *entry = (name, now);
+                }
+            } else {
+                state.last_unidentified_control_ping = Some(
+                    state
+                        .last_unidentified_control_ping
+                        .map_or(now, |last| last.max(now)),
+                );
+            }
         }
     });
 }
@@ -1087,20 +1114,17 @@ fn record_control_ping_if_owner(
 fn clear_control_ping_if_owner(owner: &DeviceRoutingOwner) {
     with_device_routing_state(|state| {
         if state.owner.as_ref() == Some(owner) {
-            state.last_control_ping = None;
+            state.control_clients.clear();
+            state.last_unidentified_control_ping = None;
             state.control_ping_generation = state.control_ping_generation.wrapping_add(1);
         }
     });
 }
 
+#[cfg(test)]
 fn has_recent_control_ping(owner: &DeviceRoutingOwner, now: std::time::Instant) -> bool {
-    use openbitfun_services_integrations::remote_connect::relay_client::RELAY_INBOUND_IDLE_TIMEOUT;
-    with_device_routing_state(|state| {
-        state.owner.as_ref() == Some(owner)
-            && state.last_control_ping.is_some_and(|last_ping| {
-                now.saturating_duration_since(last_ping) < RELAY_INBOUND_IDLE_TIMEOUT
-            })
-    })
+    let (clients, unidentified) = account_control_clients(owner, now);
+    !clients.is_empty() || unidentified
 }
 
 fn is_successful_control_ping(
@@ -1111,19 +1135,63 @@ fn is_successful_control_ping(
     // The mobile/browser connection-health loop pings its selected target.
     // `peer_mode_ping` is also used before attaching or switching a device;
     // accepting that capability probe would manufacture a mobile connection.
-    matches!(command, RemoteCommand::Ping)
+    matches!(command, RemoteCommand::Ping { .. })
         && response.get("resp").and_then(|v| v.as_str()) == Some("pong")
 }
 
-async fn account_control_relay_url(now: std::time::Instant) -> Option<String> {
+fn account_control_clients(
+    owner: &DeviceRoutingOwner,
+    now: std::time::Instant,
+) -> (
+    Vec<openbitfun_services_integrations::remote_connect::RemoteControlClient>,
+    bool,
+) {
+    use openbitfun_services_integrations::remote_connect::{
+        relay_client::RELAY_INBOUND_IDLE_TIMEOUT, RemoteControlClient,
+    };
+    with_device_routing_state(|state| {
+        if state.owner.as_ref() != Some(owner) {
+            return (Vec::new(), false);
+        }
+        let clients = state
+            .control_clients
+            .iter()
+            .filter(|(_, (_, last))| {
+                now.saturating_duration_since(*last) < RELAY_INBOUND_IDLE_TIMEOUT
+            })
+            .map(|(id, (name, _))| RemoteControlClient {
+                id: id.clone(),
+                name: name.clone(),
+            })
+            .collect();
+        let unidentified = state
+            .last_unidentified_control_ping
+            .is_some_and(|last| now.saturating_duration_since(last) < RELAY_INBOUND_IDLE_TIMEOUT);
+        (clients, unidentified)
+    })
+}
+
+async fn account_control_snapshot(
+    now: std::time::Instant,
+) -> Option<(
+    String,
+    Vec<openbitfun_services_integrations::remote_connect::RemoteControlClient>,
+    bool,
+)> {
     let generation = account_context_generation();
     let (session, relay_url) = read_account_context_for_generation(generation).await.ok()?;
     let owner = device_routing_owner_for_account(generation, &session.token)?;
-    // Account control outlives the temporary QR invitation. Its own route and
-    // heartbeat lease are authoritative even when the room has been stopped
-    // or a different relay/LAN invitation is currently open.
-    (has_recent_control_ping(&owner, now) && account_context_is_current(generation))
-        .then_some(relay_url)
+    let (clients, unidentified) = account_control_clients(&owner, now);
+    if clients.is_empty() && !unidentified {
+        return None;
+    }
+    (account_context_is_current(generation) && device_routing_owner_is_registered(&owner))
+        .then_some((relay_url, clients, unidentified))
+}
+
+#[cfg(test)]
+async fn account_control_relay_url(now: std::time::Instant) -> Option<String> {
+    account_control_snapshot(now).await.map(|(url, _, _)| url)
 }
 
 fn device_routing_owner_is_registered(owner: &DeviceRoutingOwner) -> bool {
@@ -1200,7 +1268,8 @@ fn clear_device_routing_if_owner(owner: &DeviceRoutingOwner) -> bool {
         }
         state.owner = None;
         state.online_devices.clear();
-        state.last_control_ping = None;
+        state.control_clients.clear();
+        state.last_unidentified_control_ping = None;
         true
     })
 }
@@ -1209,7 +1278,8 @@ fn clear_device_routing_state() -> bool {
     with_device_routing_state(|state| {
         let had_owner = state.owner.take().is_some();
         state.online_devices.clear();
-        state.last_control_ping = None;
+        state.control_clients.clear();
+        state.last_unidentified_control_ping = None;
         had_owner
     })
 }
@@ -1786,6 +1856,12 @@ pub struct RemoteConnectStatusResponse {
     /// Source of the live account control channel, separate from `active_method`.
     #[serde(default)]
     pub account_control_relay_url: Option<String>,
+    /// Live browser sessions; absent on hosts without client-level presence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_control_clients:
+        Option<Vec<openbitfun_services_integrations::remote_connect::RemoteControlClient>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_control_has_unidentified_clients: Option<bool>,
     /// Independent bot connection info — e.g. "Telegram(7096812005)".
     /// Present when a bot is active, regardless of relay pairing state.
     pub bot_connected: Option<String>,
@@ -2164,7 +2240,11 @@ pub async fn remote_connect_status() -> Result<RemoteConnectStatusResponse, Stri
     let peer_user_id = service.trusted_mobile_user_id().await;
     let bot_connected = service.bot_connected_info().await;
     let bot_verbose_mode = bot::load_bot_persistence().verbose_mode;
-    let account_control_relay_url = account_control_relay_url(std::time::Instant::now()).await;
+    let (account_control_relay_url, clients, unidentified) =
+        account_control_snapshot(std::time::Instant::now())
+            .await
+            .map(|(url, clients, unidentified)| (Some(url), clients, unidentified))
+            .unwrap_or_default();
 
     Ok(RemoteConnectStatusResponse {
         is_connected: state == PairingState::Connected,
@@ -2174,6 +2254,8 @@ pub async fn remote_connect_status() -> Result<RemoteConnectStatusResponse, Stri
         peer_user_id,
         account_control_connected: account_control_relay_url.is_some(),
         account_control_relay_url,
+        account_control_clients: Some(clients),
+        account_control_has_unidentified_clients: Some(unidentified),
         bot_connected,
         bot_verbose_mode,
     })
@@ -3077,6 +3159,12 @@ pub async fn account_connect_devices() -> Result<Vec<OnlineDeviceInfo>, String> 
                                                         &rpc_owner,
                                                         generation,
                                                         ping_received_at,
+                                                        match &cmd {
+                                                            RemoteCommand::Ping { client } => {
+                                                                client.as_ref()
+                                                            }
+                                                            _ => None,
+                                                        },
                                                     );
                                                 }
                                             }
@@ -4776,14 +4864,53 @@ mod sync_state_tests {
     static ACCOUNT_CONTEXT_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
     #[test]
+    fn account_control_clients_deduplicate_expire_and_fence_disconnects() {
+        use openbitfun_services_integrations::remote_connect::{
+            relay_client::RELAY_INBOUND_IDLE_TIMEOUT, RemoteControlClient,
+        };
+        let _test_guard = ACCOUNT_CONTEXT_TEST_LOCK.blocking_lock();
+        let owner = new_device_routing_owner(1, "clients", 1);
+        install_device_routing_owner(owner.clone());
+        let now = std::time::Instant::now();
+        let later = now + std::time::Duration::from_secs(10);
+        let phone = RemoteControlClient {
+            id: "phone".into(),
+            name: "Safari · iOS".into(),
+        };
+        let browser = RemoteControlClient {
+            id: "browser".into(),
+            name: "Chrome · Windows".into(),
+        };
+        record_control_ping_if_owner(&owner, 0, now, Some(&phone));
+        record_control_ping_if_owner(&owner, 0, later, Some(&browser));
+        record_control_ping_if_owner(&owner, 0, now, Some(&browser));
+        assert_eq!(
+            account_control_clients(&owner, later),
+            (vec![browser.clone(), phone], false)
+        );
+        assert_eq!(
+            account_control_clients(&owner, now + RELAY_INBOUND_IDLE_TIMEOUT),
+            (vec![browser], false)
+        );
+        record_control_ping_if_owner(&owner, 0, later, None);
+        assert!(account_control_clients(&owner, later).1);
+        clear_control_ping_if_owner(&owner);
+        record_control_ping_if_owner(&owner, 0, later, None);
+        assert_eq!(account_control_clients(&owner, later), (vec![], false));
+        install_device_routing_owner(new_device_routing_owner(2, "replacement", 2));
+        assert_eq!(account_control_clients(&owner, later), (vec![], false));
+        clear_device_routing_state();
+    }
+
+    #[test]
     fn account_control_ping_requires_a_successful_control_response() {
         use openbitfun_core::service::remote_connect::remote_server::RemoteCommand;
         assert!(is_successful_control_ping(
-            &RemoteCommand::Ping,
+            &RemoteCommand::Ping { client: None },
             &serde_json::json!({"resp": "pong"})
         ));
         assert!(!is_successful_control_ping(
-            &RemoteCommand::Ping,
+            &RemoteCommand::Ping { client: None },
             &serde_json::json!({"resp": "error"})
         ));
         let peer_ping = RemoteCommand::HostInvoke {
@@ -4817,7 +4944,7 @@ mod sync_state_tests {
         let now = std::time::Instant::now();
         install_device_routing_owner(first.clone());
         assert!(!has_recent_control_ping(&first, now));
-        record_control_ping_if_owner(&first, 0, now);
+        record_control_ping_if_owner(&first, 0, now, None);
         assert!(has_recent_control_ping(&first, now));
         assert!(!has_recent_control_ping(
             &first,
@@ -4825,24 +4952,24 @@ mod sync_state_tests {
         ));
         clear_control_ping_if_owner(&first);
         assert!(!has_recent_control_ping(&first, now));
-        record_control_ping_if_owner(&first, 0, now);
+        record_control_ping_if_owner(&first, 0, now, None);
         assert!(
             !has_recent_control_ping(&first, now),
             "a queued pre-disconnect ping must not revive connectivity"
         );
         let reconnected = control_ping_generation(&first).unwrap();
-        record_control_ping_if_owner(&first, reconnected, now);
+        record_control_ping_if_owner(&first, reconnected, now, None);
         assert!(has_recent_control_ping(&first, now));
         install_device_routing_owner(second.clone());
-        record_control_ping_if_owner(&first, 0, now);
+        record_control_ping_if_owner(&first, 0, now, None);
         assert!(!has_recent_control_ping(&first, now));
         assert!(!has_recent_control_ping(&second, now));
-        record_control_ping_if_owner(&second, 0, now);
+        record_control_ping_if_owner(&second, 0, now, None);
         clear_control_ping_if_owner(&first);
         assert!(has_recent_control_ping(&second, now));
         let newer = now + std::time::Duration::from_secs(1);
-        record_control_ping_if_owner(&second, 0, newer);
-        record_control_ping_if_owner(&second, 0, now);
+        record_control_ping_if_owner(&second, 0, newer, None);
+        record_control_ping_if_owner(&second, 0, now, None);
         assert!(has_recent_control_ping(
             &second,
             now + RELAY_INBOUND_IDLE_TIMEOUT
@@ -4877,7 +5004,7 @@ mod sync_state_tests {
             "login alone is not a connection"
         );
 
-        record_control_ping_if_owner(&owner, 0, now);
+        record_control_ping_if_owner(&owner, 0, now, None);
         assert_eq!(
             account_control_relay_url(now).await.as_deref(),
             Some(relay_url)
@@ -4890,7 +5017,7 @@ mod sync_state_tests {
         assert_eq!(account_control_relay_url(now).await, None);
 
         let reconnect_generation = control_ping_generation(&owner).unwrap();
-        record_control_ping_if_owner(&owner, reconnect_generation, now);
+        record_control_ping_if_owner(&owner, reconnect_generation, now, None);
         assert_eq!(
             account_control_relay_url(now).await.as_deref(),
             Some(relay_url)
@@ -4924,6 +5051,13 @@ mod sync_state_tests {
         assert!(status.account_control_relay_url.is_none());
         status.account_control_connected = true;
         status.account_control_relay_url = Some("https://relay.example/base".into());
+        status.account_control_clients = Some(vec![
+            openbitfun_services_integrations::remote_connect::RemoteControlClient {
+                id: "phone".into(),
+                name: "Safari".into(),
+            },
+        ]);
+        status.account_control_has_unidentified_clients = Some(true);
         let mut serialized = serde_json::to_value(&status).unwrap();
         assert_eq!(serialized["pairing_state"], "waiting_for_scan");
         assert_eq!(serialized["is_connected"], false);
@@ -4940,6 +5074,26 @@ mod sync_state_tests {
                 .unwrap()
                 .remove("account_control_relay_url"),
             Some(serde_json::json!("https://relay.example/base"))
+        );
+        let round_trip: RemoteConnectStatusResponse =
+            serde_json::from_value(serialized.clone()).unwrap();
+        assert_eq!(
+            round_trip.account_control_clients,
+            status.account_control_clients
+        );
+        assert_eq!(
+            serialized
+                .as_object_mut()
+                .unwrap()
+                .remove("account_control_clients"),
+            Some(serde_json::json!([{"id": "phone", "name": "Safari"}]))
+        );
+        assert_eq!(
+            serialized
+                .as_object_mut()
+                .unwrap()
+                .remove("account_control_has_unidentified_clients"),
+            Some(serde_json::json!(true))
         );
         assert_eq!(serialized, legacy);
     }

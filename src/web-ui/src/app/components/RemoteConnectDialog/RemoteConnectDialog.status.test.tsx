@@ -12,6 +12,7 @@ import { setRemoteConnectDisclaimerAgreed } from './remoteConnectDisclaimerStora
 
 const boundary = vi.hoisted(() => ({
   backend: null as RemoteConnectStatus | null,
+  hasWorkspace: true,
   getStatus: vi.fn(),
   startConnection: vi.fn(),
   stopConnection: vi.fn(),
@@ -19,7 +20,9 @@ const boundary = vi.hoisted(() => ({
   getFormState: vi.fn(),
   listeners: new Map<string, Set<(payload: unknown) => void>>(),
   jobs: {},
-  t: (key: string) => key,
+  copyText: vi.fn(),
+  t: (key: string, values?: { count?: number; number?: number }) =>
+    values?.count !== undefined ? `${key}:${values.count}` : values?.number !== undefined ? `${key}:${values.number}` : key,
 }));
 
 vi.mock('@/infrastructure/api/service-api/RemoteConnectAPI', async importOriginal => ({
@@ -36,6 +39,7 @@ vi.mock('@/infrastructure/api/service-api/RemoteConnectAPI', async importOrigina
     accountGetCredentialHint: vi.fn().mockResolvedValue({ username: 'sora', relay_url: 'https://relay.example.test/remote/a' }),
   },
 }));
+vi.mock('@/shared/utils/textSelection', () => ({ copyTextToClipboard: boundary.copyText }));
 vi.mock('@/infrastructure/api/service-api/ApiClient', () => ({
   api: {
     listen: (name: string, listener: (payload: unknown) => void) => {
@@ -46,12 +50,12 @@ vi.mock('@/infrastructure/api/service-api/ApiClient', () => ({
   },
 }));
 vi.mock('@/infrastructure/i18n', () => ({
-  useI18n: () => ({ t: boundary.t, currentLanguage: 'en-US' }),
+  useI18n: () => ({ t: boundary.t, currentLanguage: 'en-US', formatNumber: String }),
 }));
 vi.mock('@/infrastructure/i18n/hooks/useI18n', () => ({
-  useI18n: () => ({ t: boundary.t, currentLanguage: 'en-US' }),
+  useI18n: () => ({ t: boundary.t, currentLanguage: 'en-US', formatNumber: String }),
 }));
-vi.mock('@/infrastructure/contexts/WorkspaceContext', () => ({ useCurrentWorkspace: () => ({ hasWorkspace: true }) }));
+vi.mock('@/infrastructure/contexts/WorkspaceContext', () => ({ useCurrentWorkspace: () => ({ hasWorkspace: boundary.hasWorkspace }) }));
 vi.mock('@/infrastructure/account/useAccountLoginState', () => ({
   useAccountLoginState: () => ({ loggedIn: true, deviceName: 'Workstation' }),
 }));
@@ -91,13 +95,13 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function Harness() {
+function Harness({ initialGroup }: { initialGroup?: 'network' | 'bot' }) {
   const [open, setOpen] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   return <DesignSystemProvider portalHost={document.body}>
     <button data-testid="reopen-remote-connect" onClick={() => setOpen(true)}>Open connections</button>
     <DeviceStatusControl open={sidebarOpen} onOpenChange={setSidebarOpen} onManageDevices={() => setOpen(true)} />
-    <RemoteConnectDialog isOpen={open} onClose={() => setOpen(false)} />
+    <RemoteConnectDialog isOpen={open} onClose={() => setOpen(false)} initialGroup={initialGroup} />
   </DesignSystemProvider>;
 }
 
@@ -112,7 +116,7 @@ function element(selector: string): HTMLElement {
 }
 const dialog = () => element('[data-openbitfun-component="remote-connect-dialog"][data-openbitfun-part="root"]');
 const overviewNetwork = () => element('[data-openbitfun-part="overviewAction"][data-openbitfun-group="network"]');
-const cardStatus = () => element('[data-openbitfun-part="pairingCard"] [role="status"]').textContent;
+const cardStatus = () => (document.querySelector('[data-openbitfun-part="pairingCard"] [role="status"]') ?? element('[data-openbitfun-part="connections"] [role="status"]')).textContent;
 const attachedMobile = () => document.querySelector('[data-testid="nav-footer-device-status"] [data-openbitfun-device-kind="mobile"]');
 const attachedBot = () => document.querySelector('[data-testid="nav-footer-device-status"] [data-openbitfun-device-kind="message-app"]');
 
@@ -123,7 +127,7 @@ async function clickText(key: string) {
   await click(button!);
 }
 async function tick(ms = 2000) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
-async function render() { await act(async () => { root.render(<Harness />); }); }
+async function render(initialGroup?: 'network' | 'bot') { await act(async () => { root.render(<Harness initialGroup={initialGroup} />); }); }
 async function openNetwork() { await click(overviewNetwork()); }
 async function generateInvitation(relay = relayA) {
   await openNetwork();
@@ -157,6 +161,8 @@ beforeEach(() => {
     removeItem: (key: string) => { storage.delete(key); },
   });
   setRemoteConnectDisclaimerAgreed();
+  boundary.hasWorkspace = true;
+  boundary.copyText.mockResolvedValue(true);
   boundary.backend = status();
   boundary.getStatus.mockImplementation(async () => ({ ...boundary.backend! }));
   boundary.getFormState.mockResolvedValue({ custom_server_url: relayA });
@@ -184,6 +190,88 @@ afterEach(async () => {
 });
 
 describe('Remote Connect shared status through the real dialog and sidebar', () => {
+  it.each([
+    ['openbitfun_server', 'https://remote.openbitfun.com/relay'],
+    ['custom_server', relayA],
+  ] as const)('shows the same live clients and relay URL for %s', async (method, relay) => {
+    boundary.backend = status({
+      account_control_connected: true,
+      account_control_relay_url: relay,
+      account_control_clients: [
+        { id: 'phone', name: 'Safari · iOS' },
+        { id: 'browser', name: 'Chrome · Windows' },
+      ],
+      account_control_has_unidentified_clients: false,
+    });
+    await render('network');
+    const connections = element('[data-openbitfun-part="connections"]');
+    expect(connections.textContent).toContain('remoteConnect.clientCount:2');
+    expect(connections.querySelectorAll('li')).toHaveLength(2);
+    expect(connections.textContent).toContain('Safari · iOS');
+    expect(connections.textContent).toContain('Chrome · Windows');
+    expect(dialog().querySelectorAll('.openbitfun-remote-connect__network-card')).toHaveLength(1);
+    expect(connections.querySelectorAll('input[type="url"]')).toHaveLength(1);
+    const input = element('input[type="url"]') as HTMLInputElement;
+    expect(input.value).toBe(relay);
+    expect(input.readOnly).toBe(method === 'openbitfun_server');
+    await click(element('button[aria-label="remoteConnect.copyServerUrl"]'));
+    expect(boundary.copyText).toHaveBeenCalledWith(relay);
+    boundary.backend = { ...boundary.backend!, account_control_clients: [{ id: 'browser', name: 'Chrome · Windows' }] };
+    await tick();
+    expect(connections.textContent).toContain('remoteConnect.clientCount:1');
+    expect(connections.textContent).not.toContain('Safari · iOS');
+    boundary.backend = { ...boundary.backend!, account_control_connected: false, account_control_clients: [] };
+    await tick();
+    expect(element('[data-openbitfun-part="connections"]').textContent).toContain('remoteConnect.clientCount:0');
+    expect(element('[data-openbitfun-part="connections"]').querySelectorAll('li')).toHaveLength(0);
+  });
+
+  it('does not invent a total for old clients or mix account clients into another relay tab', async () => {
+    boundary.backend = status({ account_control_connected: true, account_control_relay_url: relayA });
+    await render('network');
+    expect(element('[data-openbitfun-part="connections"]').textContent).toContain('remoteConnect.clientDetailsUnavailable');
+    expect(dialog().textContent).not.toContain('remoteConnect.clientCount:');
+    await click(element('#remote-connect-network-tab-openbitfun_server'));
+    expect(element('[data-openbitfun-part="connections"]').textContent).toContain('remoteConnect.clientCount:0');
+    expect(element('[data-openbitfun-part="connections"]').querySelectorAll('li')).toHaveLength(0);
+  });
+
+  it('allows connection setup and shows live status without a selected workspace', async () => {
+    boundary.hasWorkspace = false;
+    await render();
+    expect((overviewNetwork() as HTMLButtonElement).disabled).toBe(false);
+    expect(overviewNetwork().textContent).toContain('remoteConnect.notConnected');
+    const bot = element('[data-openbitfun-part="overviewAction"][data-openbitfun-group="bot"]') as HTMLButtonElement;
+    expect(bot.disabled).toBe(false);
+    expect(bot.textContent).toContain('remoteConnect.stateConnected');
+    await click(bot);
+    expect(element('#remote-connect-bot-tabpanel')).toBeDefined();
+    await clickText('remoteConnect.backToOverview');
+    await generateInvitation();
+    expect(boundary.startConnection).toHaveBeenCalledOnce();
+    expect(cardStatus()).toBe('remoteConnect.stateWaiting');
+    boundary.backend = { ...boundary.backend!, account_control_connected: true, account_control_relay_url: relayA };
+    await tick();
+    await clickText('remoteConnect.backToOverview');
+    expect(overviewNetwork().textContent).toContain('remoteConnect.stateConnected');
+  });
+
+  it.each(['network', 'bot'] as const)('keeps the contextual %s destination open without a selected workspace', async group => {
+    boundary.hasWorkspace = false;
+    await render(group);
+    expect(element(`#remote-connect-${group}-tabpanel`)).toBeDefined();
+    expect(document.querySelector('[data-openbitfun-part="overviewAction"]')).toBeNull();
+  });
+
+  it('keeps an active invitation when the selected workspace is cleared', async () => {
+    await render();
+    await generateInvitation();
+    boundary.hasWorkspace = false;
+    await render();
+    expect(cardStatus()).toBe('remoteConnect.stateWaiting');
+    expect(boundary.stopConnection).not.toHaveBeenCalled();
+  });
+
   it('keeps QR, overview, close/reopen and sidebar connected, then permits another invitation', async () => {
     await render();
     expect(overviewNetwork().textContent).toContain('remoteConnect.notConnected');

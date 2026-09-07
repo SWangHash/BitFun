@@ -70,6 +70,9 @@ export interface RemoteConnectStatus {
   account_control_connected?: boolean;
   /** Relay of the live account route; independent of the temporary QR invitation. */
   account_control_relay_url?: string | null;
+  /** Heartbeat leases for browser pages, not a count of physical devices. */
+  account_control_clients?: Array<{ id: string; name: string }>;
+  account_control_has_unidentified_clients?: boolean;
   bot_connected: string | null;
   bot_verbose_mode: boolean;
 }

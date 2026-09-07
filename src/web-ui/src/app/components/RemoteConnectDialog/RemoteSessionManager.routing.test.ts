@@ -16,6 +16,17 @@ function deferred<T>() {
 }
 
 describe('mobile RemoteSessionManager target routing', () => {
+  it('keeps one browser-page identity across heartbeat requests and manager recreation', async () => {
+    const client = new RelayHttpClient('https://relay.example.com', 'room');
+    const send = vi.spyOn(client, 'sendCommand').mockResolvedValue({ resp: 'pong' });
+    await new RemoteSessionManager(client).ping();
+    await new RemoteSessionManager(client).ping();
+    const first = send.mock.calls[0][0] as { client: { id: string; name: string } };
+    expect(first.client.id).toMatch(/^[a-f0-9]{32}$/);
+    expect(first.client.name).toBeTruthy();
+    expect(send.mock.calls[1][0]).toEqual(expect.objectContaining({ cmd: 'ping', client: first.client }));
+  });
+
   it('attaches request-proven SSH identity to legacy session rows sharing one path', async () => {
     const client = new RelayHttpClient('https://relay.example.com', 'room');
     const send = vi.spyOn(client, 'sendCommand').mockResolvedValue({

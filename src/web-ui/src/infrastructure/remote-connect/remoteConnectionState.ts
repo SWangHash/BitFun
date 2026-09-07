@@ -2,7 +2,7 @@ import type { ConnectionResult, RemoteConnectionMethod, RemoteConnectStatus } fr
 
 export type RemoteNetworkMethod = 'lan' | 'ngrok' | 'openbitfun_server' | 'custom_server';
 
-const OFFICIAL_RELAY_URL = 'https://remote.openbitfun.com/relay';
+export const OFFICIAL_RELAY_URL = 'https://remote.openbitfun.com/relay';
 
 export function remoteNetworkMethod(method: RemoteConnectionMethod | null | undefined): RemoteNetworkMethod | null {
   if (typeof method === 'object' && method !== null) {
@@ -18,7 +18,7 @@ export function remoteNetworkMethod(method: RemoteConnectionMethod | null | unde
   return null;
 }
 
-function normalizeRelayUrl(value: string | null | undefined): string | null {
+export function normalizeRelayUrl(value: string | null | undefined): string | null {
   if (!value) return null;
   try {
     const url = new URL(value);
@@ -31,7 +31,7 @@ function normalizeRelayUrl(value: string | null | undefined): string | null {
   }
 }
 
-function relayUrlFromMethod(method: RemoteConnectionMethod | null | undefined): string | null {
+export function relayUrlFromMethod(method: RemoteConnectionMethod | null | undefined): string | null {
   if (remoteNetworkMethod(method) === 'openbitfun_server') return OFFICIAL_RELAY_URL;
   if (typeof method === 'object' && method !== null && 'custom_server' in method) {
     return normalizeRelayUrl(method.custom_server.url);

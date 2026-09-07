@@ -7,8 +7,8 @@
  *   - My devices (account, sync, and peer-device control)
  *   - Phone or browser (LAN / ngrok / OpenBitFun Relay / self-hosted)
  *   - Chat apps (Telegram / Feishu / WeChat)
- * Network and Chat Apps require an open workspace and can be active
- * simultaneously; My Devices works without a workspace.
+ * Connections are host-level services and do not require a selected project;
+ * remote clients can use the primary assistant workspace.
  */
 
 import {
@@ -38,10 +38,9 @@ import { getLocaleFallbackChain, type LocaleId } from '@/infrastructure/i18n/pre
 import { confirmWarning } from '@/infrastructure/confirm-dialog';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
-import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useAccountLoginState } from '@/infrastructure/account/useAccountLoginState';
 import { remoteConnectStatusSource, useRemoteConnectStatus } from '@/infrastructure/remote-connect/remoteConnectStatus';
-import { remoteNetworkMethod, selectRemoteNetworkConnection, type RemoteNetworkMethod } from '@/infrastructure/remote-connect/remoteConnectionState';
+import { OFFICIAL_RELAY_URL, relayUrlFromMethod, remoteNetworkMethod, selectRemoteNetworkConnection, type RemoteNetworkMethod } from '@/infrastructure/remote-connect/remoteConnectionState';
 import { useNotification } from '@/shared/notification-system';
 import { copyTextToClipboard } from '@/shared/utils/textSelection';
 import { AccountPanel } from './AccountPanel';
@@ -67,6 +66,7 @@ import {
 } from './remoteConnectOperationCleanup';
 import { ChatAppBrandIcon } from './ChatAppBrandIcon';
 import { RemotePairingCard } from './RemotePairingCard';
+import { RemoteNetworkConnections } from './RemoteNetworkConnections';
 import { WeixinLoginProgress } from './WeixinLoginProgress';
 import './RemoteConnectDialog.scss';
 
@@ -169,7 +169,6 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
 }) => {
   const { t, currentLanguage } = useI18n('common');
   const { error: notifyError } = useNotification();
-  const { hasWorkspace } = useCurrentWorkspace();
   const {
     loggedIn: accountLoggedIn,
     deviceName: accountDeviceName,
@@ -1074,6 +1073,30 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     if (statusState !== 'ready' && !connectionResult) {
       return <RemotePairingCard owner="network" statusState={statusState} copied={false} onCopyUrl={() => {}} />;
     }
+    if (networkTab === 'openbitfun_server' || networkTab === 'custom_server') {
+      const invitation = connectionOwner === 'network' ? connectionResult : null;
+      const relayUrl = networkTab === 'openbitfun_server' ? OFFICIAL_RELAY_URL
+        : invitation ? relayUrlFromMethod(invitation.method) ?? customUrl
+          : networkConnection.roomConnected ? relayUrlFromMethod(status?.active_method) ?? customUrl
+            : customUrl;
+      return <RemoteNetworkConnections
+        status={status}
+        method={networkTab}
+        title={networkLabel(networkTab) ?? ''}
+        relayUrl={relayUrl}
+        onRelayUrlChange={setCustomUrl}
+        invitation={invitation}
+        statusState={statusState}
+        loading={loading}
+        pairingUrlCopied={qrCopied}
+        error={renderErrorBlock()}
+        onCopyPairingUrl={handleCopyPairingUrl}
+        onConnect={handleConnect}
+        onCancel={handleCancelConnect}
+        onDisconnect={handleDisconnectRelay}
+        onDeploy={handleOpenRelayDeploy}
+      />;
+    }
     if (networkConnection.roomConnected && networkConnection.roomMethod === networkTab) {
       return (
         <>
@@ -1106,12 +1129,6 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
         data-openbitfun-part="body"
         className="openbitfun-remote-connect__body openbitfun-remote-connect__body--network"
       >
-        {networkConnection.accountConnected && networkConnection.accountMethod === networkTab && (
-          <div className="openbitfun-remote-connect__connected">
-            <RemotePairingCard owner="network" connected copied={false} onCopyUrl={() => {}} />
-            <p className="openbitfun-remote-connect__hint">{t('remoteConnect.accountConnectedHint')}</p>
-          </div>
-        )}
         <section className="openbitfun-remote-connect__network-card" aria-labelledby="remote-connect-method-title">
           <div className="openbitfun-remote-connect__network-heading">
             <Icon name="browser" size="lg" aria-hidden="true" />
@@ -1119,21 +1136,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           </div>
           <div className="openbitfun-remote-connect__network-description">
             <p className="openbitfun-remote-connect__info-text">
-              {networkTab === 'custom_server' ? (
-                <>
-                  {t('remoteConnect.desc_custom_server_prefix')}
-                  <span
-                    className="openbitfun-remote-connect__description-link"
-                    role="link"
-                    tabIndex={0}
-                    onClick={handleOpenRelayDeploy}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleOpenRelayDeploy(); }}
-                  >
-                    {t('remoteConnect.desc_custom_server_link')}
-                  </span>
-                  {t('remoteConnect.desc_custom_server_suffix')}
-                </>
-              ) : networkTab === 'ngrok' ? (
+              {networkTab === 'ngrok' ? (
                 <>
                   {t('remoteConnect.desc_ngrok_prefix')}
                   <span
@@ -1184,22 +1187,6 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                   );
                 })()}
               </div>
-            )}
-            {networkTab === 'custom_server' && (
-              <Field
-                className="openbitfun-remote-connect__field openbitfun-remote-connect__field--inline"
-                controlWidth="fill"
-                label={t('remoteConnect.serverUrl')}
-              >
-                <Input
-                  className="openbitfun-remote-connect__input"
-                  type="url"
-                  placeholder="https://relay.example.com:9700"
-                  value={customUrl}
-                  onValueChange={setCustomUrl}
-                  size="sm"
-                />
-              </Field>
             )}
           </div>
           <div className="openbitfun-remote-connect__network-actions">
@@ -1527,17 +1514,6 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     setShowDisclaimer(false);
   }, []);
 
-  useEffect(() => {
-    if (
-      isOpen
-      && hasAgreedDisclaimer
-      && !hasWorkspace
-      && (activeView === 'network' || activeView === 'bot')
-    ) {
-      handleViewChange('overview');
-    }
-  }, [activeView, handleViewChange, hasAgreedDisclaimer, hasWorkspace, isOpen]);
-
   const renderOverviewAction = ({
     view,
     icon,
@@ -1654,21 +1630,18 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             icon: <Smartphone size={18} />,
             title: t('remoteConnect.mobileBrowserTitle'),
             description: t('remoteConnect.mobileBrowserDescription'),
-            statusLabel: !hasWorkspace
-              ? t('remoteConnect.requiresWorkspace')
-              : statusState === 'unavailable'
-                ? t('remoteConnect.statusUnavailable')
-                : statusState === 'loading'
-                  ? t('remoteConnect.statusChecking')
-                  : isRelayConnected
-                    ? t('remoteConnect.stateConnected')
-                    : t('remoteConnect.notConnected'),
-            statusDetail: hasWorkspace && isRelayConnected
+            statusLabel: statusState === 'unavailable'
+              ? t('remoteConnect.statusUnavailable')
+              : statusState === 'loading'
+                ? t('remoteConnect.statusChecking')
+                : isRelayConnected
+                  ? t('remoteConnect.stateConnected')
+                  : t('remoteConnect.notConnected'),
+            statusDetail: isRelayConnected
               ? networkLabel(connectedNetworkTab)
               : null,
-            statusPositive: hasWorkspace && isRelayConnected,
-            state: hasWorkspace && isRelayConnected ? 'connected' : undefined,
-            disabled: !hasWorkspace,
+            statusPositive: isRelayConnected,
+            state: isRelayConnected ? 'connected' : undefined,
           })}
           {renderOverviewAction({
             view: 'bot',
@@ -1687,21 +1660,18 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             ),
             title: t('remoteConnect.chatAppsTitle'),
             description: t('remoteConnect.chatAppsDescription'),
-            statusLabel: !hasWorkspace
-              ? t('remoteConnect.requiresWorkspace')
-              : statusState === 'unavailable'
-                ? t('remoteConnect.statusUnavailable')
-                : statusState === 'loading'
-                  ? t('remoteConnect.statusChecking')
-                  : isBotConnected
-                    ? t('remoteConnect.stateConnected')
-                    : t('remoteConnect.notConnected'),
-            statusDetail: hasWorkspace && isBotConnected
+            statusLabel: statusState === 'unavailable'
+              ? t('remoteConnect.statusUnavailable')
+              : statusState === 'loading'
+                ? t('remoteConnect.statusChecking')
+                : isBotConnected
+                  ? t('remoteConnect.stateConnected')
+                  : t('remoteConnect.notConnected'),
+            statusDetail: isBotConnected
               ? botLabel(connectedBotTab)
               : null,
-            statusPositive: hasWorkspace && isBotConnected,
-            state: hasWorkspace && isBotConnected ? 'connected' : undefined,
-            disabled: !hasWorkspace,
+            statusPositive: isBotConnected,
+            state: isBotConnected ? 'connected' : undefined,
           })}
         </div>
       </section>
