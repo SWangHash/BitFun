@@ -62,19 +62,19 @@
   }
 
   .icon[data-openbitfun-tone="info"] {
-    color: var(--openbitfun-color-status-info-content);
+    color: var(--openbitfun-color-status-info-emphasis);
   }
 
   .icon[data-openbitfun-tone="success"] {
-    color: var(--openbitfun-color-status-success-content);
+    color: var(--openbitfun-color-status-success-emphasis);
   }
 
   .icon[data-openbitfun-tone="warning"] {
-    color: var(--openbitfun-color-status-warning-content);
+    color: var(--openbitfun-color-status-warning-emphasis);
   }
 
   .icon[data-openbitfun-tone="danger"] {
-    color: var(--openbitfun-color-status-danger-content);
+    color: var(--openbitfun-color-status-danger-emphasis);
   }
 
   @media (forced-colors: active) {

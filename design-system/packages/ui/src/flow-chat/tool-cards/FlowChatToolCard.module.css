@@ -364,11 +364,11 @@
   }
 
   .prominentRoot[data-openbitfun-status="completed"] .statusIcon {
-    color: var(--openbitfun-color-status-success-content);
+    color: var(--openbitfun-color-status-success-emphasis);
   }
 
   .prominentRoot[data-openbitfun-status="error"] .statusIcon {
-    color: var(--openbitfun-color-status-danger-content);
+    color: var(--openbitfun-color-status-danger-emphasis);
   }
 
   .collapse {

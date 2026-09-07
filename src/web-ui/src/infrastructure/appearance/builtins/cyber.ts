@@ -23,9 +23,6 @@ const CYBER_ACCENT = '#00e6ff';
 const CYBER_ACCENT_HOVER = '#00ccff';
 const CYBER_PURPLE = '#8a2be2';
 const CYBER_PURPLE_HOVER = '#7928ca';
-const CYBER_SUCCESS = '#00ff9f';
-const CYBER_WARNING = '#ffcc00';
-const CYBER_ERROR = '#ff0055';
 const CYBER_SURFACE_SECONDARY = '#1c1c1f';
 const CYBER_SURFACE_RAISED = '#2b2d30';
 
@@ -70,14 +67,7 @@ export const openOpenBitFunCyberPalette: AppearancePalette = {
       alpha: { 100: 0.1, 200: 0.18 },
     }),
 
-    semantic: createSemanticColors({
-      success: CYBER_SUCCESS,
-      warning: CYBER_WARNING,
-      error: CYBER_ERROR,
-      info: CYBER_ACCENT,
-      bgAlpha: 0.12,
-      borderAlpha: 0.35,
-    }),
+    semantic: createSemanticColors('dark'),
 
     border: {
       subtle: cyberAccent(0.14),
@@ -95,12 +85,9 @@ export const openOpenBitFunCyberPalette: AppearancePalette = {
       strong: cyberAccent(0.22),
     },
 
-    git: createGitColors({
+    git: createGitColors('dark', {
       branch: rgbFromHex(CYBER_ACCENT),
       branchBg: cyberAccent(0.12),
-      changes: rgbFromHex(CYBER_WARNING),
-      added: rgbFromHex(CYBER_SUCCESS),
-      deleted: rgbFromHex(CYBER_ERROR),
     }),
   },
 

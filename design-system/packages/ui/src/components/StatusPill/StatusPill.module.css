@@ -70,7 +70,25 @@
     background: var(--openbitfun-color-status-danger-surface);
   }
 
+  .root[data-tone="info"] .leading {
+    color: var(--openbitfun-color-status-info-emphasis);
+  }
+
+  .root[data-tone="success"] .leading {
+    color: var(--openbitfun-color-status-success-emphasis);
+  }
+
+  .root[data-tone="warning"] .leading {
+    color: var(--openbitfun-color-status-warning-emphasis);
+  }
+
+  .root[data-tone="danger"] .leading {
+    color: var(--openbitfun-color-status-danger-emphasis);
+  }
+
   @media (forced-colors: active) {
+    .root[data-tone] .leading { color: CanvasText; }
+
     .root {
       border: var(--openbitfun-border-width-default) solid CanvasText;
       color: CanvasText;

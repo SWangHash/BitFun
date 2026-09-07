@@ -258,10 +258,10 @@
       "max": 0
     },
     "colorDomainScopes.themePreset.occurrences": {
-      "max": 128
+      "max": 106
     },
     "colorDomainScopes.themePreset.uniqueColors": {
-      "max": 98
+      "max": 78
     },
     "colorDomainScopes.themeRuntime.occurrences": {
       "max": 0

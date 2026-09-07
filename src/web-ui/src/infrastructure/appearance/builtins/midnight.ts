@@ -24,9 +24,6 @@ const MIDNIGHT_ACCENT = '#60a5fa';
 const MIDNIGHT_ACCENT_HOVER = '#3b82f6';
 const MIDNIGHT_PURPLE = '#9c78ff';
 const MIDNIGHT_PURPLE_HOVER = '#8b5cf6';
-const MIDNIGHT_SUCCESS = '#6aab73';
-const MIDNIGHT_WARNING = '#e0a055';
-const MIDNIGHT_ERROR = '#cc7f7a';
 
 const midnightText = (alpha: number | string) => rgbaFromHex(MIDNIGHT_TEXT_PRIMARY, alpha);
 const midnightAccent = (alpha: number | string) => rgbaFromHex(MIDNIGHT_ACCENT, alpha);
@@ -64,12 +61,7 @@ export const openOpenBitFunMidnightPalette: AppearancePalette = {
 
     purple: createSecondaryAccentScale({ base: MIDNIGHT_PURPLE, hover: MIDNIGHT_PURPLE_HOVER }),
 
-    semantic: createSemanticColors({
-      success: MIDNIGHT_SUCCESS,
-      warning: MIDNIGHT_WARNING,
-      error: MIDNIGHT_ERROR,
-      info: MIDNIGHT_ACCENT,
-    }),
+    semantic: createSemanticColors('dark'),
 
     border: {
       subtle: overlayWhite(0.12),
@@ -87,12 +79,9 @@ export const openOpenBitFunMidnightPalette: AppearancePalette = {
       strong: overlayWhite(0.15),
     },
 
-    git: createGitColors({
+    git: createGitColors('dark', {
       branch: rgbFromHex(MIDNIGHT_ACCENT),
       branchBg: midnightAccent(0.1),
-      changes: rgbFromHex(MIDNIGHT_WARNING),
-      added: rgbFromHex(MIDNIGHT_SUCCESS),
-      deleted: rgbFromHex(MIDNIGHT_ERROR),
     }),
   },
 

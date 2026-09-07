@@ -25,12 +25,7 @@ const TOKYO_ACCENT = '#7aa2f7';
 const TOKYO_ACCENT_HOVER = '#6183bb';
 const TOKYO_PURPLE = '#bb9af7';
 const TOKYO_PURPLE_HOVER = '#9d7cd8';
-const TOKYO_SUCCESS = '#9ece6a';
-const TOKYO_WARNING = '#e0af68';
-const TOKYO_ERROR = '#f7768e';
-const TOKYO_INFO = '#7dcfff';
 const TOKYO_SCROLLBAR = '#868bc4';
-const TOKYO_GIT_ADDED = '#41a6b5';
 const TOKYO_PRIMARY_BUTTON = '#3d59a1';
 
 const tokyoAccent = (alpha: number | string) => rgbaFromHex(TOKYO_ACCENT, alpha);
@@ -78,14 +73,7 @@ export const openOpenBitFunTokyoNightPalette: AppearancePalette = {
       hover: TOKYO_PURPLE_HOVER,
     }),
 
-    semantic: createSemanticColors({
-      success: TOKYO_SUCCESS,
-      warning: TOKYO_WARNING,
-      error: TOKYO_ERROR,
-      info: TOKYO_INFO,
-      bgAlpha: 0.12,
-      borderAlpha: 0.35,
-    }),
+    semantic: createSemanticColors('dark'),
 
     border: {
       subtle: tokyoBorder(0.18),
@@ -103,13 +91,9 @@ export const openOpenBitFunTokyoNightPalette: AppearancePalette = {
       strong: tokyoAccent(0.18),
     },
 
-    git: createGitColors({
+    git: createGitColors('dark', {
       branch: rgbFromHex(TOKYO_ACCENT),
       branchBg: tokyoAccent(0.12),
-      changes: rgbFromHex(TOKYO_WARNING),
-      added: rgbFromHex(TOKYO_GIT_ADDED),
-      deleted: rgbFromHex(TOKYO_ERROR),
-      staged: rgbFromHex(TOKYO_SUCCESS),
     }),
 
     scrollbar: {

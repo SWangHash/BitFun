@@ -24,9 +24,6 @@ const CHINA_STYLE_BLUE = '#2e5e8a';
 const CHINA_STYLE_BLUE_HOVER = '#234a6d';
 const CHINA_STYLE_GREEN = '#7eb09b';
 const CHINA_STYLE_GREEN_HOVER = '#5a9078';
-const CHINA_STYLE_SUCCESS = '#52ad5a';
-const CHINA_STYLE_WARNING = '#f0a020';
-const CHINA_STYLE_ERROR = '#c8102e';
 const CHINA_STYLE_BORDER = '#6a5c46';
 
 const chinaStyleBlue = (alpha: number | string) => rgbaFromHex(CHINA_STYLE_BLUE, alpha);
@@ -65,14 +62,7 @@ export const openOpenBitFunChinaStylePalette: AppearancePalette = {
 
     purple: createSecondaryAccentScale({ base: CHINA_STYLE_GREEN, hover: CHINA_STYLE_GREEN_HOVER }),
 
-    semantic: createSemanticColors({
-      success: CHINA_STYLE_SUCCESS,
-      warning: CHINA_STYLE_WARNING,
-      error: CHINA_STYLE_ERROR,
-      info: CHINA_STYLE_BLUE,
-      bgAlpha: 0.08,
-      borderAlpha: 0.25,
-    }),
+    semantic: createSemanticColors('light'),
 
     border: {
       subtle: chinaStyleBorder(0.12),
@@ -90,12 +80,9 @@ export const openOpenBitFunChinaStylePalette: AppearancePalette = {
       strong: chinaStyleBlue(0.18),
     },
 
-    git: createGitColors({
+    git: createGitColors('light', {
       branch: rgbFromHex(CHINA_STYLE_BLUE),
       branchBg: chinaStyleBlue(0.08),
-      changes: rgbFromHex(CHINA_STYLE_WARNING),
-      added: rgbFromHex(CHINA_STYLE_SUCCESS),
-      deleted: rgbFromHex(CHINA_STYLE_ERROR),
     }),
   },
 

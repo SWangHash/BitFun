@@ -64,6 +64,22 @@ Desktop bootstrap 和产品前端也不能反向定义公共主题值。
 Primitive/reference 色值只存在于主题 authoring、明确的主题 preset 或专用 renderer owner 中。普通组件
 不得直接消费 reference ramp，也不得自行定义“看起来差不多”的局部颜色。
 
+### 状态色与增删行色
+
+普通 UI 的状态色统一由设计系统定义。成功强调色引用 `color.codeChange.added`（`#1aa73e`），
+错误/危险强调色引用 `color.codeChange.removed`（`#ec221f`）；警告固定使用 `#ff8c00`，
+信息/进行中复用已有的清亮蓝 `ref.color.blue.550`（`#2e7eff`）。这组鲜明色相搭配淡着色背景，
+避免在不同页面或内置皮肤中混入灰绿、粉红和另一套橙黄色。
+
+- `color.status.*.emphasis` 用于图标和短强调，与增删行等源色对齐。
+- `content` 从同一 emphasis 混入黑/白来保证长文本可读，`surface` 和 `border` 分别使用 10% 与 30% 着色。
+  高对比模式可以增强文字和底色的对比，但不改动强调色锚点。
+- 三个新增 emphasis Token（info/success/danger）由 Icon、Alert、ConfirmDialog、StatusPill 和工具卡状态图标
+  消费；它们区分图形强调与可读文本，不能用于重新建立局部色板。
+- 状态源文件保留 Token 引用和混色关系，主题构建将它们解析为 hex/RGBA，以便 CSS 与专用 renderer
+  使用同一结果。内置 Appearance 和 Installer 只选取这些状态值，不再接受私有状态色覆盖；Git 增删、暂存和
+  变更状态也由相同源色派生。第三方 Appearance 的现有 Token 名称与导入格式保持可读。
+
 新增颜色按以下顺序判断：
 
 1. 语义相同，直接复用现有 semantic Token。

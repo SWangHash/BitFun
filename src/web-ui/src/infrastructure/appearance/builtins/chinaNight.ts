@@ -23,9 +23,6 @@ const CHINA_NIGHT_ACCENT = '#73a5cc';
 const CHINA_NIGHT_ACCENT_HOVER = '#5a8bb3';
 const CHINA_NIGHT_GREEN = '#96c6b4';
 const CHINA_NIGHT_GREEN_HOVER = '#7eb09b';
-const CHINA_NIGHT_SUCCESS = '#6bc072';
-const CHINA_NIGHT_WARNING = '#f5b555';
-const CHINA_NIGHT_ERROR = '#e85555';
 
 const chinaNightText = (alpha: number | string) => rgbaFromHex(CHINA_NIGHT_TEXT_PRIMARY, alpha);
 const chinaNightAccent = (alpha: number | string) => rgbaFromHex(CHINA_NIGHT_ACCENT, alpha);
@@ -63,13 +60,7 @@ export const openOpenBitFunChinaNightPalette: AppearancePalette = {
 
     purple: createSecondaryAccentScale({ base: CHINA_NIGHT_GREEN, hover: CHINA_NIGHT_GREEN_HOVER }),
 
-    semantic: createSemanticColors({
-      success: CHINA_NIGHT_SUCCESS,
-      warning: CHINA_NIGHT_WARNING,
-      error: CHINA_NIGHT_ERROR,
-      info: CHINA_NIGHT_ACCENT,
-      bgAlpha: 0.12,
-    }),
+    semantic: createSemanticColors('dark'),
 
     border: {
       subtle: chinaNightText(0.14),
@@ -87,12 +78,9 @@ export const openOpenBitFunChinaNightPalette: AppearancePalette = {
       strong: chinaNightText(0.2),
     },
 
-    git: createGitColors({
+    git: createGitColors('dark', {
       branch: rgbFromHex(CHINA_NIGHT_ACCENT),
       branchBg: chinaNightAccent(0.12),
-      changes: rgbFromHex(CHINA_NIGHT_WARNING),
-      added: rgbFromHex(CHINA_NIGHT_SUCCESS),
-      deleted: rgbFromHex(CHINA_NIGHT_ERROR),
     }),
   },
 

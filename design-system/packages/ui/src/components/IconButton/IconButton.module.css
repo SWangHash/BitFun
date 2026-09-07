@@ -80,7 +80,7 @@
   .button[data-openbitfun-tone="danger"] {
     --_icon-button-background-hover: var(--openbitfun-color-status-danger-surface);
     --_icon-button-background-active: var(--openbitfun-color-status-danger-surface);
-    --_icon-button-content: var(--openbitfun-color-status-danger-content);
+    --_icon-button-content: var(--openbitfun-color-status-danger-emphasis);
   }
 
   .button[data-openbitfun-tone="danger"][data-openbitfun-variant="fill"] {

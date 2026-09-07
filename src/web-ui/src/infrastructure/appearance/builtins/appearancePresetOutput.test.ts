@@ -1,3 +1,4 @@
+import { themes } from '@openbitfun/theme-openbitfun';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
@@ -27,6 +28,22 @@ function hashAppearance(appearance: unknown): string {
     .digest('hex');
 }
 
+function statusContrast(content: string, tint: string, background: string): number {
+  const parse = (value: string): number[] => value.startsWith('#')
+    ? [1, 3, 5].map(offset => Number.parseInt(value.slice(offset, offset + 2), 16))
+    : value.match(/[\d.]+/g)!.map(Number);
+  const backdrop = parse(background);
+  const surface = parse(tint);
+  const alpha = surface[3] ?? 1;
+  const luminance = (rgb: number[]): number => rgb.map(channel => {
+    const normalized = channel / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  }).reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+  const first = luminance(parse(content));
+  const second = luminance(backdrop.map((channel, index) => surface[index] * alpha + channel * (1 - alpha)));
+  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+}
+
 describe('builtin appearance preset output', () => {
   it('formats hex palette references as stable rgb strings', () => {
     expect(rgbFromHex('#00e6ff')).toBe('rgb(0, 230, 255)');
@@ -36,27 +53,44 @@ describe('builtin appearance preset output', () => {
     expect(overlayWhite(0.08)).toBe('rgba(255, 255, 255, 0.08)');
   });
 
-  it('aliases staged git colors to added colors unless an appearance overrides them', () => {
-    expect(createGitColors({
-      branch: '#64748b',
-      branchBg: 'rgba(100, 116, 139, 0.1)',
-      changes: '#f59e0b',
-      added: '#22c55e',
-      deleted: '#ef4444',
-    })).toMatchObject({
-      staged: '#22c55e',
-    });
-
-    expect(createGitColors({
-      branch: '#64748b',
-      branchBg: 'rgba(100, 116, 139, 0.1)',
-      changes: '#f59e0b',
-      added: '#22c55e',
-      deleted: '#ef4444',
-      staged: '#10b981',
-    })).toMatchObject({
-      staged: '#10b981',
-    });
+  it('uses the shared design-system palette for every builtin status and git lifecycle', () => {
+    for (const appearance of builtinAppearancePalettes) {
+      const mode = appearance.type;
+      const values = themes[mode];
+      const tokens = getBuiltinAppearanceThemeTokens(appearance.id);
+      for (const [key, tone] of [['success', 'success'], ['warning', 'warning'], ['error', 'danger'], ['info', 'info']] as const) {
+        expect(appearance.colors.semantic[key]).toBe(values[`color.status.${tone}.content`]);
+        expect(appearance.colors.semantic[`${key}Bg`]).toBe(values[`color.status.${tone}.surface`]);
+        expect(appearance.colors.semantic[`${key}Border`]).toBe(values[`color.status.${tone}.border`]);
+        for (const role of ['emphasis', 'content', 'surface', 'border'] as const) {
+          expect(tokens[`--openbitfun-color-status-${tone}-${role}`]).toBe(values[`color.status.${tone}.${role}`]);
+        }
+      }
+      expect(appearance.colors.git).toMatchObject({
+        added: values['color.codeChange.added'],
+        staged: values['color.codeChange.added'],
+        deleted: values['color.codeChange.removed'],
+        changes: values['color.status.warning.emphasis'],
+      });
+      expect(createGitColors(mode, { branch: 'currentColor', branchBg: 'transparent' })).toMatchObject(
+        { ...appearance.colors.git, branch: 'currentColor', branchBg: 'transparent' },
+      );
+      expect(createSemanticColors(mode)).toEqual(appearance.colors.semantic);
+      const chromeTokens = getBuiltinAppearance(appearance.id)?.renderers?.['theme-tokens']?.settings.scopes?.chrome;
+      for (const tone of ['info', 'success', 'warning', 'danger'] as const) {
+        const contentKey = `--openbitfun-color-status-${tone}-content` as const;
+        const surfaceKey = `--openbitfun-color-status-${tone}-surface` as const;
+        for (const background of Object.values(appearance.colors.background)) {
+          expect(statusContrast(tokens[contentKey], tokens[surfaceKey], background), `${appearance.id} ${tone}`).toBeGreaterThanOrEqual(4.5);
+        }
+        if (chromeTokens && appearance.colors.chrome) {
+          expect(chromeTokens[contentKey]).toBe(themes[appearance.colors.chrome.type ?? mode][`color.status.${tone}.content`]);
+          for (const background of Object.values(appearance.colors.chrome.background)) {
+            expect(statusContrast(chromeTokens[contentKey], chromeTokens[surfaceKey], background), `${appearance.id} chrome ${tone}`).toBeGreaterThanOrEqual(4.5);
+          }
+        }
+      }
+    }
   });
 
   it('derives repeated palette families from compact authoring inputs', () => {
@@ -82,20 +116,6 @@ describe('builtin appearance preset output', () => {
       200: 'rgba(139, 92, 246, 0.15)',
       500: '#8b5cf6',
       600: '#7c3aed',
-    });
-
-    expect(createSemanticColors({
-      success: '#34d399',
-      warning: '#f59e0b',
-      error: '#ef4444',
-      info: '#a1a1aa',
-    })).toMatchObject({
-      successBg: 'rgba(52, 211, 153, 0.1)',
-      successBorder: 'rgba(52, 211, 153, 0.3)',
-      warningBg: 'rgba(245, 158, 11, 0.1)',
-      errorBorder: 'rgba(239, 68, 68, 0.3)',
-      infoBg: 'rgba(161, 161, 170, 0.1)',
-      infoBorder: 'rgba(161, 161, 170, 0.3)',
     });
   });
 
@@ -153,16 +173,7 @@ describe('builtin appearance preset output', () => {
           600: '#1c1c1f',
           700: '#000000',
         },
-        semantic: {
-          success: '#247344',
-          successBg: '#e1fbe9',
-          successBorder: '#247344',
-          error: '#a74352',
-          errorBg: 'rgba(167, 67, 82, 0.12)',
-          info: '#555555',
-          infoBg: '#f3f3f5',
-          infoBorder: 'rgba(16, 26, 39, 0.15)',
-        },
+        semantic: createSemanticColors('light'),
         border: {
           base: 'rgba(16, 26, 39, 0.15)',
         },
@@ -355,47 +366,47 @@ describe('builtin appearance preset output', () => {
     }))).toMatchInlineSnapshot(`
       [
         {
-          "hash": "1fe3b2d75f26bcc2f5ba7a060798ccd4893ab0e6a243e4dbcbd1ea20b3774b05",
+          "hash": "7a71a12624784e4fa3ca06b77e7ad1b8386d28e05e9a478f27fd3e682463a1ca",
           "id": "openbitfun-light",
           "type": "light",
         },
         {
-          "hash": "3a0a60eabad8363abaded31051a4e5a7aaeb5a22ee12fbd81f81c6f2e1ed44a9",
+          "hash": "84df9245dff376b4169cb0c44109d9c44e48b2312d33df71f3d7d4ca384e82bb",
           "id": "openbitfun-monochrome",
           "type": "light",
         },
         {
-          "hash": "af8895255a3a21481063077505cf70d60c13105fbc446d8c6860a86041bd1e47",
+          "hash": "0bbe55d609c2f15b58da7d0aca7c23bc145aaadc96a9394a558c7eda8d4d4566",
           "id": "openbitfun-slate",
           "type": "dark",
         },
         {
-          "hash": "bc97870416ab67aa59fa362f75b4f5bf3397112ea3d7c3ed7ec340cd031d70cb",
+          "hash": "1b5fb0a08134bdaaa9022f453532cffff4231df97dbcdc3a757cf2401b1cc638",
           "id": "openbitfun-dark",
           "type": "dark",
         },
         {
-          "hash": "9dae2590fc72fb4e8a759eadc7b1ff7c42b9e2864027683aafadbdd4057ced5b",
+          "hash": "f1b0516be11dbd02eb1c3b204806e2212b3fa78d1fcf18912d2fee99f257d51d",
           "id": "openbitfun-midnight",
           "type": "dark",
         },
         {
-          "hash": "9adb639858fa52ff427c5c931a21de805e5f9aa4576839a293ae4d9915baa532",
+          "hash": "db979037b2785c346b5fa06905aa84db43bcb39217e123f26cd6aad2231248a8",
           "id": "openbitfun-china-style",
           "type": "light",
         },
         {
-          "hash": "b5adfb440ba46c1549990ce0e5ea05bf929dd7caee9b9ecc6baf8331b5c5e7f2",
+          "hash": "30a425ebcf4e4121e8a426c1dca981944d99b0523c21477cbe6c59b111e11b0e",
           "id": "openbitfun-china-night",
           "type": "dark",
         },
         {
-          "hash": "6c450fe83517666bf4c8c99c1d0463b583e4abc8b08bc919c89e108100ea410c",
+          "hash": "b82c17ad7f03db017974d4a300294f4efd11bb06a56150c5217b24fa1be37614",
           "id": "openbitfun-cyber",
           "type": "dark",
         },
         {
-          "hash": "279e1980c2e15258107983155b26f9a6a06001b1adbfc9f59071f603d0f9f40e",
+          "hash": "7016e6d424172f8ed84a4263263c09491ab905a829f26f970aad4a48d723b05d",
           "id": "openbitfun-tokyo-night",
           "type": "dark",
         },
