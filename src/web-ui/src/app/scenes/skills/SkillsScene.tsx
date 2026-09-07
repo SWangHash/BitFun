@@ -1,4 +1,4 @@
-import {
+﻿import {
   Button,
   ConfirmDialog,
   Field,
@@ -24,6 +24,7 @@ import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 
 import { GalleryDetailModal, GalleryPageHeader } from '@/app/components';
 import type { SkillInfo, SkillLevel, SkillMarketItem } from '@/infrastructure/config/types';
+import { installedSkillMarketIds, isSkillMarketItemInstalled } from '@/infrastructure/config/skillMarketInstallation';
 import {
   buildSkillCoverageSourceMap,
   canDeleteSkill,
@@ -137,12 +138,8 @@ const SkillsScene: React.FC = () => {
     enabled: desktopConfigAvailable,
   });
 
-  const installedInstallIds = useMemo(
-    () => new Set(
-      installed.skills
-        .map((skill) => skill.marketInstallId)
-        .filter((id): id is string => Boolean(id)),
-    ),
+  const installedMarketIds = useMemo(
+    () => installedSkillMarketIds(installed.skills),
     [installed.skills],
   );
   const installedDirNamesByLevel = useMemo(
@@ -155,10 +152,6 @@ const SkillsScene: React.FC = () => {
       return { user, project };
     },
     [installed.skills],
-  );
-  const isMarketSkillInstalled = useCallback(
-    (skill: SkillMarketItem): boolean => installedInstallIds.has(skill.installId),
-    [installedInstallIds],
   );
   const coverageSourceBySkillKey = useMemo(
     () => buildSkillCoverageSourceMap(installed.skills, t('list.item.unknownSource')),
@@ -200,7 +193,7 @@ const SkillsScene: React.FC = () => {
 
   const market = useSkillMarket({
     searchQuery: marketQuery,
-    isMarketSkillInstalled,
+    installedMarketIds,
     installedDirNamesByLevel,
     pageSize: 12,
     enabled: desktopConfigAvailable,
@@ -358,7 +351,7 @@ const SkillsScene: React.FC = () => {
                     >
                       <span className="skills-sidebar__item-icon" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemIcon">{cat.icon}</span>
                       <span className="skills-sidebar__item-label" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemLabel">{t(cat.labelKey)}</span>
-                      <span className="skills-sidebar__item-count" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemCount">{isEmpty ? '—' : count}</span>
+                      <span className="skills-sidebar__item-count" data-openbitfun-scene="skills" data-openbitfun-part="sidebarItemCount">{isEmpty ? '鈥? : count}</span>
                     </button>
                   );
                 })}
@@ -615,7 +608,7 @@ const SkillsScene: React.FC = () => {
                                   }}
                                 />
                               ) : (
-                                <span className="skills-card__status-unavailable" aria-hidden="true">—</span>
+                                <span className="skills-card__status-unavailable" aria-hidden="true">鈥?/span>
                               )}
                             </div>
 
@@ -743,7 +736,7 @@ const SkillsScene: React.FC = () => {
 
                   <div className="skills-discover__grid" data-testid="skill-list" data-openbitfun-scene="skills" data-openbitfun-part="list">
                     {market.marketSkills.map((skill, index) => {
-                      const isInstalled = isMarketSkillInstalled(skill);
+                      const isInstalled = isSkillMarketItemInstalled(skill, installedMarketIds);
                       const isDownloading = market.downloadingPackage === skill.installId;
                       return (
                         <SkillCard
@@ -933,7 +926,8 @@ const SkillsScene: React.FC = () => {
                   : t('list.item.project')}
             </StatusPill>
           </>
-        ) : selectedMarketSkill && isMarketSkillInstalled(selectedMarketSkill) ? (
+
+        ) : selectedMarketSkill && isSkillMarketItemInstalled(selectedMarketSkill, installedMarketIds) ? (
           <StatusPill tone="success" leading={<Icon name="check-circle" size="2xs" />}>
             {t('market.item.installed')}
           </StatusPill>
@@ -974,7 +968,7 @@ const SkillsScene: React.FC = () => {
           </Button>
         ) : selectedMarketSkill ? (
           <>
-            {selectedMarketSkill && isMarketSkillInstalled(selectedMarketSkill) ? (
+            {isSkillMarketItemInstalled(selectedMarketSkill, installedMarketIds) ? (
               <Button variant="outline" size="sm" disabled>
                 {t('market.item.installed')}
               </Button>

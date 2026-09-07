@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { FolderOpen, TrendingUp } from 'lucide-react';
 
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
+import { installedSkillMarketIds, isSkillMarketItemInstalled } from '@/infrastructure/config/skillMarketInstallation';
 
 import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigCollectionItem } from './common';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
@@ -185,7 +186,7 @@ const SkillsConfig: React.FC = () => {
     const conflictSet = resolvedLevel === 'user'
       ? installedDirNamesByLevel.user
       : installedDirNamesByLevel.project;
-    if (conflictSet.has(dirName) && !isMarketSkillInstalled(skill)) {
+    if (conflictSet.has(dirName) && !isSkillMarketItemInstalled(skill, installedMarketIds)) {
       notification.error(t('messages.nameConflict', { name: skill.name }));
       return;
     }
@@ -448,7 +449,7 @@ const SkillsConfig: React.FC = () => {
       <div className="openbitfun-skills-config__market-list" data-openbitfun-component="skills-config" data-openbitfun-part="marketList">
         {displayMarketSkills.map((skill) => {
           const isDownloading = downloadingPackage === skill.installId;
-          const isInstalled = isMarketSkillInstalled(skill);
+          const isInstalled = isSkillMarketItemInstalled(skill, installedMarketIds);
           const sourceLabel = formatMarketSource(skill.source);
           const projectTooltipText = !hasWorkspace
             ? t('messages.noWorkspace')
@@ -591,12 +592,8 @@ const SkillsConfig: React.FC = () => {
     </>
   );
 
-  const installedInstallIds = useMemo(
-    () => new Set(
-      skills
-        .map((skill) => skill.marketInstallId)
-        .filter((id): id is string => Boolean(id)),
-    ),
+  const installedMarketIds = useMemo(
+    () => installedSkillMarketIds(skills),
     [skills]
   );
   const installedDirNamesByLevel = useMemo(
@@ -609,10 +606,6 @@ const SkillsConfig: React.FC = () => {
       return { user, project };
     },
     [skills]
-  );
-  const isMarketSkillInstalled = useCallback(
-    (skill: SkillMarketItem): boolean => installedInstallIds.has(skill.installId),
-    [installedInstallIds]
   );
 
   const formatMarketSource = useCallback((source: string): string => {
@@ -639,7 +632,7 @@ const SkillsConfig: React.FC = () => {
     const entries = marketSkills.map((skill, index) => ({
       skill,
       index,
-      installed: isMarketSkillInstalled(skill),
+      installed: isSkillMarketItemInstalled(skill, installedMarketIds),
     }));
 
     entries.sort((a, b) => {
@@ -656,7 +649,7 @@ const SkillsConfig: React.FC = () => {
     });
 
     return entries.map((entry) => entry.skill);
-  }, [marketSkills, isMarketSkillInstalled]);
+  }, [marketSkills, installedMarketIds]);
 
   const handleMarketSearch = useCallback(() => {
     loadMarketSkills(marketKeyword);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { configAPI } from '@/infrastructure/api';
+import { isSkillMarketItemInstalled } from '@/infrastructure/config/skillMarketInstallation';
 import type { SkillLevel, SkillMarketItem } from '@/infrastructure/config/types';
 import { useWorkspaceManagerSync } from '@/infrastructure/hooks/useWorkspaceManagerSync';
 import { useNotification } from '@/shared/notification-system';
@@ -18,7 +19,7 @@ interface InstalledDirNamesByLevel {
 
 interface UseSkillMarketOptions {
   searchQuery: string;
-  isMarketSkillInstalled: (skill: SkillMarketItem) => boolean;
+  installedMarketIds: Set<string>;
   installedDirNamesByLevel: InstalledDirNamesByLevel;
   onInstalledChanged?: () => Promise<void> | void;
   pageSize?: number;
@@ -27,7 +28,7 @@ interface UseSkillMarketOptions {
 
 export function useSkillMarket({
   searchQuery,
-  isMarketSkillInstalled,
+  installedMarketIds,
   installedDirNamesByLevel,
   onInstalledChanged,
   pageSize = DEFAULT_PAGE_SIZE,
@@ -132,7 +133,7 @@ export function useSkillMarket({
     const entries = marketSkills.map((skill, index) => ({
       skill,
       index,
-      installed: isMarketSkillInstalled(skill),
+      installed: isSkillMarketItemInstalled(skill, installedMarketIds),
     }));
 
     // Sort by install count (popular first), then original fetch order for a
@@ -149,7 +150,7 @@ export function useSkillMarket({
     });
 
     return entries.map((entry) => entry.skill);
-  }, [isMarketSkillInstalled, marketSkills]);
+  }, [installedMarketIds, marketSkills]);
 
   const goToNextPage = useCallback(async () => {
     const capabilityEpoch = currentCapabilityEpoch();
@@ -227,7 +228,7 @@ export function useSkillMarket({
     const conflictSet = resolvedLevel === 'user'
       ? installedDirNamesByLevel.user
       : installedDirNamesByLevel.project;
-    if (conflictSet.has(dirName) && !isMarketSkillInstalled(skill)) {
+    if (conflictSet.has(dirName) && !isSkillMarketItemInstalled(skill, installedMarketIds)) {
       notification.error(t('messages.nameConflict', { name: skill.name }));
       return;
     }
@@ -259,7 +260,7 @@ export function useSkillMarket({
         setDownloadingPackage(null);
       }
     }
-  }, [capabilityIsCurrent, currentCapabilityEpoch, hasWorkspace, installedDirNamesByLevel, isAssistantWorkspace, isMarketSkillInstalled, isRemoteWorkspace, notification, onInstalledChanged, t, workspacePath]);
+  }, [capabilityIsCurrent, currentCapabilityEpoch, hasWorkspace, installedDirNamesByLevel, installedMarketIds, isAssistantWorkspace, isRemoteWorkspace, notification, onInstalledChanged, t, workspacePath]);
 
   const retryLoadMore = useCallback(() => {
     setLoadMoreError(false);
