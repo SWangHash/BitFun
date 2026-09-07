@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, CardBody, CardFooter, CardHeader, Icon, ScrollArea } from '@openbitfun/ui';
 import { createPortal } from 'react-dom';
-import { Cloud, Monitor, Server, Smartphone, Undo2 } from 'lucide-react';
+import { Monitor, Server, Smartphone, Undo2 } from 'lucide-react';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
 import { useAnchoredPopoverPosition } from '@/shared/utils/useAnchoredPopoverPosition';
@@ -15,7 +15,6 @@ import {
   selectActivityFacts,
   selectAttachedGroups,
   type DeviceOverviewActivityFact,
-  type DeviceOverviewConnectionService,
   type DeviceOverviewDevice,
   type DeviceOverviewDeviceKind,
 } from '../deviceInterconnectionOverview';
@@ -63,12 +62,6 @@ function DeviceIcon({
   }
 }
 
-function ConnectionServiceIcon({ service }: { service: DeviceOverviewConnectionService }) {
-  return service.kind === 'self-hosted' || service.kind === 'device-service'
-    ? <Server size={15} aria-hidden="true" />
-    : <Cloud size={15} aria-hidden="true" />;
-}
-
 const DeviceStatusControl: React.FC<DeviceStatusControlProps> = ({
   open,
   onOpenChange,
@@ -90,7 +83,6 @@ const DeviceStatusControl: React.FC<DeviceStatusControlProps> = ({
   const {
     overview,
     refresh,
-    accountService,
   } = useDeviceInterconnectionOverview(localDeviceLabel, t('remoteConnect.mobileBrowserTitle'));
   const [returningLocal, setReturningLocal] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -187,26 +179,6 @@ const DeviceStatusControl: React.FC<DeviceStatusControlProps> = ({
     if (chatApp === 'weixin') return t('remoteConnect.weixin');
     return device.name;
   }, [t]);
-
-  const serviceContent = useMemo(() => {
-    const service = overview.connectionService;
-    if (!service) return null;
-    switch (service.kind) {
-      case 'official':
-        return { label: t('deviceOverview.officialService'), detail: null };
-      case 'self-hosted':
-        return {
-          label: t('deviceOverview.selfHostedService'),
-          detail: service.host,
-        };
-      case 'local-network':
-        return { label: t('deviceOverview.sameNetwork'), detail: null };
-      case 'public-tunnel':
-        return { label: t('deviceOverview.publicConnection'), detail: null };
-      default:
-        return { label: t('deviceOverview.deviceService'), detail: service.host };
-    }
-  }, [overview.connectionService, t]);
 
   return (
     <>
@@ -328,23 +300,6 @@ const DeviceStatusControl: React.FC<DeviceStatusControlProps> = ({
                     </div>
                   </section>
                 </>
-              )}
-
-              {overview.mode === 'connected' && overview.connectionService && serviceContent && (
-                <div
-                  className="openbitfun-device-overview__service"
-                  data-testid="nav-device-connection-service"
-                  data-openbitfun-service-kind={overview.connectionService.kind}
-                >
-                  <ConnectionServiceIcon service={overview.connectionService} />
-                  <span>
-                    {t(overview.connectionService === accountService
-                      ? 'deviceOverview.accountService'
-                      : 'deviceOverview.connectionService')}
-                  </span>
-                  <strong>{serviceContent.label}</strong>
-                  {serviceContent.detail && <small>{serviceContent.detail}</small>}
-                </div>
               )}
 
               {overview.topologyUnavailable && (
