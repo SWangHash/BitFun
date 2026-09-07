@@ -89,6 +89,12 @@ The `devtools` Cargo feature exists for debugging UI/UX in the desktop app. When
 
 ## Verification
 
+For DMG background metadata and installer layout, run
+`node --test scripts/desktop-tauri-build.test.mjs` from the repository root.
+Finder interprets the background's physical size: keep the 660×400 PNG at
+72 DPI so it matches the configured window in points. Pixel dimensions alone
+do not guarantee a matching layout.
+
 ```bash
 cargo check -p openbitfun-desktop && cargo test -p openbitfun-desktop
 ```
