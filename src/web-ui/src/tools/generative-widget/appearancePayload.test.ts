@@ -16,7 +16,7 @@ import {
 } from './appearancePayload';
 
 const CANONICAL_THEME_VARIABLE_NAMES = Object.values(themeCssVariables);
-const CANONICAL_THEME_VARIABLE_NAMES_HASH = '0c1109009e2a88adbade099e551aacecc2d18a4f6dbcf8436f0de80999c90d5d';
+const CANONICAL_THEME_VARIABLE_NAMES_HASH = 'e80ebcdf9452a0b5f8ab26d9b41cb81c4e74d75451e4402f99afc68af3c13f42';
 const RETIRED_WIDGET_VARIABLE_NAMES = [
   '--background-primary',
   '--bg-primary',
@@ -65,7 +65,7 @@ describe('generated widget appearance payload contract', () => {
       first: WIDGET_APPEARANCE_VAR_NAMES[0],
       last: WIDGET_APPEARANCE_VAR_NAMES[WIDGET_APPEARANCE_VAR_NAMES.length - 1],
     }).toEqual({
-      count: 124,
+      count: 127,
       hash: CANONICAL_THEME_VARIABLE_NAMES_HASH,
       first: '--openbitfun-color-accent-border',
       last: '--openbitfun-shadow-xs',
@@ -91,6 +91,10 @@ describe('generated widget appearance payload contract', () => {
       '--openbitfun-color-action-primary-pressed',
       '--openbitfun-color-code-change-added',
       '--openbitfun-color-code-change-removed',
+      '--openbitfun-color-status-info-emphasis',
+      '--openbitfun-color-status-success-emphasis',
+      '--openbitfun-color-status-warning-emphasis',
+      '--openbitfun-color-status-danger-emphasis',
       '--openbitfun-color-status-success-content',
       '--openbitfun-color-status-success-surface',
       '--openbitfun-color-status-success-border',
