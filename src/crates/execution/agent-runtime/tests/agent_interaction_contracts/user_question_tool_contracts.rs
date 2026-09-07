@@ -261,7 +261,7 @@ fn ask_user_question_template_id_round_trips_and_takes_precedence() {
 
 #[test]
 fn ask_user_question_template_registry_serves_qt_migration_paths() {
-    use bitfun_agent_runtime::question_templates::{
+    use bitfun_agent_runtime::qt_migration_question_templates::{
         resolve_question_template, QT_MIGRATION_PATHS_TEMPLATE_ID,
     };
 
@@ -288,7 +288,7 @@ fn ask_user_question_template_registry_serves_qt_migration_paths() {
 
 #[test]
 fn template_resolved_payload_keeps_params_immutable_and_carries_policy() {
-    use bitfun_agent_runtime::question_templates::{
+    use bitfun_agent_runtime::qt_migration_question_templates::{
         resolve_question_template_full, QT_MIGRATION_PATHS_TEMPLATE_ID,
     };
     use bitfun_agent_runtime::user_questions::ResolvedQuestionRequest;

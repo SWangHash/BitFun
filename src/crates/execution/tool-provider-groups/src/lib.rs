@@ -104,7 +104,8 @@ pub fn tool_feature_group(tool_name: &str) -> Option<ToolPackFeatureGroup> {
         | "switch_cwd"
         | "verify_ui"
         | "get_ui_verification_log"
-        | "save_ui_screenshot" => Some(ToolPackFeatureGroup::Basic),
+        | "save_ui_screenshot"
+        | "QtMigrationIntake" => Some(ToolPackFeatureGroup::Basic),
         "Git" | "Worktree" | "ReviewPlatform" | "GetFileDiff" => Some(ToolPackFeatureGroup::Git),
         "ListMCPResources" | "ReadMCPResource" | "ListMCPPrompts" | "GetMCPPrompt" => {
             Some(ToolPackFeatureGroup::Mcp)
@@ -178,6 +179,8 @@ const CORE_INTEGRATION_FEATURE_GROUPS: &[ToolPackFeatureGroup] = &[
 ];
 
 const CORE_OPENHARMONY_FEATURE_GROUPS: &[ToolPackFeatureGroup] = &[ToolPackFeatureGroup::Basic];
+
+const CORE_QT_MIGRATION_FEATURE_GROUPS: &[ToolPackFeatureGroup] = &[ToolPackFeatureGroup::Basic];
 
 const PRODUCT_TOOL_PROVIDER_GROUP_PLAN: &[ToolProviderGroupPlan] = &[
     ToolProviderGroupPlan {
@@ -270,6 +273,11 @@ const PRODUCT_TOOL_PROVIDER_GROUP_PLAN: &[ToolProviderGroupPlan] = &[
             "get_ui_verification_log",
             "save_ui_screenshot",
         ],
+    },
+    ToolProviderGroupPlan {
+        provider_id: "core.qt-migration",
+        feature_groups: CORE_QT_MIGRATION_FEATURE_GROUPS,
+        tool_names: &["QtMigrationIntake"],
     },
 ];
 
@@ -481,7 +489,8 @@ mod tests {
                 "core.canvas",
                 "core.session",
                 "core.integration",
-                "core.openharmony"
+                "core.openharmony",
+                "core.qt-migration"
             ]
         );
     }
@@ -561,6 +570,7 @@ mod tests {
                 "verify_ui",
                 "get_ui_verification_log",
                 "save_ui_screenshot",
+                "QtMigrationIntake",
             ]
         );
     }
@@ -593,6 +603,7 @@ mod tests {
                     vec!["browser-web", "mcp", "git", "miniapp", "computer-use",]
                 ),
                 ("core.openharmony", vec!["basic"]),
+                ("core.qt-migration", vec!["basic"]),
             ]
         );
     }

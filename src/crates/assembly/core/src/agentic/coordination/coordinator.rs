@@ -54,7 +54,7 @@ use crate::agentic::side_question::build_btw_user_input;
 use crate::agentic::skill_agent_snapshot::{
     diff_skill_agent_snapshot, resolve_skill_agent_snapshot, TurnSkillAgentSnapshot,
 };
-use crate::agentic::tools::implementations::analyze_migration_request_tool::AnalyzeMigrationRequestTool;
+use crate::agentic::tools::implementations::qt_migration_intake_tool::QtMigrationIntakeTool;
 use crate::agentic::tools::pipeline::{
     PrimaryModelFacts, SubagentParentInfo, ToolExecutionContext, ToolExecutionOptions, ToolPipeline,
 };
@@ -5982,8 +5982,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
 
         let turn_index = self.session_manager.get_turn_count(&session_id);
         let migration_enabled = effective_agent_type == "QtMigration"
-            && AnalyzeMigrationRequestTool::analyze_request(&original_user_input)["taskType"]
-                .as_str()
+            && QtMigrationIntakeTool::analyze_request(&original_user_input)["taskType"].as_str()
                 == Some("app_migration");
         let mut skill_agent_context_vars = HashMap::new();
         skill_agent_context_vars.insert(
@@ -11463,10 +11462,13 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         if let Some(child_session_id) = request.target_session_id() {
             if let Some(parent_info) = request.subagent_parent_info.as_ref() {
                 self.get_session_manager()
-                    .seed_forked_intake_state(&parent_info.session_id, child_session_id)
+                    .seed_forked_qt_migration_intake_state(
+                        &parent_info.session_id,
+                        child_session_id,
+                    )
                     .await;
                 self.get_session_manager()
-                    .seed_forked_migration_active(&parent_info.session_id, child_session_id)
+                    .seed_forked_qt_migration_active(&parent_info.session_id, child_session_id)
                     .await;
             }
         }
@@ -11597,10 +11599,13 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         if let Some(child_session_id) = request.target_session_id() {
             if let Some(parent_info) = request.subagent_parent_info.as_ref() {
                 self.get_session_manager()
-                    .seed_forked_intake_state(&parent_info.session_id, child_session_id)
+                    .seed_forked_qt_migration_intake_state(
+                        &parent_info.session_id,
+                        child_session_id,
+                    )
                     .await;
                 self.get_session_manager()
-                    .seed_forked_migration_active(&parent_info.session_id, child_session_id)
+                    .seed_forked_qt_migration_active(&parent_info.session_id, child_session_id)
                     .await;
             }
         }
@@ -12164,8 +12169,8 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         meta: &bitfun_agent_runtime::user_questions::PendingQuestionRequestMeta,
         request: &bitfun_agent_runtime::sdk::AgentUserAnswersRequest,
     ) -> bitfun_runtime_ports::PortResult<()> {
-        use bitfun_agent_runtime::intake_state::{
-            apply_validated_answers, validate_answers, IntakeStateSnapshot, INTAKE_REQUIRED_FIELDS,
+        use bitfun_agent_runtime::qt_migration_intake_state::{
+            qt_migration_apply_validated_answers, qt_migration_validate_answers, QtMigrationIntakeStateSnapshot, QT_MIGRATION_INTAKE_REQUIRED_FIELDS,
             QT_MIGRATION_OFFICIAL_VALUE,
         };
 
@@ -12190,7 +12195,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
 
         // Backend-owned template existence/version check (fail closed).
         let known_template = |template_id: &str, template_version: &str| {
-            bitfun_agent_runtime::question_templates::resolve_question_template_full(
+            bitfun_agent_runtime::qt_migration_question_templates::resolve_question_template_full(
                 template_id,
                 &std::collections::HashMap::new(),
             )
@@ -12203,9 +12208,9 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
             .required_fields
             .as_ref()
             .map(|fields| fields.iter().map(String::as_str).collect())
-            .unwrap_or_else(|| INTAKE_REQUIRED_FIELDS.to_vec());
+            .unwrap_or_else(|| QT_MIGRATION_INTAKE_REQUIRED_FIELDS.to_vec());
 
-        let normalized = validate_answers(
+        let normalized = qt_migration_validate_answers(
             template_id,
             template_version,
             known_template,
@@ -12247,11 +12252,11 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         // Persist the normalized bindings into the Session intake snapshot
         // before waking the tool, so downstream gates and restore see them.
         let current = session_manager
-            .intake_state(&meta.session_id)
-            .unwrap_or_else(IntakeStateSnapshot::empty);
-        let updated = apply_validated_answers(&current, &normalized);
+            .qt_migration_intake_state(&meta.session_id)
+            .unwrap_or_else(QtMigrationIntakeStateSnapshot::empty);
+        let updated = qt_migration_apply_validated_answers(&current, &normalized);
         session_manager
-            .remember_intake_state(&meta.session_id, updated)
+            .remember_qt_migration_intake_state(&meta.session_id, updated)
             .await;
 
         crate::agentic::tools::user_input_manager::get_user_input_manager()
@@ -13750,7 +13755,7 @@ impl bitfun_agent_runtime::sdk::AgentInteractionResponsePort for ConversationCoo
         if let Some(meta) = user_input_manager.pending_meta(&request.tool_id) {
             if let Some(template_id) = meta.template_id.as_deref() {
                 if template_id
-                    == bitfun_agent_runtime::question_templates::QT_MIGRATION_PATHS_TEMPLATE_ID
+                    == bitfun_agent_runtime::qt_migration_question_templates::QT_MIGRATION_PATHS_TEMPLATE_ID
                 {
                     return self.validate_and_apply_answers(&meta, &request).await;
                 }
@@ -15468,7 +15473,7 @@ mod tests {
 
     #[tokio::test]
     async fn qt_migration_answers_are_validated_and_persisted_into_session_intake() {
-        use bitfun_agent_runtime::intake_state::FieldResolutionState;
+        use bitfun_agent_runtime::qt_migration_intake_state::QtMigrationFieldResolutionState;
         use bitfun_agent_runtime::sdk::{AgentInteractionResponsePort, AgentUserAnswersRequest};
 
         let (coordinator, session_manager) = test_coordinator();
@@ -15503,11 +15508,11 @@ mod tests {
         let meta = bitfun_agent_runtime::user_questions::PendingQuestionRequestMeta {
             session_id: session_id.clone(),
             template_id: Some(
-                bitfun_agent_runtime::question_templates::QT_MIGRATION_PATHS_TEMPLATE_ID
+                bitfun_agent_runtime::qt_migration_question_templates::QT_MIGRATION_PATHS_TEMPLATE_ID
                     .to_string(),
             ),
             template_version: Some(
-                bitfun_agent_runtime::question_templates::QT_MIGRATION_PATHS_TEMPLATE_VERSION
+                bitfun_agent_runtime::qt_migration_question_templates::QT_MIGRATION_PATHS_TEMPLATE_VERSION
                     .to_string(),
             ),
             required_fields: Some(
@@ -15549,12 +15554,12 @@ mod tests {
         );
 
         let intake = session_manager
-            .intake_state(&session_id)
+            .qt_migration_intake_state(&session_id)
             .expect("intake snapshot must be persisted");
         for field in ["source_project", "output_project", "toolchain", "template"] {
             assert_eq!(
                 intake.fields[field].state,
-                FieldResolutionState::Resolved,
+                QtMigrationFieldResolutionState::Resolved,
                 "field {field} should be Resolved after confirmed answers"
             );
             assert!(
@@ -15575,11 +15580,11 @@ mod tests {
         let invalid_meta = bitfun_agent_runtime::user_questions::PendingQuestionRequestMeta {
             session_id: session_id.clone(),
             template_id: Some(
-                bitfun_agent_runtime::question_templates::QT_MIGRATION_PATHS_TEMPLATE_ID
+                bitfun_agent_runtime::qt_migration_question_templates::QT_MIGRATION_PATHS_TEMPLATE_ID
                     .to_string(),
             ),
             template_version: Some(
-                bitfun_agent_runtime::question_templates::QT_MIGRATION_PATHS_TEMPLATE_VERSION
+                bitfun_agent_runtime::qt_migration_question_templates::QT_MIGRATION_PATHS_TEMPLATE_VERSION
                     .to_string(),
             ),
             required_fields: Some(

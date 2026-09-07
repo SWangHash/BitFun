@@ -123,6 +123,7 @@ fn default_capability_registry_preserves_product_tool_provider_order() {
             "core.session",
             "core.integration",
             "core.openharmony",
+            "core.qt-migration",
         ]
     );
 }
@@ -261,6 +262,7 @@ fn product_assembly_plan_keeps_full_capabilities_only_for_core_compatibility_pro
         "core.session",
         "core.integration",
         "core.openharmony",
+        "core.qt-migration",
     ];
 
     for profile in [DeliveryProfile::ProductFull, DeliveryProfile::Desktop] {
@@ -837,7 +839,8 @@ fn default_capability_assembly_keeps_service_tool_and_harness_facts_together() {
             "core.agent",
             "core.session",
             "core.integration",
-            "core.openharmony"
+            "core.openharmony",
+            "core.qt-migration"
         ]
     );
 
