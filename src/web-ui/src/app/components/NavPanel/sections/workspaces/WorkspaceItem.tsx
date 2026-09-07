@@ -51,7 +51,7 @@ import {
 } from '@/shared/types';
 import { SSHContext } from '@/features/ssh-remote/SSHRemoteContext';
 import { useWorkspaceSearchIndex } from '@/tools/file-explorer';
-import { computeFixedPopoverPosition } from '@/shared/utils/fixedPopoverViewport';
+import { useSideAnchoredPopoverPosition } from '@/shared/utils/useSideAnchoredPopoverPosition';
 import { scheduleAfterStartupSignal } from '@/shared/utils/startupTaskScheduling';
 import {
   getWorkspaceGitBasicInfoOptions,
@@ -148,7 +148,12 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
   const menuPopoverRef = useRef<HTMLDivElement>(null);
   const acpSubmenuRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const menuPosition = useSideAnchoredPopoverPosition({
+    open: menuOpen,
+    anchorRef: menuAnchorRef,
+    popoverRef: menuPopoverRef,
+    layoutRevision: `${acpClientsLoading}:${acpClients.length}`,
+  });
   const isDefaultAssistantWorkspace =
     workspace.workspaceKind === WorkspaceKind.Assistant &&
     (workspace.id === primaryAssistantWorkspaceId ||
@@ -436,27 +441,6 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
     );
   }, [tFiles, workspaceSearchIndex]);
 
-  const updateMenuPosition = useCallback(() => {
-    const anchor = menuAnchorRef.current;
-    if (!anchor) return;
-
-    const rect = anchor.getBoundingClientRect();
-    const viewportPadding = 8;
-    const gap = 6;
-    const fallbackWidth = 240;
-    const fallbackHeight = 260;
-
-    const apply = () => {
-      const menuEl = menuPopoverRef.current;
-      const w = menuEl?.offsetWidth ?? fallbackWidth;
-      const h = menuEl?.offsetHeight ?? fallbackHeight;
-      setMenuPosition(computeFixedPopoverPosition(rect, w, h, gap, viewportPadding));
-    };
-
-    apply();
-    requestAnimationFrame(apply);
-  }, []);
-
   const handleMenuTriggerClick = useCallback(() => {
     setMenuOpen(open => !open);
   }, []);
@@ -475,21 +459,6 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [menuOpen]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-
-    updateMenuPosition();
-
-    const handleViewportChange = () => updateMenuPosition();
-    window.addEventListener('resize', handleViewportChange);
-    window.addEventListener('scroll', handleViewportChange, true);
-
-    return () => {
-      window.removeEventListener('resize', handleViewportChange);
-      window.removeEventListener('scroll', handleViewportChange, true);
-    };
-  }, [menuOpen, updateMenuPosition]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -919,11 +888,15 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
               </button>
             </div>
 
-            {menuOpen && menuPosition && createPortal(
+            {menuOpen && createPortal(
               <Menu
                 ref={menuPopoverRef}
                 className="openbitfun-nav-panel__workspace-item-menu-popover"
-                style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
+                style={{
+                  top: menuPosition?.top ?? 0,
+                  left: menuPosition?.left ?? 0,
+                  visibility: menuPosition ? 'visible' : 'hidden',
+                }}
                 data-testid="nav-workspace-item-menu"
                 data-workspace-id={workspace.id}
               >
@@ -1393,11 +1366,15 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
               </button>
             </div>
 
-            {menuOpen && menuPosition && createPortal(
+            {menuOpen && createPortal(
               <Menu
                 ref={menuPopoverRef}
                 className="openbitfun-nav-panel__workspace-item-menu-popover"
-                style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
+                style={{
+                  top: menuPosition?.top ?? 0,
+                  left: menuPosition?.left ?? 0,
+                  visibility: menuPosition ? 'visible' : 'hidden',
+                }}
                 data-testid="nav-workspace-item-menu"
                 data-workspace-id={workspace.id}
               >

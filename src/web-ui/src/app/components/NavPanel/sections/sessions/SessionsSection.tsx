@@ -56,7 +56,7 @@ import type {
   BackgroundSubagentActivity,
   BackgroundSubagentActivityItem,
 } from '@/flow_chat/utils/backgroundSubagentActivity';
-import { computeFixedPopoverPosition } from '@/shared/utils/fixedPopoverViewport';
+import { useSideAnchoredPopoverPosition } from '@/shared/utils/useSideAnchoredPopoverPosition';
 import { exportSessionToMarkdown } from '@/flow_chat/services/sessionMarkdownExport';
 import type { TranscriptExportScope } from '@/flow_chat/utils/dialogTranscriptExport';
 import { confirmDanger } from '@/infrastructure/confirm-dialog';
@@ -285,7 +285,6 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
   }));
   const [aggregateReloadRequestId, setAggregateReloadRequestId] = useState(0);
   const [openMenuSessionId, setOpenMenuSessionId] = useState<string | null>(null);
-  const [sessionMenuPosition, setSessionMenuPosition] = useState<{ top: number; left: number } | null>(null);
   /** Second level of the session menu: pick what a Markdown export includes. */
   const [isExportScopeMenu, setIsExportScopeMenu] = useState(false);
   const [exportingSessionId, setExportingSessionId] = useState<string | null>(null);
@@ -295,6 +294,13 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
   const editInputRef = useRef<HTMLInputElement>(null);
   const sessionMenuPopoverRef = useRef<HTMLDivElement>(null);
   const sessionMenuAnchorRef = useRef<HTMLButtonElement>(null);
+  const sessionMenuPosition = useSideAnchoredPopoverPosition({
+    open: openMenuSessionId !== null,
+    anchorRef: sessionMenuAnchorRef,
+    popoverRef: sessionMenuPopoverRef,
+    gap: 4,
+    layoutRevision: `${openMenuSessionId}:${isExportScopeMenu}`,
+  });
   const metadataLoadRequestIdRef = useRef(0);
   /** User-driven metadata loads still running; background loads yield to them. */
   const foregroundLoadCountRef = useRef(0);
@@ -721,56 +727,20 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
 
   const closeSessionMenu = useCallback(() => {
     setOpenMenuSessionId(null);
-    setSessionMenuPosition(null);
     setIsExportScopeMenu(false);
   }, []);
 
   useEffect(() => {
     if (!openMenuSessionId) return;
     const handleOutside = (event: MouseEvent) => {
-      if (!sessionMenuPopoverRef.current?.contains(event.target as Node)) {
+      if (!sessionMenuPopoverRef.current?.contains(event.target as Node)
+        && !sessionMenuAnchorRef.current?.contains(event.target as Node)) {
         closeSessionMenu();
       }
     };
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [closeSessionMenu, openMenuSessionId]);
-
-  const updateSessionMenuPosition = useCallback(() => {
-    const anchor = sessionMenuAnchorRef.current;
-    if (!anchor || !openMenuSessionId) return;
-    const rect = anchor.getBoundingClientRect();
-    const viewportPadding = 8;
-    const gap = 4;
-    const fallbackWidth = 160;
-    const fallbackHeight = 96;
-
-    const apply = () => {
-      const menuEl = sessionMenuPopoverRef.current;
-      const w = menuEl?.offsetWidth ?? fallbackWidth;
-      const h = menuEl?.offsetHeight ?? fallbackHeight;
-      setSessionMenuPosition(computeFixedPopoverPosition(rect, w, h, gap, viewportPadding));
-    };
-
-    apply();
-    requestAnimationFrame(apply);
-  }, [openMenuSessionId]);
-
-  useEffect(() => {
-    if (!openMenuSessionId) return;
-
-    // The second menu level has a different height; re-anchor on switch.
-    updateSessionMenuPosition();
-
-    const handleViewportChange = () => updateSessionMenuPosition();
-    window.addEventListener('resize', handleViewportChange);
-    window.addEventListener('scroll', handleViewportChange, true);
-
-    return () => {
-      window.removeEventListener('resize', handleViewportChange);
-      window.removeEventListener('scroll', handleViewportChange, true);
-    };
-  }, [isExportScopeMenu, openMenuSessionId, updateSessionMenuPosition]);
 
   // Clear unread completion mark after the switched session renders
   useEffect(() => {
@@ -1230,10 +1200,6 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
         closeSessionMenu();
         return;
       }
-      const btn = e.currentTarget as HTMLElement;
-      const rect = btn.getBoundingClientRect();
-      const { top, left } = computeFixedPopoverPosition(rect, 160, 120, 4, 8);
-      setSessionMenuPosition({ top, left });
       setIsExportScopeMenu(false);
       setOpenMenuSessionId(sessionId);
     },
@@ -1868,14 +1834,18 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
                       <Icon name="more" size="xs" />
                     </button>
                   </div>
-                  {openMenuSessionId === session.sessionId && sessionMenuPosition && createPortal(
+                  {openMenuSessionId === session.sessionId && createPortal(
                     <Menu
                       ref={sessionMenuPopoverRef}
                       className="openbitfun-nav-panel__inline-item-menu-popover"
                       data-openbitfun-component="sessions-section"
                       data-openbitfun-part="menu"
                       data-openbitfun-state="menuOpen"
-                      style={{ top: `${sessionMenuPosition.top}px`, left: `${sessionMenuPosition.left}px` }}
+                      style={{
+                        top: sessionMenuPosition?.top ?? 0,
+                        left: sessionMenuPosition?.left ?? 0,
+                        visibility: sessionMenuPosition ? 'visible' : 'hidden',
+                      }}
                       data-testid="nav-session-menu"
                       data-session-id={session.sessionId}
                     >
