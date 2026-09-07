@@ -1495,6 +1495,8 @@ $_section-header-height: 22px;
   line-height: var(--openbitfun-type-modifier-leading-none-line-height);
 
   &[data-openbitfun-device-kind='message-app'] {
+    border: 0;
+    background: transparent;
     color: var(--openbitfun-color-content-primary);
   }
 }
