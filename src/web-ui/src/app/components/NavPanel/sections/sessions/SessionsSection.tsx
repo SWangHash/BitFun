@@ -8,7 +8,7 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Icon, IconButton, Input, Menu, MenuItem, Tooltip } from '@openbitfun/ui';
 import { createPortal } from 'react-dom';
-import { Bot, Loader2, Archive } from 'lucide-react';
+import { Bot, Loader2, Archive, ListChecks } from 'lucide-react';
 import { RetainedMountBoundary } from '@/shared/presence';
 import { useI18n } from '@/infrastructure/i18n';
 import { flowChatStore } from '../../../../../flow_chat/store/FlowChatStore';
@@ -95,6 +95,7 @@ import './SessionsSection.scss';
 
 const log = createLogger('SessionsSection');
 const ScheduledJobsModal = lazy(() => import('@/app/components/scheduled-jobs/ScheduledJobsModal'));
+const WorkspaceSessionBatchModal = lazy(() => import('../workspaces/WorkspaceSessionBatchModal'));
 
 type SessionMode = 'code' | 'cowork' | 'claw';
 type HistoryOpenIntentDispatchResult = 'none' | 'dispatched' | 'already-pending';
@@ -290,6 +291,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
   const [exportingSessionId, setExportingSessionId] = useState<string | null>(null);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(new Set());
   const [scheduledJobsSessionId, setScheduledJobsSessionId] = useState<string | null>(null);
+  const [batchWorkspace, setBatchWorkspace] = useState<WorkspaceSessionScope | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const sessionMenuPopoverRef = useRef<HTMLDivElement>(null);
   const sessionMenuAnchorRef = useRef<HTMLButtonElement>(null);
@@ -1970,6 +1972,29 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
                           </MenuItem>
                           <MenuItem
                             type="button"
+                            leading={<Icon glyph={ListChecks} />}
+                            disabled={!workspacePath && !session.workspacePath}
+                            onClick={e => {
+                              e.stopPropagation();
+                              closeSessionMenu();
+                              const path = workspacePath || session.projectWorkspacePath || session.workspacePath;
+                              if (!path) return;
+                              setBatchWorkspace({
+                                workspaceId: workspaceId || session.workspaceId || '',
+                                workspaceName: presentation?.assistant.name
+                                  || (currentWorkspace?.rootPath === path && currentWorkspace.name)
+                                  || path,
+                                workspacePath: path,
+                                remoteConnectionId: remoteConnectionId ?? session.remoteConnectionId,
+                                remoteSshHost: remoteSshHost ?? session.remoteSshHost,
+                              });
+                            }}
+                            data-testid="nav-session-menu-manage-sessions"
+                          >
+                            <span>{t('nav.sessions.manage')}</span>
+                          </MenuItem>
+                          <MenuItem
+                            type="button"
                             tone="danger"
                             leading={<Icon name="delete" size="lg" style={{ width: 13, height: 13 }} />}
                             onClick={e => { closeSessionMenu(); void handleDelete(e, session.sessionId); }}
@@ -2075,6 +2100,18 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
           </Suspense>
         )}
       </RetainedMountBoundary>
+      {batchWorkspace && (
+        <Suspense fallback={null}>
+          <WorkspaceSessionBatchModal
+            isOpen
+            onClose={() => setBatchWorkspace(null)}
+            workspacePath={batchWorkspace.workspacePath}
+            workspaceLabel={batchWorkspace.workspaceName}
+            remoteConnectionId={batchWorkspace.remoteConnectionId}
+            remoteSshHost={batchWorkspace.remoteSshHost}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };
