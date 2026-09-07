@@ -1304,11 +1304,12 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
       try {
         await flowChatManager.archiveChatSession(sessionId);
         window.dispatchEvent(new CustomEvent('openbitfun:session-archived'));
+        notificationService.success(t('nav.sessions.archivedAll', { count: 1 }), { duration: 3000 });
       } catch (err) {
         log.error('Failed to archive session', err);
       }
     },
-    []
+    [t]
   );
 
   const handleCopySessionId = useCallback(

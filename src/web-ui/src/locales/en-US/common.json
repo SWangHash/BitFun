@@ -404,7 +404,7 @@
       "restore": "Restore",
       "restoreSucceeded": "Restored “{{name}}” in {{workspace}}.",
       "restoreRefreshFailed": "The session was restored, but the session list could not refresh. Refresh the workspace manually.",
-      "archivedAll": "{{count}} sessions archived",
+      "archivedAll": "Archived {{count}} sessions. View them in Settings → Archived Sessions.",
       "restoreFailed": "Failed to restore session",
       "deleteArchivedFailed": "Failed to delete session",
       "deleteAllArchivedFailed": "Failed to delete all archived sessions",

@@ -894,6 +894,13 @@ export async function archiveChatSession(
       && removedSessionIdSet.has(stateBeforeArchive.activeSessionId)
     );
 
+    // Match deletion: a removed session must not leave a pending history-open
+    // shield or navigation intent behind while the archive request settles.
+    removedSessionIds.forEach(removedSessionId => {
+      clearRecentHistorySessionOpenIntent(removedSessionId);
+      clearHistorySessionOpenTransition(removedSessionId);
+    });
+
     await driverForSession(sessionId, session).archiveSession(context, sessionId, {
       removedSessionIds,
       removedActiveSession,

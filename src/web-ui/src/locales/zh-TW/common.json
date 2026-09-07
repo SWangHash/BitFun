@@ -404,7 +404,7 @@
       "restore": "恢復",
       "restoreSucceeded": "已恢復「{{name}}」（{{workspace}}）。",
       "restoreRefreshFailed": "會話已恢復，但會話列表重新整理失敗；請手動重新整理工作區。",
-      "archivedAll": "已歸檔 {{count}} 個會話",
+      "archivedAll": "已歸檔 {{count}} 個會話，可在設定 → 已歸檔會話中檢視。",
       "restoreFailed": "恢復會話失敗",
       "deleteArchivedFailed": "刪除會話失敗",
       "deleteAllArchivedFailed": "刪除全部已歸檔會話失敗",
