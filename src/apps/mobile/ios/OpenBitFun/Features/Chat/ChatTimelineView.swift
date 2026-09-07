@@ -98,9 +98,9 @@ private struct ConversationRowView: View {
             if !row.images.isEmpty { TimelineImageGrid(images: row.images) }
             if !row.text.isEmpty {
                 Text(row.text)
-                    .font(MobileDesignTypography.bodyMedium.font)
+                    .font(MobileDesignTypography.bodyLarge.font)
                     .foregroundStyle(OpenBitFunTheme.ink)
-                    .lineSpacing(MobileDesignTypography.bodyMedium.lineSpacing)
+                    .lineSpacing(MobileDesignTypography.bodyLarge.lineSpacing)
                     .textSelection(.enabled)
             }
             if row.pending {
@@ -157,7 +157,7 @@ private struct EmptyConversationRow: View {
         VStack(spacing: 8) {
             Image(systemName: "sparkles").font(.system(size: 23, weight: .medium))
             Text(MobileLocalization.text("从这里开始新的对话"))
-                .font(MobileDesignTypography.bodyMedium.font)
+                .font(MobileDesignTypography.bodyLarge.font)
         }
         .foregroundStyle(OpenBitFunTheme.muted)
         .frame(maxWidth: .infinity, minHeight: 180)
@@ -204,7 +204,7 @@ private struct SubagentBlock: View {
                     Spacer()
                     if running { ProgressView().controlSize(.mini) }
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(MobileDesignTypography.labelSmall.font)
                 }
                 .foregroundStyle(OpenBitFunTheme.muted)
                 .frame(minHeight: 32)
@@ -241,7 +241,7 @@ private struct ThinkingBlock: View {
                         .font(MobileDesignTypography.labelMedium.font)
                     Spacer()
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(MobileDesignTypography.labelSmall.font)
                 }
                 .foregroundStyle(OpenBitFunTheme.muted)
                 .frame(minHeight: 32)
@@ -249,9 +249,9 @@ private struct ThinkingBlock: View {
             .buttonStyle(.plain)
             if expanded {
                 Text(text)
-                    .font(MobileDesignTypography.bodyMedium.font)
+                    .font(MobileDesignTypography.bodyLarge.font)
                     .foregroundStyle(OpenBitFunTheme.muted)
-                    .lineSpacing(MobileDesignTypography.bodyMedium.lineSpacing)
+                    .lineSpacing(MobileDesignTypography.bodyLarge.lineSpacing)
                     .textSelection(.enabled)
             }
         }
@@ -306,12 +306,12 @@ private struct MarkdownBlockView: View {
         switch block.type {
         case "heading":
             Text(inlineString(block.inlines))
-                .font(.system(size: headingSize, weight: .bold))
+                .font(headingFont)
                 .foregroundStyle(OpenBitFunTheme.ink).textSelection(.enabled)
         case "quote":
             Text(inlineString(block.inlines))
-                .font(MobileDesignTypography.bodyMedium.font).foregroundStyle(OpenBitFunTheme.muted)
-                .lineSpacing(MobileDesignTypography.bodyMedium.lineSpacing).padding(.leading, 12)
+                .font(MobileDesignTypography.bodyLarge.font).foregroundStyle(OpenBitFunTheme.muted)
+                .lineSpacing(MobileDesignTypography.bodyLarge.lineSpacing).padding(.leading, 12)
                 .overlay(alignment: .leading) { Rectangle().fill(OpenBitFunTheme.line).frame(width: 2) }
                 .textSelection(.enabled)
         case "list":
@@ -321,10 +321,10 @@ private struct MarkdownBlockView: View {
                         Text(item.marker).foregroundStyle(OpenBitFunTheme.muted)
                             .frame(width: 20, alignment: .trailing)
                         Text(inlineString(item.inlines)).foregroundStyle(OpenBitFunTheme.ink)
-                            .lineSpacing(MobileDesignTypography.bodyMedium.lineSpacing)
+                            .lineSpacing(MobileDesignTypography.bodyLarge.lineSpacing)
                             .textSelection(.enabled)
                     }
-                    .font(MobileDesignTypography.bodyMedium.font)
+                    .font(MobileDesignTypography.bodyLarge.font)
                 }
             }
         case "code": CodeBlock(language: block.language, code: block.text)
@@ -337,13 +337,17 @@ private struct MarkdownBlockView: View {
         case "divider": Rectangle().fill(OpenBitFunTheme.line).frame(height: 1).padding(.vertical, 3)
         default:
             Text(inlineString(block.inlines))
-                .font(MobileDesignTypography.bodyMedium.font).foregroundStyle(OpenBitFunTheme.ink)
-                .lineSpacing(MobileDesignTypography.bodyMedium.lineSpacing).textSelection(.enabled)
+                .font(MobileDesignTypography.bodyLarge.font).foregroundStyle(OpenBitFunTheme.ink)
+                .lineSpacing(MobileDesignTypography.bodyLarge.lineSpacing).textSelection(.enabled)
         }
     }
 
-    private var headingSize: CGFloat {
-        switch block.level { case 1: 18; case 2: 16; default: 15 }
+    private var headingFont: Font {
+        switch block.level {
+        case 1: MobileDesignTypography.headlineSmall.font
+        case 2: MobileDesignTypography.titleMedium.font.bold()
+        default: MobileDesignTypography.bodyLarge.font.bold()
+        }
     }
 
     private func inlineString(_ inlines: [MarkdownInline]) -> AttributedString {
@@ -591,7 +595,7 @@ private struct ToolStatusRow: View {
                         .foregroundStyle(OpenBitFunTheme.ink).lineLimit(1)
                     Spacer(minLength: 4)
                     if tool.phase == "RUNNING" { ProgressView().controlSize(.mini) }
-                    else { Text(statusMark).font(.system(size: 11, weight: .semibold)).foregroundStyle(statusColor) }
+                    else { Text(statusMark).font(MobileDesignTypography.labelSmall.font).foregroundStyle(statusColor) }
                 }
                 .frame(minHeight: 32)
             }
@@ -641,7 +645,7 @@ private struct ToolStatusRow: View {
             Text(tool.question ?? model.localized("请输入回复")).font(MobileDesignTypography.bodySmall.font)
                 .foregroundStyle(OpenBitFunTheme.ink)
             TextField(model.localized("回复"), text: $answer, axis: .vertical)
-                .font(MobileDesignTypography.bodyMedium.font).lineLimit(2...5).padding(10)
+                .font(MobileDesignTypography.bodyLarge.font).lineLimit(2...5).padding(10)
                 .background(OpenBitFunTheme.card).clipShape(RoundedRectangle(cornerRadius: 11))
                 .overlay(RoundedRectangle(cornerRadius: 11).stroke(OpenBitFunTheme.line, lineWidth: 1))
             Button { model.answerTool(tool.id, answer: answer); answer = "" } label: {

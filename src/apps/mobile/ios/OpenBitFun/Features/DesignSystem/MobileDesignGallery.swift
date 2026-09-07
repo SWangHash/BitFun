@@ -22,6 +22,7 @@ struct MobileDesignGallery: View {
         previewModel.remoteConnected = true
         previewModel.remoteSessionSelected = true
         previewModel.remoteSessions = [session]
+        previewModel.designGalleryPreview = true
         previewModel.draft = scenario.composerDraft
         previewModel.isSending = scenario.streaming
         _model = StateObject(wrappedValue: previewModel)

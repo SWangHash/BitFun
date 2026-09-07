@@ -131,6 +131,7 @@ extension MobileAppModel {
     }
 
     func apply(coreState state: GeneralChatUiState) {
+        if designGalleryPreview { return }
         generalConfigured = state.configured
         generalConfigBaseURL = state.config.baseUrl
         generalConfigModel = state.config.model

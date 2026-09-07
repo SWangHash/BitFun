@@ -138,14 +138,14 @@ struct ComposerBar: View {
                 attachmentAction
             }
             inputField(maxLines: expanded ? 4 : 1)
-                .frame(height: expanded
+                .frame(minHeight: expanded
                     ? MobileDesignGeometry.composerExpandedInputHeight
                     : MobileDesignGeometry.composerInputHeight)
             if !expanded {
                 primaryAction
             }
         }
-        .frame(height: expanded
+        .frame(minHeight: expanded
             ? MobileDesignGeometry.composerExpandedInputRowHeight
             : MobileDesignGeometry.composerCollapsedHeight)
     }
@@ -157,14 +157,14 @@ struct ComposerBar: View {
                 Button { modelSelectorOpen = true } label: {
                     HStack(spacing: 3) {
                         Text(selectedModel?.primaryLabel ?? model.localized("模型"))
-                            .font(.system(size: 13, weight: .medium))
+                            .font(MobileDesignTypography.labelMedium.font)
                             .foregroundStyle(OpenBitFunTheme.ink)
                             .lineLimit(1)
                         Image(systemName: "chevron.down")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(OpenBitFunTheme.muted)
                     }
-                    .frame(height: 34)
+                    .frame(minHeight: MobileDesignGeometry.composerActionSize)
                     .padding(.horizontal, 4)
                 }
                 .buttonStyle(.plain)
@@ -174,7 +174,7 @@ struct ComposerBar: View {
             Spacer(minLength: 0)
             primaryAction
         }
-        .frame(height: MobileDesignGeometry.composerExpandedActionRowHeight)
+        .frame(minHeight: MobileDesignGeometry.composerExpandedActionRowHeight)
         .padding(.leading, 2)
     }
 
@@ -294,15 +294,23 @@ struct ComposerBar: View {
                         )
 
                         Button { model.removeComposerImage(id: attachment.id) } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(OpenBitFunTheme.contentOnAction)
-                                .frame(width: 20, height: 20)
-                                .background(OpenBitFunTheme.mediaScrim)
-                                .clipShape(Circle())
+                            ZStack(alignment: .topTrailing) {
+                                Color.clear
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(OpenBitFunTheme.contentOnAction)
+                                    .frame(width: 20, height: 20)
+                                    .background(OpenBitFunTheme.mediaScrim)
+                                    .clipShape(Circle())
+                                    .offset(x: 5, y: -5)
+                            }
+                            .frame(
+                                width: MobileDesignGeometry.composerActionSize,
+                                height: MobileDesignGeometry.composerActionSize
+                            )
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .offset(x: 5, y: -5)
                         .accessibilityLabel(Text(model.localized("移除图片")))
                     }
                     .padding(.top, 6)
@@ -319,7 +327,7 @@ struct ComposerBar: View {
             if asSheet {
                 HStack(spacing: 0) {
                     Text(model.localized("选择模型"))
-                        .font(.system(size: 13, weight: .medium))
+                        .font(MobileDesignTypography.labelMedium.font)
                         .foregroundStyle(OpenBitFunTheme.muted)
                     Spacer(minLength: 0)
                     Button { modelSelectorOpen = false } label: {
@@ -351,18 +359,19 @@ struct ComposerBar: View {
                                     .frame(width: 20, height: 20)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(option.primaryLabel)
-                                        .font(.system(size: 13, weight: .medium))
+                                        .font(MobileDesignTypography.labelMedium.font)
                                         .foregroundStyle(OpenBitFunTheme.ink)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                     Text(option.secondaryLabel)
-                                        .font(.system(size: 11))
+                                        .font(MobileDesignTypography.bodySmall.font)
                                         .foregroundStyle(OpenBitFunTheme.muted)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer(minLength: 0)
                             }
                             .padding(.horizontal, 10)
-                            .frame(height: MobileDesignGeometry.composerModelSelectorRowHeight)
+                            .padding(.vertical, 8)
+                            .frame(minHeight: MobileDesignGeometry.composerModelSelectorRowHeight)
                             .background(option.selected ? OpenBitFunTheme.soft : OpenBitFunTheme.transparent)
                             .clipShape(
                                 RoundedRectangle(

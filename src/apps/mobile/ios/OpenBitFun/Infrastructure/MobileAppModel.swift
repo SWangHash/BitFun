@@ -93,6 +93,7 @@ final class MobileAppModel: ObservableObject {
     var accountLoginPreview = false
     var localActionPreview = false
     var composerModelPickerPreview = false
+    var designGalleryPreview = false
     var remoteCreatePreview = false
     var directoryFixturePreview = false
     var pairingGeneration: UInt64 = 0

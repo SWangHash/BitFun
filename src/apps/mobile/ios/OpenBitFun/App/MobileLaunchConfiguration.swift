@@ -205,6 +205,9 @@ enum MobileLaunchConfiguration {
         switch scenarioID {
         case MobilePreviewScenarios.streamingDark.id:
             return MobilePreviewScenarios.streamingDark
+        case MobilePreviewScenarios.narrowMultiline.id: return MobilePreviewScenarios.narrowMultiline
+        case MobilePreviewScenarios.foldContext.id: return MobilePreviewScenarios.foldContext
+        case MobilePreviewScenarios.longReading.id: return MobilePreviewScenarios.longReading
         case MobilePreviewScenarios.reconnectingWide.id:
             return MobilePreviewScenarios.reconnectingWide
         default:
