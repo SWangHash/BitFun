@@ -6,6 +6,11 @@
   flex-direction: column;
   gap: 5px;
   box-sizing: border-box;
+  // The composer centers its children, so constrain the band before truncating
+  // long resources; otherwise its intrinsic width can exceed the composer.
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: 6px;
   padding: 8px 10px;
   border: 1px solid var(--openbitfun-color-status-warning-border);
