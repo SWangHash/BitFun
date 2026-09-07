@@ -519,12 +519,12 @@
     background: var(--openbitfun-color-content-muted);
 
     &.is-connected {
-      background: var(--openbitfun-color-status-success-content);
+      background: var(--openbitfun-color-status-success-emphasis);
     }
 
     &.is-error,
     &.is-disconnected {
-      background: var(--openbitfun-color-status-danger-content);
+      background: var(--openbitfun-color-status-danger-emphasis);
     }
 
     &.is-unknown {
@@ -532,7 +532,7 @@
     }
 
     &.is-connecting {
-      background: var(--openbitfun-color-status-warning-content);
+      background: var(--openbitfun-color-status-warning-emphasis);
       animation: openbitfun-status-dot-pulse 1.4s ease-in-out infinite;
     }
   }
@@ -557,11 +557,11 @@
     }
 
     &.is-green {
-      background: var(--openbitfun-color-status-success-content);
+      background: var(--openbitfun-color-status-success-emphasis);
     }
 
     &.is-yellow {
-      background: var(--openbitfun-color-status-warning-content);
+      background: var(--openbitfun-color-status-warning-emphasis);
     }
 
     &.is-gray {
@@ -569,7 +569,7 @@
     }
 
     &.is-red {
-      background: var(--openbitfun-color-status-danger-content);
+      background: var(--openbitfun-color-status-danger-emphasis);
     }
   }
 
@@ -804,15 +804,15 @@
 
     &.is-warning {
       color: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 84%, var(--openbitfun-color-content-primary));
-      border-color: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 18%, transparent);
-      background: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 10%, transparent);
+      border-color: var(--openbitfun-color-status-warning-border);
+      background: var(--openbitfun-color-status-warning-surface);
     }
   }
 
   &__workspace-index-tooltip-error {
     color: color-mix(in srgb, var(--openbitfun-color-status-danger-content) 88%, var(--openbitfun-color-content-primary));
-    border-color: color-mix(in srgb, var(--openbitfun-color-status-danger-content) 22%, transparent);
-    background: color-mix(in srgb, var(--openbitfun-color-status-danger-content) 11%, transparent);
+    border-color: var(--openbitfun-color-status-danger-border);
+    background: var(--openbitfun-color-status-danger-surface);
   }
 
   &__workspace-index-tooltip-actions {

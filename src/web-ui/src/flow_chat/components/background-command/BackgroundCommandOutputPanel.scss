@@ -142,15 +142,23 @@
   }
 
   &__notice {
-    border: 1px solid color-mix(in srgb, var(--openbitfun-color-status-warning-content) 30%, transparent);
-    background: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 10%, transparent);
+    border: 1px solid var(--openbitfun-color-status-warning-border);
+    background: var(--openbitfun-color-status-warning-surface);
     color: var(--openbitfun-color-content-secondary);
+
+    > svg {
+      color: var(--openbitfun-color-status-warning-emphasis);
+    }
   }
 
   &__error {
-    border: 1px solid color-mix(in srgb, var(--openbitfun-color-status-danger-content) 30%, transparent);
-    background: color-mix(in srgb, var(--openbitfun-color-status-danger-content) 10%, transparent);
+    border: 1px solid var(--openbitfun-color-status-danger-border);
+    background: var(--openbitfun-color-status-danger-surface);
     color: var(--openbitfun-color-status-danger-content);
+
+    > svg {
+      color: var(--openbitfun-color-status-danger-emphasis);
+    }
   }
 
   &__output {

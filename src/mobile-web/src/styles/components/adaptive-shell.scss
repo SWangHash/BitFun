@@ -80,9 +80,9 @@
   border: 2px solid var(--openbitfun-color-surface-panel);
   background: var(--openbitfun-color-content-muted);
 
-  &--connected { background: var(--openbitfun-color-status-success-content); }
-  &--checking { background: var(--openbitfun-color-status-warning-content); }
-  &--unreachable { background: var(--openbitfun-color-status-danger-content); }
+  &--connected { background: var(--openbitfun-color-status-success-emphasis); }
+  &--checking { background: var(--openbitfun-color-status-warning-emphasis); }
+  &--unreachable { background: var(--openbitfun-color-status-danger-emphasis); }
 }
 
 .remote-home__eyebrow {

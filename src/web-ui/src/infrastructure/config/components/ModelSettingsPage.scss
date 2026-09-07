@@ -316,11 +316,11 @@
     background: var(--openbitfun-color-content-muted);
 
     &.is-success {
-      background: var(--openbitfun-color-status-success-content);
+      background: var(--openbitfun-color-status-success-emphasis);
     }
 
     &.is-error {
-      background: var(--openbitfun-color-status-danger-content);
+      background: var(--openbitfun-color-status-danger-emphasis);
     }
   }
 
@@ -422,6 +422,7 @@
     color: var(--openbitfun-color-status-warning-content);
 
     svg {
+      color: var(--openbitfun-color-status-warning-emphasis);
       flex-shrink: 0;
       margin-top: 1px;
     }
@@ -802,12 +803,12 @@
     }
 
     &--embedding {
-      background: color-mix(in srgb, var(--openbitfun-color-status-success-content) 12%, transparent);
+      background: var(--openbitfun-color-status-success-surface);
       color: var(--openbitfun-color-status-success-content);
     }
 
     &--search {
-      background: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 12%, transparent);
+      background: var(--openbitfun-color-status-warning-surface);
       color: var(--openbitfun-color-status-warning-content);
     }
 
@@ -903,13 +904,13 @@
 
     
     &.success {
-      border: 1px solid var(--openbitfun-color-status-success-content);
+      border: 1px solid var(--openbitfun-color-status-success-emphasis);
       color: var(--openbitfun-color-status-success-content);
     }
 
     
     &.error {
-      border: 1px solid var(--openbitfun-color-status-danger-content);
+      border: 1px solid var(--openbitfun-color-status-danger-emphasis);
       color: var(--openbitfun-color-status-danger-content);
     }
   }
@@ -967,7 +968,7 @@
       &:hover:not(:disabled) {
         background: var(--openbitfun-color-surface-subtle);
         border-style: solid;
-        border-color: var(--openbitfun-color-status-danger-content);
+        border-color: var(--openbitfun-color-status-danger-emphasis);
         color: var(--openbitfun-color-status-danger-content);
 
         svg {
@@ -1531,13 +1532,14 @@
     padding: var(--openbitfun-space-3);
     background: transparent;
     
-    border: 1px dashed color-mix(in srgb, var(--openbitfun-color-status-warning-content) 40%, transparent);
+    border: 1px dashed var(--openbitfun-color-status-warning-border);
     border-radius: var(--openbitfun-radius-sm);
     margin-top: var(--openbitfun-space-2);
     color: var(--openbitfun-color-status-warning-content);
     font-size: var(--openbitfun-type-label-md-font-size);
 
     svg {
+      color: var(--openbitfun-color-status-warning-emphasis);
       flex-shrink: 0;
       margin-top: 1px;
     }
@@ -2103,7 +2105,7 @@
     background: color-mix(in srgb, var(--openbitfun-color-content-on-dark) 4%, transparent);
 
     &--failed {
-      border-color: var(--openbitfun-color-status-danger-content);
+      border-color: var(--openbitfun-color-status-danger-emphasis);
     }
   }
 

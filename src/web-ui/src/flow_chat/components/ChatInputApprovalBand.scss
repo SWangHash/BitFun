@@ -8,9 +8,9 @@
   box-sizing: border-box;
   margin-bottom: 6px;
   padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--openbitfun-color-status-warning-content) 52%, var(--openbitfun-color-border-default));
+  border: 1px solid var(--openbitfun-color-status-warning-border);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--openbitfun-color-surface-raised) 94%, var(--openbitfun-color-status-warning-content));
+  background: var(--openbitfun-color-status-warning-surface);
   color: var(--openbitfun-color-content-primary);
   font-size: var(--openbitfun-type-flow-control-font-size);
   animation: openbitfun-chat-input-approval-in 160ms cubic-bezier(0.23, 1, 0.32, 1);
@@ -24,7 +24,7 @@
 
   &__icon {
     flex: none;
-    color: var(--openbitfun-color-status-warning-content);
+    color: var(--openbitfun-color-status-warning-emphasis);
   }
 
   &__action {
@@ -61,8 +61,8 @@
     margin-left: auto;
     padding: 1px 6px;
     border-radius: 8px;
-    color: var(--openbitfun-color-content-on-dark);
-    background: var(--openbitfun-color-status-warning-content);
+    color: var(--openbitfun-color-content-on-light);
+    background: var(--openbitfun-color-status-warning-emphasis);
     font-size: var(--openbitfun-type-flow-support-font-size);
     font-weight: var(--openbitfun-type-heading-page-font-weight);
     cursor: default;
@@ -111,11 +111,11 @@
 
     &--active {
       color: var(--openbitfun-color-content-primary);
-      background: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 18%, transparent);
+      background: color-mix(in srgb, var(--openbitfun-color-status-warning-emphasis) 18%, transparent);
     }
 
     &:focus-visible {
-      outline: 2px solid var(--openbitfun-color-status-warning-content);
+      outline: 2px solid var(--openbitfun-color-status-warning-emphasis);
       outline-offset: 1px;
     }
   }

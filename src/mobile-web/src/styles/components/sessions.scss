@@ -68,11 +68,11 @@
   vertical-align: middle;
 
   &--connected {
-    background: var(--openbitfun-color-status-success-content);
+    background: var(--openbitfun-color-status-success-emphasis);
   }
 
   &--checking {
-    background: var(--openbitfun-color-status-warning-content);
+    background: var(--openbitfun-color-status-warning-emphasis);
   }
 
   &--unpaired {
@@ -80,7 +80,7 @@
   }
 
   &--unreachable {
-    background: var(--openbitfun-color-status-danger-content);
+    background: var(--openbitfun-color-status-danger-emphasis);
   }
 }
 
