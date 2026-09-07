@@ -602,7 +602,9 @@ pub fn create_main_window(
         builder = builder
             .decorations(true)
             .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .traffic_light_position(tauri::LogicalPosition::new(12.0, 15.0))
+            // Match the 45px toolbar row (layout.toolbar.mdHeight) used by
+            // NavBar and SceneTopBar, including when the sidebar is collapsed.
+            .traffic_light_position(tauri::LogicalPosition::new(12.0, 22.5))
             .hidden_title(true);
     }
 
