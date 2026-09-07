@@ -136,7 +136,7 @@ test('Beta Linux CLI and Relay manifests keep signed assets on the versioned rep
   const out = path.join(temp, 'linux-binaries.json');
   const result = run('scripts/generate-linux-binaries-manifest.mjs', [
     '--assets-dir', temp, '--version', version, '--tag', tag,
-    '--repo', 'test-owner/BitFun', '--out', out,
+    '--repo', 'test-owner/OpenBitFun', '--out', out,
   ]);
   assert.equal(result.status, 0, result.stderr);
   const manifest = JSON.parse(fs.readFileSync(out, 'utf8'));
@@ -145,7 +145,7 @@ test('Beta Linux CLI and Relay manifests keep signed assets on the versioned rep
   assert.deepEqual(Object.keys(manifest.platforms).sort(), ['linux-aarch64', 'linux-x86_64']);
   for (const platform of Object.values(manifest.platforms)) {
     for (const artifact of [platform.cli, platform.relay]) {
-      assert.equal(artifact.url, `https://github.com/test-owner/BitFun/releases/download/${tag}/${artifact.filename}`);
+      assert.equal(artifact.url, `https://github.com/test-owner/OpenBitFun/releases/download/${tag}/${artifact.filename}`);
       assert.equal(artifact.sha256Url, `${artifact.url}.sha256`);
       assert.equal(artifact.sigUrl, `${artifact.url}.sig`);
       assert.equal(artifact.sha256SigUrl, `${artifact.url}.sha256.sig`);
@@ -158,7 +158,7 @@ test('Beta Linux CLI and Relay manifests keep signed assets on the versioned rep
   fs.unlinkSync(assets.find((file) => file.endsWith('.tar.gz')));
   const missing = run('scripts/generate-linux-binaries-manifest.mjs', [
     '--assets-dir', temp, '--version', version, '--tag', tag,
-    '--repo', 'test-owner/BitFun', '--out', out,
+    '--repo', 'test-owner/OpenBitFun', '--out', out,
   ]);
   assert.notEqual(missing.status, 0);
   assert.match(missing.stderr, /Required Linux release asset was not found/);
