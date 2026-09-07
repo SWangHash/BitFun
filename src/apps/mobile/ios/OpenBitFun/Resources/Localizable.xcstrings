@@ -3651,6 +3651,16 @@
         }
       }
     },
+    "本次回复失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This response failed"
+          }
+        }
+      }
+    },
     "回复中断": {
       "localizations": {
         "en": {

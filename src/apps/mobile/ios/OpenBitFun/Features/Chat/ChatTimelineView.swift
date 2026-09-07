@@ -139,7 +139,9 @@ private struct ConversationRowView: View {
                 if !row.tools.isEmpty { ToolStatusList(tools: row.tools, model: model) }
             }
             if !row.images.isEmpty { TimelineImageGrid(images: row.images) }
-            if row.showRetry {
+            if let error = row.error, !error.isEmpty {
+                assistantFailure(error)
+            } else if row.showRetry {
                 Button { model.retryMessage(row.text) } label: {
                     Label(model.localized("重试"), systemImage: "arrow.clockwise")
                         .font(MobileDesignTypography.labelSmall.font)
@@ -147,6 +149,30 @@ private struct ConversationRowView: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func assistantFailure(_ error: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(model.localized("本次回复失败"))
+                .font(MobileDesignTypography.labelSmall.font.weight(.medium))
+                .foregroundStyle(OpenBitFunTheme.statusDanger)
+            Text(error)
+                .font(MobileDesignTypography.bodySmall.font)
+                .foregroundStyle(OpenBitFunTheme.ink)
+                .lineSpacing(MobileDesignTypography.bodySmall.lineSpacing)
+                .textSelection(.enabled)
+            if row.showRetry {
+                Button(model.localized("重试")) { model.retryMessage(row.text) }
+                    .font(MobileDesignTypography.bodySmall.font.weight(.medium))
+                    .foregroundStyle(MobileDesignColors.fileLink)
+                    .buttonStyle(.plain)
+            }
+        }
+        .padding(.leading, 12)
+        .overlay(alignment: .leading) {
+            Rectangle().fill(OpenBitFunTheme.statusDanger).frame(width: 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -318,9 +344,23 @@ private struct MarkdownBlockView: View {
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(block.items, id: \.id) { item in
                     HStack(alignment: .firstTextBaseline, spacing: 7) {
-                        Text(item.marker).foregroundStyle(OpenBitFunTheme.muted)
-                            .frame(width: 20, alignment: .trailing)
-                        Text(inlineString(item.inlines)).foregroundStyle(OpenBitFunTheme.ink)
+                        if let checked = taskListState(item.text) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(OpenBitFunTheme.line, lineWidth: 1)
+                                if checked {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundStyle(OpenBitFunTheme.muted)
+                                }
+                            }
+                            .frame(width: 16, height: 16)
+                            .padding(.horizontal, 2)
+                        } else {
+                            Text(item.marker).foregroundStyle(OpenBitFunTheme.muted)
+                                .frame(width: 20, alignment: .trailing)
+                        }
+                        Text(listItemInlineString(item)).foregroundStyle(OpenBitFunTheme.ink)
                             .lineSpacing(MobileDesignTypography.bodyLarge.lineSpacing)
                             .textSelection(.enabled)
                     }
@@ -328,12 +368,7 @@ private struct MarkdownBlockView: View {
                 }
             }
         case "code": CodeBlock(language: block.language, code: block.text)
-        case "table":
-            ScrollView(.horizontal, showsIndicators: false) {
-                Text(block.text).font(.system(size: 12.5, design: .monospaced))
-                    .foregroundStyle(OpenBitFunTheme.ink).padding(12).textSelection(.enabled)
-            }
-            .background(OpenBitFunTheme.soft).clipShape(RoundedRectangle(cornerRadius: 12))
+        case "table": MarkdownTableView(source: block.text)
         case "divider": Rectangle().fill(OpenBitFunTheme.line).frame(height: 1).padding(.vertical, 3)
         default:
             Text(inlineString(block.inlines))
@@ -351,25 +386,184 @@ private struct MarkdownBlockView: View {
     }
 
     private func inlineString(_ inlines: [MarkdownInline]) -> AttributedString {
-        var result = AttributedString()
-        for inline in inlines {
-            var part = AttributedString(inline.text)
-            switch inline.type {
-            case "strong": part.font = .system(size: 14, weight: .semibold)
-            case "emphasis": part.font = .system(size: 14).italic()
-            case "code":
-                part.font = .system(size: 13, design: .monospaced)
-                part.backgroundColor = OpenBitFunTheme.soft
-            case "link":
-                part.foregroundColor = MobileDesignColors.fileLink
-                part.underlineStyle = .single
-                part.link = URL(string: inline.url)
-            default: break
-            }
-            result.append(part)
-        }
-        return result.characters.isEmpty ? AttributedString(block.text) : result
+        markdownInlineString(inlines, fallback: block.text)
     }
+
+    private func taskListState(_ text: String) -> Bool? {
+        let prefix = text.prefix(3).lowercased()
+        if prefix == "[x]" { return true }
+        if prefix == "[ ]" { return false }
+        return nil
+    }
+
+    private func listItemInlineString(_ item: MarkdownListItem) -> AttributedString {
+        guard taskListState(item.text) != nil else {
+            return markdownInlineString(item.inlines, fallback: item.text)
+        }
+        let text = String(item.text.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+        return markdownInlineString(
+            MarkdownParser.shared.parseInlineText(value: text),
+            fallback: text
+        )
+    }
+}
+
+private struct MarkdownTableView: View {
+    let source: String
+
+    private var table: MarkdownTableData { MarkdownTableData(source: source) }
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            tableGrid(flexibleColumns: true)
+            ScrollView(.horizontal, showsIndicators: false) {
+                tableGrid(flexibleColumns: false)
+            }
+        }
+        .background(OpenBitFunTheme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(OpenBitFunTheme.line, lineWidth: 1))
+    }
+
+    private func tableGrid(flexibleColumns: Bool) -> some View {
+        Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
+            ForEach(Array(table.rows.enumerated()), id: \.offset) { rowIndex, row in
+                GridRow(alignment: .top) {
+                    ForEach(Array(row.cells.enumerated()), id: \.offset) { columnIndex, cell in
+                        Text(markdownInlineString(
+                            MarkdownParser.shared.parseInlineText(value: cell.text),
+                            fallback: cell.text
+                        ))
+                        .font(MobileDesignTypography.bodySmall.font)
+                        .foregroundStyle(OpenBitFunTheme.ink)
+                        .multilineTextAlignment(cell.textAlignment)
+                        .textSelection(.enabled)
+                        .frame(
+                            minWidth: 132,
+                            maxWidth: flexibleColumns ? .infinity : 180,
+                            minHeight: 42,
+                            alignment: cell.frameAlignment
+                        )
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(rowIndex == 0 || rowIndex.isMultiple(of: 2)
+                            ? OpenBitFunTheme.soft
+                            : OpenBitFunTheme.card)
+                        .overlay(alignment: .trailing) {
+                            if columnIndex < row.cells.count - 1 {
+                                Rectangle().fill(OpenBitFunTheme.line).frame(width: 1)
+                            }
+                        }
+                    }
+                }
+                .overlay(alignment: .bottom) {
+                    if rowIndex < table.rows.count - 1 {
+                        Rectangle().fill(OpenBitFunTheme.line).frame(height: 1)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: flexibleColumns ? .infinity : nil)
+    }
+}
+
+private struct MarkdownTableData {
+    struct Row { let cells: [Cell] }
+    struct Cell {
+        let text: String
+        let alignment: Alignment
+
+        var textAlignment: TextAlignment {
+            if alignment == .center { return .center }
+            if alignment == .trailing { return .trailing }
+            return .leading
+        }
+
+        var frameAlignment: Alignment { alignment }
+    }
+
+    let rows: [Row]
+
+    init(source: String) {
+        let lines = source.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+        guard lines.count >= 2 else {
+            rows = [Row(cells: [Cell(text: source, alignment: .leading)])]
+            return
+        }
+        let header = Self.splitRow(lines[0])
+        let separators = Self.splitRow(lines[1])
+        let alignments = separators.map(Self.alignment)
+        let values = [header] + lines.dropFirst(2).map(Self.splitRow)
+        let columnCount = max(header.count, alignments.count)
+        rows = values.map { row in
+            Row(cells: (0..<columnCount).map { index in
+                Cell(
+                    text: index < row.count ? row[index] : "",
+                    alignment: index < alignments.count ? alignments[index] : .leading
+                )
+            })
+        }
+    }
+
+    private static func splitRow(_ line: String) -> [String] {
+        var source = line.trimmingCharacters(in: .whitespaces)
+        if source.first == "|" { source.removeFirst() }
+        if source.last == "|" { source.removeLast() }
+        var cells: [String] = []
+        var current = ""
+        var inCode = false
+        var escaped = false
+        for character in source {
+            if escaped {
+                current.append(character)
+                escaped = false
+            } else if character == "\\" {
+                escaped = true
+            } else if character == "`" {
+                inCode.toggle()
+                current.append(character)
+            } else if character == "|" && !inCode {
+                cells.append(current.trimmingCharacters(in: .whitespaces))
+                current = ""
+            } else {
+                current.append(character)
+            }
+        }
+        if escaped { current.append("\\") }
+        cells.append(current.trimmingCharacters(in: .whitespaces))
+        return cells
+    }
+
+    private static func alignment(_ separator: String) -> Alignment {
+        let value = separator.trimmingCharacters(in: .whitespaces)
+        if value.hasPrefix(":") && value.hasSuffix(":") { return .center }
+        if value.hasSuffix(":") { return .trailing }
+        return .leading
+    }
+}
+
+private func markdownInlineString(
+    _ inlines: [MarkdownInline],
+    fallback: String
+) -> AttributedString {
+    var result = AttributedString()
+    for inline in inlines {
+        var part = AttributedString(inline.text)
+        switch inline.type {
+        case "strong": part.font = .system(size: 14, weight: .semibold)
+        case "emphasis": part.font = .system(size: 14).italic()
+        case "code":
+            part.font = .system(size: 13, design: .monospaced)
+            part.backgroundColor = OpenBitFunTheme.soft
+        case "link":
+            part.foregroundColor = MobileDesignColors.fileLink
+            part.underlineStyle = .single
+            part.link = URL(string: inline.url)
+        default: break
+        }
+        result.append(part)
+    }
+    return result.characters.isEmpty ? AttributedString(fallback) : result
 }
 
 private struct CodeBlock: View {

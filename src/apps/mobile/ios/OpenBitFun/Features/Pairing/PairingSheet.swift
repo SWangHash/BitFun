@@ -13,8 +13,8 @@ struct PairingSheet: View {
     @State private var pairingUserID = ""
     // Intentionally transient: pairing passwords must never enter saved scene state.
     @State private var pairingPassword = ""
-    @State private var scannerOpen = false
     @State private var manualOpen = false
+    @State private var scanError: String?
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -27,7 +27,6 @@ struct PairingSheet: View {
         .onAppear {
             if model.pairingScanRequested {
                 step = .scan
-                scannerOpen = true
                 model.consumePairingScanRequest()
             } else if MobileLaunchConfiguration.pairingManualPreview ||
                 MobileLaunchConfiguration.pairingAccountPreview {
@@ -35,22 +34,6 @@ struct PairingSheet: View {
                 manualOpen = true
                 focused = !MobileLaunchConfiguration.pairingAccountPreview
             }
-        }
-        .fullScreenCover(isPresented: $scannerOpen) {
-            QRCodeScannerView(
-                onCode: { code in
-                    pairingURL = code
-                    scannerOpen = false
-                    if PairingLinkHintsKt.inspectPairingLink(url: code).requiresAccount {
-                        manualOpen = true
-                        focused = true
-                    } else {
-                        model.submitPairing(url: code)
-                    }
-                },
-                onCancel: { scannerOpen = false }
-            )
-            .ignoresSafeArea()
         }
     }
 
@@ -76,8 +59,8 @@ struct PairingSheet: View {
                 scanTitle: model.localized("扫码连接"),
                 accountTitle: model.localized("登录 OpenBitFun 账号"),
                 onScan: {
+                    scanError = nil
                     step = .scan
-                    scannerOpen = true
                 },
                 onOpenAccount: model.openAccountFromPairing,
                 enabled: !model.pairingBusy,
@@ -92,30 +75,59 @@ struct PairingSheet: View {
 
     private var scanPage: some View {
         VStack(spacing: 0) {
-            hero(height: 252)
-            VStack(spacing: 22) {
-                Button { scannerOpen = true } label: {
-                    Image(systemName: "qrcode.viewfinder")
-                        .font(.system(size: 72, weight: .regular))
+            HStack {
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(OpenBitFunTheme.ink)
-                        .frame(width: 176, height: 176)
-                        .background(MobileDesignColors.connectHeroSurface)
-                        .overlay(RoundedRectangle(cornerRadius: 34).stroke(OpenBitFunTheme.line, lineWidth: 1.5))
-                        .clipShape(RoundedRectangle(cornerRadius: 34))
+                        .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
-                Text(model.localized("扫描二维码"))
-                    .font(.system(size: 24, weight: .bold)).foregroundStyle(OpenBitFunTheme.ink)
-                if let error = model.pairingError {
-                    Text(error).font(.system(size: 13)).foregroundStyle(OpenBitFunTheme.statusDanger)
-                        .multilineTextAlignment(.center)
-                }
             }
-            .offset(y: -50)
-            Spacer(minLength: 12)
+            .padding(.horizontal, 18)
+            .padding(.top, 8)
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    Text(model.localized("扫描桌面端二维码"))
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(OpenBitFunTheme.ink)
+                        .multilineTextAlignment(.center)
+                    Text(model.localized("在 OpenBitFun 桌面端点击「连接移动端」\n扫描二维码完成连接"))
+                        .font(MobileDesignTypography.bodyLarge.font)
+                        .foregroundStyle(OpenBitFunTheme.muted)
+                        .lineSpacing(MobileDesignTypography.bodyLarge.lineSpacing)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 8)
+                        .padding(.bottom, 24)
+
+                    inlineScanner
+
+                    if let error = scanError ?? model.pairingError {
+                        Text(error)
+                            .font(MobileDesignTypography.bodySmall.font)
+                            .foregroundStyle(scanError == nil
+                                ? OpenBitFunTheme.statusDanger
+                                : OpenBitFunTheme.muted)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity)
+                            .background(OpenBitFunTheme.soft)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .padding(.top, 16)
+                    }
+                }
+                .frame(maxWidth: 520)
+                .padding(.horizontal, 28)
+                .padding(.bottom, 20)
+                .frame(maxWidth: .infinity)
+            }
+
             Button { manualOpen = true; focused = true } label: {
-                Text(model.localized("手动输入配对码"))
-                    .font(.system(size: 20, weight: .bold))
+                Text(model.localized("改为手动配对"))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(OpenBitFunTheme.ink)
                     .frame(maxWidth: .infinity, minHeight: 58)
                     .background(OpenBitFunTheme.card)
@@ -125,6 +137,62 @@ struct PairingSheet: View {
             .buttonStyle(.plain)
             .padding(.horizontal, 44)
             .padding(.bottom, 34)
+        }
+        .background(OpenBitFunTheme.page)
+    }
+
+    private var inlineScanner: some View {
+        ZStack {
+            QRCodeScannerView(
+                paused: manualOpen,
+                showsCloseButton: false,
+                onCode: handleScannedCode,
+                onCancel: {},
+                onPermissionDenied: {
+                    scanError = model.localized(
+                        "需要相机权限才能扫码，请在系统设置中允许 OpenBitFun 访问相机，或改为手动配对。"
+                    )
+                },
+                onUnavailable: {
+                    scanError = model.localized(
+                        "无法打开相机，请检查权限后重试，或改为手动配对。"
+                    )
+                }
+            )
+            .frame(width: 248, height: 248)
+
+            ForEach(0..<4, id: \.self) { index in
+                PairingScanCorner()
+                    .stroke(MobileDesignColors.connectScanAccent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 52, height: 52)
+                    .rotationEffect(.degrees(Double(index) * 90))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: scanCornerAlignment(index))
+                    .padding(20)
+            }
+        }
+        .frame(width: 248, height: 248)
+        .background(OpenBitFunTheme.mediaBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 28))
+        .overlay(RoundedRectangle(cornerRadius: 28).stroke(OpenBitFunTheme.line, lineWidth: 1))
+    }
+
+    private func handleScannedCode(_ code: String) {
+        pairingURL = code
+        scanError = nil
+        if PairingLinkHintsKt.inspectPairingLink(url: code).requiresAccount {
+            manualOpen = true
+            focused = true
+        } else {
+            model.submitPairing(url: code)
+        }
+    }
+
+    private func scanCornerAlignment(_ index: Int) -> Alignment {
+        switch index {
+        case 0: .topLeading
+        case 1: .topTrailing
+        case 2: .bottomTrailing
+        default: .bottomLeading
         }
     }
 
@@ -256,5 +324,19 @@ struct PairingSheet: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct PairingScanCorner: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: 0, y: rect.height))
+        path.addLine(to: CGPoint(x: 0, y: 12))
+        path.addQuadCurve(
+            to: CGPoint(x: 12, y: 0),
+            control: CGPoint(x: 0, y: 0)
+        )
+        path.addLine(to: CGPoint(x: rect.width, y: 0))
+        return path
     }
 }

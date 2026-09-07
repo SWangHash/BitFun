@@ -221,7 +221,8 @@ extension MobileAppModel {
             streaming: false,
             typing: false,
             pending: false,
-            showRetry: false
+            showRetry: false,
+            error: nil
         )
     }
 
@@ -239,7 +240,8 @@ extension MobileAppModel {
             streaming: row.streaming,
             typing: row.typing,
             pending: row.pending,
-            showRetry: row.showRetry
+            showRetry: row.showRetry,
+            error: row.error
         )
     }
 

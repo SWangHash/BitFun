@@ -3,17 +3,31 @@ import SwiftUI
 import UIKit
 
 struct QRCodeScannerView: UIViewControllerRepresentable {
+    var paused = false
+    var showsCloseButton = true
     let onCode: (String) -> Void
     let onCancel: () -> Void
+    var onPermissionDenied: () -> Void = {}
+    var onUnavailable: () -> Void = {}
 
     func makeUIViewController(context: Context) -> QRScannerController {
         let controller = QRScannerController()
+        controller.showsCloseButton = showsCloseButton
         controller.onCode = onCode
         controller.onCancel = onCancel
+        controller.onPermissionDenied = onPermissionDenied
+        controller.onUnavailable = onUnavailable
+        controller.setPaused(paused)
         return controller
     }
 
-    func updateUIViewController(_ uiViewController: QRScannerController, context: Context) {}
+    func updateUIViewController(_ uiViewController: QRScannerController, context: Context) {
+        uiViewController.onCode = onCode
+        uiViewController.onCancel = onCancel
+        uiViewController.onPermissionDenied = onPermissionDenied
+        uiViewController.onUnavailable = onUnavailable
+        uiViewController.setPaused(paused)
+    }
 }
 
 final class QRScannerController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
@@ -22,12 +36,33 @@ final class QRScannerController: UIViewController, AVCaptureMetadataOutputObject
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var captureConfigured = false
     private var emittedCode = false
+    private var capturePaused = false
+    private var reportedFailure = false
+    var showsCloseButton = true
     var onCode: ((String) -> Void)?
     var onCancel: (() -> Void)?
+    var onPermissionDenied: (() -> Void)?
+    var onUnavailable: (() -> Void)?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(OpenBitFunTheme.mediaBackground)
+        if showsCloseButton { installCloseButton() }
+
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            configureCaptureAsync()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                if granted { self?.configureCaptureAsync() }
+                else { self?.reportPermissionDenied() }
+            }
+        default:
+            reportPermissionDenied()
+        }
+    }
+
+    private func installCloseButton() {
         let close = UIButton(type: .system)
         close.setImage(UIImage(systemName: "xmark"), for: .normal)
         close.tintColor = UIColor(OpenBitFunTheme.contentOnAction)
@@ -45,18 +80,6 @@ final class QRScannerController: UIViewController, AVCaptureMetadataOutputObject
             close.widthAnchor.constraint(equalToConstant: 44),
             close.heightAnchor.constraint(equalToConstant: 44),
         ])
-
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            configureCaptureAsync()
-        case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-                guard granted else { return }
-                self?.configureCaptureAsync()
-            }
-        default:
-            break
-        }
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -79,9 +102,15 @@ final class QRScannerController: UIViewController, AVCaptureMetadataOutputObject
         guard !captureConfigured else { return }
         guard let device = AVCaptureDevice.default(for: .video),
               let input = try? AVCaptureDeviceInput(device: device),
-              session.canAddInput(input) else { return }
+              session.canAddInput(input) else {
+            reportUnavailable()
+            return
+        }
         let output = AVCaptureMetadataOutput()
-        guard session.canAddOutput(output) else { return }
+        guard session.canAddOutput(output) else {
+            reportUnavailable()
+            return
+        }
         session.beginConfiguration()
         session.addInput(input)
         session.addOutput(output)
@@ -97,7 +126,22 @@ final class QRScannerController: UIViewController, AVCaptureMetadataOutputObject
             self.view.layer.insertSublayer(layer, at: 0)
             self.previewLayer = layer
         }
-        session.startRunning()
+        if !capturePaused { session.startRunning() }
+    }
+
+    func setPaused(_ paused: Bool) {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            guard self.capturePaused != paused else { return }
+            self.capturePaused = paused
+            guard self.captureConfigured else { return }
+            if paused {
+                if self.session.isRunning { self.session.stopRunning() }
+            } else {
+                self.emittedCode = false
+                if !self.session.isRunning { self.session.startRunning() }
+            }
+        }
     }
 
     private func stopCapture() {
@@ -121,6 +165,22 @@ final class QRScannerController: UIViewController, AVCaptureMetadataOutputObject
         }
         DispatchQueue.main.async { [weak self] in
             self?.onCode?(value)
+        }
+    }
+
+    private func reportPermissionDenied() {
+        reportFailure { [weak self] in self?.onPermissionDenied?() }
+    }
+
+    private func reportUnavailable() {
+        reportFailure { [weak self] in self?.onUnavailable?() }
+    }
+
+    private func reportFailure(_ callback: @escaping () -> Void) {
+        sessionQueue.async { [weak self] in
+            guard let self, !self.reportedFailure else { return }
+            self.reportedFailure = true
+            DispatchQueue.main.async(execute: callback)
         }
     }
 }

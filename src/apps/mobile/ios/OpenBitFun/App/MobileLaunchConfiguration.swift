@@ -315,7 +315,8 @@ private extension MobileAppModel {
         timelineRows = [
             MobileConversationRow(
                 id: userID, kind: "USER", text: "请检查移动端的消息、工具和文件交互。", thinking: nil,
-                images: [], tools: [], blocks: [], streaming: false, typing: false, pending: false, showRetry: false
+                images: [], tools: [], blocks: [], streaming: false, typing: false, pending: false,
+                showRetry: false, error: nil
             ),
             MobileConversationRow(
                 id: assistantID, kind: "ASSISTANT", text: "", thinking: nil, images: [], tools: [],
@@ -323,12 +324,13 @@ private extension MobileAppModel {
                     .thinking(id: "preview-thinking", text: "先对照 HarmonyOS 的消息顺序与工具状态，再核对 Android 的交互策略。", streaming: false),
                     .text(
                         id: "preview-text",
-                        text: "## 检查结果\n\n消息按共享投影顺序显示，文件可直接打开：[main.rs](computer://src/main.rs)。\n\n- Markdown 与代码块\n- 思考过程与子任务\n- 工具确认、提问和取消\n\n```swift\nlet parity = true\n```",
+                        text: "## 检查结果\n\n消息按共享投影顺序显示，文件可直接打开：[main.rs](computer://src/main.rs)。\n\n- [x] Markdown 与代码块\n- [x] 思考过程与子任务\n- [ ] 完成真机回归\n\n| 平台 | 状态 |\n| :--- | ---: |\n| HarmonyOS | 已对照 |\n| iOS | 已对齐 |\n\n```swift\nlet parity = true\n```",
                         streaming: false
                     ),
                     .tools(id: "preview-tools", tools: [readOne, readTwo, approval, question]),
                 ],
-                streaming: false, typing: false, pending: false, showRetry: false
+                streaming: false, typing: false, pending: false, showRetry: true,
+                error: "桌面端进程意外退出。"
             ),
         ]
         messages = [
