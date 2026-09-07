@@ -103,6 +103,7 @@ private struct ConversationRowView: View {
                             .font(MobileDesignTypography.bodyLarge.font)
                             .foregroundStyle(OpenBitFunTheme.ink)
                             .lineSpacing(MobileDesignTypography.bodyLarge.lineSpacing)
+                            .padding(.vertical, MobileDesignTypography.bodyLarge.lineSpacing / 2)
                             .textSelection(.enabled)
                     }
                 }
