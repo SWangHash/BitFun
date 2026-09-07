@@ -38,7 +38,8 @@ struct MobileDesignGallery: View {
             ConversationHeader(
                 model: model,
                 actionsOpen: .constant(false),
-                contextTitle: scenario.headerSubtitle
+                contextTitle: scenario.headerSubtitle,
+                sidebarAction: {}
             )
             ChatTimelineView(model: model)
             ComposerBar(model: model)

@@ -1,5 +1,7 @@
 import SwiftUI
 
+private let conversationHeaderActionSurfaceSize: CGFloat = 42
+
 struct ConversationHeader: View {
     @ObservedObject var model: MobileAppModel
     @Binding var actionsOpen: Bool
@@ -25,13 +27,16 @@ struct ConversationHeader: View {
                     Button(action: sidebarAction) {
                         ReferenceGlyph(assetName: "MenuGlyph", width: 23, height: 18)
                             .frame(
+                                width: conversationHeaderActionSurfaceSize,
+                                height: conversationHeaderActionSurfaceSize
+                            )
+                            .background(OpenBitFunTheme.card)
+                            .clipShape(Circle())
+                            .shadow(color: OpenBitFunTheme.shadowSubtle, radius: 15, y: 4)
+                            .frame(
                                 width: MobileDesignGeometry.controlTouchSize,
                                 height: MobileDesignGeometry.controlTouchSize
                             )
-                            .background(OpenBitFunTheme.card)
-                            .overlay(Circle().stroke(OpenBitFunTheme.line, lineWidth: 1))
-                            .clipShape(Circle())
-                            .shadow(color: OpenBitFunTheme.shadowMedium, radius: 8, y: 3)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(MobileLocalization.text(sidebarActionLabel))
@@ -103,13 +108,16 @@ struct ConversationHeader: View {
         Button { actionsOpen.toggle() } label: {
             ReferenceGlyph(assetName: "MoreGlyph", width: 23, height: 7)
                 .frame(
+                    width: conversationHeaderActionSurfaceSize,
+                    height: conversationHeaderActionSurfaceSize
+                )
+                .background(OpenBitFunTheme.card)
+                .clipShape(Circle())
+                .shadow(color: OpenBitFunTheme.shadowSubtle, radius: 15, y: 4)
+                .frame(
                     width: MobileDesignGeometry.controlTouchSize,
                     height: MobileDesignGeometry.controlTouchSize
                 )
-                .background(OpenBitFunTheme.card)
-                .overlay(Circle().stroke(OpenBitFunTheme.line, lineWidth: 1))
-                .clipShape(Circle())
-                .shadow(color: OpenBitFunTheme.shadowMedium, radius: 8, y: 3)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(model.localized("会话操作"))

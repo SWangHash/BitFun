@@ -76,8 +76,8 @@ struct SidebarView: View {
                 }
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
-                        recentSection
                         workspaceSection
+                        recentSection
                     }
                     .padding(.bottom, model.accountUser == nil && !model.remoteConnected ? 142 : 84)
                 }
@@ -161,7 +161,7 @@ struct SidebarView: View {
     private var authenticatedHeader: some View {
         HStack(spacing: 6) {
             Text(verbatim: "OpenBitFun")
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(OpenBitFunTheme.ink)
             Spacer(minLength: 0)
             if let onCollapse {
@@ -177,29 +177,16 @@ struct SidebarView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(model.localized("收起侧栏")))
             }
-            if model.remoteConnected {
-                Button { model.remoteViewSettingsOpen = true } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(OpenBitFunTheme.muted)
-                        .frame(width: 38, height: 38)
-                        .background(OpenBitFunTheme.card)
-                        .overlay(Circle().stroke(OpenBitFunTheme.line, lineWidth: 1))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text(model.localized("视图设置")))
-            }
             Button {
                 withAnimation(.easeOut(duration: 0.18)) { searchVisible.toggle() }
                 if !searchVisible { search = "" }
             } label: {
                 ReferenceImage(assetName: "SidebarSearchGlyph", width: 22, height: 22)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 44, height: 44)
                     .background(OpenBitFunTheme.card)
-                    .overlay(Circle().stroke(OpenBitFunTheme.line, lineWidth: 1))
+                    .overlay(Circle().stroke(OpenBitFunTheme.line, lineWidth: 0.5))
                     .clipShape(Circle())
-                    .shadow(color: OpenBitFunTheme.shadowMedium, radius: 10, y: 4)
+                    .shadow(color: MobileDesignColors.shadowFaint, radius: 9, y: 3)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text(model.localized("搜索")))
@@ -783,25 +770,26 @@ struct SidebarView: View {
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(OpenBitFunTheme.ink)
                 }
-                .frame(width: 116, height: 46)
+                .frame(width: 98, height: 44)
                 .background(OpenBitFunTheme.card)
-                .overlay(RoundedRectangle(cornerRadius: 23).stroke(OpenBitFunTheme.line, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 22).stroke(OpenBitFunTheme.line, lineWidth: 0.5))
                 .clipShape(Capsule())
-                .shadow(color: OpenBitFunTheme.shadowMedium, radius: 10, y: 4)
+                .shadow(color: OpenBitFunTheme.shadowSubtle, radius: 12, y: 4)
             }
             .buttonStyle(.plain)
             Spacer(minLength: 0)
             Button { model.settingsOpen = true; model.drawerOpen = false } label: {
                 ReferenceImage(assetName: "SidebarSettingsGlyph", width: 24, height: 24)
-                    .frame(width: 46, height: 46)
+                    .frame(width: 44, height: 44)
                     .background(OpenBitFunTheme.card)
                     .clipShape(Circle())
-                    .shadow(color: OpenBitFunTheme.shadowMedium, radius: 10, y: 4)
+                    .shadow(color: OpenBitFunTheme.shadowSubtle, radius: 12, y: 4)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text(model.localized("设置")))
         }
         .frame(height: 56)
+        .padding(.leading, 12)
     }
 }
 

@@ -4,6 +4,15 @@ import Speech
 import SwiftUI
 import UniformTypeIdentifiers
 
+private enum ComposerPrimaryAction {
+    case stopListening
+    case stopTurn
+    case send
+    case sendBlocked
+    case voice
+    case voiceBlocked
+}
+
 struct ComposerBar: View {
     @ObservedObject var model: MobileAppModel
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -34,6 +43,18 @@ struct ComposerBar: View {
             (model.surface == .local || model.connectionPhase != .disconnected)
     }
 
+    private var primaryActionKind: ComposerPrimaryAction {
+        if speech.isListening { return .stopListening }
+        if model.isSending, model.surface == .local { return .stopTurn }
+        if hasContent { return canSend ? .send : .sendBlocked }
+        if model.isSending { return .stopTurn }
+        return model.busy ? .voiceBlocked : .voice
+    }
+
+    private var showsSupplementalVoice: Bool {
+        hasContent && !speech.isListening
+    }
+
     var body: some View {
         VStack(spacing: 2) {
             if !model.composerImages.isEmpty {
@@ -54,6 +75,14 @@ struct ComposerBar: View {
             ? MobileDesignGeometry.composerExpandedHeight
             : MobileDesignGeometry.composerCollapsedHeight)
         .background(OpenBitFunTheme.card)
+        .overlay(
+            RoundedRectangle(
+                cornerRadius: expanded || !model.composerImages.isEmpty
+                    ? MobileDesignGeometry.composerExpandedRadius
+                    : MobileDesignGeometry.composerCollapsedRadius
+            )
+            .stroke(OpenBitFunTheme.line, lineWidth: 0.5)
+        )
         .clipShape(
             RoundedRectangle(
                 cornerRadius: expanded || !model.composerImages.isEmpty
@@ -172,6 +201,9 @@ struct ComposerBar: View {
                 .anchorPreference(key: ComposerModelSelectorAnchorKey.self, value: .bounds) { $0 }
             }
             Spacer(minLength: 0)
+            if showsSupplementalVoice {
+                supplementalVoiceAction
+            }
             primaryAction
         }
         .frame(minHeight: MobileDesignGeometry.composerExpandedActionRowHeight)
@@ -200,6 +232,9 @@ struct ComposerBar: View {
                 if canSend { model.send() }
             }
             .onChange(of: model.draft) { _ in model.syncDraftToCore() }
+            if showsSupplementalVoice, !expanded {
+                supplementalVoiceAction
+            }
         }
         .padding(.leading, speech.isListening ? 12 : 4)
         .padding(.trailing, 4)
@@ -240,34 +275,80 @@ struct ComposerBar: View {
 
     private var primaryAction: some View {
         Button(action: performPrimaryAction) {
-            Group {
-                if model.isSending {
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(OpenBitFunTheme.accent)
-                } else if hasContent {
+            ZStack {
+                switch primaryActionKind {
+                case .send, .sendBlocked:
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(canSend ? OpenBitFunTheme.accent : OpenBitFunTheme.muted)
-                } else {
-                    ReferenceGlyph(assetName: "ComposerMicGlyph", width: 16, height: 19)
-                        .foregroundStyle(model.busy ? OpenBitFunTheme.muted.opacity(0.45) : OpenBitFunTheme.muted)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(
+                            primaryActionKind == .send
+                                ? OpenBitFunTheme.contentOnAction
+                                : OpenBitFunTheme.muted
+                        )
+                        .frame(width: 32, height: 32)
+                        .background(
+                            primaryActionKind == .send
+                                ? MobileDesignColors.primaryAction
+                                : OpenBitFunTheme.soft
+                        )
+                        .clipShape(Circle())
+                case .stopListening, .stopTurn:
+                    RoundedRectangle(cornerRadius: 2.5)
+                        .fill(OpenBitFunTheme.contentOnAction)
+                        .frame(width: 10, height: 10)
+                        .frame(width: 32, height: 32)
+                        .background(MobileDesignColors.primaryAction)
+                        .clipShape(Circle())
+                case .voice, .voiceBlocked:
+                    ReferenceGlyph(
+                        assetName: "ComposerMicGlyph",
+                        width: 16,
+                        height: 19,
+                        color:
+                            primaryActionKind == .voice
+                                ? OpenBitFunTheme.ink
+                                : OpenBitFunTheme.muted.opacity(0.38)
+                    )
                 }
             }
             .frame(
                 width: MobileDesignGeometry.composerActionSize,
                 height: MobileDesignGeometry.composerActionSize
             )
+            .background(primaryActionKind == .voiceBlocked ? OpenBitFunTheme.soft : OpenBitFunTheme.transparent)
+            .clipShape(Circle())
         }
         .buttonStyle(.plain)
-        .disabled(!model.isSending && hasContent && !canSend)
+        .disabled(primaryActionKind == .sendBlocked || primaryActionKind == .voiceBlocked)
         .accessibilityLabel(primaryActionLabel)
     }
 
+    private var supplementalVoiceAction: some View {
+        Button(action: startVoiceInput) {
+            ReferenceGlyph(
+                assetName: "ComposerMicGlyph",
+                width: 16,
+                height: 19,
+                color: OpenBitFunTheme.ink
+            )
+                .frame(
+                    width: MobileDesignGeometry.composerActionSize,
+                    height: MobileDesignGeometry.composerActionSize
+                )
+                .opacity(model.busy || model.isSending ? 0.32 : 0.72)
+        }
+        .buttonStyle(.plain)
+        .disabled(model.busy || model.isSending)
+        .accessibilityLabel(Text(model.localized("语音输入")))
+    }
+
     private var primaryActionLabel: String {
-        if model.isSending { return model.localized("停止") }
-        if hasContent { return model.localized("发送") }
-        return model.localized(speech.isListening ? "停止听写" : "语音输入")
+        switch primaryActionKind {
+        case .stopListening: return model.localized("停止听写")
+        case .stopTurn: return model.localized("停止")
+        case .send, .sendBlocked: return model.localized("发送")
+        case .voice, .voiceBlocked: return model.localized("语音输入")
+        }
     }
 
     private var attachmentStrip: some View {
@@ -406,19 +487,21 @@ struct ComposerBar: View {
     }
 
     private func performPrimaryAction() {
-        if model.isSending {
-            model.stopSending()
-            return
-        }
-        if hasContent {
-            if canSend { model.send() }
-            return
-        }
-        if speech.isListening {
+        switch primaryActionKind {
+        case .stopListening:
             speech.stop()
+        case .stopTurn:
+            model.stopSending()
+        case .send:
+            model.send()
+        case .sendBlocked, .voiceBlocked:
             return
+        case .voice:
+            startVoiceInput()
         }
-        guard !model.busy else { return }
+    }
+
+    private func startVoiceInput() {
         let existing = model.draft.trimmingCharacters(in: .whitespacesAndNewlines)
         speech.start(
             localeIdentifier: model.appLanguage == .simplifiedChinese ? "zh-CN" : "en-US",
