@@ -94,14 +94,22 @@ private struct ConversationRowView: View {
     }
 
     private var userRow: some View {
-        VStack(alignment: .trailing, spacing: 7) {
-            if !row.images.isEmpty { TimelineImageGrid(images: row.images) }
-            if !row.text.isEmpty {
-                Text(row.text)
-                    .font(MobileDesignTypography.bodyLarge.font)
-                    .foregroundStyle(OpenBitFunTheme.ink)
-                    .lineSpacing(MobileDesignTypography.bodyLarge.lineSpacing)
-                    .textSelection(.enabled)
+        VStack(alignment: .trailing, spacing: 6) {
+            IntrinsicWidthCapLayout(maxWidth: MobileDesignGeometry.messageBubbleMaxWidth) {
+                VStack(alignment: .leading, spacing: 8) {
+                    if !row.images.isEmpty { TimelineImageGrid(images: row.images) }
+                    if !row.text.isEmpty {
+                        Text(row.text)
+                            .font(MobileDesignTypography.bodyLarge.font)
+                            .foregroundStyle(OpenBitFunTheme.ink)
+                            .lineSpacing(MobileDesignTypography.bodyLarge.lineSpacing)
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(.horizontal, MobileDesignGeometry.messageBubbleHorizontalPadding)
+                .padding(.vertical, MobileDesignGeometry.messageBubbleVerticalPadding)
+                .background(OpenBitFunTheme.soft)
+                .clipShape(RoundedRectangle(cornerRadius: MobileDesignGeometry.messageBubbleRadius))
             }
             if row.pending {
                 Text(model.localized("正在发送"))
@@ -117,12 +125,8 @@ private struct ConversationRowView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, MobileDesignGeometry.messageBubbleHorizontalPadding)
-        .padding(.vertical, MobileDesignGeometry.messageBubbleVerticalPadding)
-        .frame(maxWidth: MobileDesignGeometry.messageBubbleMaxWidth, alignment: .trailing)
-        .background(OpenBitFunTheme.soft)
-        .clipShape(RoundedRectangle(cornerRadius: MobileDesignGeometry.messageBubbleRadius))
         .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.vertical, 2)
     }
 
     private var assistantRow: some View {
@@ -175,6 +179,37 @@ private struct ConversationRowView: View {
             Rectangle().fill(OpenBitFunTheme.statusDanger).frame(width: 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct IntrinsicWidthCapLayout: Layout {
+    let maxWidth: CGFloat
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout ()
+    ) -> CGSize {
+        guard let subview = subviews.first else { return .zero }
+        let availableWidth = min(proposal.width ?? maxWidth, maxWidth)
+        let size = subview.sizeThatFits(
+            ProposedViewSize(width: availableWidth, height: proposal.height)
+        )
+        return CGSize(width: min(size.width, availableWidth), height: size.height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal _: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout ()
+    ) {
+        guard let subview = subviews.first else { return }
+        subview.place(
+            at: bounds.origin,
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: bounds.height)
+        )
     }
 }
 

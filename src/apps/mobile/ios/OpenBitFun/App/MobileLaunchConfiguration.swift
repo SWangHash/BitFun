@@ -314,7 +314,7 @@ private extension MobileAppModel {
         )
         timelineRows = [
             MobileConversationRow(
-                id: userID, kind: "USER", text: "请检查移动端的消息、工具和文件交互。", thinking: nil,
+                id: userID, kind: "USER", text: "介绍本项目", thinking: nil,
                 images: [], tools: [], blocks: [], streaming: false, typing: false, pending: false,
                 showRetry: false, error: nil
             ),
@@ -334,7 +334,7 @@ private extension MobileAppModel {
             ),
         ]
         messages = [
-            ChatMessage(id: UUID(), role: .user, text: "请检查移动端的消息、工具和文件交互。"),
+            ChatMessage(id: UUID(), role: .user, text: "介绍本项目"),
             ChatMessage(id: UUID(), role: .assistant, text: "检查结果"),
         ]
     }
