@@ -266,7 +266,7 @@ const SkillsConfig: React.FC = () => {
               ]}
               value={formLevel}
               onValueChange={(value) => setFormLevel(value as SkillLevel)}
-              size="md"
+              size="sm"
             />
           </Field>
           {formLevel === 'project' && hasWorkspace && (
@@ -285,7 +285,7 @@ const SkillsConfig: React.FC = () => {
             <Tooltip content={t('form.path.browseTooltip')}>
               <IconButton
                 aria-label={t('form.path.browseTooltip')}
-                size="md"
+                size="sm"
                 onClick={handleBrowse}
                 icon={<FolderOpen size={16} />}
               />
