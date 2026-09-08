@@ -33,7 +33,7 @@ import { useI18n } from '@/infrastructure/i18n';
 import { WorkspaceKind } from '@/shared/types';
 import { SSHContext } from '@/features/ssh-remote/SSHRemoteContext';
 import { shortcutManager, parseStoredKeybindings } from '@/infrastructure/services/ShortcutManager';
-import { isMacOSDesktopRuntime } from '@/infrastructure/runtime';
+import { isMacOSDesktopRuntime, usesHostWindowControls } from '@/infrastructure/runtime';
 import { flowChatSessionConfigForWorkspace } from '../utils/projectSessionWorkspace';
 import { notificationService } from '@/shared/notification-system';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
@@ -102,6 +102,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
   const { ensureForWorkspace: ensureAssistantBootstrapForWorkspace } = useAssistantBootstrap();
   const isMacOS = useMemo(() => {
     return isMacOSDesktopRuntime();
+  }, []);
+  // The OpenHarmony host renders its own window buttons over the same strip,
+  // so the web UI must not draw a second (overlapping) set. Maximize handlers
+  // stay wired for the double-click-to-maximize bar gesture.
+  const usesHostWindowChrome = useMemo(() => {
+    return usesHostWindowControls();
   }, []);
 
   const {
@@ -754,9 +760,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         {/* Main content — always render WorkspaceBody; WelcomeScene in viewport handles no-workspace state */}
         <main className="openbitfun-app-main-workspace" data-testid="app-main-content" data-openbitfun-component="app-layout" data-openbitfun-part="main">
           <WorkspaceBody
-            onMinimize={canUseNativeWindowControls && !isMacOS ? handleMinimize : undefined}
+            onMinimize={canUseNativeWindowControls && !isMacOS && !usesHostWindowChrome ? handleMinimize : undefined}
             onMaximize={canUseNativeWindowControls ? handleMaximize : undefined}
-            onClose={canUseNativeWindowControls && !isMacOS ? handleClose : undefined}
+            onClose={canUseNativeWindowControls && !isMacOS && !usesHostWindowChrome ? handleClose : undefined}
             isMaximized={isMaximized}
             isEntering={transitionDir === 'entering'}
             isExiting={transitionDir === 'returning'}

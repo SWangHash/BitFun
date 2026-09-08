@@ -24,24 +24,24 @@ import { isTauriRuntime, isOpenHarmonyRuntime } from '@/infrastructure/runtime';
 const log = createLogger('WorkspaceAPI');
 
 /**
- * File-type filter for `open_oh_file_dialog`. `extensions` are dot-less
- * (e.g. `['png', 'jpg']`); the OHOS bridge adds the leading dot. Multiple
- * filter groups flatten into a single suffix list on HarmonyOS.
+ * File-type filter for the cross-platform file dialog. `extensions` are
+ * dot-less (e.g. `['png', 'jpg']`); the OHOS bridge adds the leading dot.
+ * Multiple filter groups flatten into a single suffix list on HarmonyOS.
  */
-export interface OhDialogFilter {
+export interface OpenFileDialogFilter {
   name: string;
   extensions: string[];
 }
 
 /**
- * Options for the HarmonyOS file/folder picker. A subset of
+ * Options for the cross-platform file/folder dialog. A subset of
  * `@tauri-apps/plugin-dialog` `OpenDialogOptions`.
  */
-export interface OhOpenDialogOptions {
+export interface OpenFileDialogOptions {
   title?: string;
   multiple?: boolean;
   directory?: boolean;
-  filters?: OhDialogFilter[];
+  filters?: OpenFileDialogFilter[];
   defaultPath?: string;
 }
 
@@ -1054,24 +1054,32 @@ export class WorkspaceAPI {
   }
 
   /**
-   * Open the HarmonyOS file/folder picker.
+   * Platform-dispatched file/folder dialog.
+   *
+   * - Windows/macOS/Linux desktop (Tauri runtime): native `plugin-dialog`.
+   * - OpenHarmony: system `DocumentViewPicker` via the `open_oh_file_dialog`
+   *   Tauri command → ArkTS bridge.
+   * - Plain browser/server web: no host file dialog exists — this rejects
+   *   loudly instead of silently routing to a command that cannot succeed.
    *
    * Options mirror a subset of `@tauri-apps/plugin-dialog` `OpenDialogOptions`:
    * - `directory: true`  → folder-only picker (single string back)
    * - `directory: false` → file-only picker (single string back when single-select)
-   * - `directory` unset   → MIXED picker (legacy default; files + folders)
+   * - `directory` unset   → MIXED picker (OHOS legacy default; files + folders;
+   *   desktop keeps `undefined` which the plugin treats as files)
    * - `multiple: true`   → multi-select (string[] back)
    * - `filters`          → file-type filter; all groups flatten into one list
    *
    * Return shape: `string | null` when single-select, `string[] | null` when
-   * `multiple: true`, or `null` when the user cancels. The underlying ArkTS↔Rust
-   * bridge only carries a single string, so multi-select comes back as a JSON
-   * array string that this wrapper decodes.
+   * `multiple: true`, or `null` when the user cancels. On OpenHarmony the
+   * ArkTS↔Rust bridge only carries a single string, so multi-select comes
+   * back as a JSON array string that this wrapper decodes.
    */
-  async open_oh_file_dialog(
-    opts: OhOpenDialogOptions = {},
+  async openFileOrDirectoryDialog(
+    opts: OpenFileDialogOptions = {},
   ): Promise<string | string[] | null> {
     if (isTauriRuntime() && !isOpenHarmonyRuntime()) {
+      // Desktop Tauri runtime (Windows / macOS / Linux): native dialog plugin.
       const { open } = await import('@tauri-apps/plugin-dialog');
       return open({
         directory: opts.directory,
@@ -1082,6 +1090,15 @@ export class WorkspaceAPI {
       });
     }
 
+    if (!isOpenHarmonyRuntime()) {
+      // Plain browser / server-web surface: there is no host file dialog and
+      // no picker command that can answer this request. Degrade loudly.
+      throw new Error(
+        'openFileOrDirectoryDialog: no native file dialog is available in this runtime.',
+      );
+    }
+
+    // OpenHarmony runtime: system DocumentViewPicker through the ArkTS bridge.
     try {
       const raw = await api.invoke<string>('open_oh_file_dialog', {
         options: JSON.stringify(opts),
@@ -1104,6 +1121,18 @@ export class WorkspaceAPI {
     } catch (error) {
       throw createTauriCommandError('open_oh_file_dialog', error, { options: opts });
     }
+  }
+
+  /**
+   * Back-compat alias for `openFileOrDirectoryDialog` used by the original
+   * HarmonyOS-only call sites. Kept because call sites across the app already
+   * reference the oh-named entry; new callers should prefer
+   * `openFileOrDirectoryDialog`.
+   */
+  async open_oh_file_dialog(
+    opts: OpenFileDialogOptions = {},
+  ): Promise<string | string[] | null> {
+    return this.openFileOrDirectoryDialog(opts);
   }
 
   async window_is_minimized(): Promise<boolean> {

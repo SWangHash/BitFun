@@ -12,8 +12,13 @@ const stylesheet = readFileSync(
   'utf8',
 );
 
+const runtimeState = vi.hoisted(() => ({ usesHostWindowControls: false }));
+
 vi.mock('@/app/components/WindowControls', () => ({ WindowControls: () => <button>Window controls</button> }));
-vi.mock('@/infrastructure/runtime', () => ({ supportsNativeWindowDragging: () => false }));
+vi.mock('@/infrastructure/runtime', () => ({
+  supportsNativeWindowDragging: () => false,
+  usesHostWindowControls: () => runtimeState.usesHostWindowControls,
+}));
 vi.mock('../../stores/sceneStore', () => ({ useSceneStore: (selector: (state: typeof sceneState) => unknown) => selector(sceneState) }));
 vi.mock('../SceneBar/SceneBar', () => ({ default: () => <div role="tablist"><button role="tab">Settings</button></div> }));
 vi.mock('./SceneChrome', () => ({ SceneChromeHost: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props}><button>Scene action</button></div> }));
@@ -67,6 +72,27 @@ describe('SceneTopBar', () => {
       act(() => root.unmount());
       host.remove();
       sceneState.openTabs = [{}];
+    }
+  });
+
+  it('reserves the host chrome corner instead of in-app controls on the OpenHarmony host', () => {
+    runtimeState.usesHostWindowControls = true;
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    try {
+      // Mirrors the AppLayout OHOS wiring: maximize stays for the double-click
+      // gesture while minimize/close are withheld from the in-app chrome.
+      act(() => root.render(<SceneTopBar onMaximize={vi.fn()} />));
+      const toolbar = host.querySelector('[data-openbitfun-component="toolbar"]')!;
+      expect(toolbar.querySelector('[data-openbitfun-part="hostControls"]')).not.toBeNull();
+      expect(toolbar.querySelector('[data-openbitfun-part="controls"]')).toBeNull();
+      expect(stylesheet).toContain('&--host');
+      expect(stylesheet).toContain('width: 128px;');
+    } finally {
+      runtimeState.usesHostWindowControls = false;
+      act(() => root.unmount());
+      host.remove();
     }
   });
 });

@@ -6,6 +6,7 @@
 
 import { isPeerDeviceModeActive } from './peerModeFlag';
 import { usePeerDirectoryPickerStore } from './peerDirectoryPickerStore';
+import { workspaceAPI } from '@/infrastructure/api';
 
 export interface PickWorkspaceDirectoryOptions {
   title: string;
@@ -16,8 +17,9 @@ export async function pickWorkspaceDirectory(
   options: PickWorkspaceDirectoryOptions,
 ): Promise<string | null> {
   if (!isPeerDeviceModeActive()) {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    const selected = await open({
+    // Platform-dispatched picker: native dialog on desktop, OHOS system
+    // DocumentViewPicker on HarmonyOS.
+    const selected = await workspaceAPI.open_oh_file_dialog({
       directory: true,
       multiple: false,
       title: options.title,

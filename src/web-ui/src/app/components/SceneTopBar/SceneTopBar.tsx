@@ -1,7 +1,7 @@
 import React, { useCallback, useRef } from 'react';
 import { Toolbar } from '@openbitfun/ui';
 import { WindowControls } from '@/app/components/WindowControls';
-import { supportsNativeWindowDragging } from '@/infrastructure/runtime';
+import { supportsNativeWindowDragging, usesHostWindowControls } from '@/infrastructure/runtime';
 import { createLogger } from '@/shared/utils/logger';
 import { useSceneStore } from '../../stores/sceneStore';
 import SceneBar from '../SceneBar/SceneBar';
@@ -39,6 +39,9 @@ const SceneTopBar: React.FC<SceneTopBarProps> = ({
   const canDragWindow = supportsNativeWindowDragging();
   const lastMouseDownTimeRef = useRef(0);
   const hasWindowControls = Boolean(onMinimize && onMaximize && onClose);
+  // The OpenHarmony host paints its own minimize/maximize/close buttons in
+  // this corner, so reserve the strip instead of drawing an overlapping set.
+  const showHostWindowChromePlaceholder = usesHostWindowControls();
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     if (!canDragWindow || !isSingleTab || event.button !== 0) return;
@@ -96,6 +99,13 @@ const SceneTopBar: React.FC<SceneTopBarProps> = ({
             maximized={isMaximized}
           />
         </div>
+      ) : showHostWindowChromePlaceholder ? (
+        <div
+          className="openbitfun-scene-top-bar__window-controls openbitfun-scene-top-bar__window-controls--host"
+          data-openbitfun-component="scene-bar"
+          data-openbitfun-part="hostControls"
+          aria-hidden="true"
+        />
       ) : null}
       </>}
     />

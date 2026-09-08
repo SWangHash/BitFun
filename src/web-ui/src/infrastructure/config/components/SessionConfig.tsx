@@ -51,7 +51,8 @@ import {
 } from '../types';
 import { GlobalPermissionRulesDialog } from './GlobalPermissionRulesDialog';
 import { AgentCompanionPet } from '@/flow_chat/components/AgentCompanionPet';
-import { ask, open } from '@tauri-apps/plugin-dialog';
+import { ask } from '@tauri-apps/plugin-dialog';
+import { workspaceAPI } from '@/infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
 import { usePeerDeviceModeOptional } from '@/infrastructure/peer-device/peerDeviceContextState';
 import './AIFeaturesConfig.scss';
@@ -456,7 +457,9 @@ const SessionSettingsPanels: React.FC<SessionSettingsPanelsProps> = ({ variant }
     if (!IS_TAURI_DESKTOP) return;
     setCompanionPetImporting(true);
     try {
-      const selected = await open({
+      // Platform-dispatched picker: native dialog on desktop, OHOS system
+      // DocumentViewPicker on HarmonyOS.
+      const selected = await workspaceAPI.open_oh_file_dialog({
         directory: false,
         multiple: false,
         title: t('features.agentCompanion.importDialogTitle'),
@@ -923,12 +926,12 @@ const SessionSettingsPanels: React.FC<SessionSettingsPanelsProps> = ({ variant }
 
   const handleSelectLogPath = async () => {
     try {
-      const selected = await open({
+      const selected = await workspaceAPI.open_oh_file_dialog({
         multiple: false,
         directory: false,
         filters: [{ name: tDebug('fileDialog.logFile'), extensions: ['log', 'txt', 'ndjson'] }],
       });
-      if (selected) {
+      if (selected && !Array.isArray(selected)) {
         updateDebugConfig({ log_path: selected });
         notificationService.success(tDebug('messages.logPathUpdated'), { duration: 2000 });
       }

@@ -17,7 +17,7 @@ import {
   canDeleteSkill,
   getSkillSourceLabel,
 } from '../skillSourcePresentation';
-import { open } from '@tauri-apps/plugin-dialog';
+import { workspaceAPI } from '../../api/service-api/WorkspaceAPI';
 import { createLogger } from '@/shared/utils/logger';
 import './SkillsConfig.scss';
 
@@ -209,8 +209,14 @@ const SkillsConfig: React.FC = () => {
 
   const handleBrowse = async () => {
     try {
-      const selected = await open({ directory: true, multiple: false, title: t('form.path.label') });
-      if (selected) setFormPath(selected as string);
+      // Platform-dispatched picker: native dialog on desktop, OHOS system
+      // DocumentViewPicker on HarmonyOS.
+      const selected = await workspaceAPI.open_oh_file_dialog({
+        directory: true,
+        multiple: false,
+        title: t('form.path.label'),
+      });
+      if (selected && !Array.isArray(selected)) setFormPath(selected);
     } catch (err) {
       log.error('Failed to open file dialog', err);
     }

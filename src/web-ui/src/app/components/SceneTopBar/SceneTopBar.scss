@@ -53,6 +53,13 @@
     flex: 0 0 auto;
     height: 100%;
     margin-inline-start: var(--openbitfun-space-2);
+
+    // Native OpenHarmony host chrome (min/max/close) occupies this corner.
+    // Keep the same 128px reservation the component-library placeholder uses
+    // so in-app actions do not slide underneath the system buttons.
+    &--host {
+      width: 128px;
+    }
   }
 }
 

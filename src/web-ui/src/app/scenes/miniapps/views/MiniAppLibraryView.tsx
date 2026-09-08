@@ -11,7 +11,6 @@ import {
   StatusPill,
   type SelectOption,
 } from '@openbitfun/ui';
-import { open } from '@tauri-apps/plugin-dialog';
 import {
   AlertTriangle,
   FolderPlus,
@@ -56,6 +55,7 @@ import {
   retryOriginalMarketImage,
 } from '@/infrastructure/api/service-api/MarketImage';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
+import { workspaceAPI } from '@/infrastructure/api';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
@@ -323,7 +323,9 @@ const MiniAppLibraryView: React.FC<MiniAppLibraryViewProps> = ({ tabs }) => {
 
   const handleAddFromFolder = async () => {
     try {
-      const selected = await open({
+      // Platform-dispatched picker: native dialog on desktop, OHOS system
+      // DocumentViewPicker on HarmonyOS.
+      const selected = await workspaceAPI.open_oh_file_dialog({
         directory: true,
         multiple: false,
         title: t('selectFolderTitle'),
@@ -355,7 +357,9 @@ const MiniAppLibraryView: React.FC<MiniAppLibraryViewProps> = ({ tabs }) => {
   }, [notification, t]);
 
   const handleAddPackage = async () => {
-    const selected = await open({
+    // Platform-dispatched picker: native dialog on desktop, OHOS system
+    // DocumentViewPicker on HarmonyOS.
+    const selected = await workspaceAPI.open_oh_file_dialog({
       directory: false,
       multiple: false,
       title: t('market.import.choose'),
