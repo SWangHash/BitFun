@@ -61,7 +61,7 @@ import { GlobalPermissionRulesDialog } from './GlobalPermissionRulesDialog';
 import SessionTitleConfig from './SessionTitleConfig';
 import ReviewCapacitySection from './ReviewCapacitySection';
 import ToolJsonRepairSection from './ToolJsonRepairSection';
-import { open } from '@tauri-apps/plugin-dialog';
+import { workspaceAPI } from '@/infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
 import { usePeerDeviceModeOptional } from '@/infrastructure/peer-device/peerDeviceContextState';
 import './RuntimeSettingsPages.scss';
@@ -497,7 +497,9 @@ const RuntimeSettingsPage: React.FC<RuntimeSettingsPageProps> = ({
     if (!IS_TAURI_DESKTOP) return;
     setCompanionPetImporting(true);
     try {
-      const selected = await open({
+      // Platform-dispatched picker: native dialog on desktop, OHOS system
+      // DocumentViewPicker on HarmonyOS.
+      const selected = await workspaceAPI.open_oh_file_dialog({
         directory: false,
         multiple: false,
         title: t('features.pet.importDialogTitle'),

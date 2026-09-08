@@ -1,5 +1,6 @@
 import { createTauriCommandError } from '../errors/TauriCommandError';
 import { api } from './ApiClient';
+import { workspaceAPI } from './WorkspaceAPI';
 
 export type AppearanceMarketSort = 'newest' | 'downloads';
 export type AppearanceMarketMode = 'light' | 'dark';
@@ -180,8 +181,9 @@ export class AppearanceMarketAPI {
   }
 
   async chooseSubmissionPackage(title: string): Promise<string | null> {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    const selected = await open({
+    // Platform-dispatched picker: native dialog on desktop, OHOS system
+    // DocumentViewPicker on HarmonyOS.
+    const selected = await workspaceAPI.open_oh_file_dialog({
       directory: false,
       multiple: false,
       title,

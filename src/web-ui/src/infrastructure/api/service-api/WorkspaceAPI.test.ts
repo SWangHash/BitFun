@@ -5,6 +5,7 @@ const invokeMock = vi.hoisted(() => vi.fn());
 const listenMock = vi.hoisted(() => vi.fn(() => vi.fn()));
 const waitForListenerRegistrationsMock = vi.hoisted(() => vi.fn());
 const streamCapabilityMock = vi.hoisted(() => ({ supported: false }));
+const dialogOpenMock = vi.hoisted(() => vi.fn());
 
 vi.mock('./ApiClient', () => ({
   api: {
@@ -17,6 +18,10 @@ vi.mock('./ApiClient', () => ({
   },
 }));
 
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  open: dialogOpenMock,
+}));
+
 describe('WorkspaceAPI', () => {
   beforeEach(() => {
     invokeMock.mockReset();
@@ -26,6 +31,8 @@ describe('WorkspaceAPI', () => {
     waitForListenerRegistrationsMock.mockReset();
     waitForListenerRegistrationsMock.mockResolvedValue(undefined);
     streamCapabilityMock.supported = false;
+    dialogOpenMock.mockReset();
+    vi.unstubAllGlobals();
   });
 
   it('reads text through the registered command with remote routing context', async () => {
@@ -238,6 +245,110 @@ describe('WorkspaceAPI', () => {
         token: 'drop-token',
         fileCount: 1,
       },
+    });
+  });
+
+  describe('openFileOrDirectoryDialog platform dispatch', () => {
+    type TauriInternals = { invoke?: unknown; metadata?: { currentWindow?: { label?: string } } };
+    const stubTauri = () => {
+      (globalThis as { window?: unknown }).window = {
+        __TAURI_INTERNALS__: {
+          invoke: vi.fn(),
+          metadata: { currentWindow: { label: 'main' } },
+        } satisfies TauriInternals,
+      };
+    };
+    const stubNavigator = (platform: string, userAgent: string) => {
+      vi.stubGlobal('navigator', { platform, userAgent });
+    };
+
+    it('routes the Windows desktop runtime to the native plugin-dialog and never to the OHOS command', async () => {
+      stubTauri();
+      stubNavigator('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+      dialogOpenMock.mockResolvedValueOnce('C:\\dev\\project');
+
+      await expect(
+        workspaceAPI.openFileOrDirectoryDialog({ directory: true, multiple: false }),
+      ).resolves.toBe('C:\\dev\\project');
+
+      expect(dialogOpenMock).toHaveBeenCalledOnce();
+      expect(dialogOpenMock).toHaveBeenCalledWith({
+        directory: true,
+        multiple: false,
+        title: undefined,
+        defaultPath: undefined,
+        filters: undefined,
+      });
+      expect(invokeMock.mock.calls.some(([command]) => command === 'open_oh_file_dialog')).toBe(
+        false,
+      );
+    });
+
+    it('routes the macOS desktop runtime to the native plugin-dialog as well', async () => {
+      stubTauri();
+      stubNavigator('MacIntel', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)');
+      dialogOpenMock.mockResolvedValueOnce('/Users/dev/project');
+
+      await expect(
+        workspaceAPI.openFileOrDirectoryDialog({ directory: true }),
+      ).resolves.toBe('/Users/dev/project');
+
+      expect(dialogOpenMock).toHaveBeenCalledOnce();
+      expect(invokeMock.mock.calls.some(([command]) => command === 'open_oh_file_dialog')).toBe(
+        false,
+      );
+    });
+
+    it('routes the OpenHarmony runtime to the open_oh_file_dialog command and decodes its envelope', async () => {
+      stubTauri();
+      stubNavigator('OpenHarmony', 'Mozilla/5.0 (OpenHarmony) AppleWebKit/537.36');
+      // Multi-select comes back as a JSON array string through the ArkTS bridge.
+      invokeMock.mockResolvedValueOnce('["/data/storage/a","/data/storage/b"]');
+
+      await expect(
+        workspaceAPI.openFileOrDirectoryDialog({ multiple: true, directory: false }),
+      ).resolves.toEqual(['/data/storage/a', '/data/storage/b']);
+
+      expect(dialogOpenMock).not.toHaveBeenCalled();
+      expect(invokeMock).toHaveBeenCalledWith('open_oh_file_dialog', {
+        options: JSON.stringify({ multiple: true, directory: false }),
+      });
+    });
+
+    it('maps the OHOS cancel envelope ("null") to null', async () => {
+      stubTauri();
+      stubNavigator('OpenHarmony', 'Mozilla/5.0 (OpenHarmony)');
+
+      // The Rust bridge encodes "user cancelled" (an empty paths array) as the
+      // JSON string "null"; see parse_picker_result in register_arkts_function.rs.
+      invokeMock.mockResolvedValueOnce('null');
+      await expect(workspaceAPI.openFileOrDirectoryDialog()).resolves.toBeNull();
+    });
+
+    it('rejects loudly in a plain browser runtime instead of invoking a host command', async () => {
+      (globalThis as { window?: unknown }).window = {};
+      stubNavigator('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+
+      await expect(workspaceAPI.openFileOrDirectoryDialog({ directory: true })).rejects.toThrow(
+        /no native file dialog/i,
+      );
+      expect(dialogOpenMock).not.toHaveBeenCalled();
+      expect(invokeMock).not.toHaveBeenCalled();
+    });
+
+    it('keeps the legacy oh-named alias routed through the same dispatch', async () => {
+      stubTauri();
+      stubNavigator('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+      dialogOpenMock.mockResolvedValueOnce('C:\\dev\\skill-folder');
+
+      await expect(
+        workspaceAPI.open_oh_file_dialog({ directory: true, multiple: false }),
+      ).resolves.toBe('C:\\dev\\skill-folder');
+
+      expect(dialogOpenMock).toHaveBeenCalledOnce();
+      expect(invokeMock.mock.calls.some(([command]) => command === 'open_oh_file_dialog')).toBe(
+        false,
+      );
     });
   });
 });

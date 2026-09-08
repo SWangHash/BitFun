@@ -34,6 +34,21 @@ export const isOpenHarmonyRuntime = (): boolean => {
   return /(?:openharmony|harmonyos|ohos)/i.test(fingerprint);
 };
 
+let ohosHostWindowControlsCache: boolean | null = null;
+
+/**
+ * The OpenHarmony host keeps its native minimize/maximize/close buttons
+ * visible in the top-right corner of the same strip the web UI draws its own
+ * in-app window controls in, so the two sets overlap. Renderers must hide the
+ * in-app set and reserve that corner for the host chrome instead.
+ */
+export const usesHostWindowControls = (): boolean => {
+  if (ohosHostWindowControlsCache === null) {
+    ohosHostWindowControlsCache = isTauriRuntime() && isOpenHarmonyRuntime();
+  }
+  return ohosHostWindowControlsCache;
+};
+
 export const supportsNativeWindowDragging = supportsNativeWindowControls;
 
 export const isMacOSDesktopRuntime = (): boolean =>

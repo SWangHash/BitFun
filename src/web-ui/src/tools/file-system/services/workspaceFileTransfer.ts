@@ -552,12 +552,13 @@ export async function downloadWorkspaceFileToDisk(
   if (isDirectory) {
     // For directory downloads, ask the user to pick a destination folder,
     // then append the folder name so the tree is recreated under it.
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({
+    // Platform-dispatched picker: native dialog on desktop, OHOS system
+    // DocumentViewPicker on HarmonyOS.
+    const picked = await workspaceAPI.open_oh_file_dialog({
       title: i18nService.t("common:file.downloadSaveTitle"),
       directory: true,
     });
-    if (picked === null) {
+    if (picked === null || Array.isArray(picked)) {
       return;
     }
     dest = joinWorkspaceTargetPath(picked, baseName, false);
