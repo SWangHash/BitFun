@@ -41,4 +41,10 @@ Keep these role features additive and do not replace either closure with
 cargo check -p bitfun-acp --no-default-features --features client
 cargo check -p bitfun-acp --no-default-features --features server
 cargo test -p bitfun-acp
+cargo test -p bitfun-acp --no-default-features --features client --lib client::prompt::tests
 ```
+
+The focused client prompt tests cover protocol errors, retry, cancellation,
+partial output, and transport termination with in-memory agent streams. On
+HarmonyOS, use the HarmonyOS target and an appropriate runner; these fixtures
+do not require a live provider or a device connection.
