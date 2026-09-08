@@ -120,8 +120,7 @@
   },
   "permissionMode": {
     "ask": "詢問",
-    "allowOnce": "自動通過",
-    "rejectOnce": "自動拒絕"
+    "allowOnce": "自動通過"
   },
   "requirements": {
     "tool": "CLI",

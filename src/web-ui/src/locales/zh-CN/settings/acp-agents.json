@@ -120,8 +120,7 @@
   },
   "permissionMode": {
     "ask": "询问",
-    "allowOnce": "自动通过",
-    "rejectOnce": "自动拒绝"
+    "allowOnce": "自动通过"
   },
   "requirements": {
     "tool": "CLI",

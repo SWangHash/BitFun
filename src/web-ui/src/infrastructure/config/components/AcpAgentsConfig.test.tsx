@@ -355,6 +355,51 @@ describe('AcpAgentsConfig', () => {
     })).toBeUndefined();
   });
 
+  it.each([
+    ['ask', 'ask'],
+    ['allow_once', 'allow_once'],
+    ['reject_once', 'ask'],
+  ])('loads and saves permission mode %s as %s with only supported choices', async (storedMode, expectedMode) => {
+    loadJsonConfigMock.mockResolvedValue(JSON.stringify({
+      acpClients: {
+        opencode: { command: 'opencode', args: ['acp'], permissionMode: storedMode },
+      },
+    }));
+
+    await act(async () => {
+      root.render(<AcpAgentsConfig />);
+    });
+
+    const permissionSelect = container.querySelector<HTMLSelectElement>(
+      '[data-openbitfun-part="confirmation"] select',
+    );
+    expect(permissionSelect).not.toBeNull();
+    expect(Array.from(permissionSelect!.options).map(option => option.value)).toEqual([
+      'ask', 'allow_once',
+    ]);
+    expect(permissionSelect!.value).toBe(expectedMode);
+    expect(saveJsonConfigMock).not.toHaveBeenCalled();
+
+    await openView(container, 'views.json');
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+        ?.call(editor, `${editor.value}\n`);
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const saveButton = Array.from(container.querySelectorAll('button'))
+      .find(button => button.textContent === 'actions.saveJson');
+    expect(saveButton?.disabled).toBe(false);
+    await act(async () => {
+      saveButton!.click();
+    });
+
+    const savedConfig = JSON.parse(saveJsonConfigMock.mock.calls[0][0]);
+    expect(savedConfig.acpClients.opencode).toMatchObject({
+      command: 'opencode', args: ['acp'], permissionMode: expectedMode,
+    });
+  });
+
   it('probes requirements when opened and does not treat missing probe data as invalid config', async () => {
     await act(async () => {
       root.render(<AcpAgentsConfig />);

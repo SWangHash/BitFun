@@ -120,8 +120,7 @@
   },
   "permissionMode": {
     "ask": "Ask",
-    "allowOnce": "Auto approve",
-    "rejectOnce": "Auto reject"
+    "allowOnce": "Auto approve"
   },
   "requirements": {
     "tool": "CLI",
