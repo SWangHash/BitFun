@@ -165,6 +165,8 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
 
   const childSession = childSessionId ? flowChatState.sessions.get(childSessionId) : undefined;
   const parentSession = parentSessionId ? flowChatState.sessions.get(parentSessionId) : undefined;
+  const childSessionRef = useRef(childSession);
+  childSessionRef.current = childSession;
   const childRelationship = resolveSessionRelationship(childSession);
   const childKind = childRelationship.kind === 'review' ||
     childRelationship.kind === 'deep_review' ||
@@ -757,9 +759,15 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
     t,
   ]);
 
-  // Restore persisted review action state on mount
+  const persistedReviewWorkspacePath = childSession
+    ? sessionProjectWorkspacePath(childSession)
+    : undefined;
+  const persistedReviewRemoteConnectionId = childSession?.remoteConnectionId;
+  const persistedReviewRemoteSshHost = childSession?.remoteSshHost;
+
+  // Restore persisted review action state once for each stable session location.
   useEffect(() => {
-    if (!isReviewSession || !childSessionId || !childSession) return;
+    if (!isReviewSession || !childSessionId || !persistedReviewWorkspacePath) return;
 
     const store = useReviewActionBarStore.getState();
     const currentActionState = store.getSessionState(childSessionId);
@@ -772,20 +780,23 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
     // action state is more specific for fix/review recovery than that projection.
     if (!canReplaceDerivedReviewState && currentActionState && currentActionState.phase !== 'idle') return;
 
-    const workspacePath = sessionProjectWorkspacePath(childSession);
-    if (!workspacePath) return;
-
     let cancelled = false;
 
     loadPersistedReviewState(
       childSessionId,
-      workspacePath,
-      childSession.remoteConnectionId,
-      childSession.remoteSshHost,
+      persistedReviewWorkspacePath,
+      persistedReviewRemoteConnectionId,
+      persistedReviewRemoteSshHost,
     ).then((persisted: ReviewActionPersistedState | null) => {
-      if (cancelled || !persisted) return;
+      const latestChildSession = childSessionRef.current;
+      if (cancelled || !persisted || !latestChildSession) return;
+      if (
+        sessionProjectWorkspacePath(latestChildSession) !== persistedReviewWorkspacePath
+        || latestChildSession.remoteConnectionId !== persistedReviewRemoteConnectionId
+        || latestChildSession.remoteSshHost !== persistedReviewRemoteSshHost
+      ) return;
 
-      const latestReviewData = findLatestCodeReviewResult(childSession) as DeepReviewActionData | null;
+      const latestReviewData = findLatestCodeReviewResult(latestChildSession) as DeepReviewActionData | null;
       const reviewMode: ReviewActionMode = isDeepReview ? 'deep' : 'standard';
 
       // Detect fix interruption
@@ -797,7 +808,7 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
         persisted.remediationScopeRequiresWorkspaceFallback ?? false;
 
       if (persisted.phase === 'fix_running') {
-        const lastTurn = childSession.dialogTurns[childSession.dialogTurns.length - 1];
+        const lastTurn = latestChildSession.dialogTurns[latestChildSession.dialogTurns.length - 1];
         const isStillRunning = isActiveReviewTurnStatus(lastTurn?.status);
 
         if (!isStillRunning) {
@@ -814,16 +825,16 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
           ...new Set([
             ...remediationModifiedFilePaths,
             ...collectModifiedFilePathsFromTurns(
-              childSession.dialogTurns,
+              latestChildSession.dialogTurns,
               fixingBaselineTurnId,
-              childSession.workspacePath,
+              latestChildSession.workspacePath,
             ),
           ]),
         ];
         remediationScopeRequiresWorkspaceFallback =
           remediationScopeRequiresWorkspaceFallback ||
           hasOpaqueWorkspaceMutationRisk(
-            childSession.dialogTurns,
+            latestChildSession.dialogTurns,
             fixingBaselineTurnId,
           );
       }
@@ -889,7 +900,15 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [childSession, childSessionId, parentSessionId, isReviewSession, isDeepReview]);
+  }, [
+    childSessionId,
+    parentSessionId,
+    isReviewSession,
+    isDeepReview,
+    persistedReviewWorkspacePath,
+    persistedReviewRemoteConnectionId,
+    persistedReviewRemoteSshHost,
+  ]);
 
   // Observe action bar height to adjust body padding dynamically
   useEffect(() => {
