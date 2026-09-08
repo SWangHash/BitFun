@@ -86,7 +86,6 @@
     font-weight: var(--openbitfun-type-meta-font-weight);
     line-height: var(--openbitfun-type-body-sm-line-height);
     letter-spacing: var(--openbitfun-type-meta-letter-spacing);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

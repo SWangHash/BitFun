@@ -1760,7 +1760,7 @@ describe('Session usage report i18n and theme guards', () => {
     expect(styleText).toContain('grid-template-columns: repeat(3, minmax(116px, 1fr));');
     expect(styleText).toContain('width: clamp(180px, 26vw, 280px);');
     expect(styleText).toContain('max-width: 280px;');
-    expect(styleText).toContain('text-overflow: ellipsis;');
+    expect(styleText).not.toContain('text-overflow: ellipsis;');
     expect(styleText).not.toContain('grid-template-columns: repeat(4, minmax(116px, 1fr));');
     expect(styleText).not.toContain('grid-template-columns: minmax(0, 1fr) auto max-content;');
     expect(styleText).not.toContain('max-width: 72%;');

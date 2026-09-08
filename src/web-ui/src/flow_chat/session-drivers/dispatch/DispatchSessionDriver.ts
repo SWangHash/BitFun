@@ -24,6 +24,7 @@ import type {
   SessionCascadeRemoval,
   SessionCreationSeed,
   SessionDriver,
+  SessionDriverNavigationStatusSource,
   StartTurnInput,
   StartTurnResult,
   SubmissionDraft,
@@ -74,6 +75,17 @@ function jobIdForSession(sessionId: string): string | undefined {
   return Object.values(dispatchJobStore.getState().jobs)
     .find(job => job.sessionId === sessionId)?.jobId;
 }
+
+const dispatchNavigationStatusSource: SessionDriverNavigationStatusSource = {
+  subscribe: listener => dispatchJobStore.subscribe(listener),
+  getSnapshot: sessionId => {
+    const jobId = jobIdForSession(sessionId);
+    const reachability = jobId
+      ? dispatchJobStore.getState().transportByJobId[jobId]?.reachability
+      : undefined;
+    return reachability ? { reachability } : {};
+  },
+};
 
 /**
  * Convert composer image contexts into inline wire attachments. Throws when a
@@ -299,6 +311,7 @@ function removeProjectionLocally(
 export const dispatchSessionDriver: SessionDriver = {
   fileAccess: { open: openDispatchSessionFile },
   id: 'dispatch',
+  navigationStatusSource: dispatchNavigationStatusSource,
 
   async createSession(context: FlowChatContext, seed: SessionCreationSeed): Promise<string> {
     const {

@@ -28,6 +28,7 @@ const STRICT_PAYLOAD_VALIDATION = !isDev;
 const MIN_APP_EXE_BYTES = 5 * 1024 * 1024;
 const REQUIRED_PAYLOAD_FILES = [
   "openbitfun-desktop.exe",
+  "openbitfun-data-migrator.exe",
   "frontend/dist/index.html",
   "mobile-web/dist/index.html",
   "resources/ext-host/extension-host.js",

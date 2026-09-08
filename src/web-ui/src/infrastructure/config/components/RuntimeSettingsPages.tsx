@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   Icon,
   IconButton,
@@ -1058,7 +1058,7 @@ const RuntimeSettingsPage: React.FC<RuntimeSettingsPageProps> = ({
                     data-openbitfun-part="petOption"
                     data-openbitfun-state={isSelected ? 'selected' : undefined}
                   >
-                    <button
+                    <button data-overflow-trigger
                       type="button"
                       className="openbitfun-runtime-settings__pet-card-select"
                       data-openbitfun-component="runtime-settings"
@@ -1086,10 +1086,10 @@ const RuntimeSettingsPage: React.FC<RuntimeSettingsPageProps> = ({
                         data-openbitfun-component="runtime-settings"
                         data-openbitfun-part="petOptionMain"
                       >
-                        <strong>{label}</strong>
-                        <span data-openbitfun-component="runtime-settings" data-openbitfun-part="petGroup">
+                        <strong><OverflowText>{label}</OverflowText></strong>
+                        <OverflowText data-openbitfun-component="runtime-settings" data-openbitfun-part="petGroup">
                           {sourceLabel}
-                        </span>
+                        </OverflowText>
                       </span>
                     </button>
                     {isUserPet && IS_TAURI_DESKTOP && (

@@ -254,7 +254,6 @@
   overflow: hidden;
   color: var(--openbitfun-color-content-muted);
   font-size: var(--openbitfun-type-label-sm-font-size);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -521,7 +520,7 @@
   gap: 10px;
   padding-bottom: 18px;
 
-  > span {
+  > span:not([data-overflow-content]) {
     min-width: 0;
     flex: 1;
     overflow: hidden;
@@ -530,7 +529,6 @@
     font-size: var(--openbitfun-type-label-md-font-size);
     font-weight: var(--openbitfun-type-label-selected-font-weight);
     line-height: var(--openbitfun-type-flow-support-line-height);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 }

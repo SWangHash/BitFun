@@ -68,7 +68,6 @@
   &__group-name {
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--openbitfun-color-content-secondary);
     font-size: var(--openbitfun-type-meta-font-size);
@@ -118,7 +117,6 @@
     font-family: var(--openbitfun-type-code-md-font-family);
     font-size: var(--openbitfun-type-meta-font-size);
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
     transition:
@@ -270,7 +268,6 @@
     font-family: var(--openbitfun-type-code-md-font-family);
     font-size: var(--openbitfun-type-meta-font-size);
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
     transition:

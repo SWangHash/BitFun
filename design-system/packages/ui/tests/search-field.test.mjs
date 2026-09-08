@@ -51,6 +51,35 @@ test("SearchField renders custom trailing content before the clear action", () =
   assert.ok(trailingIndex < clearIndex);
 });
 
+test("SearchField only exposes its footer in the panel variant and preserves input semantics", () => {
+  const props = {
+    "aria-label": "Search messages",
+    footer: createElement("span", { role: "status" }, "1 / 7 results"),
+    value: "device",
+  };
+  const panel = renderToStaticMarkup(createElement(SearchField, { ...props, variant: "panel" }));
+  assert.match(panel, /data-openbitfun-component="search-field" data-variant="panel"/);
+  assert.match(panel, /<input[^>]*aria-label="Search messages"[^>]*type="search"[^>]*value="device"/);
+  assert.match(panel, /data-openbitfun-part="footer"><span role="status">1 \/ 7 results<\/span>/);
+  assert.doesNotMatch(panel, /<input[^>]*(?:footer|variant)=/);
+
+  for (const variant of ["default", "embedded"]) {
+    const markup = renderToStaticMarkup(createElement(SearchField, { ...props, variant }));
+    assert.doesNotMatch(markup, /data-openbitfun-part="footer"|1 \/ 7 results/);
+  }
+});
+
+test("SearchField panel uses canonical frosted tokens with an opaque reduced-transparency fallback", async () => {
+  const styles = await readFile(
+    new URL("../src/components/SearchField/SearchField.module.css", import.meta.url),
+    "utf8",
+  );
+  assert.match(styles, /border-radius: var\(--openbitfun-radius-lg\)/);
+  assert.match(styles, /@supports[^}]+background: var\(--openbitfun-color-surface-subtle\)/s);
+  assert.match(styles, /backdrop-filter: var\(--openbitfun-effect-blur-medium\)/);
+  assert.match(styles, /@media \(prefers-reduced-transparency: reduce\)[^}]+background: var\(--openbitfun-color-surface-raised\)[^}]+backdrop-filter: none/s);
+});
+
 test("SearchField exposes a labeled clear action without hiding it from assistive technology", () => {
   const markup = renderToStaticMarkup(
     createElement(SearchField, {

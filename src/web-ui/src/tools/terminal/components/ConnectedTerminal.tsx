@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useCallback, useState, memo } from 'react';
 import { Button, Icon } from '@openbitfun/ui';
+import { useI18n } from '@/infrastructure/i18n';
 import { AlertCircle } from 'lucide-react';
 import Terminal, { TerminalRef, type TerminalOptions } from './Terminal';
 import { useTerminal } from '../hooks/useTerminal';
@@ -51,6 +52,8 @@ export interface ConnectedTerminalProps {
   /** Optional session data; fetched when omitted. */
   session?: SessionResponse;
   onClose?: () => void;
+  /** Closing a resource view must not terminate the host-owned PTY. */
+  closeBehavior?: 'detach' | 'terminate';
   onTitleChange?: (title: string) => void;
   onExit?: (exitCode?: number) => void;
   resizeSuspended?: boolean;
@@ -66,11 +69,13 @@ const ConnectedTerminal: React.FC<ConnectedTerminalProps> = memo(({
   options,
   session: initialSession,
   onClose,
+  closeBehavior = 'terminate',
   onTitleChange,
   onExit,
   resizeSuspended = false,
   supportsCopyPaste = true,
 }) => {
+  const { t } = useI18n('panels/terminal');
   const terminalRef = useRef<TerminalRef>(null);
   const [title, setTitle] = useState<string>(initialSession?.name || 'Terminal');
   const [exitCode, setExitCode] = useState<number | null>(null);
@@ -398,11 +403,13 @@ const ConnectedTerminal: React.FC<ConnectedTerminalProps> = memo(({
   }, [sendCtrlC, sessionId]);
 
   const handleClose = useCallback(() => {
-    close().catch(err => {
-      log.error('Failed to close', { sessionId, error: err });
-    });
+    if (closeBehavior === 'terminate') {
+      close().catch(err => {
+        log.error('Failed to close', { sessionId, error: err });
+      });
+    }
     onClose?.();
-  }, [close, onClose, sessionId]);
+  }, [close, closeBehavior, onClose, sessionId]);
 
   const handleRetry = useCallback(() => {
     refresh().catch(err => {
@@ -510,12 +517,12 @@ const ConnectedTerminal: React.FC<ConnectedTerminalProps> = memo(({
               <span style={{ fontSize: 'var(--openbitfun-type-micro-font-size)', fontWeight: 'var(--openbitfun-type-heading-page-font-weight)' }}>^C</span>
             </button>
             <button
-              className="openbitfun-terminal__toolbar-btn openbitfun-terminal__toolbar-btn--danger"
+              className={`openbitfun-terminal__toolbar-btn${closeBehavior === 'terminate' ? ' openbitfun-terminal__toolbar-btn--danger' : ''}`}
               onClick={handleClose}
-              title="Close terminal"
+              title={closeBehavior === 'detach' ? t('actions.closeView') : t('actions.stopTerminal')}
               data-testid="shell-panel-close"
             >
-              <Icon name="delete" size="sm" />
+              {closeBehavior === 'detach' ? <Icon name="xmark" size="sm" /> : <Icon name="delete" size="sm" />}
             </button>
           </div>
         </div>

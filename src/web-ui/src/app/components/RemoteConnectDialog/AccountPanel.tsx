@@ -15,7 +15,7 @@
  *   group), not an external README. See `src/features/relay-deploy/README.md`.
  */
 
-import { Alert, Button, Field, Icon, IconButton, Input, ScrollArea, StatusPill } from '@openbitfun/ui';
+import { OverflowText, Alert, Button, Field, Icon, IconButton, Input, ScrollArea, StatusPill } from '@openbitfun/ui';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useI18n } from '@/infrastructure/i18n';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
@@ -1215,9 +1215,9 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   <Server size={20} aria-hidden="true" />
                   <span className="account-panel__server-copy">
                     <span className="account-panel__server-label">{t('accountLogin.authServer')}</span>
-                    <span className="account-panel__server-url" title={accountRelayUrl}>
+                    <OverflowText className="account-panel__server-url" title={accountRelayUrl}>
                       {accountRelayUrl}
-                    </span>
+                    </OverflowText>
                   </span>
                   <IconButton
                     aria-label={t('accountLogin.copyServerUrl')}
@@ -1235,7 +1235,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                     {syncStatus === 'syncing' && <Icon name="refresh" size="sm" className="spinning" />}
                     {syncStatus === 'done' && <Icon name="check-line" size="sm" />}
                     {syncStatus === 'failed' && <Icon name="info" size="sm" />}
-                    <span className="account-panel__sync-indicator-text">
+                    <OverflowText className="account-panel__sync-indicator-text">
                       {syncStatus === 'syncing' && syncPhaseLabel(
                         t,
                         syncProgress.phase,
@@ -1244,7 +1244,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                       )}
                       {syncStatus === 'done' && t('accountLogin.syncDoneShort')}
                       {syncStatus === 'failed' && syncFailureMessage(t, lastSyncError)}
-                    </span>
+                    </OverflowText>
                     {syncStatus === 'failed' && (
                       <Button
                         variant="outline"
@@ -1332,7 +1332,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                       <Monitor size={16} />
                       <span className="account-panel__device-info">
                         <span className="account-panel__device-name">
-                          <span title={displayName}>{displayName}</span>
+                          <OverflowText title={displayName}>{displayName}</OverflowText>
                           {isLocal && <StatusPill tone="neutral" className="account-panel__device-badge">{t('accountLogin.thisDevice')}</StatusPill>}
                         </span>
                         <span className="account-panel__device-meta">

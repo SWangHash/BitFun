@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const modelSettingsSource = readFileSync(
   fileURLToPath(new URL('./ModelSettingsPage.tsx', import.meta.url)),
   'utf8',
-);
+).replaceAll('\r\n', '\n');
 const defaultModelSource = readFileSync(
   fileURLToPath(new URL('./DefaultModelConfig.tsx', import.meta.url)),
   'utf8',

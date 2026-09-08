@@ -1295,6 +1295,53 @@ test('stable and beta publication require every producer, while artifact-only ru
   }
 });
 
+test('Relay image rebuild resolves the release tag instead of the newer workflow commit', (t) => {
+  const { jobs } = yaml.parse(readFileSync(
+    path.join(repoRoot, '.github/workflows/desktop-package.yml'), 'utf8',
+  ));
+  const step = jobs.prepare.steps.find((entry) => entry.name === 'Resolve version metadata');
+  const verification = jobs['upload-release-assets'].steps.find((entry) => entry.name === 'Verify published Relay image descriptor');
+  assert.match(verification.run, /cmp relay-image-assets\/relay-image.json relay-image.published.json/);
+  assert.match(verification.run, /cmp relay-image-assets\/relay-image.json.sig relay-image.published.json.sig/);
+  const root = mkdtempSync(path.join(tmpdir(), 'openbitfun-relay-rebuild-ref-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const tagSha = 'a'.repeat(40);
+  const headSha = 'b'.repeat(40);
+  for (const checkoutRef of ['', 'newer-branch']) {
+    const output = path.join(root, `output-${checkoutRef || 'tag'}`);
+    const result = spawnSync('bash', ['-c', `
+      git() {
+        case "$1" in
+          fetch|merge-base) return 0 ;;
+          rev-parse)
+            case "\${!#}" in
+              'v1.0.0^{commit}') echo "$TAG_SHA" ;;
+              *) echo "$GITHUB_SHA" ;;
+            esac ;;
+        esac
+      }
+      ${step.run.replaceAll('${{ github.event.release.prerelease }}', 'false')}
+    `], {
+      cwd: repoRoot, encoding: 'utf8', windowsHide: true,
+      env: {
+        ...process.env,
+        GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_SHA: headSha,
+        GITHUB_REPOSITORY: 'GCWing/OpenBitFun', GITHUB_OUTPUT: output,
+        INPUT_TAG_NAME: 'v1.0.0', INPUT_CHECKOUT_REF: checkoutRef,
+        INPUT_RELEASE_CHANNEL: 'stable', INPUT_UPLOAD_TO_RELEASE: 'true',
+        INPUT_RELAY_IMAGE_ONLY: 'true', TAG_SHA: tagSha,
+      },
+    });
+    if (checkoutRef) {
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /not requested commit/);
+    } else {
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(readFileSync(output, 'utf8'), new RegExp(`checkout_ref=${tagSha}`));
+    }
+  }
+});
+
 test('Relay image tag selection keeps Beta and old stable backfills away from latest', {
   skip: process.platform === 'win32',
 }, (t) => {

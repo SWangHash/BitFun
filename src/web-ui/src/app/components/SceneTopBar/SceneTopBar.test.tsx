@@ -15,16 +15,8 @@ const stylesheet = readFileSync(
   'utf8',
 );
 
-const runtimeState = vi.hoisted(() => ({ usesHostWindowControls: false }));
-
 vi.mock('@/app/components/WindowControls', () => ({ WindowControls: () => <button>Window controls</button> }));
 vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ startDragging }) }));
-vi.mock('@/infrastructure/runtime', () => ({
-  isTauriRuntime: () => false,
-  isOpenHarmonyRuntime: () => false,
-  supportsNativeWindowDragging: () => false,
-  usesHostWindowControls: () => runtimeState.usesHostWindowControls,
-}));
 vi.mock('../../stores/sceneStore', () => ({ useSceneStore: (selector: (state: typeof sceneState) => unknown) => selector(sceneState) }));
 vi.mock('../SceneBar/SceneBar', async () => {
   const { TabGroup } = await import('@openbitfun/ui');
@@ -62,13 +54,13 @@ describe('SceneTopBar', () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it('extends the Toolbar divider through both side gaps on the same pixel row', () => {
+  it('reclaims the left gutter and extends the divider through the remaining right gap', () => {
     expect(stylesheet).not.toContain('border-block-end: 0;');
     expect(stylesheet).toContain(
       'inset-block-end: calc(0px - var(--openbitfun-border-width-default));',
     );
     expect(stylesheet).toContain('width: var(--openbitfun-space-4);');
-    expect(stylesheet).toContain('inset-inline-end: 100%;');
+    expect(stylesheet).toContain('margin-inline-start: calc(0px - var(--openbitfun-space-4));');
     expect(stylesheet).toContain('inset-inline-start: 100%;');
   });
 
@@ -121,24 +113,135 @@ describe('SceneTopBar', () => {
     }
   });
 
-  it('reserves the host chrome corner instead of in-app controls on the OpenHarmony host', () => {
-    runtimeState.usesHostWindowControls = true;
-    const host = document.createElement('div');
-    document.body.append(host);
-    const root = createRoot(host);
-    try {
-      // Mirrors the AppLayout OHOS wiring: maximize stays for the double-click
-      // gesture while minimize/close are withheld from the in-app chrome.
-      act(() => root.render(<SceneTopBar onMaximize={vi.fn()} />));
-      const toolbar = host.querySelector('[data-openbitfun-component="toolbar"]')!;
-      expect(toolbar.querySelector('[data-openbitfun-part="hostControls"]')).not.toBeNull();
-      expect(toolbar.querySelector('[data-openbitfun-part="controls"]')).toBeNull();
-      expect(stylesheet).toContain('&--host');
-      expect(stylesheet).toContain('width: 128px;');
-    } finally {
-      runtimeState.usesHostWindowControls = false;
+  describe('window gestures', () => {
+    let host: HTMLDivElement;
+    let root: Root;
+    const maximize = vi.fn();
+
+    beforeEach(() => {
+      host = document.createElement('div');
+      document.body.append(host);
+      root = createRoot(host);
+    });
+
+    afterEach(() => {
       act(() => root.unmount());
       host.remove();
+    });
+
+    function renderBar(tabCount = 1) {
+      sceneState.openTabs = Array.from({ length: tabCount }, () => ({}));
+      act(() => root.render(<SceneTopBar onMinimize={vi.fn()} onMaximize={maximize} onClose={vi.fn()} />));
+      return host.querySelector<HTMLElement>('[data-openbitfun-component="toolbar"]')!;
     }
+
+    async function mouseDown(target: Element, options: MouseEventInit = {}) {
+      await act(async () => {
+        target.dispatchEvent(new MouseEvent('mousedown', {
+          bubbles: true, cancelable: true, button: 0, detail: 1, ...options,
+        }));
+        await vi.dynamicImportSettled();
+      });
+    }
+
+    function doubleClick(target: Element) {
+      act(() => target.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2, cancelable: true })));
+    }
+
+    it.each([0, 1, 2, 8])('allows dragging and maximizing empty chrome with %i open tabs', async tabCount => {
+      const toolbar = renderBar(tabCount);
+      const tabList = toolbar.querySelector('[role="tablist"]')!;
+      const dragSpace = toolbar.querySelector('.openbitfun-scene-top-bar__drag-space')!;
+      expect(dragSpace).not.toBeNull();
+      expect(tabList.contains(dragSpace)).toBe(false);
+
+      for (const target of [toolbar, tabList, dragSpace]) {
+        await mouseDown(target);
+        doubleClick(target);
+      }
+      expect(startDragging).toHaveBeenCalledTimes(3);
+      expect(maximize).toHaveBeenCalledTimes(3);
+    });
+
+    it('keeps the single tab label draggable and updates the boundary when another tab opens or closes', async () => {
+      const toolbar = renderBar();
+      const label = () => toolbar.querySelector('[role="tab"] [data-openbitfun-part="label"] span')!;
+      await mouseDown(label());
+      doubleClick(label());
+      expect(startDragging).toHaveBeenCalledOnce();
+      expect(maximize).toHaveBeenCalledOnce();
+
+      renderBar(2);
+      await mouseDown(label());
+      doubleClick(label());
+      expect(startDragging).toHaveBeenCalledOnce();
+      expect(maximize).toHaveBeenCalledOnce();
+
+      renderBar(1);
+      await mouseDown(label());
+      doubleClick(label());
+      expect(startDragging).toHaveBeenCalledTimes(2);
+      expect(maximize).toHaveBeenCalledTimes(2);
+    });
+
+    it('leaves multi-tab labels and item padding to tab interaction', async () => {
+      const toolbar = renderBar(2);
+      const tab = toolbar.querySelector<HTMLButtonElement>('[role="tab"][data-openbitfun-value="1"]')!;
+      for (const target of [tab, tab.querySelector('span')!, tab.closest('[data-openbitfun-part="item"]')!]) {
+        await mouseDown(target);
+        doubleClick(target);
+      }
+      act(() => tab.click());
+      expect(sceneState.selectTab).toHaveBeenCalledWith('1');
+      expect(startDragging).not.toHaveBeenCalled();
+      expect(maximize).not.toHaveBeenCalled();
+    });
+
+    it.each([1, 2])('excludes close buttons, nested SVGs, scene actions and editable fields with %i tabs', async tabCount => {
+      const toolbar = renderBar(tabCount);
+      for (const target of toolbar.querySelectorAll('button:not([role="tab"]), svg, path, input, [contenteditable] span')) {
+        await mouseDown(target);
+        doubleClick(target);
+      }
+      act(() => toolbar.querySelector<HTMLButtonElement>('[aria-label="Close scene 0"]')!.click());
+      expect(sceneState.closeTab).toHaveBeenCalledOnce();
+      expect(startDragging).not.toHaveBeenCalled();
+      expect(maximize).not.toHaveBeenCalled();
+    });
+
+    it('uses click detail to preserve double-click maximize without blocking separate drags', async () => {
+      const toolbar = renderBar(2);
+      await mouseDown(toolbar);
+      await mouseDown(toolbar, { detail: 2 });
+      doubleClick(toolbar);
+      expect(startDragging).toHaveBeenCalledOnce();
+      expect(maximize).toHaveBeenCalledOnce();
+
+      await mouseDown(toolbar, { detail: 1 });
+      expect(startDragging).toHaveBeenCalledTimes(2);
+    });
+
+    it('ignores middle/right buttons and gestures already handled by descendants', async () => {
+      const toolbar = renderBar(2);
+      await mouseDown(toolbar, { button: 1 });
+      await mouseDown(toolbar, { button: 2 });
+      const tabList = toolbar.querySelector('[role="tablist"]')!;
+      tabList.addEventListener('mousedown', event => event.preventDefault());
+      tabList.addEventListener('dblclick', event => event.preventDefault());
+      await mouseDown(tabList);
+      doubleClick(tabList);
+      expect(startDragging).not.toHaveBeenCalled();
+      expect(maximize).not.toHaveBeenCalled();
+    });
+
+    it('does not expose native window gestures or reserve desktop space in a browser runtime', async () => {
+      vi.stubGlobal('__TAURI_INTERNALS__', undefined);
+      const toolbar = renderBar(2);
+      await mouseDown(toolbar);
+      doubleClick(toolbar);
+      expect(toolbar.querySelector('.openbitfun-scene-top-bar__drag-space')).toBeNull();
+      expect(startDragging).not.toHaveBeenCalled();
+      expect(maximize).not.toHaveBeenCalled();
+    });
   });
 });

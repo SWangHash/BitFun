@@ -1851,7 +1851,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     >
       {showModelTrigger && (
       <Tooltip content={tooltipContent} disabled={dropdownOpen}>
-        <button
+        <button data-overflow-trigger
           ref={triggerRef}
           data-testid="chat-model-selector-btn"
           className={`openbitfun-model-selector__trigger ${dropdownOpen ? 'openbitfun-model-selector__trigger--open' : ''}`}
@@ -1897,7 +1897,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               data-openbitfun-part="reasoningSummary"
             >
               {reasoningTriggerPresentation === 'label' ? (
-                currentReasoningLabel
+                <OverflowText>{currentReasoningLabel}</OverflowText>
               ) : (
                 <ReasoningIntensityMark
                   level={reasoningIntensityLevel(
@@ -1951,7 +1951,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               aria-label={t('modelSelector.modelSettings')}
             >
               {showModelChoices && (
-              <MenuItem
+              <MenuItem data-overflow-trigger
                 ref={nativeModelMenuItemRef}
                 className={`openbitfun-model-selector__settings-item${nativeSubmenu === 'models' ? ' is-open' : ''}`}
                 data-testid="chat-model-selector-settings-model"
@@ -1960,9 +1960,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                 aria-expanded={nativeSubmenu === 'models'}
                 aria-controls={nativeSubmenu === 'models' ? nativeSubmenuId : undefined}
                 metadata={(
-                  <span className="openbitfun-model-selector__settings-value">
+                  <OverflowText className="openbitfun-model-selector__settings-value">
                      {modelLabel}
-                  </span>
+                  </OverflowText>
                 )}
                 onClick={() => toggleNativeSubmenu('models')}
                 onKeyDown={(event) => handleNativeSubmenuTriggerKeyDown('models', event)}
@@ -1973,7 +1973,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               )}
 
               {hasReasoningSettings && (
-                <MenuItem
+                <MenuItem data-overflow-trigger
                   ref={nativeReasoningMenuItemRef}
                   className={`openbitfun-model-selector__settings-item${nativeSubmenu === 'reasoning' ? ' is-open' : ''}`}
                   data-testid="chat-model-selector-settings-reasoning"
@@ -1982,9 +1982,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   aria-expanded={nativeSubmenu === 'reasoning'}
                   aria-controls={nativeSubmenu === 'reasoning' ? nativeSubmenuId : undefined}
                   metadata={(
-                    <span className="openbitfun-model-selector__settings-value">
+                    <OverflowText className="openbitfun-model-selector__settings-value">
                       {currentReasoningLabel}
-                    </span>
+                    </OverflowText>
                   )}
                   onClick={() => toggleNativeSubmenu('reasoning')}
                   onKeyDown={(event) => handleNativeSubmenuTriggerKeyDown('reasoning', event)}
@@ -2217,7 +2217,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                       content={`${group.providerName} · ${t('modelSelector.providerModelCount', { total: group.models.length })}`}
                       placement="right"
                     >
-                      <MenuItem
+                      <MenuItem data-overflow-trigger
                         aria-haspopup="menu"
                         aria-expanded={false}
                         data-testid="chat-model-selector-provider"
@@ -2231,18 +2231,18 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                         onClick={() => openProviderLevel(group.key)}
                       >
                         <div className="openbitfun-model-selector__option-main" data-openbitfun-component="model-selector" data-openbitfun-part="optionMain">
-                          <span className="openbitfun-model-selector__option-name">
+                          <OverflowText className="openbitfun-model-selector__option-name">
                             {group.providerName}
-                          </span>
+                          </OverflowText>
                           {selectedModel && (
                             <span
                               className="openbitfun-model-selector__option-desc openbitfun-model-selector__option-desc--selected-model"
                               data-testid="chat-model-selector-provider-selected-model"
                               data-model-id={selectedModel.id}
                             >
-                              <span className="openbitfun-model-selector__option-desc-label">
+                              <OverflowText className="openbitfun-model-selector__option-desc-label">
                                 {selectedModel.modelName}
-                              </span>
+                              </OverflowText>
                               <Icon name="check-line" size="lg" style={{ width: 11, height: 11 }} aria-hidden="true" className="openbitfun-model-selector__option-selected-check" data-testid="chat-model-selector-provider-selected-check" />
                             </span>
                           )}

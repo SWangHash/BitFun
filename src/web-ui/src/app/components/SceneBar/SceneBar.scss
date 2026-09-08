@@ -141,13 +141,9 @@
     }
   }
 
-  &__tab-title {
-    display: block;
-    min-width: 0;
-    max-width: 280px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  &__tabs [data-openbitfun-part='item'] {
+    // Cap the whole tab, including its label padding and close-action reserve.
+    max-inline-size: 220px;
   }
 }
 

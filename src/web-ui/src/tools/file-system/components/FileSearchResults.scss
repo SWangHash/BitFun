@@ -140,7 +140,6 @@ $_icon-size: 16px;
     font-weight: var(--openbitfun-type-label-sm-font-weight);
     color: inherit;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     width: 100%;
   }
@@ -150,7 +149,6 @@ $_icon-size: 16px;
     color: var(--openbitfun-color-content-muted);
     opacity: 0.6;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     width: 100%;
   }

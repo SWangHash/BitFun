@@ -82,7 +82,6 @@
     line-height: var(--openbitfun-type-body-sm-line-height);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   &__role {
@@ -93,7 +92,6 @@
     background: var(--openbitfun-color-surface-subtle);
     color: var(--openbitfun-color-content-secondary);
     font-size: var(--openbitfun-type-micro-font-size);
-    text-overflow: ellipsis;
   }
 
   &__status {
@@ -114,9 +112,8 @@
       color: var(--openbitfun-color-status-success-content);
     }
 
-    > span {
+    > span:not([data-overflow-content]) {
       overflow: hidden;
-      text-overflow: ellipsis;
     }
 
     &.is-disabled {
@@ -178,7 +175,6 @@
       font-size: var(--openbitfun-type-meta-font-size);
       font-variant-numeric: tabular-nums;
       line-height: var(--openbitfun-type-modifier-leading-none-line-height);
-      text-overflow: ellipsis;
       white-space: nowrap;
 
       &.core-agent-card__meta-value--text {
@@ -203,7 +199,6 @@
     color: var(--openbitfun-color-content-muted);
     font-size: var(--openbitfun-type-overline-sm-font-size);
     line-height: var(--openbitfun-type-modifier-leading-none-line-height);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

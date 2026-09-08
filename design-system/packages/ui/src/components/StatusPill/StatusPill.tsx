@@ -4,6 +4,7 @@ import {
   type ReactNode,
 } from "react";
 import { classNames } from "../../internal/classNames";
+import { OverflowText } from "../../primitives/OverflowText";
 import styles from "./StatusPill.module.css";
 
 export type StatusPillTone =
@@ -42,7 +43,7 @@ export const StatusPill = forwardRef<HTMLSpanElement, StatusPillProps>(
             {leading}
           </span>
         )}
-        <span className={styles.label} data-openbitfun-part="label">{children}</span>
+        <OverflowText className={styles.label} data-openbitfun-part="label">{children}</OverflowText>
       </span>
     );
   },

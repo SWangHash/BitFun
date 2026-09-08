@@ -15,16 +15,6 @@ function openStandaloneShellSession(sessionId: string): void {
 
   openScene('terminal' as SceneTabId);
 
-  // Force a remount when reopening the same session so the terminal view
-  // can recover from stale/error state and always reflect the latest selection.
-  if (terminalState.activeSessionId === sessionId) {
-    terminalState.setActiveSession(null);
-    window.setTimeout(() => {
-      useTerminalSceneStore.getState().setActiveSession(sessionId);
-    }, 0);
-    return;
-  }
-
   terminalState.setActiveSession(sessionId);
 }
 

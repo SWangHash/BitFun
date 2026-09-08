@@ -1,4 +1,4 @@
-import { Button, Icon, Input, Select, type SelectOption } from '@openbitfun/ui';
+import { OverflowText, Button, Icon, Input, Select, type SelectOption } from '@openbitfun/ui';
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleStop, FileClock, HardDrive, Lock, PanelsTopLeft, Rocket, Save, Users, type LucideIcon } from 'lucide-react';
 import { RetainedMountBoundary } from '@/shared/presence';
@@ -715,7 +715,7 @@ const PagesScene: React.FC<PagesSceneProps> = ({ isActive = true }) => {
         {loadError && pages.length > 0 && (
           <div className="pages-scene__refresh-error" role="alert" data-testid="pages-refresh-error" data-openbitfun-scene="pages" data-openbitfun-part="error">
             <span>{t('loadFailed')}</span>
-            <small>{loadError}</small>
+            <small><OverflowText>{loadError}</OverflowText></small>
             <Button variant="outline" size="sm" onClick={() => void loadPages()}>
               {t('actions.retry')}
             </Button>
@@ -799,8 +799,8 @@ const PagesScene: React.FC<PagesSceneProps> = ({ isActive = true }) => {
                     <PanelsTopLeft size={18} />
                   </span>
                   <div className="pages-scene__identity">
-                    <h3 title={page.title || page.slug}>{page.title || page.slug}</h3>
-                    <code className="pages-scene__slug">/{page.slug}</code>
+                    <h3 title={page.title || page.slug}><OverflowText>{page.title || page.slug}</OverflowText></h3>
+                    <code className="pages-scene__slug"><OverflowText>/{page.slug}</OverflowText></code>
                   </div>
                   <span className={`pages-scene__status${deployed ? ' is-deployed' : ''}`}>
                     <span className="pages-scene__status-dot" aria-hidden="true" />

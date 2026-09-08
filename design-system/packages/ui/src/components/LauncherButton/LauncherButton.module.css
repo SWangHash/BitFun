@@ -73,7 +73,6 @@
   .label {
     min-inline-size: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   @media (prefers-reduced-motion: reduce) {

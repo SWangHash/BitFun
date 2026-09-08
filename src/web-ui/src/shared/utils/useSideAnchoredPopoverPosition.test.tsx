@@ -33,6 +33,7 @@ describe('side anchored menu positioning', () => {
   let scale: number;
   let notifyResize: () => void;
   const observed = new Set<Element>();
+  const resizeCallbacks = new Set<() => void>();
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -44,8 +45,10 @@ describe('side anchored menu positioning', () => {
     height = 400;
     scale = 1;
     observed.clear();
+    resizeCallbacks.clear();
+    notifyResize = () => resizeCallbacks.forEach(callback => callback());
     vi.stubGlobal('ResizeObserver', class {
-      constructor(callback: () => void) { notifyResize = callback; }
+      constructor(callback: () => void) { resizeCallbacks.add(callback); }
       observe(element: Element) { observed.add(element); }
       disconnect() { observed.clear(); }
     });

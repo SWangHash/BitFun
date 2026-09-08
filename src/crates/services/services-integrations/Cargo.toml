@@ -194,7 +194,15 @@ mcp = [
     "url",
     "process-tree",
 ]
+miniapp-storage = [
+    "dep:openbitfun-product-domains",
+    "openbitfun-product-domains/miniapp",
+    "tokio/fs",
+    "tokio/time",
+    "uuid",
+]
 miniapp-runtime = [
+    "miniapp-storage",
     "base64",
     "openbitfun-product-domains/miniapp",
     "openbitfun-services-core/process-runtime",
@@ -273,6 +281,7 @@ hook-import = [
     "uuid",
 ]
 remote-connect = [
+    "remote-persistence",
     "anyhow",
     "aes",
     "aes-gcm",
@@ -322,6 +331,7 @@ remote-connect = [
     "tokio-tungstenite?/rustls-tls-native-roots",
     "urlencoding",
     "uuid",
+    "windows",
     "which",
     "x25519-dalek",
 ]
@@ -350,6 +360,7 @@ remote-ssh = [
 ]
 remote-ssh-concrete = [
     "remote-ssh",
+    "remote-persistence",
     "aes-gcm",
     "anyhow",
     "async-trait",
@@ -372,6 +383,17 @@ remote-ssh-concrete = [
     "terminal-core",
     "thiserror",
     "uuid",
+    "windows",
+]
+remote-persistence = [
+    "aes-gcm",
+    "anyhow",
+    "base64",
+    "hostname",
+    "openbitfun-services-core/product-identity",
+    "rand",
+    "sha2",
+    "windows",
 ]
 review-platform = [
     "async-trait",

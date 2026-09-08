@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   Icon,
   IconButton,
@@ -219,7 +219,7 @@ const ActionRow: React.FC<ActionRowProps> = ({ action, onToggle, onEdit, onDelet
 
       <div data-openbitfun-component="quick-actions-config" data-openbitfun-part="rowBody" className="quick-actions-config__row-body">
         <div className="quick-actions-config__row-label">{actionText.label}</div>
-        <div className="quick-actions-config__row-prompt">{actionText.prompt}</div>
+        <div className="quick-actions-config__row-prompt"><OverflowText>{actionText.prompt}</OverflowText></div>
       </div>
 
       <div data-openbitfun-component="quick-actions-config" data-openbitfun-part="rowControls" className="quick-actions-config__row-controls">

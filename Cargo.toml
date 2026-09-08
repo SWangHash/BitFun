@@ -3,6 +3,7 @@ members = [
     "src/apps/cli",
     "src/apps/sdk-host",
     "src/apps/desktop",
+    "src/apps/data-migrator",
     "src/apps/server",
     "src/apps/relay-server",
     "src/apps/miniapp-market-server",
@@ -28,6 +29,8 @@ members = [
     "src/crates/adapters/transport",
     "src/crates/services/services-core",
     "src/crates/services/services-integrations",
+    "src/crates/services/legacy-migration",
+    "src/crates/services/legacy-migration-adapters",
     "src/crates/services/miniapp-market-service",
     "src/crates/services/skin-market-service",
     "src/crates/services/relay-service",
@@ -45,6 +48,7 @@ members = [
     "src/crates/execution/tool-provider-groups",
     "src/crates/execution/tool-execution",
     "src/crates/contracts/core-types",
+    "src/crates/contracts/config-contracts",
     "src/crates/contracts/events",
     "src/crates/contracts/runtime-ports",
 ]
@@ -205,8 +209,12 @@ urlencoding = "2.1"
 oxc = { version = "0.138.0", default-features = false, features = ["ast_visit", "codegen", "semantic", "transformer"] }
 oxc-parse = { package = "oxc", version = "0.138.0", default-features = false }
 sqlx = { version = "0.8", default-features = false }
+rusqlite = { version = "0.32", default-features = false }
 
 # Tauri (desktop only)
+# Keep the OpenHarmony fork of tauri/tauri-build: the OHOS delivery profile
+# depends on the feat/open-harmony branch, and crates.io tauri cannot build
+# the OHOS targets.
 tauri = { git = "https://github.com/richerfu/tauri", branch = "feat/open-harmony", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flowChatStore, mergeModelRoundAttemptDiagnostics } from './FlowChatStore';
+import { sessionCompletionReceipt } from '../utils/sessionCompletionReceipt';
 import {
   LOCAL_SURFACE_ID,
   SurfaceChangedError,
@@ -539,8 +540,74 @@ describe('FlowChatStore dispatch observer boundaries', () => {
 });
 
 describe('FlowChatStore metadata persistence callbacks', () => {
+  const completedSession = (): Session => createSession({
+    hasUnreadCompletion: 'completed', lastFinishedAt: 10, historyState: 'ready',
+    needsUserAttention: 'tool_confirm',
+    dialogTurns: [{ id: 'finished-turn', sessionId: 'session-1', status: 'completed',
+      userMessage: { id: 'user', content: 'Task', timestamp: 1 },
+      modelRounds: [], startTime: 1, endTime: 10 }],
+  });
+
   afterEach(() => {
+    activateSurface(LOCAL_SURFACE_ID);
     resetStore();
+  });
+
+  it('acknowledges only the displayed completion and preserves pending interaction facts', () => {
+    const session = completedSession();
+    flowChatStore.setState(() => ({ sessions: new Map([[session.sessionId, session]]) }));
+    flowChatStore.clearSessionUnreadCompletion(session.sessionId, {
+      surfaceId: LOCAL_SURFACE_ID, receipt: sessionCompletionReceipt(session)!,
+    });
+    expect(flowChatStore.getState().sessions.get(session.sessionId)).toMatchObject({
+      hasUnreadCompletion: undefined, needsUserAttention: 'tool_confirm',
+    });
+  });
+
+  it('does not let an old view clear a newer completion of the same kind', () => {
+    const old = completedSession();
+    const latest = { ...old, lastFinishedAt: 20,
+      dialogTurns: [{ ...old.dialogTurns[0], id: 'new-turn', endTime: 20 }] };
+    flowChatStore.setState(() => ({ sessions: new Map([[latest.sessionId, latest]]) }));
+    flowChatStore.clearSessionUnreadCompletion(latest.sessionId, {
+      surfaceId: LOCAL_SURFACE_ID, receipt: sessionCompletionReceipt(old)!,
+    });
+    expect(flowChatStore.getState().sessions.get(latest.sessionId)?.hasUnreadCompletion).toBe('completed');
+  });
+
+  it('does not acknowledge an equal session id on a different device surface', () => {
+    const session = completedSession();
+    const receipt = sessionCompletionReceipt(session)!;
+    activateSurface('peer-status-receipt');
+    flowChatStore.setState(() => ({ sessions: new Map([[session.sessionId, session]]) }));
+    flowChatStore.clearSessionUnreadCompletion(session.sessionId, { surfaceId: LOCAL_SURFACE_ID, receipt });
+    expect(flowChatStore.getState().sessions.get(session.sessionId)?.hasUnreadCompletion).toBe('completed');
+  });
+
+  it('keeps a newer summary generation unread until its actual result is displayed', () => {
+    const session = completedSession();
+    flowChatStore.setState(() => ({ sessions: new Map([[session.sessionId, session]]) }));
+    flowChatStore.applySessionActivityReceipt({
+      sessionId: session.sessionId, execution: 'idle', pendingApprovals: 0, pendingQuestions: 0,
+      unreadCompletion: 'completed',
+      lastTurn: { turnId: 'finished-turn', turnIndex: 0, status: 'completed', executionGeneration: 2 },
+    });
+    const updated = flowChatStore.getState().sessions.get(session.sessionId)!;
+    expect(updated.unreadCompletionGeneration).toBe(2);
+    expect(sessionCompletionReceipt(updated)).toBeNull();
+    flowChatStore.clearSessionUnreadCompletion(session.sessionId, {
+      surfaceId: LOCAL_SURFACE_ID, receipt: sessionCompletionReceipt(session)!,
+    });
+    expect(flowChatStore.getState().sessions.get(session.sessionId)?.hasUnreadCompletion).toBe('completed');
+  });
+
+  it('attaches the completion to its owner when a follow-up turn already exists', () => {
+    const session = completedSession();
+    session.dialogTurns.push({ ...session.dialogTurns[0], id: 'queued-follow-up', status: 'pending' });
+    flowChatStore.setState(() => ({ sessions: new Map([[session.sessionId, session]]) }));
+    flowChatStore.markSessionUnreadCompletion(session.sessionId, 'completed', 'finished-turn');
+    expect(flowChatStore.getState().sessions.get(session.sessionId)?.unreadCompletionTurnId).toBe('finished-turn');
+    expect(sessionCompletionReceipt(flowChatStore.getState().sessions.get(session.sessionId))).toBeNull();
   });
 
   it('persists unread completion clear only when the session state changes', () => {

@@ -10,7 +10,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { useAnchoredPopoverPosition } from '@/shared/utils/useAnchoredPopoverPosition';
 
 import './EditorBreadcrumb.scss';
-import { Icon, Menu, MenuItem, MenuSection, Tooltip } from '@openbitfun/ui';
+import { OverflowText, Icon, Menu, MenuItem, MenuSection, Tooltip, type IconSize } from '@openbitfun/ui';
 
 const log = createLogger('EditorBreadcrumb');
 
@@ -36,7 +36,7 @@ interface FileItem {
 }
 
 /** Get icon component based on file name */
-const getFileIconComponent = (fileName: string, size: number = 12): React.ReactElement => {
+const getFileIconComponent = (fileName: string, size: IconSize = 'xs'): React.ReactElement => {
   const iconType = getFileIconType({ name: fileName, isDirectory: false } as any);
   
   switch (iconType) {
@@ -53,9 +53,9 @@ const getFileIconComponent = (fileName: string, size: number = 12): React.ReactE
     case 'css':
     case 'sass':
     case 'code':
-      return <Code size={size} />;
+      return <Icon glyph={Code} size={size} />;
     default:
-      return <Icon name="files" size={size <= 11 ? '2xs' : size <= 13 ? 'xs' : size <= 15 ? 'sm' : size <= 17 ? 'md' : 'lg'} />;
+      return <Icon name="files" size={size} />;
   }
 };
 
@@ -218,7 +218,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
                 key={item.path}
                 leading={item.isDirectory
                   ? <Icon name="folder" size="sm" />
-                  : getFileIconComponent(item.name, 14)}
+                  : getFileIconComponent(item.name, 'sm')}
                 onClick={(event) => {
                   event.stopPropagation();
                   onSelect(item);
@@ -279,64 +279,35 @@ export const EditorBreadcrumb: React.FC<EditorBreadcrumbProps> = ({
     const parts = relativePath.split('/').filter(Boolean);
     if (parts.length === 0) return [];
 
-    const isUnderWorkspace = relativePath !== normalizedPath;
-
-    log.debug('Building breadcrumb segments', {
-      filePath,
-      workspacePath,
-      normalizedPath,
-      normalizedWorkspace,
-      relativePath,
-      isUnderWorkspace,
-    });
-
     const result: PathSegment[] = [];
-
-    // File under workspace: show workspace root then relative parts
-    if (isUnderWorkspace) {
-      if (normalizedWorkspace) {
-        const rootName = normalizedWorkspace.split('/').filter(Boolean).pop() || 'root';
-        result.push({
-          name: rootName,
-          fullPath: normalizedWorkspace,
-          isFile: false,
-        });
-      }
-
-      let currentPath = normalizedWorkspace || '';
-      for (let i = 0; i < parts.length; i++) {
-        currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
-        result.push({
-          name: parts[i],
-          fullPath: currentPath,
-          isFile: i === parts.length - 1,
-        });
-      }
-    } else {
-      // Absolute path outside workspace: rebuild fullPath from normalizedPath
-      // preserving leading root (e.g. '/' for Unix, '' for Windows drive letters)
-      const hasLeadingSlash = normalizedPath.startsWith('/');
-      let currentPath = hasLeadingSlash ? '/' : '';
-      for (let i = 0; i < parts.length; i++) {
-        currentPath = currentPath === '/' ? `/${parts[i]}` : currentPath ? `${currentPath}/${parts[i]}` : parts[i];
-        result.push({
-          name: parts[i],
-          fullPath: currentPath,
-          isFile: i === parts.length - 1,
-        });
-      }
+    
+    // Add root directory as first level
+    if (normalizedWorkspace) {
+      const rootName = normalizedWorkspace.split('/').filter(Boolean).pop() || 'root';
+      result.push({
+        name: rootName,
+        fullPath: normalizedWorkspace,
+        isFile: false,
+      });
     }
 
-    log.debug('Breadcrumb segments result', {
-      result: result.map(s => ({ name: s.name, fullPath: s.fullPath, isFile: s.isFile })),
-    });
+    let currentPath = normalizedWorkspace;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+      result.push({
+        name: part,
+        fullPath: currentPath,
+        isFile: i === parts.length - 1,
+      });
+    }
 
     return result;
   }, [filePath, workspacePath]);
 
   // Load directory contents
   const loadDirectoryContents = useCallback(async (dirPath: string) => {
-    log.debug('Loading directory contents', { dirPath });
     setDropdownLoading(true);
     setCurrentDirPath(dirPath);
     try {
@@ -356,10 +327,9 @@ export const EditorBreadcrumb: React.FC<EditorBreadcrumbProps> = ({
           isDirectory: entry.isDirectory || false,
         }));
 
-      log.debug('Directory contents loaded', { dirPath, itemCount: items.length });
       setDropdownItems(items);
     } catch (error) {
-      log.error('Failed to load directory', { dirPath, error: String(error) });
+      log.error('Failed to load directory', error);
       setDropdownItems([]);
     } finally {
       setDropdownLoading(false);
@@ -384,13 +354,6 @@ export const EditorBreadcrumb: React.FC<EditorBreadcrumbProps> = ({
         ? segment.fullPath.substring(0, segment.fullPath.lastIndexOf('/'))
         : segment.fullPath;
       
-      log.debug('Breadcrumb segment clicked', {
-        segmentName: segment.name,
-        segmentFullPath: segment.fullPath,
-        isFile: segment.isFile,
-        resolvedDirPath: dirPath,
-      });
-      
       setInitialDirPath(dirPath);
       loadDirectoryContents(dirPath);
     }
@@ -398,12 +361,6 @@ export const EditorBreadcrumb: React.FC<EditorBreadcrumbProps> = ({
 
   // Handle dropdown item selection
   const handleDropdownSelect = useCallback(async (item: FileItem) => {
-    log.debug('Breadcrumb dropdown item selected', {
-      name: item.name,
-      path: item.path,
-      isDirectory: item.isDirectory,
-    });
-
     if (item.isDirectory) {
       loadDirectoryContents(item.path);
     } else {
@@ -473,7 +430,7 @@ export const EditorBreadcrumb: React.FC<EditorBreadcrumbProps> = ({
               </span>
             ) : (
               <Tooltip content={pathSegment.fullPath} placement="bottom">
-                <span
+                <span data-overflow-trigger
                   data-openbitfun-product-component="editor-breadcrumb"
                   data-openbitfun-product-part="item"
                   data-openbitfun-state={isDropdownOpen ? 'active' : undefined}
@@ -492,9 +449,9 @@ export const EditorBreadcrumb: React.FC<EditorBreadcrumbProps> = ({
                       <Icon name="folder" size="xs" />
                     )}
                   </span>
-                  <span data-openbitfun-product-component="editor-breadcrumb" data-openbitfun-product-part="itemText" className="editor-breadcrumb__item-text">
+                  <OverflowText data-openbitfun-product-component="editor-breadcrumb" data-openbitfun-product-part="itemText" className="editor-breadcrumb__item-text">
                     {pathSegment.name}
-                  </span>
+                  </OverflowText>
                 </span>
               </Tooltip>
             )}

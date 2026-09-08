@@ -28,6 +28,78 @@
     box-shadow: none;
   }
 
+  .root[data-variant="panel"] {
+    flex-direction: column;
+    border-radius: var(--openbitfun-radius-lg);
+    outline: var(--openbitfun-border-width-default) solid var(--openbitfun-color-border-subtle);
+    outline-offset: calc(-1 * var(--openbitfun-border-width-default));
+    color: var(--openbitfun-color-content-primary);
+    background: var(--openbitfun-color-surface-raised);
+  }
+
+  .root[data-variant="panel"]:focus-within {
+    outline-color: var(--openbitfun-color-field-border-focus);
+  }
+
+  .root[data-variant="panel"]:has(.field[data-invalid="true"]) {
+    outline-color: var(--openbitfun-color-status-danger-border);
+  }
+
+  .root[data-variant="panel"] .field,
+  .root[data-variant="panel"] .field:is(:hover, :focus-within, [data-invalid="true"]) {
+    /* Preserve the input row's geometry when a pill expands into a panel. */
+    border: var(--openbitfun-border-width-default) solid transparent;
+    border-radius: inherit;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .footer {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--openbitfun-space-2);
+    min-inline-size: 0;
+    min-block-size: calc(var(--openbitfun-control-height-sm) + var(--openbitfun-space-1) - var(--openbitfun-border-width-default));
+    padding: var(--openbitfun-space-1) var(--openbitfun-space-2);
+    border-block-start: var(--openbitfun-border-width-default) solid var(--openbitfun-color-border-subtle);
+    font-family: var(--openbitfun-type-meta-font-family);
+    font-size: var(--openbitfun-type-meta-font-size);
+    font-weight: var(--openbitfun-type-meta-font-weight);
+    line-height: var(--openbitfun-type-meta-line-height);
+    letter-spacing: var(--openbitfun-type-meta-letter-spacing);
+  }
+
+  @supports (backdrop-filter: none) or (-webkit-backdrop-filter: none) {
+    .root[data-variant="panel"] {
+      background: var(--openbitfun-color-surface-subtle);
+      -webkit-backdrop-filter: var(--openbitfun-effect-blur-medium);
+      backdrop-filter: var(--openbitfun-effect-blur-medium);
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .root[data-variant="panel"] {
+      background: var(--openbitfun-color-surface-raised);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .root[data-variant="panel"] {
+      outline-color: ButtonText;
+      background: Canvas;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    .root[data-variant="panel"]:focus-within {
+      outline-color: Highlight;
+    }
+  }
+
   .icon {
     display: inline-flex;
     align-items: center;

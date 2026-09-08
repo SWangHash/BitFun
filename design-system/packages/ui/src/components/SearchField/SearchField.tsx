@@ -12,7 +12,11 @@ import styles from "./SearchField.module.css";
 
 export interface SearchFieldProps
   extends Omit<InputProps, "leading" | "trailing" | "type"> {
+  /** Embedded delegates the field surface to its container; panel joins the input and footer in a frosted surface. */
+  variant?: "default" | "embedded" | "panel";
   clearLabel?: string;
+  /** Panel-only second row for caller-owned status and actions; search logic stays with the caller. */
+  footer?: ReactNode;
   leadingIcon?: ReactNode;
   onClear?: MouseEventHandler<HTMLButtonElement>;
   onSearch?: (value: string) => void;
@@ -24,12 +28,14 @@ export interface SearchFieldProps
 export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function SearchField({
   className,
   clearLabel,
+  footer,
   leadingIcon,
   onClear,
   onKeyDown,
   onSearch,
   shortcut,
   trailing,
+  variant = "default",
   ...props
 }, ref) {
   const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (event) => {
@@ -65,7 +71,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
       );
 
   return (
-    <span className={classNames(styles.root, className)} data-openbitfun-component="search-field">
+    <span className={classNames(styles.root, className)} data-openbitfun-component="search-field" data-variant={variant}>
       <Input
         {...props}
         className={styles.field}
@@ -77,6 +83,9 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
         trailing={trailingContent}
         type="search"
       />
+      {variant === "panel" && footer != null && (
+        <span className={styles.footer} data-openbitfun-part="footer">{footer}</span>
+      )}
     </span>
   );
 });

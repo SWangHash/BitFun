@@ -120,7 +120,6 @@
     max-width: min(520px, 58vw);
     overflow: hidden;
     color: var(--openbitfun-color-content-muted);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -155,10 +154,9 @@
       }
     }
 
-    span {
+    span:not([data-overflow-content]) {
       max-width: 92px;
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
   }
@@ -320,7 +318,6 @@
       color: var(--openbitfun-color-content-primary);
       overflow: hidden;
       text-align: right;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
   }
@@ -403,11 +400,10 @@
     td {
       color: var(--openbitfun-color-content-primary);
 
-      span {
+      span:not([data-overflow-content]) {
         display: block;
         max-width: 260px;
         overflow: hidden;
-        text-overflow: ellipsis;
         white-space: nowrap;
       }
     }
@@ -469,7 +465,6 @@
     overflow: hidden;
     color: var(--openbitfun-color-content-primary);
     font-weight: var(--openbitfun-type-label-sm-font-weight);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -477,7 +472,6 @@
     display: block;
     max-width: 100%;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -537,7 +531,6 @@
     text-underline-offset: 3px;
     cursor: pointer;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
 
     &:hover {

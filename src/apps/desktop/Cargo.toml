@@ -35,7 +35,7 @@ openbitfun-acp = { path = "../../crates/interfaces/acp", default-features = fals
 openbitfun-matrix-adapter = { path = "../../crates/adapters/matrix-adapter" }
 
 # Tauri
-tauri = { workspace = true }
+tauri = { workspace = true, features = ["unstable", "macos-private-api", "tray-icon"] }
 tauri-plugin-opener = { workspace = true }
 tauri-plugin-fs = { workspace = true }
 tauri-plugin-log = { workspace = true }

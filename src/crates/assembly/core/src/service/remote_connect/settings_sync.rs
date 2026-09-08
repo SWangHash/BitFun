@@ -191,20 +191,24 @@ fn canonicalize_json(value: serde_json::Value) -> serde_json::Value {
                     .collect(),
             )
         }
-        serde_json::Value::Array(values) => serde_json::Value::Array(
-            values.into_iter().map(canonicalize_json).collect(),
-        ),
+        serde_json::Value::Array(values) => {
+            serde_json::Value::Array(values.into_iter().map(canonicalize_json).collect())
+        }
         value => value,
     }
 }
 
-/// Hash the canonical config content of a settings payload, ignoring volatile
-/// wrapper fields such as `export_timestamp`.
+/// Hash settings content, excluding export and document write metadata. A
+/// cloud import updates the local document timestamp/build; those changes
+/// must not turn the next unchanged save into another upload.
 fn settings_content_hash(payload: &str) -> Result<String> {
     let export = config_export_value(payload)?;
-    let canonical = serde_json::to_string(&canonicalize_json(serde_json::to_value(
-        export.config,
-    )?))
+    let mut config = serde_json::to_value(export.config)?;
+    if let Some(root) = config.as_object_mut() {
+        root.remove("last_modified");
+        root.remove("version");
+    }
+    let canonical = serde_json::to_string(&canonicalize_json(config))
         .map_err(|e| anyhow!("serialize settings for hashing: {e}"))?;
     Ok(sync_state::content_hash(&canonical))
 }
@@ -565,6 +569,22 @@ mod tests {
     }
 
     #[test]
+    fn content_hash_ignores_host_write_metadata_but_keeps_settings() {
+        let mut first = crate::service::config::GlobalConfig::default();
+        first.last_modified = chrono::DateTime::from_timestamp_millis(1_000).unwrap();
+        first.version = "older-build".to_string();
+        let mut second = first.clone();
+        second.last_modified = chrono::DateTime::from_timestamp_millis(2_000).unwrap();
+        second.version = "newer-build".to_string();
+        let hash = |config| {
+            settings_content_hash(&settings_payload(config, "fixture", "fixture")).unwrap()
+        };
+        assert_eq!(hash(first.clone()), hash(second.clone()));
+        second.app.notifications.enabled = !first.app.notifications.enabled;
+        assert_ne!(hash(first), hash(second));
+    }
+
+    #[test]
     fn content_hash_changes_with_config_content() {
         let a = crate::service::config::GlobalConfig::default();
         let mut b = a.clone();
@@ -593,5 +613,44 @@ mod tests {
         let mut invalid: serde_json::Value = serde_json::from_str(&payload).unwrap();
         invalid.as_object_mut().unwrap().remove("format_version");
         assert!(config_export_value(&invalid.to_string()).is_err());
+    }
+
+    #[test]
+    fn older_supported_payload_defaults_missing_preferences_and_round_trips() {
+        let config = crate::service::config::GlobalConfig::default();
+        let mut payload: serde_json::Value = serde_json::from_str(&settings_payload(
+            config,
+            "2026-01-01T00:00:00Z",
+            "older-build",
+        ))
+        .unwrap();
+        let app = payload["config"]["app"].as_object_mut().unwrap();
+        for field in [
+            "voice_call",
+            "user_tool_groups",
+            "user_skill_groups",
+            "prevent_sleep",
+        ] {
+            app.remove(field);
+        }
+        payload["config"]["app"]["ai_experience"]["quick_actions"] = serde_json::json!([]);
+        payload["config"].as_object_mut().unwrap().remove("font");
+        let export = config_export_value(&payload.to_string()).unwrap();
+        assert!(export.config.app.voice_call.api_key.is_empty());
+        assert!(export.config.app.user_tool_groups.groups.is_empty());
+        assert!(export.config.app.user_skill_groups.groups.is_empty());
+        assert!(!export.config.app.prevent_sleep);
+        assert!(export.config.font.is_none());
+        assert!(export.config.app.ai_experience.quick_actions.is_empty());
+        let reexported = serde_json::to_string(&export).unwrap();
+        let reparsed = config_export_value(&reexported).unwrap();
+        assert_eq!(
+            serde_json::to_value(export.config).unwrap(),
+            serde_json::to_value(reparsed.config).unwrap()
+        );
+        assert_eq!(
+            settings_content_hash(&payload.to_string()).unwrap(),
+            settings_content_hash(&reexported).unwrap()
+        );
     }
 }

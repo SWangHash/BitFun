@@ -12,6 +12,8 @@ pub(crate) mod bootstrap; // Workspace persona bootstrap helpers
 pub mod canvas; // Canvas service compatibility facade
 pub mod config; // Config management
 pub mod local_model_client;
+#[cfg(feature = "agent-runtime")]
+pub(crate) mod coordination_persistence;
 #[cfg(all(feature = "agent-runtime", feature = "scheduled-jobs"))]
 pub mod cron; // Scheduled jobs
 #[cfg(feature = "dispatch-store")]
@@ -40,6 +42,8 @@ pub mod runtime; // Managed runtime and capability management
 pub mod search; // Workspace search via managed flashgrep daemon
 #[cfg(feature = "local-storage")]
 pub mod session; // Session persistence
+#[cfg(feature = "agent-runtime")]
+pub(crate) mod session_projection_format;
 #[cfg(feature = "agent-runtime")]
 pub mod session_projection_store; // Durable append-only log of the executing Turn
 #[cfg(feature = "agent-runtime")]

@@ -22,7 +22,7 @@ vi.mock('@openbitfun/ui', () => {
   return {
     Dialog: Box, DialogBody: Box, DialogHeader: Box, DialogHeading: Box,
     DialogTitle: Box, DialogDescription: Box, DialogFooter: Box, ScrollArea: Box,
-    DialogClose: () => null, Icon: () => null, Spinner: () => null,
+    DialogClose: () => null, Icon: () => null, Spinner: () => null, OverflowText: Box,
     Button: ({ children, onClick, disabled }: React.ComponentProps<'button'>) => (
       <button onClick={onClick} disabled={disabled}>{children}</button>
     ),

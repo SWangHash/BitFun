@@ -1,4 +1,4 @@
-import { Button, Icon, IconButton, Textarea, Tooltip } from '@openbitfun/ui';
+import { OverflowText, Button, Icon, IconButton, Textarea, Tooltip } from '@openbitfun/ui';
 import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { AlertTriangle, EyeOff, Loader2, Send } from 'lucide-react';
 
@@ -407,7 +407,7 @@ export const MiniAppCustomizePanel: React.FC<MiniAppCustomizePanelProps> = ({
       <div className="miniapp-customize-panel__header" data-openbitfun-component="miniapp-customize-panel" data-openbitfun-part="header">
         <div>
           <h3>{t('customize.title')}</h3>
-          <span>{appName}</span>
+          <OverflowText>{appName}</OverflowText>
         </div>
         <Tooltip content={t('customize.close')} disabled={busy}>
           <IconButton

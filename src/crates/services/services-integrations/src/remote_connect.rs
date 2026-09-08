@@ -53,7 +53,7 @@ pub use openbitfun_runtime_ports::{
     RemoteWorkspaceFileContent, RemoteWorkspaceFileInfo, RemoteWorkspaceFileRuntimeHost,
     RemoteWorkspaceKind, RemoteWorkspacePort, RemoteWorkspaceRuntimeHost, RemoteWorkspaceUpdate,
 };
-use openbitfun_services_core::product_identity::{hidden_data_directory, product_id};
+use openbitfun_services_core::product_identity::hidden_data_directory;
 pub use page_upload::{
     create_page_open_link_on_relay, delete_page_from_relay, delete_page_version_on_relay,
     deploy_page_version_on_relay, join_relay_url, list_page_versions_from_relay,

@@ -10,10 +10,11 @@ interface ThemeSetupProps {
   options: InstallOptions;
   setOptions: React.Dispatch<React.SetStateAction<InstallOptions>>;
   onLaunch: () => Promise<void>;
+  onLaunchMigration: () => Promise<boolean>;
   onClose: () => void;
 }
 
-export function ThemeSetup({ options, setOptions, onLaunch, onClose }: ThemeSetupProps) {
+export function ThemeSetup({ options, setOptions, onLaunch, onLaunchMigration, onClose }: ThemeSetupProps) {
   const { t } = useTranslation();
   const [isFinishing, setIsFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
@@ -57,7 +58,10 @@ export function ThemeSetup({ options, setOptions, onLaunch, onClose }: ThemeSetu
         console.warn('Failed to persist theme preference:', err);
       }
 
-      if (options.launchAfterInstall) {
+      const migratorLaunched = options.migrateLegacyData
+        ? await onLaunchMigration()
+        : false;
+      if (!migratorLaunched && options.launchAfterInstall) {
         await onLaunch();
       }
       onClose();
@@ -123,6 +127,18 @@ export function ThemeSetup({ options, setOptions, onLaunch, onClose }: ThemeSetu
           </div>
 
           <div style={{ width: '100%', marginBottom: 14 }}>
+            <Checkbox
+              checked={options.migrateLegacyData}
+              onChange={(checked) => setOptions((prev) => ({ ...prev, migrateLegacyData: checked }))}
+              label={t('complete.migrateLegacyData')}
+            />
+            <p style={{
+              margin: '6px 0 12px 26px',
+              color: 'var(--openbitfun-color-content-secondary)',
+              fontSize: 'var(--openbitfun-type-body-xs-font-size)',
+            }}>
+              {t('complete.migrateLegacyDataDescription')}
+            </p>
             <Checkbox
               checked={options.launchAfterInstall}
               onChange={(checked) => setOptions((prev) => ({ ...prev, launchAfterInstall: checked }))}

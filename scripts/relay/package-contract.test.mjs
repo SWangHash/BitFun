@@ -17,6 +17,15 @@ test('relay archive contains the runtime and admin binaries plus static assets',
   assert.match(packageScript, /\.sha256/);
 });
 
+test('source image is self-contained without the manual Compose static mount', () => {
+  const sourceImage = read('src/apps/relay-server/Dockerfile');
+  const context = read('.dockerignore');
+  assert.match(sourceImage, /COPY src\/apps\/relay-server\/static\/ \/app\/static\//);
+  assert.match(context, /^!src\/apps\/relay-server\/static\/$/m);
+  assert.match(context, /^!src\/apps\/relay-server\/static\/\*\*$/m);
+  assert.ok(read('src/apps/relay-server/static/index.html').length > 0);
+});
+
 test('formal and nightly releases gate publication on Linux binaries', () => {
   const desktop = read('.github/workflows/desktop-package.yml');
   const nightly = read('.github/workflows/nightly.yml');

@@ -14,6 +14,7 @@ import { ACPClientAPI } from '@/infrastructure/api/service-api/ACPClientAPI';
 import { stateMachineManager } from '../state-machine';
 import { EventBatcher } from './EventBatcher';
 import { createLogger } from '@/shared/utils/logger';
+import { installSessionNavStatusService } from './sessionNavStatusService';
 import {
   getActiveSurfaceId,
   getActiveSurfaceScope,
@@ -100,6 +101,7 @@ export class FlowChatManager {
   private latestInitializationRequestKey: string | null = null;
   private peerSessionRefreshCleanup: (() => void) | null = null;
   private dispatchJobObserverCleanup: (() => void) | null = null;
+  private navStatusCleanup: (() => void) | null = null;
   private surfaceActivationCleanup: (() => void) | null = null;
   private eventListenerRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
@@ -134,9 +136,15 @@ export class FlowChatManager {
     registerDriverSessionLookup(
       sessionId => this.context.flowChatStore.getState().sessions.get(sessionId),
     );
+    this.context.flowChatStore.registerPersistUnreadCompletionCallback((sessionId, value) => {
+      updateSessionMetadata(this.context, sessionId, ['unreadCompletion', 'needsUserAttention']).catch(err => {
+        log.warn('Failed to persist unread completion change', { sessionId, value, err });
+      });
+    });
     installPendingQueueDrainListener(this.context);
     this.peerSessionRefreshCleanup = installPeerSessionRefresh(this.context);
     this.dispatchJobObserverCleanup = installDispatchJobObserver(this.context);
+    this.navStatusCleanup = installSessionNavStatusService();
     // The agentic subscription is this window's only live view of a running
     // Turn, so its lifetime must not depend on a workspace bootstrap that a
     // rapid switch is allowed to abandon. Re-arm on every activation instead.
@@ -236,15 +244,6 @@ export class FlowChatManager {
       if (this.disposed) {
         return false;
       }
-
-      // Register callback to persist unread completion changes to backend
-      this.context.flowChatStore.registerPersistUnreadCompletionCallback(
-        (sessionId, value) => {
-          updateSessionMetadata(this.context, sessionId).catch(err => {
-            log.warn('Failed to persist unread completion change', { sessionId, value, err });
-          });
-        }
-      );
 
       const initialMetadataPage = await this.context.flowChatStore.loadSessionMetadataPage(
         workspacePath,
@@ -627,6 +626,8 @@ export class FlowChatManager {
     this.peerSessionRefreshCleanup = null;
     this.dispatchJobObserverCleanup?.();
     this.dispatchJobObserverCleanup = null;
+    this.navStatusCleanup?.();
+    this.navStatusCleanup = null;
     this.context.eventBatcher.destroy();
   }
 

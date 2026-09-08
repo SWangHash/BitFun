@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   Icon,
   IconButton,
@@ -330,7 +330,7 @@ export const SkillGroupManagerModal: React.FC<SkillGroupManagerModalProps> = ({
                       fields={tooltipFields}
                       placement="top"
                     >
-                      <button
+                      <button data-overflow-trigger
                         type="button"
                         className={`skill-group-manager__token${selected ? ' is-on' : ''}`}
                         data-openbitfun-component="skill-group-picker"
@@ -344,9 +344,9 @@ export const SkillGroupManagerModal: React.FC<SkillGroupManagerModalProps> = ({
                           tooltipFields,
                         )}
                         aria-pressed={selected}
-                      >
+                      ><OverflowText>
                         {skillDisplayName(skill, duplicateNames)}
-                      </button>
+                      </OverflowText></button>
                     </AgentCapabilityTooltip>
                   );
                 })}
@@ -501,7 +501,7 @@ export const SkillGroupPicker: React.FC<SkillGroupPickerProps> = ({
                 <div data-openbitfun-component="skill-group-picker" data-openbitfun-part="group" key={group.id} className="skill-group-picker__group">
                   <div className="skill-group-picker__group-head" data-openbitfun-component="skill-group-picker" data-openbitfun-part="groupHeader">
                     <div className="skill-group-picker__group-title-wrap">
-                      <span className="skill-group-picker__group-name">{group.label}</span>
+                      <OverflowText className="skill-group-picker__group-name">{group.label}</OverflowText>
                       <span className="skill-group-picker__group-count">
                         {selectedInGroup}/{group.skills.length}
                       </span>
@@ -547,7 +547,7 @@ export const SkillGroupPicker: React.FC<SkillGroupPickerProps> = ({
                           fields={tooltipFields}
                           placement="top"
                         >
-                          <button
+                          <button data-overflow-trigger
                             type="button"
                             className={`skill-group-picker__token${selected ? ' is-on' : ''}`}
                             data-openbitfun-component="skill-group-picker"
@@ -563,9 +563,9 @@ export const SkillGroupPicker: React.FC<SkillGroupPickerProps> = ({
                               tooltipFields,
                             )}
                             aria-pressed={selected}
-                          >
+                          ><OverflowText>
                             {skillDisplayName(skill, duplicateNames)}
-                          </button>
+                          </OverflowText></button>
                         </AgentCapabilityTooltip>
                       );
                     })}
@@ -618,9 +618,9 @@ export const SkillGroupSummary: React.FC<SkillGroupSummaryProps> = ({
                   description={skill.description}
                   fields={tooltipFields}
                 >
-                  <span className="agent-card__chip">
+                  <span className="agent-card__chip"><OverflowText>
                     {skillDisplayName(skill, duplicateNames)}
-                  </span>
+                  </OverflowText></span>
                 </AgentCapabilityTooltip>
               );
             })}

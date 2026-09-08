@@ -89,6 +89,9 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
 
   const closeTerminalSession = useCallback(async (tab: { content: PanelContent }): Promise<boolean> => {
     if (tab.content.type !== 'terminal') return true;
+    // Workspace terminals outlive their views. Older/specialized tabs retain
+    // their explicit process-lifecycle contract.
+    if (tab.content.metadata?.terminalCloseBehavior === 'detach') return true;
 
     const sessionId = tab.content.data?.sessionId;
     if (!sessionId) return true;

@@ -6,7 +6,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
-import { RotateCcw, Loader2, CircleUser } from 'lucide-react';
+import { RotateCcw, Loader2 } from 'lucide-react';
 import type { DialogTurn, FlowUserSteeringItem } from '../../types/flow-chat';
 import { flowChatManager } from '../../services/FlowChatManager';
 import { useFlowChatContext } from './FlowChatContext';
@@ -532,7 +532,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     }
     
     return (
-      <div className={`user-message-item-shell${sentTime ? ' user-message-item-shell--with-timestamp' : ''}`}>
+      <div className="user-message-item-shell">
         <div
           data-openbitfun-component="user-message-item"
           data-openbitfun-part="root"
@@ -565,11 +565,6 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
           />
         ) : (
           <div className="user-message-item__main" data-openbitfun-component="user-message-item" data-openbitfun-part="main">
-            {isFailed && (
-            <span className="user-message-item__failed-avatar" aria-hidden>
-              <CircleUser size={18} strokeWidth={1.75} />
-            </span>
-          )}
           <div
             className={
               isFailed

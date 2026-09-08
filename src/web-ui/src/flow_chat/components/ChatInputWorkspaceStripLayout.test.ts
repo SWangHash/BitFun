@@ -538,15 +538,15 @@ describe('composer context track layout', () => {
       stylesheet.indexOf('&__permission-label {'),
     );
     expect(riskRamp).toContain('permission-trigger--ask &');
-    expect(riskRamp).toContain('var(--openbitfun-color-status-success-content)');
+    expect(riskRamp).toContain('var(--openbitfun-color-status-success-emphasis)');
     expect(riskRamp).toContain('permission-trigger--auto &');
-    expect(riskRamp).toContain('var(--openbitfun-color-status-warning-content)');
+    expect(riskRamp).toContain('var(--openbitfun-color-status-warning-emphasis)');
     expect(riskRamp).toContain('permission-trigger--full_access &');
-    expect(riskRamp).toContain('var(--openbitfun-color-status-danger-content)');
+    expect(riskRamp).toContain('var(--openbitfun-color-status-danger-emphasis)');
     // Full access keeps a body of its own so the risk survives the label being
     // dropped on a narrow composer.
     expect(stylesheet).toMatch(
-      /&__permission-trigger \{[\s\S]*?&--full_access \{[\s\S]*?color-status-danger-content\) 10%/,
+      /&__permission-trigger \{[\s\S]*?&--full_access \{[\s\S]*?background: var\(--openbitfun-color-status-danger-surface\);/,
     );
   });
 
@@ -579,7 +579,7 @@ describe('composer context track layout', () => {
     expect(component).toContain('!showDispatchPicker ? renderWorktreeToggle() : null');
     expect(targetPicker).toContain('data-testid="dispatch-target-local-option"');
     expect(targetPicker).toContain('data-testid="dispatch-target-new-worktree-option"');
-    expect(targetPicker).toContain('<strong>{localWorktreeControl.label}</strong>');
+    expect(targetPicker).toContain('<strong><OverflowText>{localWorktreeControl.label}</OverflowText></strong>');
     expect(targetPicker).toContain('role="menuitemradio"');
     expect(component).toContain('role="switch"');
     expect(component).toContain('__worktree-toggle');

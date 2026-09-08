@@ -30,10 +30,12 @@ export interface ToggleMainWindowFullscreenResponse {
   isMaximized: boolean;
 }
 
-export interface SystemInfoResponse {
+export interface SystemInfo {
   platform: string;
   arch: string;
-  osVersion: string | null;
+  osVersion?: string | null;
+  /** Absent on older peers. Always belongs to the host serving the request. */
+  homeDir?: string | null;
 }
 
 export interface SaveTextFileDialogRequest {
@@ -52,8 +54,8 @@ export type SaveTextFileDialogResult =
 export type CloseBehavior = 'quit' | 'minimize_to_tray' | 'ask';
 
 export class SystemAPI {
-   
-  async getSystemInfo(): Promise<SystemInfoResponse> {
+
+  async getSystemInfo(): Promise<SystemInfo> {
     try {
       return await api.invoke('get_system_info', { 
         request: {} 

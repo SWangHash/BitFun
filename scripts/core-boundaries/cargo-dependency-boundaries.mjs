@@ -141,6 +141,7 @@ const SERVICES_INTEGRATIONS_TOKIO_FEATURES = new Map([
   ['file-watch', ['rt', 'sync']],
   ['function-agents', ['fs', 'io-util', 'macros', 'rt', 'time']],
   ['mcp', ['fs', 'io-util', 'net', 'process', 'rt', 'sync', 'time']],
+  ['miniapp-storage', ['fs', 'time']],
   ['miniapp-runtime', ['fs', 'io-util', 'net', 'process', 'rt', 'sync', 'time']],
   ['miniapp-market', ['fs', 'io-util', 'net', 'process', 'rt', 'sync', 'time']],
   ['plugin-source', ['fs', 'rt', 'sync', 'time']],
@@ -173,6 +174,7 @@ const SERVICES_INTEGRATIONS_TOKIO_AGGREGATES = new Set(['product-full']);
 const SERVICES_CORE_TOKIO_AGGREGATES = new Set(['session-git', 'token-usage-statistics']);
 const CORE_TOKIO_FEATURES = new Map([
   ['agent-runtime', ['io-util', 'macros', 'rt', 'time']],
+  ['legacy-migration', []],
   ['mcp-runtime', ['io-util', 'macros', 'rt', 'rt-multi-thread', 'time']],
   ['browser-control', ['net', 'rt', 'time']],
 ]);

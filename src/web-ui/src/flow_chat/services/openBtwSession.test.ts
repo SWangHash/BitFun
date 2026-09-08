@@ -139,7 +139,7 @@ describe('openBtwSessionInAuxPane', () => {
     vi.unstubAllGlobals();
   });
 
-  it('clears the child session unread completion marker after opening the aux pane', () => {
+  it('keeps the child session unread until its result is actually visible', () => {
     openBtwSessionInAuxPane({
       childSessionId: 'review-child',
       parentSessionId: 'parent-session',
@@ -158,14 +158,7 @@ describe('openBtwSessionInAuxPane', () => {
     );
 
     expect(mocks.clearSessionUnreadCompletion).not.toHaveBeenCalled();
-    expect(animationFrameCallbacks).toHaveLength(1);
-
-    animationFrameCallbacks.shift()?.(0);
-    expect(mocks.clearSessionUnreadCompletion).not.toHaveBeenCalled();
-    expect(animationFrameCallbacks).toHaveLength(1);
-
-    animationFrameCallbacks.shift()?.(16);
-    expect(mocks.clearSessionUnreadCompletion).toHaveBeenCalledWith('review-child');
+    expect(animationFrameCallbacks).toHaveLength(0);
   });
 
   it('carries Review-check presentation without changing the child session kind', () => {

@@ -176,9 +176,8 @@
     padding: var(--openbitfun-space-2) var(--openbitfun-space-3) var(--openbitfun-space-3);
 
     strong,
-    span {
+    span:not([data-overflow-content]) {
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 

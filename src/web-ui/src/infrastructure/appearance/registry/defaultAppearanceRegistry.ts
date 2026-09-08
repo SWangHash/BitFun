@@ -177,7 +177,10 @@ import {
 import { settingsNavAppearanceDescriptor } from '@/app/scenes/settings/SettingsNav.appearance';
 import { backgroundCommandOutputPanelAppearanceDescriptor } from '@/flow_chat/components/background-command/BackgroundCommandOutputPanel.appearance';
 import { agentCompanionPetAppearanceDescriptor } from '@/flow_chat/components/AgentCompanionPet.appearance';
-import { fileMentionPickerAppearanceDescriptor } from '@/flow_chat/components/FileMentionPicker.appearance';
+import {
+  chatContextPickerAppearanceDescriptor,
+  legacyFileMentionPickerAppearanceDescriptor,
+} from '@/flow_chat/components/ChatContextPicker.appearance';
 import { sessionFileModificationsBarAppearanceDescriptor } from '@/flow_chat/components/modern/SessionFileModificationsBar.appearance';
 import { conversationModeSurfaceAppearanceDescriptor } from '@/flow_chat/components/voice/ConversationModeSurface.appearance';
 import { realtimeVoiceCallAppearanceDescriptor } from '@/flow_chat/components/voice/RealtimeVoiceCall.appearance';
@@ -478,7 +481,8 @@ export function createDefaultAppearanceRegistry(): AppearanceRegistry {
     .registerComponent(automationSettingsPageAppearanceDescriptor)
     .registerComponent(backgroundCommandOutputPanelAppearanceDescriptor)
     .registerComponent(agentCompanionPetAppearanceDescriptor)
-    .registerComponent(fileMentionPickerAppearanceDescriptor)
+    .registerComponent(chatContextPickerAppearanceDescriptor)
+    .registerComponent(legacyFileMentionPickerAppearanceDescriptor)
     .registerComponent(sessionFileModificationsBarAppearanceDescriptor)
     .registerComponent(conversationModeSurfaceAppearanceDescriptor)
     .registerComponent(realtimeVoiceCallAppearanceDescriptor)

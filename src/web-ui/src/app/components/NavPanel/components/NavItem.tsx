@@ -10,7 +10,7 @@ import React, { useRef } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
 import type { NavItem as NavItemConfig } from '../types';
-import { Tooltip } from '@openbitfun/ui';
+import { OverflowText, Icon, Tooltip } from '@openbitfun/ui';
 
 interface NavItemProps {
   item: NavItemConfig;
@@ -47,7 +47,7 @@ const NavItem: React.FC<NavItemProps> = ({
   renderActions,
   onClick,
 }) => {
-  const { Icon } = item;
+  const { Icon: ItemGlyph } = item;
   const badgeRef = useRef<HTMLSpanElement>(null);
 
   const handleBadgeClick = (e: React.MouseEvent) => {
@@ -63,7 +63,7 @@ const NavItem: React.FC<NavItemProps> = ({
   };
 
   return (
-    <button
+    <button data-overflow-trigger
       type="button"
       className={[
         'openbitfun-nav-panel__item',
@@ -75,19 +75,19 @@ const NavItem: React.FC<NavItemProps> = ({
       title={tooltipContent ?? displayLabel}
     >
       <span className="openbitfun-nav-panel__item-icon" aria-hidden="true">
-        <Icon size={15} />
+        <Icon glyph={ItemGlyph} size="sm" />
       </span>
-      <span className="openbitfun-nav-panel__item-label">{displayLabel}</span>
+      <OverflowText className="openbitfun-nav-panel__item-label">{displayLabel}</OverflowText>
 
       {badge && (
-        <span
+        <OverflowText data-overflow-trigger
           ref={badgeRef}
           className={`openbitfun-nav-panel__item-badge ${onBadgeClick ? 'openbitfun-nav-panel__item-badge--clickable' : ''}`}
           onClick={handleBadgeClick}
           title={badge}
         >
           {badge}
-        </span>
+        </OverflowText>
       )}
 
       {renderActions ? (
@@ -105,7 +105,7 @@ const NavItem: React.FC<NavItemProps> = ({
               tabIndex={-1}
               aria-label={actionTitle}
             >
-              <ActionIcon size={13} />
+              <Icon glyph={ActionIcon} size="xs" />
             </span>
           </Tooltip>
         ) : (
@@ -116,7 +116,7 @@ const NavItem: React.FC<NavItemProps> = ({
             role="button"
             tabIndex={-1}
           >
-            <ActionIcon size={13} />
+            <Icon glyph={ActionIcon} size="xs" />
           </span>
         )
       )}

@@ -30,6 +30,9 @@ zip = "0.6"
 openbitfun-core-types = { path = "../../src/crates/contracts/core-types" }
 openbitfun-ai-adapters = { path = "../../src/crates/adapters/ai-adapters" }
 openbitfun-services-core = { path = "../../src/crates/services/services-core", features = ["json-io"] }
+openbitfun-legacy-migration = { path = "../../src/crates/services/legacy-migration" }
+openbitfun-product-domains = { path = "../../src/crates/contracts/product-domains", features = ["legacy-migration"] }
+uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

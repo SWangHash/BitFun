@@ -1044,8 +1044,7 @@ mod tests {
         for account_sync in [false, true] {
             let (service, _dir) = test_service("import-explicit-deletions").await;
             // A raw backup intentionally omits these default values. Restoring
-            // it must still reset them, even though legacy missing fixed fields
-            // now retain their local values.
+            // it must still reset them to the declared defaults.
             let backup = service.create_backup().await.unwrap();
             let raw_backup: serde_json::Value =
                 serde_json::from_slice(&tokio::fs::read(backup).await.unwrap()).unwrap();
@@ -1184,6 +1183,141 @@ mod tests {
             "modelName": "speech-fixture", "apiKey": "speech-fixture-key"
         })).unwrap()).await.unwrap();
         assert!(changes.has_changed().unwrap());
+    }
+
+    #[tokio::test]
+    async fn account_settings_round_trip_covers_persisted_preference_groups() {
+        use serde_json::json;
+
+        let (source, _source_dir) = test_service("sync-coverage-source").await;
+        let (target, target_dir) = test_service("sync-coverage-target").await;
+        let mut changes = source.subscribe_local_changes();
+        let fixtures = vec![
+            ("app.language", json!("en-US")),
+            ("app.prevent_sleep", json!(true)),
+            ("app.notifications.enabled", json!(false)),
+            ("app.logging.include_sensitive_diagnostics", json!(true)),
+            ("app.sidebar.width", json!(280)),
+            ("app.right_panel.width", json!(420)),
+            ("app.flow_chat.show_permission_mode_control", json!(false)),
+            ("app.hooks.project_hooks_enabled", json!(true)),
+            (
+                "app.keybindings",
+                json!({"version": 1, "overrides": {"session.new": {"key": "n", "alt": true}}}),
+            ),
+            (
+                "app.user_tool_groups",
+                json!({"version": 1, "groups": [{"id": "tools", "name": "Tools", "toolNames": ["Read"]}]}),
+            ),
+            (
+                "app.user_skill_groups",
+                json!({"version": 1, "groups": [{"id": "skills", "name": "Skills", "skillKeys": ["user::fixture"]}]}),
+            ),
+            (
+                "app.ai_experience.quick_actions",
+                json!([{"id": "fixture", "label": "Fixture", "prompt": "Check changes", "enabled": false}]),
+            ),
+            (
+                "app.voice_call",
+                serde_json::to_value(realtime_voice_fixture()).unwrap(),
+            ),
+            ("editor.font_size", json!(18)),
+            ("editor.format_on_save", json!(true)),
+            ("terminal.font_size", json!(17)),
+            ("terminal.terminal_panel_position", json!("bottom")),
+            ("workspace.exclude_patterns", json!(["**/fixture-cache/**"])),
+            (
+                "ai.models",
+                serde_json::to_value(vec![runtime_model("fixture-model", "fixture-model-key")])
+                    .unwrap(),
+            ),
+            ("ai.default_models.primary", json!("fixture-model")),
+            (
+                "ai.agent_profiles",
+                json!({"fixture-profile": {"profile_id": "fixture-profile", "added_tools": ["Read"], "disabled_user_skills": ["user::fixture"]}}),
+            ),
+            (
+                "ai.skill_settings.globally_disabled_user_skills",
+                json!(["user::fixture"]),
+            ),
+            ("ai.subagent_max_concurrency", json!(3)),
+            ("ai.stream_idle_timeout_secs", json!(123)),
+            ("ai.web_search.provider", json!("tavily")),
+            ("ai.allow_tool_json_repair", json!(false)),
+            ("tool_permissions.interaction.auto_approve_ask", json!(true)),
+            ("memories.use_memories", json!(true)),
+            (
+                "mcp_servers",
+                json!({"mcpServers": {"fixture": {"command": "fixture", "env": {"TOKEN": "fixture-mcp-key"}}}}),
+            ),
+            (
+                "acp_clients",
+                json!({"acpClients": {"fixture": {"command": "fixture"}}}),
+            ),
+            (
+                "plugin",
+                json!([{"spec": "fixture-package@1.0.0", "options": {"enabled": true}}]),
+            ),
+            ("appearance.selection", json!("fixture-appearance")),
+            (
+                "font",
+                json!({"uiSize": {"level": "custom", "customPx": 17}}),
+            ),
+        ];
+        for (path, value) in &fixtures {
+            source.set_config(path, value).await.unwrap();
+            assert!(
+                changes.has_changed().unwrap(),
+                "Missing upload signal: {path}"
+            );
+            changes.borrow_and_update();
+        }
+        // Use the serialized wire payload, not a typed in-memory shortcut.
+        let payload = serde_json::to_string(&source.export_config().await.unwrap()).unwrap();
+        let target_changes = target.subscribe_local_changes();
+        let result = target
+            .import_account_settings(serde_json::from_str(&payload).unwrap())
+            .await
+            .unwrap();
+        assert!(result.success, "{:?}", result.errors);
+        assert!(
+            !target_changes.has_changed().unwrap(),
+            "Cloud apply echoed an upload"
+        );
+        drop(target);
+        let restarted = restart_test_service(&target_dir, "sync-coverage-target").await;
+        for (path, expected) in fixtures {
+            let actual: serde_json::Value = restarted.get_config(Some(path)).await.unwrap();
+            // Agent profile defaults are materialized by serde; compare their
+            // complete source representation just like all other sections.
+            let source_value: serde_json::Value = source.get_config(Some(path)).await.unwrap();
+            assert_eq!(
+                actual, source_value,
+                "Settings lost in sync/restart: {path}"
+            );
+            if path != "ai.agent_profiles" && path != "ai.models" {
+                assert_eq!(
+                    actual, expected,
+                    "Setting was dropped before export: {path}"
+                );
+            }
+        }
+        let mut source_config =
+            serde_json::to_value(source.export_config().await.unwrap().config).unwrap();
+        let mut target_config =
+            serde_json::to_value(restarted.export_config().await.unwrap().config).unwrap();
+        source_config
+            .as_object_mut()
+            .unwrap()
+            .remove("last_modified");
+        target_config
+            .as_object_mut()
+            .unwrap()
+            .remove("last_modified");
+        assert_eq!(
+            source_config, target_config,
+            "Full settings document must round-trip"
+        );
     }
 
     #[tokio::test]

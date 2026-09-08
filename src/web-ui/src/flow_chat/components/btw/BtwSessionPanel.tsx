@@ -1,4 +1,4 @@
-import { Button, IconButton } from '@openbitfun/ui';
+import { OverflowText, Button, IconButton } from '@openbitfun/ui';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import path from 'path-browserify';
@@ -65,6 +65,7 @@ import {
   SubagentAvatar,
 } from '../../subagent-identity';
 import { FlowChatManager } from '../../services/FlowChatManager';
+import { useSessionCompletionReceipt } from '../../hooks/useSessionCompletionReceipt';
 import { isImeOwnedKeyboardEvent } from '@/shared/utils/ime';
 
 function findReviewChildByRequestId(
@@ -150,6 +151,7 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
   const [stoppingReview, setStoppingReview] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useSessionCompletionReceipt(childSessionId ?? null, scrollContainerRef);
   const actionBarRef = useRef<HTMLDivElement>(null);
   const [actionBarHeight, setActionBarHeight] = useState(0);
   const shouldAutoScrollRef = useRef(true);
@@ -1048,18 +1050,18 @@ export const BtwSessionPanel: React.FC<BtwSessionPanelProps> = ({
             <span className="btw-session-panel__badge" data-openbitfun-component="btw-session-panel" data-openbitfun-part="badge">{childBadgeLabel}</span>
           </div>
           <div className="btw-session-panel__header-title-wrap">
-            <span className="btw-session-panel__title" data-openbitfun-component="btw-session-panel" data-openbitfun-part="title">
+            <OverflowText className="btw-session-panel__title" data-openbitfun-component="btw-session-panel" data-openbitfun-part="title">
               {displayTitle?.trim() || (viewKind === 'review-check'
                 ? childBadgeLabel
                 : resolveSessionTitle(childSession, childTitleFallback))}
-            </span>
+            </OverflowText>
           </div>
           <div className="btw-session-panel__header-right" data-openbitfun-component="btw-session-panel" data-openbitfun-part="actions">
             {showOriginMeta && (
               <div className="btw-session-panel__meta" data-openbitfun-component="btw-session-panel" data-openbitfun-part="meta">
                 <span className="btw-session-panel__meta-label">{childOriginLabel}</span>
                 <Icon name="link" size="2xs" />
-                <span className="btw-session-panel__meta-title">{resolveSessionTitle(parentSession, t('btw.parent'))}</span>
+                <OverflowText className="btw-session-panel__meta-title">{resolveSessionTitle(parentSession, t('btw.parent'))}</OverflowText>
               </div>
             )}
             {(viewKind === 'review-check' || childKind === 'review' || childKind === 'deep_review') && (

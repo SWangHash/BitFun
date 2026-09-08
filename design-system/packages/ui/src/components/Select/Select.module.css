@@ -143,7 +143,6 @@
     overflow: hidden;
     flex: 1 1 auto;
     min-inline-size: 0;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

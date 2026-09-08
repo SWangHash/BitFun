@@ -109,7 +109,12 @@ vi.mock('../../services/flow-chat-manager/PeerSessionRefreshModule', () => ({
   installPeerSessionRefresh: vi.fn(() => () => {}),
 }));
 
+vi.mock('../../services/sessionNavStatusService', () => ({
+  installSessionNavStatusService: vi.fn(() => () => {}),
+}));
+
 const flowChatStoreMock = vi.hoisted(() => ({
+  registerPersistUnreadCompletionCallback: vi.fn(),
   getState: vi.fn(() => ({
     sessions: new Map(),
     activeSessionId: null,
@@ -259,7 +264,7 @@ describe('UserMessageItem steering tag', () => {
     const meta = container.querySelector('.user-message-item__meta');
     const time = container.querySelector<HTMLTimeElement>('[data-testid="chat-user-message-timestamp"]');
 
-    expect(shell?.classList.contains('user-message-item-shell--with-timestamp')).toBe(true);
+    expect(shell?.classList.contains('user-message-item-shell')).toBe(true);
     expect(meta?.parentElement).toBe(shell);
     expect(time?.parentElement).toBe(meta);
     expect(container.querySelector('.user-message-item__actions')?.parentElement).toBe(meta);
@@ -281,7 +286,9 @@ describe('UserMessageItem steering tag', () => {
     });
 
     expect(container.querySelector('[data-testid="chat-user-message-timestamp"]')).toBeNull();
-    expect(container.querySelector('.user-message-item-shell--with-timestamp')).toBeNull();
+    const meta = container.querySelector('.user-message-item__meta');
+    expect(meta?.parentElement).toBe(container.querySelector('.user-message-item-shell'));
+    expect(container.querySelector('.user-message-item__actions')?.parentElement).toBe(meta);
   });
 
   it('does not render a steering tag after steering is triggered', () => {

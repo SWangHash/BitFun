@@ -83,8 +83,9 @@ Use this checklist on a machine you control (VPS, LAN server, or localhost).
 OpenBitFun Desktop can SSH to your host without a manual clone. One click installs
 Docker when necessary, verifies the signed release image descriptor locally,
 pulls the latest amd64/arm64 image through the selected network route, and
-starts it by immutable digest. It never builds on the customer server and never
-silently falls back to source compilation. Pull completes before an existing
+starts it by immutable digest. If no usable published image exists, it automatically
+builds the current OpenBitFun source in Docker and shows that fallback in the
+terminal. Invalid release signatures remain an error. Pull or build completes before an existing
 Relay is stopped; startup or health failure restores the previous container.
 Entry points: Account Login → “一键部署到自己的服务器”, or
 Remote Connect → Network Relay → Self-Hosted → the same action.
@@ -92,8 +93,10 @@ Remote Connect → Network Relay → Self-Hosted → the same action.
 - Orchestration: `src/crates/services/services-integrations/src/remote_ssh/relay_deploy.rs`
 - Wizard + invariants: `src/web-ui/src/features/relay-deploy/README.md`
 
-Task state lives under `~/.openbitfun/relay-deploy`; no repository checkout is
-created. Closing the wizard cancels the remote task and restores a staged
+Task state lives under `~/.openbitfun/relay-deploy`; temporary source checkouts
+live under `~/.openbitfun/relay-src` and are cleaned after the build. The wizard
+prepares Git and Docker Buildx if needed; host Rust and Compose are not required.
+Closing the wizard cancels the remote task and restores a staged
 previous container. Account passwords are provisioned locally and imported via
 `relay-admin import-user`.
 

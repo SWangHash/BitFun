@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Icon, IconButton, StatusPill, Tooltip } from '@openbitfun/ui';
+import { OverflowText, Button, Icon, IconButton, StatusPill, Tooltip } from '@openbitfun/ui';
 
 import { useTranslation } from 'react-i18next';
 
@@ -50,7 +50,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
       role="listitem"
       style={style}
     >
-      <button
+      <button data-overflow-trigger
         data-openbitfun-component="assistant-card"
         data-openbitfun-part="main"
         type="button"
@@ -71,7 +71,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
           </span>
           <span className="assistant-card__header-info" data-openbitfun-component="assistant-card" data-openbitfun-part="headerInfo">
             <span className="assistant-card__title-row">
-              <span className="assistant-card__name" data-openbitfun-component="assistant-card" data-openbitfun-part="name">{name}</span>
+              <OverflowText className="assistant-card__name" data-openbitfun-component="assistant-card" data-openbitfun-part="name">{name}</OverflowText>
               {isPrimary && (
                 <span className="assistant-card__primary-badge" data-openbitfun-component="assistant-card" data-openbitfun-part="primaryBadge">
                   {t('nursery.card.primaryBadge')}

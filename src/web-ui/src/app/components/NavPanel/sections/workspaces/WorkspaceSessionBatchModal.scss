@@ -34,7 +34,6 @@
     font-weight: var(--openbitfun-type-label-md-font-weight);
     line-height: var(--openbitfun-type-label-md-line-height);
     letter-spacing: var(--openbitfun-type-label-md-letter-spacing);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -162,7 +161,6 @@
   &__row-title {
     min-inline-size: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

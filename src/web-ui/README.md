@@ -97,9 +97,17 @@ you can also enter a provider-supported model ID manually.
 
 Antigravity queries its authenticated `fetchAvailableModels` endpoint; Codex
 uses its subscription catalog, including models unavailable through the public
-OpenAI API. OpenCode separates Go/Zen and Chat Completions/Responses/Messages.
-xAI and Hermes query their model endpoints; Hermes routes `anthropic/*` models
-through Messages with the Nous OAuth bearer.
+OpenAI API. For OpenCode, choose Go/Zen and a model; OpenBitFun selects the
+matching Chat Completions, Responses, or Messages protocol from the account catalog.
+xAI and Hermes query their model endpoints. Hermes uses Chat Completions with
+Nous OAuth bearer authentication for all models, including `anthropic/*`, matching
+the current upstream default while its native Messages cache issue is unresolved.
+Saved model IDs and subscription credentials remain valid.
+
+Subscription login supplies the required authentication and account headers even
+if a saved model used custom-header replace mode. There is no need to paste tokens
+or provider identity headers into the model editor. These policies apply only to
+subscription models; API-key models continue to use their saved request settings.
 
 The account's returned IDs determine availability. A familiar or older ID does
 not prove the underlying model is outdated, and a model advertised by a vendor

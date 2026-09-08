@@ -412,7 +412,6 @@
     flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: var(--openbitfun-type-label-sm-font-size);
     font-weight: var(--openbitfun-type-label-selected-font-weight);
@@ -858,9 +857,8 @@
                 opacity var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard),
                 margin-left var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard);
 
-    span {
+    span:not([data-overflow-content]) {
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
   }
@@ -1214,7 +1212,6 @@
     flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: var(--openbitfun-type-label-sm-font-size);
     font-weight: var(--openbitfun-type-label-selected-font-weight);

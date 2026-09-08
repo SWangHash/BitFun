@@ -116,7 +116,6 @@
     line-height: var(--openbitfun-type-body-sm-line-height);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   &__badges {
@@ -134,7 +133,6 @@
     background: var(--openbitfun-color-surface-subtle);
     color: var(--openbitfun-color-content-secondary);
     font-size: var(--openbitfun-type-micro-font-size);
-    text-overflow: ellipsis;
   }
 
   &__body {
@@ -182,7 +180,6 @@
       font-size: var(--openbitfun-type-meta-font-size);
       font-variant-numeric: tabular-nums;
       line-height: var(--openbitfun-type-modifier-leading-none-line-height);
-      text-overflow: ellipsis;
       white-space: nowrap;
 
       &.agent-card__meta-value--text {
@@ -207,7 +204,6 @@
     color: var(--openbitfun-color-content-muted);
     font-size: var(--openbitfun-type-overline-sm-font-size);
     line-height: var(--openbitfun-type-modifier-leading-none-line-height);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -318,9 +314,8 @@
       background-color var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard),
       color var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard);
 
-    > span:not(.agent-card__config-nav-count) {
+    > span:not([data-overflow-content]):not(.agent-card__config-nav-count) {
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
@@ -414,11 +409,10 @@
     border-radius: var(--openbitfun-radius-base);
     background: var(--openbitfun-color-surface-subtle);
 
-    > span,
+    > span:not([data-overflow-content]),
     > strong {
       display: block;
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
@@ -462,7 +456,6 @@
     font-weight: var(--openbitfun-type-label-sm-font-weight);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   &__cap-bar {
@@ -594,10 +587,9 @@
       color var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard),
       box-shadow var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard);
 
-    > span:not(.agent-card__tab-count) {
+    > span:not([data-overflow-content]):not(.agent-card__tab-count) {
       min-width: 0;
       overflow: hidden;
-      text-overflow: ellipsis;
     }
 
     &:hover {
@@ -707,7 +699,6 @@
     white-space: nowrap;
     max-width: 320px;
     overflow: hidden;
-    text-overflow: ellipsis;
 
     &.is-covered {
       border-color: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 32%, var(--openbitfun-color-border-subtle));
@@ -800,7 +791,6 @@
   &__token-name {
     max-width: 160px;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

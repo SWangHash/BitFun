@@ -38,6 +38,7 @@ export interface UseInstallerReturn {
   saveModelConfig: () => Promise<void>;
   testModelConnection: (modelConfig: ModelConfig) => Promise<ConnectionTestResult>;
   launchApp: () => Promise<void>;
+  launchLegacyDataMigrator: () => Promise<boolean>;
   closeInstaller: () => void;
   refreshDiskSpace: (path: string) => Promise<void>;
   clearInstallError: () => void;
@@ -333,6 +334,12 @@ export function useInstaller(): UseInstallerReturn {
     await invoke('launch_application', { installPath: options.installPath });
   }, [options.installPath]);
 
+  const launchLegacyDataMigrator = useCallback(async () => {
+    return invoke<boolean>('launch_legacy_data_migrator', {
+      request: {},
+    });
+  }, []);
+
   const closeInstaller = useCallback(() => {
     invoke('close_installer');
   }, []);
@@ -379,7 +386,7 @@ export function useInstaller(): UseInstallerReturn {
     progress, isInstalling, installationCompleted, error, diskSpace,
     existingInstall, launchRegisteredUninstaller,
     install, canConfirmProgress, confirmProgress, retryInstall, backToOptions,
-    saveModelConfig, testModelConnection, launchApp, closeInstaller, refreshDiskSpace, clearInstallError,
+    saveModelConfig, testModelConnection, launchApp, launchLegacyDataMigrator, closeInstaller, refreshDiskSpace, clearInstallError,
     isUninstallMode, isUninstalling, uninstallCompleted, uninstallError, uninstallProgress, startUninstall,
   };
 }

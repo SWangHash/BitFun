@@ -102,13 +102,17 @@ describe('SceneBar overflow navigation', () => {
     const sessionTab = container.querySelector<HTMLElement>('[role="tab"][data-openbitfun-value="session"]')!;
     const settingsTab = container.querySelector<HTMLElement>('[role="tab"][data-openbitfun-value="settings"]')!;
 
-    expect(sessionTab.querySelector('.openbitfun-scene-bar__tab-title')?.textContent)
+    expect(sessionTab.querySelector('[data-openbitfun-part="label"]')?.textContent)
       .toBe('Investigate top tabs');
-    expect(settingsTab.querySelector('.openbitfun-scene-bar__tab-title')?.textContent)
+    expect(settingsTab.querySelector('[data-openbitfun-part="label"]')?.textContent)
       .toBe('Settings');
     expect(sessionTab.querySelector('[data-openbitfun-part="icon"]')).toBeNull();
     expect(sessionTab.closest('[data-openbitfun-part="item"]')?.getAttribute('data-has-icon'))
       .toBe('false');
+    expect(sessionTab.closest('[data-openbitfun-part="item"]')?.hasAttribute('data-overflow-trigger'))
+      .toBe(true);
+    expect(sessionTab.querySelector('[data-openbitfun-part="label"]')?.getAttribute('data-overflow-behavior'))
+      .toBe('marquee');
     expect(container.querySelector('[data-scene-bar-part="tabs"]')?.getAttribute('data-size'))
       .toBe('sm');
     expect(container.querySelector('.openbitfun-scene-bar__tab-subtitle')).toBeNull();

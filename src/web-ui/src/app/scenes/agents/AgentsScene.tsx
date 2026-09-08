@@ -1,7 +1,7 @@
-import { Button, Combobox, Icon, IconButton, SearchField, Select, StatusPill, Tooltip, ScrollArea } from '@openbitfun/ui';
+import { OverflowText, Button, Combobox, Icon, IconButton, SearchField, Select, StatusPill, Tooltip, ScrollArea, type IconSource } from '@openbitfun/ui';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { TFunction } from 'i18next';
-import { Bot, Cpu, FileText, MessageSquareText, RotateCcw, Wrench, type LucideIcon } from 'lucide-react';
+import { Bot, Cpu, FileText, MessageSquareText, RotateCcw, Wrench } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
 import { confirmDanger } from '@/infrastructure/confirm-dialog';
@@ -17,7 +17,6 @@ import {
 import AgentCard from './components/AgentCard';
 import AgentHarnessOverview from './components/AgentHarnessOverview';
 import CoreAgentCard, { type CoreAgentMeta } from './components/CoreAgentCard';
-import IndustryAgentCard from './components/IndustryAgentCard';
 import CreateAgentPage from './components/CreateAgentPage';
 import {
   AgentCapabilityTooltip,
@@ -45,7 +44,6 @@ import './AgentsScene.scss';
 import { useGallerySceneAutoRefresh } from '@/app/hooks/useGallerySceneAutoRefresh';
 import {
   CORE_AGENT_IDS,
-  INDUSTRY_AGENT_IDS,
   isAgentInOverviewZone,
   isLocallyManageableSubagent,
 } from './agentVisibility';
@@ -270,11 +268,6 @@ const AgentsHomeView: React.FC = () => {
     [filteredAgents],
   );
 
-  const industryAgents = useMemo(
-    () => allAgents.filter((agent) => INDUSTRY_AGENT_IDS.has(agent.id)),
-    [allAgents],
-  );
-
   const visibleAgents = useMemo(
     () => filteredAgents.filter((agent) => isAgentInOverviewZone(agent, hiddenAgentIds)),
     [filteredAgents, hiddenAgentIds],
@@ -477,7 +470,7 @@ const AgentsHomeView: React.FC = () => {
   const selectedAgentCapabilityTabs = useMemo(() => {
     const tabs: Array<{
       key: CapabilityTab;
-      icon: LucideIcon;
+      icon: IconSource;
       label: string;
       count?: string;
     }> = [];
@@ -485,7 +478,7 @@ const AgentsHomeView: React.FC = () => {
     if (selectedAgent?.agentKind === 'subagent' && !selectedAgentIsExternal) {
       tabs.push({
         key: 'model',
-        icon: Cpu,
+        icon: { glyph: Cpu },
         label: t('agentCard.modelSelector.label'),
       });
     }
@@ -502,7 +495,7 @@ const AgentsHomeView: React.FC = () => {
 
       tabs.push({
         key: 'tools',
-        icon: Wrench,
+        icon: { glyph: Wrench },
         label: t('agentsOverview.tools'),
         count: selectedAgent?.agentKind === 'mode'
           ? `${currentToolCount}/${totalToolCount}`
@@ -518,11 +511,7 @@ const AgentsHomeView: React.FC = () => {
           : selectedAgentSkills.length;
       tabs.push({
         key: 'skills',
-        icon: (({ size = 14 }: { size?: number | string }) => {
-          const n = typeof size === 'number' ? size : 14;
-          const mapped = n <= 11 ? '2xs' : n <= 13 ? 'xs' : n <= 15 ? 'sm' : n <= 17 ? 'md' : 'lg';
-          return <Icon name="extension" size={mapped} />;
-        }) as LucideIcon,
+        icon: { name: 'extension' },
         label: t('agentsOverview.skills'),
         count: `${currentSkillCount}/${selectedAgentSkillConfigs.length}`,
       });
@@ -534,7 +523,7 @@ const AgentsHomeView: React.FC = () => {
         : selectedAgentEnabledSubagentIds;
       tabs.push({
         key: 'subagents',
-        icon: Bot,
+        icon: { glyph: Bot },
         label: t('agentsOverview.subagents'),
         count: `${currentSubagentIds.length}/${selectedAgentManageableSubagents.length}`,
       });
@@ -696,37 +685,6 @@ const AgentsHomeView: React.FC = () => {
         <AgentHarnessOverview />
 
         <GalleryZone
-          id="industry-agents-zone"
-          data-testid="agents-industry-zone"
-          title={t('industryAgentsZone.title')}
-          subtitle={t('industryAgentsZone.subtitle')}
-          tools={(
-            <span className="gallery-zone-count">{industryAgents.length}</span>
-          )}
-        >
-          {loading ? (
-            <GallerySkeleton count={1} cardHeight={200} minCardWidth={360} className="industry-agent-skeleton" />
-          ) : industryAgents.length === 0 ? (
-            <GalleryEmpty
-              icon={<Bot size={32} strokeWidth={1.5} />}
-              message={t('industryAgentsZone.empty')}
-              testId="agent-list-empty"
-            />
-          ) : (
-            <GalleryGrid minCardWidth={360} data-bf-scene="agents" data-bf-part="industryGrid">
-              {industryAgents.map((agent, index) => (
-                <IndustryAgentCard
-                  key={agent.id}
-                  agent={agent}
-                  index={index}
-                  onOpenDetails={openAgentDetails}
-                />
-              ))}
-            </GalleryGrid>
-          )}
-        </GalleryZone>
-
-        <GalleryZone
           id="agents-zone"
           data-testid="agents-catalog-zone"
           title={t('agentsZone.title')}
@@ -779,7 +737,7 @@ const AgentsHomeView: React.FC = () => {
 
           {!loading && catalogAgents.length === 0 ? (
             <GalleryEmpty
-              icon={<Bot size={32} strokeWidth={1.5} />}
+              icon={{ glyph: Bot }}
               message={allAgents.length === 0 ? t('agentsZone.empty.noAgents') : t('agentsZone.empty.noMatch')}
               testId="agent-list-empty"
             />
@@ -829,10 +787,9 @@ const AgentsHomeView: React.FC = () => {
       <GalleryDetailModal
         isOpen={Boolean(selectedAgent)}
         onClose={closeAgentDetails}
-        icon={selectedAgent ? React.createElement(
-          AGENT_ICON_MAP[(selectedAgent.iconKey ?? 'bot') as keyof typeof AGENT_ICON_MAP] ?? Bot,
-          { size: 24, strokeWidth: 1.7 },
-        ) : <Bot size={24} />}
+        icon={selectedAgent
+          ? <Icon {...(AGENT_ICON_MAP[(selectedAgent.iconKey ?? 'bot') as keyof typeof AGENT_ICON_MAP] ?? { glyph: Bot })} size="lg" />
+          : <Icon glyph={Bot} size="lg" />}
         iconGradient={selectedAgent ? getCardGradient(selectedAgent.id || selectedAgent.name) : undefined}
         title={selectedAgent?.name ?? ''}
         titlePlacement="hero"
@@ -842,7 +799,7 @@ const AgentsHomeView: React.FC = () => {
           <>
             <StatusPill
               tone={selectedAgentBadge?.variant ?? 'neutral'}
-              leading={selectedAgent.agentKind === 'mode' ? <Cpu size={10} /> : <Bot size={10} />}
+              leading={<Icon glyph={selectedAgent.agentKind === 'mode' ? Cpu : Bot} />}
             >
               {selectedAgentBadge?.label}
             </StatusPill>
@@ -907,31 +864,31 @@ const AgentsHomeView: React.FC = () => {
         {selectedAgent ? (
           <div className="agent-card__configuration" data-testid="agent-detail-configuration">
                 <nav className="agent-card__config-nav" aria-label={t('agentsOverview.detail.configuration')}>
-                  <button
+                  <button data-overflow-trigger
                     type="button"
                     className={`agent-card__config-nav-item${activeDetailSection === 'basic' ? ' is-active' : ''}`}
                     aria-current={activeDetailSection === 'basic' ? 'page' : undefined}
                     onClick={() => setActiveDetailSection('basic')}
                   >
-                    <FileText size={14} />
-                    <span>{t('agentsOverview.detail.basicInfo')}</span>
+                    <Icon glyph={FileText} size="sm" />
+                    <OverflowText>{t('agentsOverview.detail.basicInfo')}</OverflowText>
                   </button>
-                  <button
+                  <button data-overflow-trigger
                     type="button"
                     className={`agent-card__config-nav-item${activeDetailSection === 'behavior' ? ' is-active' : ''}`}
                     aria-current={activeDetailSection === 'behavior' ? 'page' : undefined}
                     onClick={() => setActiveDetailSection('behavior')}
                   >
-                    <MessageSquareText size={14} />
-                    <span>{t('agentsOverview.detail.behaviorContext')}</span>
-                    <span className="agent-card__config-nav-count">{selectedAgent.capabilities.length}</span>
+                    <Icon glyph={MessageSquareText} size="sm" />
+                    <OverflowText>{t('agentsOverview.detail.behaviorContext')}</OverflowText>
+                    <OverflowText className="agent-card__config-nav-count">{selectedAgent.capabilities.length}</OverflowText>
                   </button>
                   <div className="agent-card__config-nav-divider" />
                   {selectedAgentCapabilityTabs.map((tab) => {
-                    const TabIcon = tab.icon;
+                    const tabIcon = tab.icon;
                     const isActive = activeDetailSection === tab.key;
                     return (
-                      <button
+                      <button data-overflow-trigger
                         key={tab.key}
                         type="button"
                         className={`agent-card__config-nav-item${isActive ? ' is-active' : ''}`}
@@ -939,9 +896,9 @@ const AgentsHomeView: React.FC = () => {
                         data-detail-section={tab.key}
                         onClick={() => setActiveDetailSection(tab.key)}
                       >
-                        <TabIcon size={14} />
-                        <span>{tab.label}</span>
-                        {tab.count ? <span className="agent-card__config-nav-count">{tab.count}</span> : null}
+                        <Icon {...tabIcon} size="sm" />
+                        <OverflowText>{tab.label}</OverflowText>
+                        {tab.count ? <OverflowText className="agent-card__config-nav-count">{tab.count}</OverflowText> : null}
                       </button>
                     );
                   })}
@@ -958,27 +915,27 @@ const AgentsHomeView: React.FC = () => {
                       </div>
                       <div className="agent-card__field-grid">
                         <div className="agent-card__field">
-                          <span>{t('agentsOverview.detail.name')}</span>
-                          <strong>{selectedAgent.name}</strong>
+                          <OverflowText>{t('agentsOverview.detail.name')}</OverflowText>
+                          <strong><OverflowText>{selectedAgent.name}</OverflowText></strong>
                         </div>
                         <div className="agent-card__field">
-                          <span>{t('agentsOverview.detail.source')}</span>
-                          <strong>{selectedAgentSourceLabel}</strong>
+                          <OverflowText>{t('agentsOverview.detail.source')}</OverflowText>
+                          <strong><OverflowText>{selectedAgentSourceLabel}</OverflowText></strong>
                         </div>
                         <div className="agent-card__field">
-                          <span>{t('agentsOverview.detail.type')}</span>
-                          <strong>{selectedAgentBadge?.label}</strong>
+                          <OverflowText>{t('agentsOverview.detail.type')}</OverflowText>
+                          <strong><OverflowText>{selectedAgentBadge?.label}</OverflowText></strong>
                         </div>
                         <div className="agent-card__field">
-                          <span>{t('agentsOverview.detail.followUp')}</span>
-                          <strong>
+                          <OverflowText>{t('agentsOverview.detail.followUp')}</OverflowText>
+                          <strong><OverflowText>
                             {selectedAgent.supportsFollowUp === false
                               ? t('agentsOverview.detail.unsupported')
                               : t('agentsOverview.detail.supported')}
-                          </strong>
+                          </OverflowText></strong>
                         </div>
                         <div className="agent-card__field agent-card__field--wide">
-                          <span>{t('agentsOverview.detail.description')}</span>
+                          <OverflowText>{t('agentsOverview.detail.description')}</OverflowText>
                           <p>{getAgentDescription(t, selectedAgent)}</p>
                         </div>
                       </div>
@@ -1008,12 +965,12 @@ const AgentsHomeView: React.FC = () => {
               <div className="agent-card__cap-grid">
                 {selectedAgent.capabilities.map((cap) => (
                   <div key={cap.category} className="agent-card__cap-row">
-                    <span
+                    <OverflowText
                       className="agent-card__cap-label"
                       style={{ color: CAPABILITY_ACCENT[cap.category] }}
                     >
                       {getCapabilityLabel(t, cap.category)}
-                    </span>
+                    </OverflowText>
                     <div className="agent-card__cap-bar">
                       {Array.from({ length: 5 }).map((_, i) => (
                         <span
@@ -1037,9 +994,9 @@ const AgentsHomeView: React.FC = () => {
                   </div>
                 </div>
                 <div className="agent-card__chip-grid">
-                  <span className="agent-card__chip">
+                  <span className="agent-card__chip"><OverflowText>
                     {selectedAgentModeProfile?.profileLabel ?? t('agentsOverview.sharedProfileDefaultLabel')}
-                  </span>
+                  </OverflowText></span>
                 </div>
                 <p className="agent-card__section-note">
                   {t('agentsOverview.sharedProfileDescription', {
@@ -1055,7 +1012,7 @@ const AgentsHomeView: React.FC = () => {
               <div className="agent-card__section" data-testid="agent-detail-tools-section">
                 <div className="agent-card__section-head agent-card__section-head--tabs">
                   <div className="agent-card__section-title">
-                    {currentCapabilityMeta ? React.createElement(currentCapabilityMeta.icon, { size: 14 }) : null}
+                    {currentCapabilityMeta ? <Icon {...currentCapabilityMeta.icon} size="sm" /> : null}
                     <span>{currentCapabilityMeta?.label}</span>
                     {currentCapabilityMeta?.count ? (
                       <span className="agent-card__section-count">{currentCapabilityMeta.count}</span>
@@ -1120,7 +1077,7 @@ const AgentsHomeView: React.FC = () => {
                                   setPendingSubagentIds(null);
                                 }
                               }}
-                              icon={<RotateCcw size={12} />}
+                              icon={<Icon glyph={RotateCcw} />}
                             />
                           </Tooltip>
                           <Button
@@ -1325,7 +1282,7 @@ const AgentsHomeView: React.FC = () => {
                             fields={tooltipFields}
                           >
                             <span className="agent-card__tooltip-trigger">
-                              <button
+                              <button data-overflow-trigger
                                 type="button"
                                 className={`agent-card__token${isOn ? ' is-on' : ''}${isExternal ? ' is-readonly' : ''}`}
                                 disabled={isExternal}
@@ -1343,9 +1300,9 @@ const AgentsHomeView: React.FC = () => {
                                   });
                                 }}
                               >
-                                <span className="agent-card__token-name">
+                                <OverflowText className="agent-card__token-name">
                                   {subagent.name}{isExternal ? ` · ${t('filters.external')}` : ''}
-                                </span>
+                                </OverflowText>
                               </button>
                             </span>
                           </AgentCapabilityTooltip>
@@ -1372,7 +1329,7 @@ const AgentsHomeView: React.FC = () => {
                               description={subagent.description}
                               fields={tooltipFields}
                             >
-                              <span className="agent-card__chip">{subagent.name}</span>
+                              <span className="agent-card__chip"><OverflowText>{subagent.name}</OverflowText></span>
                             </AgentCapabilityTooltip>
                           );
                         })

@@ -1,8 +1,8 @@
 //! Session metadata construction, counters, and visible-index mutation rules.
 
 use super::types::{
-    DialogTurnData, DialogTurnKind, SessionMemoryMode, SessionMetadata, SessionRelationship,
-    SessionRelationshipKind, StoredSessionIndexFile, TurnStatus,
+    DialogTurnData, DialogTurnKind, SessionLastTurn, SessionMemoryMode, SessionMetadata,
+    SessionRelationship, SessionRelationshipKind, StoredSessionIndexFile, TurnStatus,
 };
 use openbitfun_core_types::{SessionExecutionTarget, SessionKind};
 use serde_json::Value;
@@ -58,6 +58,7 @@ pub fn build_session_metadata(facts: SessionMetadataBuildFacts<'_>) -> SessionMe
         created_at,
         last_active_at: facts.last_active_at_ms,
         last_finished_at: existing.and_then(|value| value.last_finished_at),
+        last_turn: existing.and_then(|value| value.last_turn.clone()),
         turn_count: facts.turn_count,
         message_count: existing.map(|value| value.message_count).unwrap_or(0),
         tool_call_count: existing.map(|value| value.tool_call_count).unwrap_or(0),
@@ -228,6 +229,16 @@ pub fn refresh_session_metadata_from_turns(
     metadata.message_count = turns.iter().map(estimate_turn_message_count).sum();
     metadata.tool_call_count = turns.iter().map(DialogTurnData::count_tool_calls).sum();
     metadata.last_finished_at = turns.iter().filter_map(dialog_turn_finished_at).max();
+    // Rebuilds (including rollback) select by storage position, never wall time.
+    let latest = turns
+        .iter()
+        .filter(|turn| turn.kind == DialogTurnKind::UserDialog)
+        .max_by_key(|turn| turn.turn_index);
+    if let Some(turn) = latest {
+        refresh_latest_turn(metadata, turn);
+    } else {
+        metadata.last_turn = None;
+    }
     if metadata
         .current_context_usage
         .as_ref()
@@ -280,8 +291,81 @@ pub fn try_refresh_session_metadata_for_saved_turn(
                 .map_or(finished_at, |current| current.max(finished_at)),
         );
     }
+    if turn.kind == DialogTurnKind::UserDialog
+        && metadata
+            .last_turn
+            .as_ref()
+            .is_none_or(|last| turn.turn_index >= last.turn_index)
+    {
+        refresh_latest_turn(metadata, turn);
+    }
     fill_workspace_path_if_missing(metadata, workspace_path);
     true
+}
+
+fn refresh_latest_turn(metadata: &mut SessionMetadata, turn: &DialogTurnData) {
+    let next = SessionLastTurn {
+        turn_id: turn.turn_id.clone(),
+        turn_index: turn.turn_index,
+        status: turn.status.clone(),
+        end_time: turn.end_time,
+        execution_generation: turn.recovery_epoch.or_else(|| {
+            turn.recovery
+                .as_ref()
+                .map(|recovery| recovery.execution_generation)
+        }),
+        recovery_pending: Some(
+            turn.status == TurnStatus::Cancelled
+                && turn.finish_reason.as_deref() == Some("interrupted")
+                && turn.recovery.as_ref().is_some_and(|recovery| {
+                    recovery.status == super::types::DialogTurnRecoveryStatus::Interrupted
+                }),
+        ),
+    };
+    // Checkpoint re-saves must not resurrect an already acknowledged result.
+    let same_outcome = metadata.last_turn.as_ref().is_some_and(|last| {
+        last.turn_id == next.turn_id
+            && last.status == next.status
+            && last.execution_generation == next.execution_generation
+            && last
+                .recovery_pending
+                .is_none_or(|pending| next.recovery_pending == Some(pending))
+    });
+    if !same_outcome {
+        if let Some(outcome) = match turn.status {
+            TurnStatus::Completed => Some("completed"),
+            TurnStatus::Error => Some("error"),
+            TurnStatus::Cancelled => Some("interrupted"),
+            TurnStatus::InProgress => None,
+        } {
+            metadata.unread_completion = Some(outcome.to_string());
+            metadata.needs_user_attention = None;
+        }
+    }
+    metadata.last_turn = Some(next);
+}
+
+/// A delayed UI acknowledgement must not clear a newer completion. New clients
+/// name the rendered Turn/generation; old clients retain the finish-time guard.
+pub fn apply_session_unread_completion(current: &mut SessionMetadata, incoming: &SessionMetadata) {
+    let matches_result = match (&current.last_turn, &incoming.last_turn) {
+        (Some(current), Some(incoming)) => {
+            current.turn_id == incoming.turn_id
+                && current.execution_generation == incoming.execution_generation
+                && current.status == incoming.status
+                && current
+                    .recovery_pending
+                    .zip(incoming.recovery_pending)
+                    .is_none_or(|(current, incoming)| current == incoming)
+        }
+        (Some(current), None) => current
+            .end_time
+            .is_some_and(|end| incoming.last_finished_at.is_some_and(|seen| seen >= end)),
+        (None, _) => true,
+    };
+    if matches_result {
+        current.unread_completion = incoming.unread_completion.clone();
+    }
 }
 
 pub fn build_session_index_snapshot(

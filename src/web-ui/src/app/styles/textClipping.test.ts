@@ -100,15 +100,18 @@ describe('Truncated product text line boxes', () => {
     ['scenes/skills/SkillsScene.scss', '.skills-card__name'],
     ['scenes/skills/SkillsScene.scss', '.skills-card__desc'],
   ])('%s gives %s a font-relative, descender-safe line height', (filename, selector) => {
-    expect(compiledRules(filename)(selector)['line-height']).toBe('var(--openbitfun-type-body-sm-line-height)');
+    const lineHeight = selector === '.skills-card__name'
+      ? 'var(--openbitfun-type-label-md-line-height)'
+      : 'var(--openbitfun-type-body-sm-line-height)';
+    expect(compiledRules(filename)(selector)['line-height']).toBe(lineHeight);
   });
 
-  it('retains single-line ellipsis and the two-line skills description clamp', () => {
+  it('delegates single-line overflow while retaining the two-line skills description clamp', () => {
     const skills = compiledRules('scenes/skills/SkillsScene.scss');
-    expect(skills('.skills-card__name')['text-overflow']).toBe('ellipsis');
+    expect(skills('.skills-card__name')['text-overflow']).toBeUndefined();
     expect(skills('.skills-card__desc')['-webkit-line-clamp']).toBe('2');
     const sessions = compiledRules('components/NavPanel/sections/sessions/SessionsSection.scss');
-    expect(sessions('.openbitfun-nav-panel__inline-item-label')['text-overflow']).toBe('ellipsis');
+    expect(sessions('.openbitfun-nav-panel__inline-item-label')['text-overflow']).toBeUndefined();
     expect(sessions('.openbitfun-nav-panel__inline-item-label')['line-height']).toBe('inherit');
     expect(sessions('.openbitfun-nav-panel__inline-item').height).toBe('30px');
     expect(sessions('.openbitfun-nav-panel__inline-item.is-assistant-session').height).toBe('auto');

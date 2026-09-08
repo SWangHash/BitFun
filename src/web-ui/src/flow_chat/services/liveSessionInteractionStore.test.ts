@@ -62,6 +62,20 @@ describe('liveSessionInteractionStore', () => {
     installLiveSessionInteractionMailbox();
   });
 
+  it('removes a missed reply on a quiet global reconnect read', () => {
+    liveSessionInteractionStore.mergeUnversionedPermissions(LOCAL_SURFACE_ID, [request('stale')]);
+    const version = liveSessionInteractionStore.captureEventVersion(LOCAL_SURFACE_ID);
+    liveSessionInteractionStore.reconcileUnversionedPermissions(LOCAL_SURFACE_ID, [], version);
+    expect(liveSessionInteractionStore.getActiveSnapshot().requests).toEqual([]);
+  });
+
+  it('keeps a newly delivered approval when an older global read finishes', () => {
+    const version = liveSessionInteractionStore.captureEventVersion(LOCAL_SURFACE_ID);
+    liveSessionInteractionStore.applyPermissionEvent(LOCAL_SURFACE_ID, { event: 'asked', request: request('new') });
+    liveSessionInteractionStore.reconcileUnversionedPermissions(LOCAL_SURFACE_ID, [], version);
+    expect(liveSessionInteractionStore.getActiveSnapshot().requests.map(value => value.requestId)).toEqual(['new']);
+  });
+
   it('retains an inactive local-host request while a peer Surface is rendered', () => {
     activateTestSurface(PEER_SURFACE_ID);
     const localRequest = request('local-request');

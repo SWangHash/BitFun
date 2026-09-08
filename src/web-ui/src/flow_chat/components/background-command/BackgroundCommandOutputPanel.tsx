@@ -1,4 +1,4 @@
-import { Button, IconButton } from '@openbitfun/ui';
+import { OverflowText, Button, IconButton } from '@openbitfun/ui';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Keyboard, Loader2 } from 'lucide-react';
 import { Checkbox, Textarea, Tooltip, Icon } from '@openbitfun/ui';
@@ -299,7 +299,7 @@ export const BackgroundCommandOutputPanel: React.FC<BackgroundCommandOutputPanel
             </span>
             <div>
               <h2>{t('backgroundCommandOutput.title')}</h2>
-              <p title={command}>{command}</p>
+              <p title={command}><OverflowText>{command}</OverflowText></p>
             </div>
           </div>
           <div data-openbitfun-component="background-command-output-panel" data-openbitfun-part="headerActions" className="background-command-output-panel__header-actions">

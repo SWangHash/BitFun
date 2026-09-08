@@ -147,6 +147,11 @@ pub struct SessionMetadata {
     )]
     pub last_finished_at: Option<u64>,
 
+    /// Compact latest user-Turn fact, maintained with the metadata index. Lists
+    /// must not load transcript files to discover the latest outcome.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_turn: Option<SessionLastTurn>,
+
     /// Turn count
     #[serde(alias = "turn_count")]
     pub turn_count: usize,
@@ -330,6 +335,22 @@ impl StoredSessionMetadataFile {
         Self {
             schema_version: SESSION_STORAGE_SCHEMA_VERSION,
             metadata,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoredDialogTurnFile {
+    pub schema_version: u32,
+    #[serde(flatten)]
+    pub turn: DialogTurnData,
+}
+
+impl StoredDialogTurnFile {
+    pub fn new(turn: DialogTurnData) -> Self {
+        Self {
+            schema_version: SESSION_STORAGE_SCHEMA_VERSION,
+            turn,
         }
     }
 }
@@ -1093,7 +1114,30 @@ pub enum TurnStatus {
     Cancelled,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionLastTurn {
+    pub turn_id: String,
+    pub turn_index: usize,
+    pub status: TurnStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_generation: Option<u32>,
+    /// A persisted interrupted recovery checkpoint, distinct from cancellation.
+    /// None identifies older summaries that have not captured this fact yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_pending: Option<bool>,
+}
+
 impl SessionMetadata {
+    pub fn needs_last_turn_backfill(&self) -> bool {
+        self.turn_count > 0
+            && self.last_turn.as_ref().is_none_or(|last| {
+                last.status == TurnStatus::Cancelled && last.recovery_pending.is_none()
+            })
+    }
+
     /// Creates a new session metadata.
     pub fn new(
         session_id: String,
@@ -1140,6 +1184,7 @@ impl SessionMetadata {
             workspace_hostname: None,
             unread_completion: None,
             needs_user_attention: None,
+            last_turn: None,
         }
     }
 

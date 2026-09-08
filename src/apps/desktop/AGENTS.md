@@ -56,6 +56,10 @@ pnpm run desktop:preview:debug
 pnpm run prepare:dsh-profile   # optional: local DeepSeek Harness sessions
 ```
 
+Data Migrator runs independently. Desktop development launchers do not build,
+launch, or supervise the migrator; use its own development and release entry
+points under `src/apps/data-migrator`.
+
 ## Fast builds
 
 | Command | When to use |
@@ -95,6 +99,8 @@ cargo check -p openbitfun-desktop && cargo test -p openbitfun-desktop
 
 For staged application-update cache and signature behavior, use
 `cargo test -p openbitfun-desktop --lib api::update_api::tests`.
+For peer system-info response compatibility, run
+`cargo test -p openbitfun-desktop --lib system_info_home_contract`.
 After changing updater command registration, also run
 `cargo test -p openbitfun-desktop --lib remote_workspace_policy`.
 

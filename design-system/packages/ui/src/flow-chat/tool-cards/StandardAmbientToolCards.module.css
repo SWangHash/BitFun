@@ -83,7 +83,6 @@
   .fetchTitle {
     min-inline-size: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -239,7 +238,6 @@
     gap: var(--openbitfun-space-2);
     overflow: hidden;
     color: var(--openbitfun-color-content-muted);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -292,7 +290,6 @@
   .todoContent {
     min-inline-size: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

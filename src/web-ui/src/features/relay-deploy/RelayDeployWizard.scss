@@ -203,7 +203,6 @@
     font-weight: var(--openbitfun-type-label-sm-font-weight);
     color: var(--openbitfun-color-content-primary);
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -393,7 +392,6 @@
     color: var(--openbitfun-color-content-secondary);
     font-size: var(--openbitfun-type-meta-font-size);
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   &__port-row {

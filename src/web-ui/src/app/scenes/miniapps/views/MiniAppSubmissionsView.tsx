@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   Disclosure,
   Field,
@@ -385,7 +385,7 @@ const MiniAppSubmissionsView: React.FC<MiniAppSubmissionsViewProps> = ({ tabs })
               {screenshotPaths.map((path) => (
                 <div key={path}>
                   <Icon name="image" size="sm" />
-                  <span title={path}>{fileName(path)}</span>
+                  <OverflowText title={path}>{fileName(path)}</OverflowText>
                   <IconButton
                     size="xs"
                     aria-label={t('market.submissions.removeScreenshot')}
@@ -584,8 +584,8 @@ const MiniAppSubmissionsView: React.FC<MiniAppSubmissionsViewProps> = ({ tabs })
                       {renderMiniAppIcon(submission.icon || 'box', 16)}
                     </span>
                     <div>
-                      <strong>{submission.name}</strong>
-                      <small>{submission.slug} · v{submission.releaseNumber}</small>
+                      <strong><OverflowText>{submission.name}</OverflowText></strong>
+                      <small><OverflowText>{submission.slug} · v{submission.releaseNumber}</OverflowText></small>
                     </div>
                   </div>
                   <div className="miniapp-submissions__status">

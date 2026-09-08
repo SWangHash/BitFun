@@ -231,7 +231,6 @@
     color: var(--openbitfun-color-content-primary);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   &__popover-summary-stats {
@@ -342,7 +341,6 @@
     flex: 1;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: var(--openbitfun-type-body-sm-font-weight);
   }

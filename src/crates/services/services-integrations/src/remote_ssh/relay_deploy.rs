@@ -12,7 +12,7 @@
 //! 5. `import_account` — hand a locally-provisioned account to `relay-admin import-user`.
 //!
 //! Remote deploy state lives under the compiled product data directory. One-click deploy
-//! never clones the repository or compiles on the customer server.
+//! prefers published images and builds current source when no usable image is available.
 //!
 //! Product / regression invariants (wizard + entry points):
 //! `src/web-ui/src/features/relay-deploy/README.md`. Do not change clone destination,
@@ -70,6 +70,10 @@ const RELAY_MIRROR_SH: &str = include_str!(concat!(
 const RELAY_RELEASE_DOWNLOAD_SH: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../apps/relay-server/release-download.sh"
+));
+const RELAY_SOURCE_BUILD_SH: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../apps/relay-server/source-build.sh"
 ));
 /// Line printed by task scripts on success; polled to detect completion.
 const TASK_DONE_MARKER: &str = "RELAY_TASK_DONE";
@@ -444,14 +448,29 @@ pub async fn start_task(
     port: u16,
     mirror_mode: RelayMirrorMode,
 ) -> Result<RelayTaskStart> {
-    let home = resolve_home(manager, connection_id).await?;
-    let dir = product_data_path(&home, &["relay-deploy"]);
     let stem = task.stem();
     let port = normalize_relay_port(port)?;
+    let body = match task {
+        RelayDeployTask::InstallDocker => install_docker_body_script(),
+        RelayDeployTask::Deploy => {
+            // Authenticate the registry digest here, where the compiled-in
+            // release trust root exists. The remote host then only needs
+            // Docker's normal content-addressed pull verification.
+            match verified_latest_relay_image_descriptor().await? {
+                Some(descriptor) => deploy_body_script_with_image(port, &descriptor),
+                None => deploy_body_script_from_source(port),
+            }
+        }
+    };
+    let driver = match task {
+        RelayDeployTask::InstallDocker => interactive_driver_script(stem, "install"),
+        RelayDeployTask::Deploy => interactive_driver_script(stem, "deploy"),
+    };
 
-    // Stop any leftover task from a previous attempt / closed wizard.
+    // Resolve/authenticate release metadata before mutating remote task state.
+    let home = resolve_home(manager, connection_id).await?;
+    let dir = product_data_path(&home, &["relay-deploy"]);
     let _ = cancel_task(manager, connection_id, task).await;
-
     exec_ok(
         manager,
         connection_id,
@@ -462,21 +481,6 @@ pub async fn start_task(
         ),
     )
     .await?;
-
-    let body = match task {
-        RelayDeployTask::InstallDocker => install_docker_body_script(),
-        RelayDeployTask::Deploy => {
-            // Authenticate the registry digest here, where the compiled-in
-            // release trust root exists. The remote host then only needs
-            // Docker's normal content-addressed pull verification.
-            let descriptor = verified_latest_relay_image_descriptor().await?;
-            deploy_body_script_with_image(port, &descriptor)
-        }
-    };
-    let driver = match task {
-        RelayDeployTask::InstallDocker => interactive_driver_script(stem, "install"),
-        RelayDeployTask::Deploy => interactive_driver_script(stem, "deploy"),
-    };
 
     let body_path = format!("{dir}/{stem}-body.sh");
     let script_path = format!("{dir}/{stem}.sh");
@@ -1026,6 +1030,23 @@ openbitfun_ensure_tools() {
   fi
 }
 
+openbitfun_prepare_source_tools() {
+  openbitfun_ensure_tools git || return 1
+  if openbitfun_docker buildx version >/dev/null 2>&1; then return 0; fi
+  echo ">>> Installing Docker Buildx for source fallback..."
+  if command -v apt-get >/dev/null 2>&1; then
+    openbitfun_priv apt-get update -y || return 1
+    openbitfun_priv apt-get install -y docker-buildx-plugin \
+      || openbitfun_priv apt-get install -y docker-buildx || return 1
+  elif command -v dnf >/dev/null 2>&1; then
+    openbitfun_priv dnf install -y docker-buildx-plugin \
+      || openbitfun_priv dnf install -y docker-buildx || return 1
+  elif command -v yum >/dev/null 2>&1; then
+    openbitfun_priv yum install -y docker-buildx-plugin || return 1
+  fi
+  openbitfun_docker buildx version >/dev/null 2>&1
+}
+
 # Install Docker Engine for the original SSH user. The caller must initialize
 # mirror routing first and, when interactive sudo is needed, re-exec the driver
 # through openbitfun_elevate_install_driver before calling this helper.
@@ -1216,6 +1237,21 @@ openbitfun_docker() {
   esac
 }
 
+# Long source builds may outlive sudo's timestamp. Refresh only the already
+# authorized Docker command, only while this body exists; never change sudoers
+# or try to prompt from the detached task. The driver's PTY owns the timestamp.
+openbitfun_keep_docker_authorization() {
+  [ "${OPENBITFUN_DOCKER_MODE:-direct}" = sudo ] || return 0
+  local owner_pid=$$ lease_pid
+  (
+    while kill -0 "$owner_pid" 2>/dev/null && sudo -n docker version >/dev/null 2>&1; do
+      sleep 30
+    done
+  ) &
+  lease_pid=$!
+  trap "kill $lease_pid 2>/dev/null || true" EXIT
+}
+
 "#;
     helpers
         .replace("__OPENBITFUN_PRODUCT_HOME__", &product_home_shell_path(&[]))
@@ -1307,6 +1343,14 @@ else
   openbitfun_resolve_docker_mode
 fi
 export OPENBITFUN_DOCKER_MODE
+
+# Source fallback runs detached too. Prepare its host dependencies while
+# sudo can still prompt; failure must not prevent an available image deploying.
+if [ "{kind}" = "deploy" ]; then
+  if ! openbitfun_prepare_source_tools 2>&1 | tee -a "$LOG"; then
+    echo ">>> Source prerequisites could not be installed; trying the published image where available." | tee -a "$LOG"
+  fi
+fi
 
 # Docker install runs in the foreground. The image pull/start task goes through
 # nohup so the wizard can poll and follow its log.
@@ -1412,7 +1456,7 @@ export OPENBITFUN_OPENBITFUN_RELEASE_BASE="{OPENBITFUN_RELEASE_BASE}"
 /// Download and authenticate the image descriptor before any remote mutation.
 /// The official release is preferred; openbitfun is a byte mirror and remains
 /// safe because the same compiled-in minisign key must verify its descriptor.
-async fn verified_latest_relay_image_descriptor() -> Result<RelayImageDescriptor> {
+async fn verified_latest_relay_image_descriptor() -> Result<Option<RelayImageDescriptor>> {
     let pubkey = release_pubkey().ok_or_else(|| {
         anyhow!("this build has no Relay release trust root; refusing image deployment")
     })?;
@@ -1425,40 +1469,60 @@ async fn verified_latest_relay_image_descriptor() -> Result<RelayImageDescriptor
         OPENBITFUN_RELEASE_BASE.to_string(),
     ];
 
-    let mut last_error = String::from("descriptor was unavailable from every source");
+    resolve_relay_image_descriptor(&client, &bases, pubkey).await
+}
+
+async fn resolve_relay_image_descriptor(
+    client: &reqwest::Client,
+    bases: &[String],
+    pubkey: &str,
+) -> Result<Option<RelayImageDescriptor>> {
+    let mut verification_error = None;
     for base in bases {
         let descriptor_url = format!("{base}/{RELAY_IMAGE_DESCRIPTOR_ASSET}");
         let Some(descriptor_text) = fetch_text(&client, &descriptor_url).await else {
-            last_error = format!("{descriptor_url} was unavailable");
+            log::warn!("Relay image descriptor unavailable: {descriptor_url}");
             continue;
         };
         let Some(signature) = fetch_text(&client, &format!("{descriptor_url}.sig")).await else {
-            last_error = format!("{descriptor_url}.sig was unavailable");
+            log::warn!("Relay image signature unavailable: {descriptor_url}.sig");
             continue;
         };
-        if let Err(error) = verify_minisign(descriptor_text.as_bytes(), &signature, pubkey) {
-            last_error = format!("{descriptor_url} signature did not verify: {error}");
-            log::warn!("Relay image descriptor rejected: {last_error}");
-            continue;
-        }
-        let descriptor: RelayImageDescriptor = match serde_json::from_str(&descriptor_text) {
-            Ok(descriptor) => descriptor,
-            Err(error) => {
-                last_error = format!("{descriptor_url} is invalid JSON: {error}");
-                continue;
+        match verified_relay_image_candidate(&descriptor_text, &signature, pubkey) {
+            Ok(Some(descriptor)) => return Ok(Some(descriptor)),
+            Ok(None) => {
+                log::info!("No current Relay image in {descriptor_url}; checking the next source")
             }
-        };
-        if let Err(error) = validate_relay_image_descriptor(&descriptor) {
-            last_error = format!("{descriptor_url} is invalid: {error}");
-            log::warn!("Relay image descriptor rejected: {last_error}");
-            continue;
+            Err(error) => {
+                let error = format!("{descriptor_url} is invalid: {error}");
+                log::warn!("Relay image descriptor rejected: {error}");
+                verification_error = Some(error);
+            }
         }
-        return Ok(descriptor);
     }
+    if let Some(error) = verification_error {
+        return Err(anyhow!(
+            "could not verify the latest signed Relay image descriptor: {error}"
+        ));
+    }
+    log::info!("No published current Relay image is available; using a source build");
+    Ok(None)
+}
 
-    Err(anyhow!(
-        "could not verify the latest signed Relay image descriptor: {last_error}"
-    ))
+fn verified_relay_image_candidate(
+    text: &str,
+    signature: &str,
+    pubkey: &str,
+) -> Result<Option<RelayImageDescriptor>> {
+    verify_minisign(text.as_bytes(), signature, pubkey)?;
+    let descriptor: RelayImageDescriptor = serde_json::from_str(text)?;
+    // A signed release for a different product image is not a deployable image.
+    // Do not rewrite or pull that repository; build the current source instead.
+    if descriptor.image != RELAY_IMAGE_REPOSITORY {
+        return Ok(None);
+    }
+    validate_relay_image_descriptor(&descriptor)?;
+    Ok(Some(descriptor))
 }
 
 fn validate_relay_image_descriptor(descriptor: &RelayImageDescriptor) -> Result<()> {
@@ -1516,6 +1580,18 @@ async fn fetch_text(client: &reqwest::Client, url: &str) -> Option<String> {
 /// Non-interactive body for deploy (runs under nohup after prepare). It has one
 /// network operation: pull the authenticated image through the selected route.
 fn deploy_body_script_with_image(port: u16, descriptor: &RelayImageDescriptor) -> String {
+    deploy_body_script(port, &format!(
+        "export OPENBITFUN_RELAY_IMAGE={}\nexport OPENBITFUN_RELAY_IMAGE_DIGEST={}\nexport OPENBITFUN_RELEASE_TAG={}\nexport OPENBITFUN_RELEASE_VERSION={}\nexport OPENBITFUN_REQUIRE_IMAGE_DIGEST=1",
+        shell_quote_posix(&descriptor.image), shell_quote_posix(&descriptor.digest),
+        shell_quote_posix(&descriptor.tag), shell_quote_posix(&descriptor.version),
+    ), "image")
+}
+
+fn deploy_body_script_from_source(port: u16) -> String {
+    deploy_body_script(port, "", "source")
+}
+
+fn deploy_body_script(port: u16, image_env: &str, mode: &str) -> String {
     let helpers = prepare_helpers_bash();
     let release_binary_deploy = release_binary_deploy_bash();
     let deploy_state_dir = deploy_state_relative_dir();
@@ -1525,11 +1601,9 @@ fn deploy_body_script_with_image(port: u16, descriptor: &RelayImageDescriptor) -
 set -euo pipefail
 {helpers}
 {release_binary_deploy}
-export OPENBITFUN_RELAY_IMAGE={image}
-export OPENBITFUN_RELAY_IMAGE_DIGEST={digest}
-export OPENBITFUN_RELEASE_TAG={tag}
-export OPENBITFUN_RELEASE_VERSION={version}
-export OPENBITFUN_REQUIRE_IMAGE_DIGEST=1
+{source_build}
+{image_env}
+export OPENBITFUN_REPO_GIT_URL={repo_git_url}
 export DOCKER_CONFIG="${{DOCKER_CONFIG:-{docker_config}}}"
 OPENBITFUN_DOCKER_MODE="${{OPENBITFUN_DOCKER_MODE:-direct}}"
 # Repair DOCKER_CONFIG unconditionally: when the driver already resolved a
@@ -1539,6 +1613,7 @@ openbitfun_fix_docker_config
 if [ "$OPENBITFUN_DOCKER_MODE" = "direct" ] && ! docker info >/dev/null 2>&1; then
   openbitfun_resolve_docker_mode
 fi
+openbitfun_keep_docker_authorization
 # Prefer the port staged by the desktop wizard; fall back to embedded default.
 PORT_FILE="$HOME/{deploy_state_dir}/relay.port"
 if [ -f "$PORT_FILE" ]; then
@@ -1548,15 +1623,14 @@ RELAY_PORT="${{RELAY_PORT:-{port}}}"
 export RELAY_PORT
 echo ">>> Using RELAY_PORT=$RELAY_PORT"
 openbitfun_mirror_init
-openbitfun_try_release_deploy
+openbitfun_deploy_with_source_fallback {mode} "$HOME/{source_dir}"
 echo {TASK_DONE_MARKER}
 "#,
         helpers = helpers,
         release_binary_deploy = release_binary_deploy,
-        image = shell_quote_posix(&descriptor.image),
-        digest = shell_quote_posix(&descriptor.digest),
-        tag = shell_quote_posix(&descriptor.tag),
-        version = shell_quote_posix(&descriptor.version),
+        source_build = RELAY_SOURCE_BUILD_SH,
+        repo_git_url = shell_quote_posix(REPO_GIT_URL),
+        source_dir = product_data_relative_path(&["relay-src"]),
         port = port,
         TASK_DONE_MARKER = TASK_DONE_MARKER,
     )
@@ -1573,6 +1647,14 @@ mod tests {
         RELAY_IMAGE_REPOSITORY, RELAY_MIRROR_SH, RELAY_RELEASE_DOWNLOAD_SH, RELEASE_PUBKEY,
     };
 
+    const DESCRIPTOR_TEST_PUBKEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkgMzA3RTRCNzVFRjdENjU5NApSV1NVWlgzdmRVdCtNTzl3cVl4SHJwQVJQMFhlakUySFY4enEwOE5UWnA4SnpTNHd4SllmVkdEZAo=";
+    const CURRENT_DESCRIPTOR: &str = r#"{"schema_version":1,"image":"ghcr.io/gcwing/openbitfun-relay-server","version":"1.0.0","tag":"v1.0.0","digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","platforms":["linux/amd64","linux/arm64"]}
+"#;
+    const CURRENT_DESCRIPTOR_SIGNATURE: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIG1pbmlzaWduIHNlY3JldCBrZXkKUlVTVVpYM3ZkVXQrTUlFWmYyZ1o2ZytZemswaXlxdGkzVjR3RGRqQnAwV0NrMUg4Si9jOVpZODZJcHpXUDRheVFBUldpM0laZkJVN3hYRWxuV3NONWF3VllzODRXYVZReFFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4ODU5MzU5CWZpbGU6ZGVzY3JpcHRvci5qc29uCWhhc2hlZApBbmxyam9QelU4SjB4NHhrVk9pT1FJay9nbHh6dVZUZ0VsWE5JUEpKYzRIb0E1M2ZYN3FNZ0VMWVBKUlEzRlNkbWEzOFd6THBWS3BPQjFhVjBkT2hBdz09Cg==";
+    const UNRELATED_DESCRIPTOR: &str = r#"{"schema_version":1,"image":"ghcr.io/example/another-product","version":"1.0.0","tag":"v1.0.0","digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","platforms":["linux/amd64","linux/arm64"]}
+"#;
+    const UNRELATED_DESCRIPTOR_SIGNATURE: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIG1pbmlzaWduIHNlY3JldCBrZXkKUlVTVVpYM3ZkVXQrTUFtNVE1VDIyUHdFempFTGpNQ1Y3RVduMFhtUGtjeGU0aFl4bXpoejhleHErc3VBUkJPQ1ZCZnZqVnJ2dnR3dEVlZ2xzdy9yZTB4VEdINy9GZTEzYlFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4ODU5MzU5CWZpbGU6ZGVzY3JpcHRvci5qc29uCWhhc2hlZApjUkNkTW9hOVNSb3g1dkp1d2gzbG5ObmZCREw1UVM0T2hFbWc2d01YcENZYkc5UllmWDlMZThJRHdFN3BwNHNieFR1VEsyQkl5Und0UmY3YVlPQnlCQT09Cg==";
+
     fn test_image_descriptor() -> RelayImageDescriptor {
         RelayImageDescriptor {
             schema_version: 1,
@@ -1582,6 +1664,156 @@ mod tests {
             digest: format!("sha256:{}", "a".repeat(64)),
             platforms: vec!["linux/amd64".into(), "linux/arm64".into()],
         }
+    }
+
+    #[test]
+    fn source_fallback_never_accepts_a_different_image_or_invalid_signature() {
+        let current = super::verified_relay_image_candidate(
+            CURRENT_DESCRIPTOR,
+            CURRENT_DESCRIPTOR_SIGNATURE,
+            DESCRIPTOR_TEST_PUBKEY,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(current.image, RELAY_IMAGE_REPOSITORY);
+        assert!(super::verified_relay_image_candidate(
+            UNRELATED_DESCRIPTOR,
+            UNRELATED_DESCRIPTOR_SIGNATURE,
+            DESCRIPTOR_TEST_PUBKEY,
+        )
+        .unwrap()
+        .is_none());
+        assert!(super::verified_relay_image_candidate(
+            UNRELATED_DESCRIPTOR,
+            CURRENT_DESCRIPTOR_SIGNATURE,
+            DESCRIPTOR_TEST_PUBKEY,
+        )
+        .is_err());
+        assert!(
+            super::verified_relay_image_candidate(
+                std::str::from_utf8(FIXTURE_DATA).unwrap(),
+                FIXTURE_SIGNATURE,
+                FIXTURE_PUBKEY,
+            )
+            .is_err(),
+            "authentic but malformed metadata must not trigger a source build"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn long_builds_refresh_only_authorized_docker_commands_and_stop_refreshing_on_exit() {
+        let directory = tempfile::tempdir().unwrap();
+        let calls = directory.path().join("calls");
+        let script = format!(
+            r#"
+set -euo pipefail
+{}
+export OPENBITFUN_DOCKER_MODE=sudo
+sudo() {{
+  printf '%s\n' "$*" >> "$TEST_CALLS"
+}}
+"#,
+            prepare_helpers_bash()
+        );
+        let script = script
+            + r#"
+sleep() { command sleep 0.01; }
+openbitfun_keep_docker_authorization
+for attempt in $(seq 1 100); do
+  if [ -f "$TEST_CALLS" ] && [ "$(wc -l < "$TEST_CALLS")" -ge 2 ]; then break; fi
+  command sleep 0.01
+done
+test "$(wc -l < "$TEST_CALLS")" -ge 2
+"#;
+        let output = openbitfun_services_core::process_manager::create_command("bash")
+            .args(["-c", &script])
+            .env("TEST_CALLS", &calls)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let contents = std::fs::read_to_string(&calls).unwrap();
+        assert!(contents.lines().all(|line| line == "-n docker version"));
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        assert_eq!(std::fs::read_to_string(calls).unwrap(), contents);
+    }
+
+    #[tokio::test]
+    async fn descriptor_sources_fail_over_before_selecting_source_build() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut request = [0u8; 4096];
+                let count = stream.read(&mut request).await.unwrap();
+                let request = String::from_utf8_lossy(&request[..count]);
+                let path = request.split_whitespace().nth(1).unwrap_or("");
+                let is_signature = path.ends_with(".sig");
+                let body = if path.starts_with("/current/") {
+                    Some(if is_signature {
+                        CURRENT_DESCRIPTOR_SIGNATURE
+                    } else {
+                        CURRENT_DESCRIPTOR
+                    })
+                } else if path.starts_with("/unrelated/") {
+                    Some(if is_signature {
+                        UNRELATED_DESCRIPTOR_SIGNATURE
+                    } else {
+                        UNRELATED_DESCRIPTOR
+                    })
+                } else if path.starts_with("/tampered/") {
+                    Some(if is_signature {
+                        CURRENT_DESCRIPTOR_SIGNATURE
+                    } else {
+                        UNRELATED_DESCRIPTOR
+                    })
+                } else if path.starts_with("/unsigned/") && !is_signature {
+                    Some(CURRENT_DESCRIPTOR)
+                } else {
+                    None
+                };
+                let response = match body {
+                    Some(body) => format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    ),
+                    None => {
+                        "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                            .to_string()
+                    }
+                };
+                stream.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+        let client = crate::reqwest_client_builder().no_proxy().build().unwrap();
+        for (sources, expected) in [
+            (["missing", "current"], "image"),
+            (["unrelated", "current"], "image"),
+            (["tampered", "current"], "image"),
+            (["missing", "unrelated"], "source"),
+            (["missing", "unsigned"], "source"),
+            (["missing", "missing"], "source"),
+            (["tampered", "missing"], "error"),
+            (["unrelated", "tampered"], "error"),
+        ] {
+            let bases = sources.map(|source| format!("{origin}/{source}"));
+            let result =
+                super::resolve_relay_image_descriptor(&client, &bases, DESCRIPTOR_TEST_PUBKEY)
+                    .await;
+            let actual = match result {
+                Ok(Some(_)) => "image",
+                Ok(None) => "source",
+                Err(_) => "error",
+            };
+            assert_eq!(actual, expected, "{sources:?}");
+        }
+        server.abort();
     }
 
     #[test]

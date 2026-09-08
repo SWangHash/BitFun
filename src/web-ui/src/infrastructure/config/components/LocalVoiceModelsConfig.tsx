@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   Icon,
   IconButton,
@@ -344,7 +344,7 @@ const LocalVoiceModelsConfig: React.FC<LocalVoiceModelsConfigProps> = ({
                   <span>{t(resourceHintKey)}</span>
                 </div>
                 {model.error ? (
-                  <div className="voice-input-config__model-error">{model.error}</div>
+                  <div className="voice-input-config__model-error"><OverflowText>{model.error}</OverflowText></div>
                 ) : null}
                 {isDownloading ? (
                   <div className="voice-input-config__progress">

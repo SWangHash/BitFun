@@ -10,6 +10,7 @@
 //! Turn reaches a terminal state the Session record owns it and this log is
 //! dropped, so the two never describe the same thing at the same time.
 
+use super::session_projection_format::LoggedEvent;
 use openbitfun_agent_runtime::sdk::{SessionEventProjectionStore, StoredSessionEvents};
 use openbitfun_events::AgenticEvent;
 use std::collections::HashMap;
@@ -17,16 +18,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-
-/// One appended line. `streamId` identifies the Runtime process that wrote it,
-/// so a log left by an older process is never mistaken for current progress.
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LoggedEvent {
-    stream_id: String,
-    cursor: u64,
-    event: AgenticEvent,
-}
 
 /// Open append handles, keyed by Session. Holding the handle is what makes a
 /// per-event write an append to an already-open file rather than an open/close

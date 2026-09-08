@@ -595,15 +595,15 @@ describeWithJsdom('RichTextInput external sync', () => {
     expect(onKeyDown).not.toHaveBeenCalled();
   });
 
-  it('opens file mention only at the start or after whitespace', async () => {
-    const onMentionStateChange = vi.fn();
+  it('opens the context picker trigger only at the start or after whitespace', async () => {
+    const onContextTriggerStateChange = vi.fn();
 
     await act(async () => {
       root.render(
         <RichTextInput
           value=""
           onChange={() => {}}
-          onMentionStateChange={onMentionStateChange}
+          onContextTriggerStateChange={onContextTriggerStateChange}
           contexts={emptyContexts}
           onRemoveContext={() => {}}
         />
@@ -614,17 +614,17 @@ describeWithJsdom('RichTextInput external sync', () => {
     expect(editor).toBeInstanceOf(HTMLDivElement);
 
     await updateEditorText(editor as HTMLDivElement, 'email@test');
-    expect(onMentionStateChange).not.toHaveBeenCalled();
+    expect(onContextTriggerStateChange).not.toHaveBeenCalled();
 
     await updateEditorText(editor as HTMLDivElement, 'ask @test');
-    expect(onMentionStateChange).toHaveBeenLastCalledWith({
+    expect(onContextTriggerStateChange).toHaveBeenLastCalledWith({
       isActive: true,
       query: 'test',
       startOffset: 4,
     });
 
     await updateEditorText(editor as HTMLDivElement, '@root');
-    expect(onMentionStateChange).toHaveBeenLastCalledWith({
+    expect(onContextTriggerStateChange).toHaveBeenLastCalledWith({
       isActive: true,
       query: 'root',
       startOffset: 0,
@@ -664,6 +664,67 @@ describeWithJsdom('RichTextInput external sync', () => {
       query: 'pdf',
       startOffset: 7,
     });
+  });
+
+  it('can replace an active context trigger with a skill token', async () => {
+    const onChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <RichTextInput
+          value="@pdf"
+          onChange={onChange}
+          contexts={emptyContexts}
+          onRemoveContext={() => {}}
+        />
+      );
+    });
+
+    const editor = container.querySelector('.rich-text-input') as RichTextInputElement | null;
+    expect(editor).toBeTruthy();
+
+    setCaret(editor!, '@pdf'.length);
+    await act(async () => {
+      editor!.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      editor?.replaceActiveContextTrigger?.('[$pdf]');
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith('[$pdf]', emptyContexts);
+    expect(editor?.querySelector('.rich-text-tag-pill--skill-ref')).toBeTruthy();
+    expect(editor?.textContent).not.toContain('@pdf');
+  });
+
+  it('can remove an active context trigger before opening a non-text action', async () => {
+    const onChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <RichTextInput
+          value="@"
+          onChange={onChange}
+          contexts={emptyContexts}
+          onRemoveContext={() => {}}
+        />
+      );
+    });
+
+    const editor = container.querySelector('.rich-text-input') as RichTextInputElement | null;
+    expect(editor).toBeTruthy();
+
+    setCaret(editor!, 1);
+    await act(async () => {
+      editor!.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      editor?.replaceActiveContextTrigger?.('');
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith('', emptyContexts);
+    expect(editor?.textContent).toBe('');
   });
 
   it('can replace an active inline trigger with a skill token', async () => {
@@ -829,15 +890,15 @@ describeWithJsdom('RichTextInput external sync', () => {
     expect(editor?.firstChild).toBe(editor?.querySelector('.rich-text-tag-pill--skill-ref'));
   });
 
-  it('inserts a separating space when opening mention from a mid-word caret', async () => {
-    const onMentionStateChange = vi.fn();
+  it('inserts a separating space when opening the context picker from a mid-word caret', async () => {
+    const onContextTriggerStateChange = vi.fn();
 
     await act(async () => {
       root.render(
         <RichTextInput
           value="hello"
           onChange={() => {}}
-          onMentionStateChange={onMentionStateChange}
+          onContextTriggerStateChange={onContextTriggerStateChange}
           contexts={emptyContexts}
           onRemoveContext={() => {}}
         />
@@ -850,11 +911,11 @@ describeWithJsdom('RichTextInput external sync', () => {
     setCaret(editor as HTMLDivElement, 'hello'.length);
 
     await act(async () => {
-      ((editor as HTMLDivElement) as HTMLDivElement & { openMention?: () => void }).openMention?.();
+      ((editor as HTMLDivElement) as RichTextInputElement).openContextPicker?.();
     });
 
     expect(editor?.textContent).toBe('hello @');
-    expect(onMentionStateChange).toHaveBeenLastCalledWith({
+    expect(onContextTriggerStateChange).toHaveBeenLastCalledWith({
       isActive: true,
       query: '',
       startOffset: 6,

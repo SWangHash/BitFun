@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Icon, Menu, MenuItem, MenuSection, MenuSeparator, Tooltip, type IconName } from '@openbitfun/ui';
+import { OverflowText, Icon, Menu, MenuItem, MenuSection, MenuSeparator, Tooltip, type IconName } from '@openbitfun/ui';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
 import { confirmDialog } from '@/infrastructure/confirm-dialog';
 import { notificationService } from '@/shared/notification-system';
@@ -360,7 +360,7 @@ export const HarnessProfileSelector: React.FC<HarnessProfileSelectorProps> = ({
             {triggerLabel}
           </MenuItem>
         ) : (
-          <button
+          <button data-overflow-trigger
             ref={triggerRef}
             type="button"
             className="openbitfun-harness-selector__trigger"
@@ -377,7 +377,7 @@ export const HarnessProfileSelector: React.FC<HarnessProfileSelectorProps> = ({
             onClick={handleTriggerClick}
             data-testid="harness-profile-selector"
           >
-            <span className="openbitfun-harness-selector__trigger-value">{triggerLabel}</span>
+            <OverflowText className="openbitfun-harness-selector__trigger-value">{triggerLabel}</OverflowText>
           </button>
         )}
       </Tooltip>

@@ -25,6 +25,7 @@ use openbitfun_core::service::remote_ssh::workspace_state::is_remote_path;
 use openbitfun_core::service::remote_ssh::{
     search_remote_file_names, shell_quote_posix, RemoteFileNameSearch,
 };
+use openbitfun_core::service::workspace::WorkspaceInfoRuntimeExt;
 use openbitfun_core::service::workspace::{
     ScanOptions, WorkspaceInfo, WorkspaceKind, WorkspaceOpenOptions,
 };
@@ -996,23 +997,7 @@ pub async fn initialize_ai(state: State<'_, AppState>) -> Result<String, String>
         .iter()
         .find(|m| m.id == primary_model_id)
         .ok_or_else(|| format!("Primary model '{}' does not exist", primary_model_id))?;
-    let stream_options = openbitfun_core::infrastructure::ai::build_stream_options_for_model(
-        &global_config.ai,
-        Some(model_config),
-    );
-
-    let ai_config = openbitfun_core::util::types::AIConfig::try_from(model_config.clone())
-        .map_err(|e| format!("Failed to convert AI configuration: {}", e))?;
-    let proxy_config = if global_config.ai.proxy.enabled {
-        Some(global_config.ai.proxy.clone())
-    } else {
-        None
-    };
-    let ai_client = openbitfun_core::infrastructure::ai::AIClient::new_with_runtime_options(
-        ai_config,
-        proxy_config,
-        stream_options,
-    );
+    let ai_client = create_transient_ai_client_for_config(&state, model_config.clone()).await?;
 
     {
         let mut ai_client_guard = state.ai_client.write().await;
@@ -1067,10 +1052,13 @@ async fn create_transient_ai_client_for_config(
     .map_err(|e| format!("Failed to resolve subscription auth: {}", e))?;
 
     Ok(
-        openbitfun_core::infrastructure::ai::AIClient::new_with_runtime_options(
-            ai_config,
-            proxy_config,
-            stream_options,
+        openbitfun_core::infrastructure::ai::client_factory::apply_subscription_request_profile(
+            &auth,
+            openbitfun_core::infrastructure::ai::AIClient::new_with_runtime_options(
+                ai_config,
+                proxy_config,
+                stream_options,
+            ),
         ),
     )
 }
