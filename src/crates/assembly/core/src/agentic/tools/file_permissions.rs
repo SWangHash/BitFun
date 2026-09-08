@@ -30,8 +30,10 @@ fn file_permission_intents_with_plan_edit_access<'a>(
     allow_managed_plan_edits: bool,
 ) -> BitFunResult<Vec<PermissionIntent>> {
     let mut resources = Vec::new();
+    let mut save_resources = Vec::new();
     let mut external_directories = Vec::new();
     let mut seen_resources = HashSet::new();
+    let mut seen_save_resources = HashSet::new();
     let mut seen_external_directories = HashSet::new();
     let mut has_paths = false;
 
@@ -44,6 +46,12 @@ fn file_permission_intents_with_plan_edit_access<'a>(
         if !skip_edit_permission {
             let resource = normalized_permission_resource(&resolved)?;
             if seen_resources.insert(resource.clone()) {
+                if action == "edit" {
+                    let save_resource = edit_save_resource(context, &resolved, &resource)?;
+                    if seen_save_resources.insert(save_resource.clone()) {
+                        save_resources.push(save_resource);
+                    }
+                }
                 resources.push(resource);
             }
         }
@@ -63,7 +71,18 @@ fn file_permission_intents_with_plan_edit_access<'a>(
 
     let mut intents = Vec::new();
     if !resources.is_empty() {
-        intents.push(PermissionIntent::new(action, resources));
+        let mut intent = PermissionIntent::new(action, resources);
+        if !save_resources.is_empty() {
+            intent.save_resources = save_resources;
+            if intent.save_resources.len() == 1
+                && !intent.resources.contains(&intent.save_resources[0])
+            {
+                intent
+                    .display_metadata
+                    .insert("saveScope".into(), "workspace".into());
+            }
+        }
+        intents.push(intent);
     }
     if !external_directories.is_empty() {
         intents.push(PermissionIntent::new(
@@ -84,6 +103,36 @@ fn normalized_permission_resource(resolved: &ToolPathResolution) -> BitFunResult
             .to_string_lossy()
             .replace('\\', "/"),
     )
+}
+
+/// Resource an `edit` "always allow" grant remembers.
+///
+/// A file-level grant prompts again for every other file in the project, so
+/// multi-file work keeps asking even after the user chose to always allow.
+/// Workspace-internal edits therefore remember the workspace root. Paths
+/// outside the workspace keep their exact resource: their directory approval is
+/// tracked by the separate `external_directory` intent, so editing another file
+/// there still asks for that file.
+fn edit_save_resource(
+    context: &ToolUseContext,
+    resolved: &ToolPathResolution,
+    resource: &str,
+) -> BitFunResult<String> {
+    if resolved.uses_remote_workspace_backend() || resolved.is_runtime_artifact() {
+        return Ok(resource.to_string());
+    }
+
+    let Some(workspace_root) = context.workspace_root() else {
+        return Ok(resource.to_string());
+    };
+    if !is_local_path_within_root(Path::new(&resolved.resolved_path), workspace_root)? {
+        return Ok(resource.to_string());
+    }
+
+    let root = canonicalize_local_path_best_effort(workspace_root)?
+        .to_string_lossy()
+        .replace('\\', "/");
+    Ok(format!("{}/*", root.trim_end_matches('/')))
 }
 
 fn external_directory_resource(
@@ -192,10 +241,81 @@ mod tests {
     };
     use crate::agentic::WorkspaceBinding;
     use bitfun_runtime_ports::{
-        PermissionConstraintLayer, PermissionEffect, PermissionEvaluator, PermissionRule,
+        PermissionConstraintLayer, PermissionEffect, PermissionEvaluator,
+        PermissionResourceCaseSensitivity, PermissionRule,
     };
     use serde_json::{json, Value};
     use std::fs;
+
+    #[test]
+    fn remembered_shell_command_stays_within_its_workspace() {
+        use crate::agentic::tools::implementations::{BashTool, ExecCommandTool};
+        use bitfun_agent_runtime::permission::{plan_permission_intents, PermissionIntentPlan};
+        use bitfun_runtime_ports::{PermissionGrant, ResolvedPermissionPolicy};
+
+        let temp = tempfile::tempdir().unwrap();
+        let workspace = temp.path().join("workspace");
+        let inside = workspace.join("scripts");
+        let outside = temp.path().join("outside");
+        fs::create_dir_all(&inside).unwrap();
+        fs::create_dir(&outside).unwrap();
+        let context =
+            ToolUseContext::for_tool_listing(Some(WorkspaceBinding::new(None, workspace)), None);
+        let ask = ResolvedPermissionPolicy::new(
+            vec![PermissionRule::new("bash", "*", PermissionEffect::Ask)],
+            vec![],
+        );
+        let grants = [PermissionGrant {
+            project_id: "project".into(),
+            action: "bash".into(),
+            resource: "python cleanup.py".into(),
+            created_at_ms: 1,
+        }];
+        for tool in [
+            &BashTool::new() as &dyn Tool,
+            &ExecCommandTool::new() as &dyn Tool,
+        ] {
+            for (directory, allowed) in [(&inside, true), (&outside, false)] {
+                let intents = tool
+                    .permission_intents(
+                        &json!({
+                            "command": "python cleanup.py", "cmd": "python cleanup.py",
+                            "working_directory": directory, "workdir": directory,
+                        }),
+                        &context,
+                    )
+                    .unwrap();
+                let plan = plan_permission_intents(
+                    intents,
+                    &ask,
+                    &grants,
+                    PermissionResourceCaseSensitivity::Sensitive,
+                );
+                assert_eq!(
+                    matches!(plan, PermissionIntentPlan::Allowed),
+                    allowed,
+                    "{} at {}",
+                    tool.name(),
+                    directory.display()
+                );
+            }
+        }
+        let implicit = BashTool::new()
+            .permission_intents(&json!({"command": "python cleanup.py"}), &context)
+            .unwrap();
+        assert!(
+            matches!(
+                plan_permission_intents(
+                    implicit,
+                    &ask,
+                    &grants,
+                    PermissionResourceCaseSensitivity::Sensitive
+                ),
+                PermissionIntentPlan::RequiresApproval(_)
+            ),
+            "an implicit terminal cwd cannot reuse a workspace command grant"
+        );
+    }
 
     #[test]
     fn local_external_file_adds_external_directory_intent() {
@@ -480,6 +600,10 @@ mod tests {
         let second = workspace.join("second.txt");
         fs::write(&first, "first").expect("first file");
         fs::write(&second, "second").expect("second file");
+        let workspace_root = canonicalize_local_path_best_effort(&workspace)
+            .expect("canonical workspace")
+            .to_string_lossy()
+            .replace('\\', "/");
         let context =
             ToolUseContext::for_tool_listing(Some(WorkspaceBinding::new(None, workspace)), None);
 
@@ -496,7 +620,42 @@ mod tests {
         assert_eq!(intents.len(), 1);
         assert_eq!(intents[0].action, "edit");
         assert_eq!(intents[0].resources.len(), 2);
-        assert_eq!(intents[0].save_resources, intents[0].resources);
+        assert_eq!(
+            intents[0].save_resources,
+            vec![format!("{workspace_root}/*")]
+        );
+        assert_eq!(
+            intents[0].display_metadata.get("saveScope"),
+            Some(&json!("workspace"))
+        );
+    }
+
+    #[test]
+    fn external_edit_remembers_the_exact_file_not_the_workspace() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let workspace = temp.path().join("workspace");
+        let external = temp.path().join("external");
+        fs::create_dir_all(&workspace).expect("workspace dir");
+        fs::create_dir_all(&external).expect("external dir");
+        let external_file = external.join("outside.txt");
+        fs::write(&external_file, "outside").expect("external file");
+        let context =
+            ToolUseContext::for_tool_listing(Some(WorkspaceBinding::new(None, workspace)), None);
+
+        let intents =
+            file_permission_intents("edit", [external_file.to_string_lossy().as_ref()], &context)
+                .expect("external edit intents");
+
+        assert_eq!(intents.len(), 2);
+        assert_eq!(intents[0].action, "edit");
+        assert_eq!(
+            intents[0].save_resources,
+            vec![canonicalize_local_path_best_effort(&external_file)
+                .expect("canonical external file")
+                .to_string_lossy()
+                .replace('\\', "/")]
+        );
+        assert_eq!(intents[1].action, "external_directory");
     }
 
     #[test]

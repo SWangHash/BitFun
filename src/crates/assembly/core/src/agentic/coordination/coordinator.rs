@@ -798,6 +798,24 @@ struct SessionExecutionLease {
     active_counter: Arc<AtomicUsize>,
 }
 
+struct ExternalDelegationTurnGuard {
+    session_manager: Arc<SessionManager>,
+    session_id: String,
+    turn_id: String,
+    _execution_lease: Arc<SessionExecutionLease>,
+}
+
+impl Drop for ExternalDelegationTurnGuard {
+    fn drop(&mut self) {
+        // Match normal-turn cleanup: close Processing before removing the
+        // override so a concurrent setter cannot publish a stale entry.
+        self.session_manager
+            .reset_session_state_if_processing(&self.session_id, &self.turn_id);
+        self.session_manager
+            .clear_active_turn_permission_mode(&self.session_id, &self.turn_id);
+    }
+}
+
 struct ManualCompactionTask {
     turn_id: String,
     completion: oneshot::Receiver<BitFunResult<()>>,
@@ -4049,6 +4067,45 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         .await
     }
 
+    async fn start_external_delegation_parent_turn(
+        &self,
+        session_id: &str,
+        agent_type: String,
+        prompt: String,
+        requested_turn_id: Option<String>,
+        user_message_metadata: serde_json::Value,
+    ) -> BitFunResult<(String, ExternalDelegationTurnGuard)> {
+        let turn_mode = permission_mode_from_metadata(Some(&user_message_metadata));
+        let turn_id = self
+            .session_manager
+            .start_dialog_turn(
+                session_id,
+                agent_type,
+                prompt,
+                requested_turn_id,
+                None,
+                Some(user_message_metadata),
+            )
+            .await?;
+        let execution_guard = ExternalDelegationTurnGuard {
+            session_manager: self.session_manager.clone(),
+            session_id: session_id.to_string(),
+            turn_id: turn_id.clone(),
+            _execution_lease: self.register_session_execution(session_id),
+        };
+        if let Some(mode) = turn_mode {
+            if !self
+                .session_manager
+                .set_active_turn_permission_mode(session_id, &turn_id, mode)
+            {
+                return Err(BitFunError::Session(format!(
+                    "Failed to install active turn permission mode: session_id={session_id}, turn_id={turn_id}"
+                )));
+            }
+        }
+        Ok((turn_id, execution_guard))
+    }
+
     /// Execute a statically discovered external command through the existing
     /// fresh-subagent owner while preserving a normal parent UserDialog/Task
     /// transcript. The command source selects the target; no model routing or
@@ -4220,18 +4277,15 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
                 );
             }
             let turn_index = self.session_manager.get_turn_count(&session_id);
-            let turn_id = self
-                .session_manager
-                .start_dialog_turn(
+            let (turn_id, execution_guard) = self
+                .start_external_delegation_parent_turn(
                     &session_id,
                     effective_agent_type.clone(),
                     prompt.clone(),
                     requested_turn_id,
-                    None,
-                    Some(user_message_metadata.clone()),
+                    user_message_metadata.clone(),
                 )
                 .await?;
-            let execution_lease = self.register_session_execution(&session_id);
             let turn_settlement_registration = self
                 .turn_settlements
                 .register_accepted(session_id.clone(), turn_id.clone());
@@ -4346,7 +4400,7 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
 
             let coordinator = Arc::clone(self);
             tokio::spawn(async move {
-                let _execution_lease = execution_lease;
+                let _execution_guard = execution_guard;
                 let _turn_settlement_registration = turn_settlement_registration;
                 let _primary_agent_generation_lease = primary_agent_generation_lease;
                 let _cancel_guard = CancelTokenGuard {
@@ -12441,7 +12495,8 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         request: &bitfun_agent_runtime::sdk::AgentUserAnswersRequest,
     ) -> bitfun_runtime_ports::PortResult<()> {
         use bitfun_agent_runtime::qt_migration_intake_state::{
-            qt_migration_apply_validated_answers, qt_migration_validate_answers, QtMigrationIntakeStateSnapshot, QT_MIGRATION_INTAKE_REQUIRED_FIELDS,
+            qt_migration_apply_validated_answers, qt_migration_validate_answers,
+            QtMigrationIntakeStateSnapshot, QT_MIGRATION_INTAKE_REQUIRED_FIELDS,
             QT_MIGRATION_OFFICIAL_VALUE,
         };
 
@@ -14645,7 +14700,7 @@ fn merge_prepended_messages_for_turn(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::{
         apply_primary_agent_model_default, btw_session_memory_mode,
         build_subagent_session_relationship, commit_interrupted_turn_intent,
@@ -14803,6 +14858,130 @@ mod tests {
         assert!(!delegation.contains(".update_session_agent_type("));
         assert!(delegation
             .contains("let _primary_agent_generation_lease = primary_agent_generation_lease;"));
+    }
+
+    #[tokio::test]
+    async fn external_delegation_parent_turn_preserves_the_one_off_permission_mode() {
+        use bitfun_runtime_ports::PermissionMode;
+
+        let workspace = tempfile::tempdir().expect("workspace");
+        let (coordinator, session_manager) = test_coordinator();
+        for mode in [PermissionMode::Ask, PermissionMode::AutoApprove] {
+            let session = session_manager
+                .create_session(
+                    "External delegation permissions".to_string(),
+                    "agentic".to_string(),
+                    SessionConfig {
+                        workspace_path: Some(workspace.path().to_string_lossy().into_owned()),
+                        permission_mode: Some(PermissionMode::FullAccess),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .expect("create parent session");
+            let (turn_id, execution_guard) = coordinator
+                .start_external_delegation_parent_turn(
+                    &session.session_id,
+                    "agentic".to_string(),
+                    "Delegate this command".to_string(),
+                    None,
+                    serde_json::json!({ "permission_mode": mode.as_str() }),
+                )
+                .await
+                .expect("start delegated parent turn");
+
+            assert_eq!(
+                session_manager.active_turn_permission_mode(&session.session_id, &turn_id),
+                Some(mode),
+                "the child must observe the submission's restriction before session FullAccess"
+            );
+            assert!(session_manager.set_active_turn_permission_mode(
+                &session.session_id,
+                &turn_id,
+                PermissionMode::AutoApprove,
+            ));
+            assert_eq!(
+                session_manager.active_turn_permission_mode(&session.session_id, &turn_id),
+                Some(PermissionMode::AutoApprove),
+                "a live turn update must remain visible to delegated children"
+            );
+            drop(execution_guard);
+            assert_eq!(
+                session_manager.session_permission_mode(&session.session_id),
+                Some(PermissionMode::FullAccess),
+                "one-off choices must not persist to the session"
+            );
+            assert!(
+                !session_manager.clear_active_turn_permission_mode(&session.session_id, &turn_id)
+            );
+            assert!(matches!(
+                session_manager
+                    .get_session(&session.session_id)
+                    .unwrap()
+                    .state,
+                SessionState::Idle
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn external_delegation_parent_turn_cleanup_leaves_a_newer_turn_untouched() {
+        use bitfun_runtime_ports::PermissionMode;
+
+        let workspace = tempfile::tempdir().expect("workspace");
+        let (coordinator, session_manager) = test_coordinator();
+        let session = session_manager
+            .create_session(
+                "Delegation cleanup".to_string(),
+                "agentic".to_string(),
+                SessionConfig {
+                    workspace_path: Some(workspace.path().to_string_lossy().into_owned()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect("create parent session");
+        let (previous_turn_id, execution_guard) = coordinator
+            .start_external_delegation_parent_turn(
+                &session.session_id,
+                "agentic".to_string(),
+                "First command".to_string(),
+                None,
+                serde_json::json!({}),
+            )
+            .await
+            .expect("start first turn");
+        assert_eq!(
+            session_manager.active_turn_permission_mode(&session.session_id, &previous_turn_id),
+            None,
+            "an omitted one-off mode must keep following the session"
+        );
+        session_manager.reset_session_state_if_processing(&session.session_id, &previous_turn_id);
+        let next_turn_id = session_manager
+            .start_dialog_turn(
+                &session.session_id,
+                "agentic".to_string(),
+                "Next command".to_string(),
+                None,
+                None,
+                None,
+            )
+            .await
+            .expect("start the next turn before the old task exits");
+        assert!(session_manager.set_active_turn_permission_mode(
+            &session.session_id,
+            &next_turn_id,
+            PermissionMode::Ask,
+        ));
+        drop(execution_guard);
+        assert_eq!(
+            session_manager.active_turn_permission_mode(&session.session_id, &next_turn_id),
+            Some(PermissionMode::Ask)
+        );
+        assert!(matches!(
+            session_manager.get_session(&session.session_id).unwrap().state,
+            SessionState::Processing { current_turn_id, .. } if current_turn_id == next_turn_id
+        ));
     }
 
     #[test]
@@ -16379,6 +16558,10 @@ mod tests {
 
     fn test_coordinator() -> (ConversationCoordinator, Arc<SessionManager>) {
         test_coordinator_with_max_active_sessions(100)
+    }
+
+    pub(crate) fn test_execution_engine() -> Arc<ExecutionEngine> {
+        test_coordinator().0.execution_engine
     }
 
     #[tokio::test]

@@ -171,8 +171,11 @@ mod tests {
 
     #[test]
     fn legacy_auto_approve_flag_never_downgrades_a_full_access_default() {
+        // A full-access global preset is authoritative: the legacy auto-approve
+        // context flag must not downgrade the resolved mode back to Ask.
         let mut global = GlobalConfig::default();
         global.tool_permissions.policy.preset = PermissionPolicyPreset::FullAccess;
+        global.tool_permissions.interaction.auto_approve_ask = false;
         let mut context_vars = std::collections::HashMap::new();
         context_vars.insert(AUTO_APPROVE_ASK_CONTEXT_KEY.to_string(), "true".to_string());
 

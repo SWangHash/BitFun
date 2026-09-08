@@ -233,6 +233,14 @@ export function PermissionRequestPanel({
             {requests.map((item, index) => {
               const resourceSummary = item.resources.join(', ');
               const resourceTooltip = item.resources.join('\n');
+              const saveScopeKey = item.displayMetadata?.saveScope === 'workspace'
+                ? 'permission.saveScopeWorkspace'
+                : item.displayMetadata?.saveScope === 'workspace_command'
+                  ? 'permission.saveScopeWorkspaceCommand'
+                  : item.action === 'external_directory'
+                    ? 'permission.saveScopeDirectory'
+                    : 'permission.saveScopeResources';
+              const savedScope = `${t(saveScopeKey)}: ${item.saveResources?.join(', ') ?? ''}`;
 
               return (
                 <div
@@ -267,6 +275,19 @@ export function PermissionRequestPanel({
                       tooltipPlacement="top"
                     />
                   </div>
+                  {!!item.saveResources?.length && (
+                    <div data-bf-component="permission-request-panel" data-bf-part="requestDetails" className="permission-request-panel__request-details">
+                      <span className="permission-request-panel__detail-separator">{t('permission.saveScopeLabel')}</span>
+                      <CopyableTextPreview
+                        as="span"
+                        text={savedScope}
+                        emptyText=""
+                        className="permission-request-panel__resource-summary copyable-text-preview--theme-font"
+                        tooltipContent={`${t(saveScopeKey)}:\n${item.saveResources.join('\n')}`}
+                        tooltipPlacement="top"
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}

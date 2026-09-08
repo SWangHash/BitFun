@@ -45,7 +45,8 @@ use crate::agentic::tools::product_runtime::{
     collect_product_loaded_deferred_tool_specs, GetToolSpecTool,
 };
 use crate::agentic::tools::{
-    resolve_tool_manifest, tool_context_runtime, ResolvedToolManifest, ToolRuntimeRestrictions,
+    resolve_tool_manifest, tool_context_runtime, ResolvedToolManifest, SubagentParentInfo,
+    ToolRuntimeRestrictions,
 };
 use crate::agentic::WorkspaceBinding;
 use crate::infrastructure::ai::get_global_ai_client_factory;
@@ -123,6 +124,21 @@ fn resolve_round_permission_mode(
             .with_turn(active_turn_mode.or(fixed_context_mode)),
     )
     .mode
+}
+
+/// Resolves the live permission mode of a delegated child's parent.
+///
+/// The direct parent's turn-scoped selection outranks its session selection.
+/// `None` keeps the forwarded spawn-time mode when the parent is missing or
+/// is itself a delegated session with no explicit selection of its own.
+fn inherited_parent_permission_mode(
+    parent: Option<&SubagentParentInfo>,
+    active_turn_mode: impl Fn(&str, &str) -> Option<PermissionMode>,
+    session_mode: impl Fn(&str) -> Option<PermissionMode>,
+) -> Option<PermissionMode> {
+    let parent = parent?;
+    active_turn_mode(&parent.session_id, &parent.dialog_turn_id)
+        .or_else(|| session_mode(&parent.session_id))
 }
 
 pub(crate) fn restrict_recovered_permission_mode(
@@ -716,6 +732,7 @@ impl ExecutionEngine {
         base: &HashMap<String, String>,
         session_id: &str,
         turn_id: &str,
+        subagent_parent_info: Option<&SubagentParentInfo>,
     ) -> HashMap<String, String> {
         let mut context_vars = base.clone();
         let fixed_context_mode = base
@@ -734,9 +751,32 @@ impl ExecutionEngine {
                 .unwrap_or(PermissionMode::Ask),
             Err(_) => PermissionMode::Ask,
         };
+        // Standard parents without a session override follow the global default.
+        // Internal parents can themselves inherit a mode through their context;
+        // without their own selection, keep the forwarded round snapshot.
+        let inherited_mode = inherited_parent_permission_mode(
+            subagent_parent_info,
+            |session_id, turn_id| {
+                self.session_manager
+                    .active_turn_permission_mode(session_id, turn_id)
+            },
+            |session_id| {
+                self.session_manager
+                    .get_session(session_id)
+                    .and_then(|session| match session.kind {
+                        crate::agentic::core::SessionKind::Standard => {
+                            Some(session.config.permission_mode.unwrap_or(global_default))
+                        }
+                        crate::agentic::core::SessionKind::Subagent
+                        | crate::agentic::core::SessionKind::EphemeralChild => {
+                            session.config.permission_mode
+                        }
+                    })
+            },
+        );
         let current = resolve_round_permission_mode(
             active_turn_mode,
-            fixed_context_mode,
+            inherited_mode.or(fixed_context_mode),
             self.session_manager.session_permission_mode(session_id),
             global_default,
         );
@@ -2137,6 +2177,7 @@ impl ExecutionEngine {
                 input.execution_context_vars,
                 &input.context.session_id,
                 &input.context.dialog_turn_id,
+                input.context.subagent_parent_info.as_ref(),
             )
             .await;
         let round_context = RoundContext {
@@ -4850,6 +4891,7 @@ impl ExecutionEngine {
                     &execution_context_vars,
                     &context.session_id,
                     &context.dialog_turn_id,
+                    context.subagent_parent_info.as_ref(),
                 )
                 .await;
             let loaded_deferred_tool_specs =
@@ -6049,10 +6091,10 @@ impl ExecutionEngine {
 mod tests {
     use super::{
         activate_conditional_instructions_after_round, ensure_primary_session_goal_tools,
-        manual_compaction_terminal_error, qt_migration_bound_inputs_instruction,
-        qt_migration_download_platform, qt_migration_skill_gate_instruction,
-        resolve_round_permission_mode, ContextHealthSnapshot, ExecutionEngine, RoundResult,
-        TurnPromptScaffold,
+        inherited_parent_permission_mode, manual_compaction_terminal_error,
+        qt_migration_bound_inputs_instruction, qt_migration_download_platform,
+        qt_migration_skill_gate_instruction, resolve_round_permission_mode, ContextHealthSnapshot,
+        ExecutionEngine, RoundResult, TurnPromptScaffold,
     };
     use crate::agentic::agents::{
         PrependedPromptReminders, PromptBuilderContext, UserContextPolicy,
@@ -6063,7 +6105,7 @@ mod tests {
         ContextCompressor, PromptCachePolicy, SessionContextStore, SessionManager,
         SessionManagerConfig, TokenAnchor, TokenAnchorInput,
     };
-    use crate::agentic::tools::ToolRuntimeRestrictions;
+    use crate::agentic::tools::{SubagentParentInfo, ToolRuntimeRestrictions};
     use crate::agentic::workspace::{local_workspace_services, WorkspaceBinding};
     use crate::infrastructure::PathManager;
     #[cfg(feature = "external-sources")]
@@ -6171,6 +6213,315 @@ mod tests {
             ),
             PermissionMode::AutoApprove,
         );
+    }
+
+    #[test]
+    fn delegated_child_follows_the_parent_live_permission_mode() {
+        let parent = SubagentParentInfo {
+            tool_call_id: "tool-1".to_string(),
+            session_id: "parent-session".to_string(),
+            dialog_turn_id: "parent-turn".to_string(),
+        };
+
+        // The parent's turn-scoped selection outranks its session selection.
+        assert_eq!(
+            inherited_parent_permission_mode(
+                Some(&parent),
+                |_, _| Some(PermissionMode::FullAccess),
+                |_| Some(PermissionMode::Ask),
+            ),
+            Some(PermissionMode::FullAccess),
+        );
+        // A parent without a live turn override falls back to its session mode.
+        assert_eq!(
+            inherited_parent_permission_mode(
+                Some(&parent),
+                |_, _| None,
+                |_| Some(PermissionMode::AutoApprove),
+            ),
+            Some(PermissionMode::AutoApprove),
+        );
+        // An unresolvable parent keeps the child's spawn-time snapshot.
+        assert_eq!(
+            inherited_parent_permission_mode(Some(&parent), |_, _| None, |_| None),
+            None,
+        );
+        // A root session never inherits.
+        assert_eq!(
+            inherited_parent_permission_mode(
+                None,
+                |_, _| Some(PermissionMode::Ask),
+                |_| Some(PermissionMode::Ask),
+            ),
+            None,
+        );
+    }
+
+    async fn current_global_permission_mode_for_test() -> PermissionMode {
+        match super::get_global_config_service().await {
+            Ok(service) => service
+                .get_config(None)
+                .await
+                .map(|config: crate::service::config::types::GlobalConfig| {
+                    PermissionMode::from_config(&config.tool_permissions)
+                })
+                .unwrap_or(PermissionMode::Ask),
+            Err(_) => PermissionMode::Ask,
+        }
+    }
+
+    #[tokio::test]
+    async fn delegated_round_follows_the_global_default_after_parent_override_is_cleared() {
+        use bitfun_agent_runtime::permission::PERMISSION_MODE_CONTEXT_KEY;
+
+        let global_default = current_global_permission_mode_for_test().await;
+        let snapshot_mode = match global_default {
+            PermissionMode::FullAccess => PermissionMode::Ask,
+            _ => PermissionMode::FullAccess,
+        };
+        let workspace = tempfile::tempdir().expect("workspace");
+        let engine = crate::agentic::coordination::coordinator::tests::test_execution_engine();
+        let parent_session = engine
+            .session_manager
+            .create_session(
+                "Parent permission mode".to_string(),
+                "agentic".to_string(),
+                crate::agentic::core::SessionConfig {
+                    workspace_path: Some(workspace.path().to_string_lossy().into_owned()),
+                    permission_mode: Some(snapshot_mode),
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect("create parent session");
+        let parent = SubagentParentInfo {
+            tool_call_id: "task".to_string(),
+            session_id: parent_session.session_id.clone(),
+            dialog_turn_id: "parent-turn".to_string(),
+        };
+        let snapshot = HashMap::from([(
+            PERMISSION_MODE_CONTEXT_KEY.to_string(),
+            snapshot_mode.as_str().to_string(),
+        )]);
+        let before = engine
+            .context_vars_for_round(&snapshot, "child", "child-turn", Some(&parent))
+            .await;
+        assert_eq!(before[PERMISSION_MODE_CONTEXT_KEY], snapshot_mode.as_str());
+
+        engine
+            .session_manager
+            .update_session_permission_mode(&parent_session.session_id, None)
+            .await
+            .expect("clear parent override");
+        let after = engine
+            .context_vars_for_round(&snapshot, "child", "child-turn", Some(&parent))
+            .await;
+        assert_eq!(
+            after[PERMISSION_MODE_CONTEXT_KEY],
+            global_default.as_str(),
+            "an existing parent with no override must follow the global default"
+        );
+        let orphan = SubagentParentInfo {
+            session_id: "missing-parent".to_string(),
+            ..parent
+        };
+        let orphan_round = engine
+            .context_vars_for_round(&snapshot, "child", "child-turn", Some(&orphan))
+            .await;
+        assert_eq!(
+            orphan_round[PERMISSION_MODE_CONTEXT_KEY],
+            snapshot_mode.as_str(),
+            "only a missing parent retains the spawn-time snapshot"
+        );
+    }
+
+    #[tokio::test]
+    async fn delegated_round_allows_external_read_after_parent_switches_to_full_access() {
+        use crate::agentic::agents::{Agent, ExploreAgent};
+        use crate::agentic::permission_policy::{
+            permission_mode_from_context, resolve_effective_permission_policy,
+        };
+        use crate::agentic::tools::{implementations::FileReadTool, Tool, ToolUseContext};
+        use crate::agentic::WorkspaceBinding;
+        use bitfun_agent_runtime::permission::{
+            plan_permission_intents, PermissionIntentPlan, PERMISSION_MODE_CONTEXT_KEY,
+        };
+        use bitfun_runtime_ports::{PermissionResourceCaseSensitivity, PermissionRuntimeCeiling};
+
+        let temp = tempfile::tempdir().expect("temp dir");
+        let workspace = temp.path().join("workspace");
+        let sibling = temp.path().join("sibling");
+        std::fs::create_dir(&workspace).expect("workspace dir");
+        std::fs::create_dir(&sibling).expect("sibling dir");
+        let external_file = sibling.join("README.md");
+        std::fs::write(&external_file, "project overview").expect("external file");
+        let config = crate::agentic::core::SessionConfig {
+            workspace_path: Some(workspace.to_string_lossy().into_owned()),
+            ..Default::default()
+        };
+        let engine = crate::agentic::coordination::coordinator::tests::test_execution_engine();
+        let parent_session = engine
+            .session_manager
+            .create_session(
+                "Project analysis".to_string(),
+                "agentic".to_string(),
+                crate::agentic::core::SessionConfig {
+                    permission_mode: Some(PermissionMode::Ask),
+                    ..config.clone()
+                },
+            )
+            .await
+            .expect("create parent session");
+        let child = engine
+            .session_manager
+            .create_session_with_id_and_details(
+                None,
+                "Explore project".to_string(),
+                "Explore".to_string(),
+                config,
+                Some(format!("session-{}", parent_session.session_id)),
+                crate::agentic::core::SessionKind::Subagent,
+            )
+            .await
+            .expect("create delegated session");
+        let parent = SubagentParentInfo {
+            tool_call_id: "explore-task".to_string(),
+            session_id: parent_session.session_id.clone(),
+            dialog_turn_id: "parent-turn".to_string(),
+        };
+        let snapshot =
+            HashMap::from([(PERMISSION_MODE_CONTEXT_KEY.to_string(), "ask".to_string())]);
+        let tool_context =
+            ToolUseContext::for_tool_listing(Some(WorkspaceBinding::new(None, workspace)), None);
+        let global = crate::service::config::types::GlobalConfig::default();
+        let agent = ExploreAgent::new();
+        let parent_ceiling = PermissionRuntimeCeiling::default();
+
+        for (mode, requires_approval) in [
+            (PermissionMode::Ask, true),
+            (PermissionMode::FullAccess, false),
+        ] {
+            engine
+                .session_manager
+                .update_session_permission_mode(&parent_session.session_id, Some(mode))
+                .await
+                .expect("update parent mode");
+            // Reuse the original child and Ask snapshot across the round boundary.
+            let round = engine
+                .context_vars_for_round(&snapshot, &child.session_id, "child-turn", Some(&parent))
+                .await;
+            let policy = resolve_effective_permission_policy(
+                &global,
+                Some(permission_mode_from_context(&global, &round)),
+                &[],
+                None,
+                Some(agent.permission_constraints()),
+                Some(&parent_ceiling),
+                &[],
+            );
+            let intents = FileReadTool::new()
+                .permission_intents(
+                    &serde_json::json!({"file_path": external_file}),
+                    &tool_context,
+                )
+                .expect("external Read intents");
+            assert!(intents
+                .iter()
+                .any(|intent| intent.action == "external_directory"));
+            let plan = plan_permission_intents(
+                intents,
+                &policy,
+                &[],
+                PermissionResourceCaseSensitivity::Sensitive,
+            );
+            if requires_approval {
+                let PermissionIntentPlan::RequiresApproval(pending) = plan else {
+                    panic!("Ask mode must request approval for the sibling directory");
+                };
+                assert_eq!(pending.len(), 1);
+                assert_eq!(pending[0].action, "external_directory");
+            } else {
+                assert!(matches!(plan, PermissionIntentPlan::Allowed));
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn delegated_round_keeps_the_root_mode_across_a_nested_subagent() {
+        use bitfun_agent_runtime::permission::PERMISSION_MODE_CONTEXT_KEY;
+
+        // Nested planners forward their resolved round mode as a snapshot.
+        // Live root mode updates are only followed by direct children.
+        let root_mode = match current_global_permission_mode_for_test().await {
+            PermissionMode::FullAccess => PermissionMode::Ask,
+            _ => PermissionMode::FullAccess,
+        };
+        let workspace = tempfile::tempdir().expect("workspace");
+        let engine = crate::agentic::coordination::coordinator::tests::test_execution_engine();
+        let config = crate::agentic::core::SessionConfig {
+            workspace_path: Some(workspace.path().to_string_lossy().into_owned()),
+            ..Default::default()
+        };
+        let root = engine
+            .session_manager
+            .create_session(
+                "Swarm root".to_string(),
+                "SwarmPlanner".to_string(),
+                crate::agentic::core::SessionConfig {
+                    permission_mode: Some(root_mode),
+                    ..config.clone()
+                },
+            )
+            .await
+            .expect("create root session");
+        let root_info = SubagentParentInfo {
+            tool_call_id: "first-delegation".to_string(),
+            session_id: root.session_id,
+            dialog_turn_id: "root-turn".to_string(),
+        };
+        for kind in [
+            crate::agentic::core::SessionKind::Subagent,
+            crate::agentic::core::SessionKind::EphemeralChild,
+        ] {
+            let child = engine
+                .session_manager
+                .create_session_with_id_and_details(
+                    None,
+                    "Nested planner".to_string(),
+                    "SwarmPlanner".to_string(),
+                    config.clone(),
+                    Some(format!("session-{}", root_info.session_id)),
+                    kind,
+                )
+                .await
+                .expect("create internal session without a mode override");
+            let child_round = engine
+                .context_vars_for_round(
+                    &HashMap::new(),
+                    &child.session_id,
+                    "child-turn",
+                    Some(&root_info),
+                )
+                .await;
+            assert_eq!(child_round[PERMISSION_MODE_CONTEXT_KEY], root_mode.as_str());
+            let child_info = SubagentParentInfo {
+                tool_call_id: "nested-delegation".to_string(),
+                session_id: child.session_id,
+                dialog_turn_id: "child-turn".to_string(),
+            };
+            let grandchild_round = engine
+                .context_vars_for_round(
+                    &child_round,
+                    "grandchild",
+                    "grandchild-turn",
+                    Some(&child_info),
+                )
+                .await;
+            assert_eq!(
+                grandchild_round[PERMISSION_MODE_CONTEXT_KEY], root_mode.as_str(),
+                "an internal parent's absent selector must preserve its inherited snapshot: {kind:?}"
+            );
+        }
     }
 
     #[test]

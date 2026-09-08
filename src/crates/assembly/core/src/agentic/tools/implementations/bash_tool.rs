@@ -393,7 +393,7 @@ Usage notes:
     fn permission_intents(
         &self,
         input: &Value,
-        _context: &ToolUseContext,
+        context: &ToolUseContext,
     ) -> BitFunResult<Vec<PermissionIntent>> {
         let command = input
             .get("command")
@@ -401,10 +401,14 @@ Usage notes:
             .map(str::trim)
             .filter(|command| !command.is_empty())
             .ok_or_else(|| BitFunError::validation("command is required".to_string()))?;
-        Ok(vec![PermissionIntent::new(
-            "bash",
-            vec![command.to_string()],
-        )])
+        let working_directory = Self::resolve_working_directory(input, context)?;
+        Ok(vec![
+            crate::agentic::tools::command_permissions::command_permission_intent(
+                command,
+                working_directory.as_deref(),
+                context,
+            )?,
+        ])
     }
 
     async fn validate_input(
@@ -1464,6 +1468,74 @@ impl BashTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::tools::ToolRuntimeRestrictions;
+    use crate::agentic::WorkspaceBinding;
+    use std::collections::HashMap;
+    use std::path::Path;
+
+    fn local_tool_context(workspace: &Path) -> ToolUseContext {
+        ToolUseContext {
+            tool_call_id: Some("bash-cwd-test".to_string()),
+            agent_type: Some("agentic".to_string()),
+            session_id: Some("bash-cwd-session".to_string()),
+            dialog_turn_id: Some("bash-cwd-turn".to_string()),
+            workspace: Some(WorkspaceBinding::new(None, workspace.to_path_buf())),
+            loaded_deferred_tool_specs: Vec::new(),
+            primary_model_facts: tool_runtime::context::PrimaryModelFacts::default(),
+            custom_data: HashMap::new(),
+            computer_use_host: None,
+            runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+            runtime_handles: bitfun_runtime_ports::ToolRuntimeHandles::default(),
+        }
+    }
+
+    #[test]
+    fn permission_intent_includes_requested_working_directory() {
+        let workspace = tempfile::tempdir().expect("temporary workspace");
+        let tests_dir = workspace.path().join("tests");
+        std::fs::create_dir(&tests_dir).expect("tests directory");
+        let context = local_tool_context(workspace.path());
+        let tests_dir_text = tests_dir.to_string_lossy().to_string();
+
+        let intents = BashTool::new()
+            .permission_intents(
+                &json!({
+                    "command": "touch helper.rs",
+                    "working_directory": "tests"
+                }),
+                &context,
+            )
+            .expect("permission intent");
+
+        assert_eq!(
+            intents[0].resources,
+            vec![command_for_working_directory(
+                "touch helper.rs",
+                Some(&tests_dir_text),
+            )]
+        );
+        assert_eq!(intents[0].save_resources, vec!["touch helper.rs"]);
+    }
+
+    #[test]
+    fn implicit_terminal_cwd_does_not_save_a_command_scope() {
+        let workspace = tempfile::tempdir().expect("temporary workspace");
+        let context = local_tool_context(workspace.path());
+
+        let intents = BashTool::new()
+            .permission_intents(&json!({"command": "python cleanup.py"}), &context)
+            .expect("permission intent");
+
+        assert_eq!(
+            intents[0].resources,
+            vec![command_for_working_directory("python cleanup.py", None)]
+        );
+        assert!(
+            intents[0].save_resources.is_empty(),
+            "an implicit terminal cwd cannot identify a reusable command scope"
+        );
+        assert!(!intents[0].display_metadata.contains_key("saveScope"));
+    }
 
     #[test]
     fn checkpoint_detection_flags_mutating_bash_commands() {
