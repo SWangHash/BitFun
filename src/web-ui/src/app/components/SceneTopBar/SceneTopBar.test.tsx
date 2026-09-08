@@ -16,6 +16,8 @@ const runtimeState = vi.hoisted(() => ({ usesHostWindowControls: false }));
 
 vi.mock('@/app/components/WindowControls', () => ({ WindowControls: () => <button>Window controls</button> }));
 vi.mock('@/infrastructure/runtime', () => ({
+  isTauriRuntime: () => false,
+  isOpenHarmonyRuntime: () => false,
   supportsNativeWindowDragging: () => false,
   usesHostWindowControls: () => runtimeState.usesHostWindowControls,
 }));

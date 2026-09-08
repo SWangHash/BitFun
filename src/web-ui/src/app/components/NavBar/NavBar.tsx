@@ -16,6 +16,7 @@ import { useNavSceneStore } from '../../stores/navSceneStore';
 import { useI18n } from '../../../infrastructure/i18n';
 import { createLogger } from '@/shared/utils/logger';
 import { isMacOSDesktopRuntime, supportsNativeWindowDragging } from '@/infrastructure/runtime';
+import { workspaceAPI } from '@/infrastructure/api';
 import './NavBar.scss';
 import { Icon, Tooltip } from '@openbitfun/ui';
 
@@ -65,8 +66,7 @@ const NavBar: React.FC<NavBarProps> = ({
 
     void (async () => {
       try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        await getCurrentWindow().startDragging();
+        await workspaceAPI.startWindowDragging();
       } catch (error) {
         log.debug('startDragging failed', error);
       }

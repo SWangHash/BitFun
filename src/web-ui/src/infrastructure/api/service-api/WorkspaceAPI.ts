@@ -1151,6 +1151,24 @@ export class WorkspaceAPI {
     }
   }
 
+  /**
+   * Platform-dispatched window drag entry for custom title bars.
+   *
+   * - OpenHarmony: the tao OHOS backend reports `drag_window` as unsupported,
+   * so Tauri's `getCurrentWindow().startDragging()` is a no-op there. Route to
+   * the `window_start_dragging` command instead, whose ArkTS bridge calls
+   * `window.Window.startMoving()`.
+   * - Windows/macOS/Linux: native Tauri `startDragging()`.
+   */
+  async startWindowDragging(): Promise<void> {
+    if (isOpenHarmonyRuntime()) {
+      await this.window_start_dragging();
+      return;
+    }
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().startDragging();
+  }
+
   async close_window(): Promise<string> {
     try {
       return await api.invoke("close_window")

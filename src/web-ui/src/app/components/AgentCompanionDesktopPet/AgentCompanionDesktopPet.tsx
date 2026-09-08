@@ -5,6 +5,7 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { cursorPosition, getCurrentWindow } from '@tauri-apps/api/window';
 import { aiExperienceConfigService, type AgentCompanionPetSelection, type AIExperienceSettings } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
+import { workspaceAPI } from '@/infrastructure/api';
 import { AgentCompanionPet, type AgentCompanionPetMood } from '@/flow_chat/components/AgentCompanionPet';
 import type { AgentCompanionMood } from '@/flow_chat/utils/agentCompanionMood';
 import type {
@@ -796,7 +797,7 @@ export const AgentCompanionDesktopPet: React.FC = () => {
     session.dragStarted = true;
     event.preventDefault();
     setIsDraggingPet(true);
-    void getCurrentWindow().startDragging()
+    void workspaceAPI.startWindowDragging()
       .catch(error => {
         log.warn('Failed to start Agent companion window drag', error);
       })

@@ -1,9 +1,10 @@
  
 
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { createJSONStorage, devtools, persist } from 'zustand/middleware';
 import { ContextItem, ValidationResult } from '../types/context';
 import { createLogger } from '@/shared/utils/logger';
+import { storage } from '@/shared/utils/storageAdapter';
 
 const log = createLogger('ContextStore');
 
@@ -144,7 +145,12 @@ export const useContextStore = create<ContextState>()(
       }),
       {
         name: 'openbitfun-context-storage',
-        
+        // Some WebViews (e.g. HarmonyOS) expose localStorage as null, which makes
+        // zustand's default JSON storage throw "Cannot read properties of null
+        // (reading 'setItem')" on every setState and crash the session view.
+        // The storage adapter keeps the state in memory when storage is missing.
+        storage: createJSONStorage(() => storage),
+
         serialize: (state: any) => {
           return JSON.stringify({
             ...state.state,
