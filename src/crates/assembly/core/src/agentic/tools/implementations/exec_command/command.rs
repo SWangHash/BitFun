@@ -83,6 +83,25 @@ impl ExecCommandTool {
         exec_command_noninteractive_env()
     }
 
+    /// Soft workdir projection for permission intents: the requested directory
+    /// (or the workspace root) when it resolves, and `None` when it does not.
+    /// Unlike [`Self::resolve_workdir`] this never preflights the directory and
+    /// never fails the whole intent.
+    fn guard_workdir(input: &Value, context: &ToolUseContext) -> Option<String> {
+        let raw = input
+            .get("workdir")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|workdir| !workdir.is_empty())
+            .map(str::to_string)
+            .or_else(|| {
+                context
+                    .workspace_root()
+                    .map(|path| path.to_string_lossy().to_string())
+            })?;
+        context.resolve_workspace_tool_path(&raw).ok()
+    }
+
     fn resolve_workdir(input: &Value, context: &ToolUseContext) -> BitFunResult<PathBuf> {
         let raw = input
             .get("workdir")
@@ -618,13 +637,20 @@ Output:
     fn permission_intents(
         &self,
         input: &Value,
-        _context: &ToolUseContext,
+        context: &ToolUseContext,
     ) -> BitFunResult<Vec<PermissionIntent>> {
         let command = exec_command_run_input_from_input(input)
             .map(|parsed| parsed.cmd.trim().to_string())
             .filter(|command| !command.is_empty())
             .ok_or_else(|| BitFunError::validation("cmd is required".to_string()))?;
-        Ok(vec![PermissionIntent::new("bash", vec![command])])
+        let working_directory = Self::guard_workdir(input, context);
+        Ok(vec![
+            crate::agentic::tools::command_permissions::command_permission_intent(
+                &command,
+                working_directory.as_deref(),
+                context,
+            )?,
+        ])
     }
 
     fn manages_own_execution_timeout(&self) -> bool {
@@ -795,6 +821,95 @@ mod tests {
     use tool_runtime::exec_command::{
         remote_exec_shell_login_args, EXEC_COMMAND_POWERSHELL_UTF8_OUTPUT_PREFIX,
     };
+
+    fn local_tool_context(workspace: &Path) -> ToolUseContext {
+        ToolUseContext {
+            tool_call_id: Some("exec-cwd-test".to_string()),
+            agent_type: Some("agentic".to_string()),
+            session_id: Some("exec-cwd-session".to_string()),
+            dialog_turn_id: Some("exec-cwd-turn".to_string()),
+            workspace: Some(WorkspaceBinding::new(None, workspace.to_path_buf())),
+            loaded_deferred_tool_specs: Vec::new(),
+            primary_model_facts: tool_runtime::context::PrimaryModelFacts::default(),
+            custom_data: HashMap::new(),
+            computer_use_host: None,
+            runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+            runtime_handles: bitfun_runtime_ports::ToolRuntimeHandles::default(),
+        }
+    }
+
+    fn remote_tool_context(root: &str) -> ToolUseContext {
+        let session_identity =
+            workspace_session_identity(root, Some("conn-1"), Some("remote-host"))
+                .expect("remote session identity should build");
+        ToolUseContext {
+            tool_call_id: Some("exec-remote-cwd-test".to_string()),
+            agent_type: Some("agentic".to_string()),
+            session_id: Some("exec-remote-cwd-session".to_string()),
+            dialog_turn_id: Some("exec-remote-cwd-turn".to_string()),
+            workspace: Some(WorkspaceBinding::new_remote(
+                None,
+                PathBuf::from(root),
+                "conn-1".to_string(),
+                "Remote Host".to_string(),
+                session_identity,
+            )),
+            loaded_deferred_tool_specs: Vec::new(),
+            primary_model_facts: tool_runtime::context::PrimaryModelFacts::default(),
+            custom_data: HashMap::new(),
+            computer_use_host: None,
+            runtime_tool_restrictions: ToolRuntimeRestrictions::default(),
+            runtime_handles: bitfun_runtime_ports::ToolRuntimeHandles::default(),
+        }
+    }
+
+    #[test]
+    fn local_command_permissions_save_the_bare_command_inside_the_workspace() {
+        let workspace = tempfile::tempdir().expect("temporary workspace");
+        std::fs::create_dir(workspace.path().join("scripts")).expect("scripts directory");
+        let context = local_tool_context(workspace.path());
+        let scripts_dir_text = workspace
+            .path()
+            .join("scripts")
+            .to_string_lossy()
+            .to_string();
+
+        let intents = ExecCommandTool::new()
+            .permission_intents(
+                &json!({"cmd": "python cleanup.py", "workdir": "scripts"}),
+                &context,
+            )
+            .expect("permission intents");
+
+        assert_eq!(
+            intents[0].resources,
+            vec![tool_runtime::shell::command_for_working_directory(
+                "python cleanup.py",
+                Some(&scripts_dir_text),
+            )]
+        );
+        assert_eq!(intents[0].save_resources, vec!["python cleanup.py"]);
+        assert_eq!(
+            intents[0].display_metadata.get("saveScope"),
+            Some(&serde_json::json!("workspace_command"))
+        );
+    }
+
+    #[test]
+    fn remote_command_permissions_keep_the_execution_directory() {
+        let context = remote_tool_context("/home/me/project");
+        let intents = ExecCommandTool::new()
+            .permission_intents(
+                &json!({"cmd": "python cleanup.py", "workdir": "scripts"}),
+                &context,
+            )
+            .unwrap();
+        assert_eq!(
+            intents[0].save_resources,
+            vec!["cd '/home/me/project/scripts' && python cleanup.py"]
+        );
+        assert!(!intents[0].display_metadata.contains_key("saveScope"));
+    }
 
     #[derive(Debug)]
     struct ShellProbeRemoteExecPort {

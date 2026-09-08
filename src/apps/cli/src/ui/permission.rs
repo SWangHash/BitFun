@@ -9,7 +9,7 @@ use ratatui::{
     Frame,
 };
 
-use super::string_utils::truncate_str;
+use super::string_utils::{strip_ansi_codes, truncate_str};
 use super::theme::Theme;
 use bitfun_agent_runtime::sdk::{PermissionReply, PermissionRequest};
 
@@ -120,6 +120,45 @@ fn permission_footer_secondary_style(theme: &Theme) -> Style {
         .bg(theme.background_element)
 }
 
+/// Label the scope a remembered "Always" grant will cover, mirroring the
+/// runtime's `saveScope` metadata so the operator confirms the exact scope
+/// before it is saved.
+fn permission_save_scope(request: &PermissionRequest) -> String {
+    if request.save_resources.is_empty() {
+        return "No remembered scope".to_string();
+    }
+    let label = match request
+        .display_metadata
+        .get("saveScope")
+        .and_then(serde_json::Value::as_str)
+    {
+        Some("workspace") => "Edit all workspace files and subdirectories",
+        Some("workspace_command") => "Same command in this workspace",
+        _ if request.action == "external_directory" => "Directories and all subdirectories",
+        _ => "Matching resources",
+    };
+    permission_safe_text(&format!("{}: {}", label, request.save_resources.join(", ")))
+}
+
+/// Project untrusted scope text onto one terminal-safe line: ANSI sequences
+/// are removed and remaining control characters are rendered as ASCII escapes.
+fn permission_safe_text(value: &str) -> String {
+    let stripped = strip_ansi_codes(value);
+    let mut safe = String::with_capacity(stripped.len());
+    for character in stripped.chars() {
+        match character {
+            '\n' => safe.push_str("\\n"),
+            '\r' => safe.push_str("\\r"),
+            '\t' => safe.push_str("\\t"),
+            character if character.is_control() => {
+                safe.push_str(&format!("\\u{{{:x}}}", character as u32));
+            }
+            character => safe.push(character),
+        }
+    }
+    safe
+}
+
 pub(super) fn render_permission_overlay(
     frame: &mut Frame,
     prompt: &PermissionPrompt,
@@ -158,14 +197,7 @@ pub(super) fn render_permission_overlay(
         .map(|resource| truncate_str(resource, 80))
         .collect::<Vec<_>>()
         .join(", ");
-    let save_scope = if request.save_resources.is_empty() {
-        "No remembered scope".to_string()
-    } else {
-        format!(
-            "Always saves {} project resource(s)",
-            request.save_resources.len()
-        )
-    };
+    let save_scope = permission_save_scope(request);
     let risk = request
         .display_metadata
         .get("riskDescription")
@@ -281,7 +313,8 @@ pub(super) fn render_button_bar(
 mod tests {
     use super::{
         permission_delegation_lines, permission_footer_secondary_style,
-        permission_project_display_label, PermissionAction, PermissionPrompt,
+        permission_project_display_label, permission_save_scope, PermissionAction,
+        PermissionPrompt,
     };
     use crate::ui::theme::{builtin_theme_json, Appearance, EffectiveColorScheme, Theme};
     use bitfun_agent_runtime::sdk::{
@@ -378,6 +411,40 @@ mod tests {
         let mut empty_path = request();
         empty_path.project_path = Some("   ".to_string());
         assert_eq!(permission_project_display_label(&empty_path), "project-1");
+    }
+
+    #[test]
+    fn remembered_scope_discloses_workspace_and_command_authorization() {
+        let mut request = request();
+        request.save_resources = vec!["D:/repo/*".to_string()];
+        request
+            .display_metadata
+            .insert("saveScope".to_string(), serde_json::json!("workspace"));
+        assert_eq!(
+            permission_save_scope(&request),
+            "Edit all workspace files and subdirectories: D:/repo/*"
+        );
+
+        request.action = "bash".to_string();
+        request.save_resources = vec!["pnpm test".to_string()];
+        request.display_metadata.insert(
+            "saveScope".to_string(),
+            serde_json::json!("workspace_command"),
+        );
+        assert_eq!(
+            permission_save_scope(&request),
+            "Same command in this workspace: pnpm test"
+        );
+    }
+
+    #[test]
+    fn remembered_scope_displays_exact_resources_and_sanitizes_terminal_controls() {
+        let mut request = request();
+        request.save_resources = vec!["a\nb".to_string(), "c\u{1b}[31md".to_string()];
+        assert_eq!(
+            permission_save_scope(&request),
+            "Matching resources: a\\nb, cd"
+        );
     }
 
     #[test]
