@@ -89,6 +89,42 @@ describe('MarketAccountService', () => {
     ]);
   });
 
+  it('leaves the waiting state on a poll failure and allows another sign-in', async () => {
+    const { api, service } = setup();
+    activeServices.push(service);
+    await service.initialize();
+    api.authPoll.mockRejectedValueOnce(new Error('The market request timed out.'));
+
+    await expect(service.signIn()).rejects.toMatchObject({ code: 'failed' });
+    expect(service.getSnapshot()).toMatchObject({ status: 'signed-out', lastError: { code: 'failed' } });
+
+    api.me.mockResolvedValue(profile);
+    await expect(service.signIn()).resolves.toEqual(profile);
+    expect(api.authStart).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops waiting for an unknown authorization status', async () => {
+    const { api, service } = setup();
+    activeServices.push(service);
+    api.authPoll.mockResolvedValueOnce('consumed');
+
+    await expect(service.signIn()).rejects.toMatchObject({ code: 'failed' });
+    expect(api.authPoll).toHaveBeenCalledOnce();
+    expect(service.getSnapshot().status).toBe('signed-out');
+  });
+
+  it('does not poll a transaction that expired during the wait', async () => {
+    const { api, dependencies, service } = setup();
+    activeServices.push(service);
+    let now = 0;
+    dependencies.now = () => now;
+    dependencies.sleep = async () => { now = 100_000; };
+
+    await expect(service.signIn()).rejects.toMatchObject({ code: 'expired' });
+    expect(api.authPoll).not.toHaveBeenCalled();
+    expect(service.getSnapshot().status).toBe('signed-out');
+  });
+
   it('refreshes from another window and broadcasts logout from the shared vault', async () => {
     const { api, service, syncPort } = setup();
     activeServices.push(service);

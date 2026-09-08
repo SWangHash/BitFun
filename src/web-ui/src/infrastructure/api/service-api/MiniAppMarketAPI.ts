@@ -194,7 +194,7 @@ export class MiniAppMarketAPI {
 
   async authPoll(transaction: DesktopAuthStart): Promise<'pending' | 'authorized' | 'expired'> {
     try {
-      const response = await api.invoke<{ status: 'pending' | 'authorized' | 'expired' }>(
+      const response = await api.invoke<{ status?: unknown } | null>(
         'miniapp_market_auth_poll',
         {
           request: {
@@ -202,7 +202,12 @@ export class MiniAppMarketAPI {
           },
         },
       );
-      return response.status;
+      const status = response?.status;
+      if (status === 'pending' || status === 'authorized' || status === 'expired') return status;
+      if (status === 'consumed') {
+        throw new Error('The GitHub authorization has already been consumed. Please sign in again.');
+      }
+      throw new Error('The market returned an invalid GitHub authorization response. Please sign in again.');
     } catch (error) {
       throw createTauriCommandError('miniapp_market_auth_poll', error);
     }
