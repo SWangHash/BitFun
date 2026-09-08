@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button, IconButton, Input, Select, Textarea } from '@/component-library';
 import {
+  ConfigPageMessage,
   ConfigPageContent,
   ConfigPageHeader,
   ConfigPageLayout,
@@ -148,7 +149,10 @@ function defaultConfigForPreset(preset: AcpClientPreset): AcpClientConfig {
   };
 }
 
-function normalizeConfigValue(value: unknown): AcpClientConfigFile {
+function normalizeConfigValue(value: unknown): {
+  config: AcpClientConfigFile;
+  hasLegacyPermissionModes: boolean;
+} {
   const candidate = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   const rawClients = (
     candidate.acpClients && typeof candidate.acpClients === 'object' && !Array.isArray(candidate.acpClients)
@@ -157,6 +161,7 @@ function normalizeConfigValue(value: unknown): AcpClientConfigFile {
     : candidate;
 
   const acpClients: Record<string, AcpClientConfig> = {};
+  let hasLegacyPermissionModes = false;
   for (const [id, rawConfig] of Object.entries(rawClients)) {
     if (!rawConfig || typeof rawConfig !== 'object' || Array.isArray(rawConfig)) {
       continue;
@@ -168,6 +173,7 @@ function normalizeConfigValue(value: unknown): AcpClientConfigFile {
       continue;
     }
 
+    hasLegacyPermissionModes ||= item.permissionMode === 'reject_once';
     acpClients[id] = {
       name: typeof item.name === 'string' ? item.name : undefined,
       command,
@@ -180,7 +186,7 @@ function normalizeConfigValue(value: unknown): AcpClientConfigFile {
     };
   }
 
-  return { acpClients };
+  return { config: { acpClients }, hasLegacyPermissionModes };
 }
 
 function normalizeRuntimeOverride(value: unknown): AcpClientConfig['localOverride'] {
@@ -203,7 +209,7 @@ function normalizeEnvObject(value: unknown): Record<string, string> {
 }
 
 function normalizePermissionMode(value: unknown): AcpClientPermissionMode {
-  return value === 'allow_once' || value === 'reject_once' ? value : 'ask';
+  return value === 'allow_once' ? value : 'ask';
 }
 
 function formatConfig(config: AcpClientConfigFile): string {
@@ -375,6 +381,7 @@ const AcpAgentsConfig: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [showJsonEditor, setShowJsonEditor] = useState(false);
+  const [pendingPermissionMigration, setPendingPermissionMigration] = useState(false);
   const [jsonConfig, setJsonConfig] = useState('');
   const [envDrafts, setEnvDrafts] = useState<Record<string, string>>({});
   const [requirementProbes, setRequirementProbes] = useState<AcpClientRequirementProbe[]>([]);
@@ -567,8 +574,9 @@ const AcpAgentsConfig: React.FC = () => {
         log.warn('Failed to load saved SSH connections for ACP remote overrides', error);
         return [] as SavedConnection[];
       });
-      const parsed = normalizeConfigValue(JSON.parse(rawConfig || '{}'));
+      const { config: parsed, hasLegacyPermissionModes } = normalizeConfigValue(JSON.parse(rawConfig || '{}'));
       setConfig(parsed);
+      setPendingPermissionMigration(hasLegacyPermissionModes);
       setJsonConfig(formatConfig(parsed));
       setEnvDrafts(
         Object.fromEntries(
@@ -810,15 +818,18 @@ const AcpAgentsConfig: React.FC = () => {
       setConfig(configToSave);
       setJsonConfig(formatConfig(configToSave));
       setDirty(false);
+      setPendingPermissionMigration(false);
       await refreshRequirementProbes({ force: true, notifyOnError: false });
       loadedRemoteProbeIdsRef.current.clear();
       setRemoteProbeRefreshNonce(prev => prev + 1);
       notifySuccess(options.successMessage ?? t('notifications.saveSuccess'));
+      return true;
     } catch (error) {
       log.error('Failed to save ACP agent config', error);
       notifyError(error instanceof Error ? error.message : String(error), {
         title: t('notifications.saveFailed'),
       });
+      return false;
     } finally {
       savingConfigRef.current = false;
       setSaving(false);
@@ -857,8 +868,9 @@ const AcpAgentsConfig: React.FC = () => {
 
   const saveJsonConfig = async () => {
     try {
-      const parsed = normalizeConfigValue(JSON.parse(jsonConfig));
-      await saveConfig(parsed, { mergeEnvDrafts: false });
+      const { config: parsed } = normalizeConfigValue(JSON.parse(jsonConfig));
+      const saved = await saveConfig(parsed, { mergeEnvDrafts: false });
+      if (!saved) return false;
       setConfig(parsed);
       setEnvDrafts(
         Object.fromEntries(
@@ -879,7 +891,6 @@ const AcpAgentsConfig: React.FC = () => {
   const permissionOptions = useMemo(() => [
     { value: 'ask', label: t('permissionMode.ask') },
     { value: 'allow_once', label: t('permissionMode.allowOnce') },
-    { value: 'reject_once', label: t('permissionMode.rejectOnce') },
   ], [t]);
 
   const registryFilterOptions = useMemo(() => [
@@ -1096,6 +1107,20 @@ const AcpAgentsConfig: React.FC = () => {
       />
 
       <ConfigPageContent data-bf-component="acp-agents-config" data-bf-part="content">
+        {pendingPermissionMigration && (
+          <div role="alert">
+            <ConfigPageMessage message={{ type: 'warning', text: t('permissionMode.legacyRejectWarning') }} />
+            <Button
+              variant="primary"
+              size="small"
+              disabled={saving}
+              isLoading={saving}
+              onClick={() => { void (showJsonEditor ? saveJsonConfig() : saveConfig()); }}
+            >
+              {t('permissionMode.saveAndApply')}
+            </Button>
+          </div>
+        )}
         <ConfigPageSectionStack
           className="bitfun-acp-agents__manager"
           data-bf-component="acp-agents-config"
