@@ -115,6 +115,7 @@ cargo test -p bitfun-services-integrations --no-default-features --features mcp 
 cargo test -p bitfun-services-integrations --no-default-features --features remote-ssh --test remote_ssh_contracts remote_ssh_disabled_contracts::
 cargo test -p bitfun-services-integrations --no-default-features --features file-watch --test file_watch_contracts
 cargo test --locked -p bitfun-services-integrations --no-default-features --features deep-research --lib deep_research::tests::
+cargo test --locked -p bitfun-services-integrations --no-default-features --features miniapp-market --lib miniapp_market::client::tests::
 pnpm run check:core-boundaries
 ```
 

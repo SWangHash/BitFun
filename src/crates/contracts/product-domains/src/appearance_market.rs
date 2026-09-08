@@ -81,6 +81,7 @@ pub struct AppearanceMarketListingSummary {
     pub mode: AppearancePackageMode,
     pub package_version: String,
     pub latest_release: u32,
+    #[serde(alias = "minOpenBitFunVersion")]
     pub min_bitfun_version: String,
     pub required_capabilities: Vec<String>,
     pub owner: AppearanceMarketUserSummary,
@@ -108,6 +109,7 @@ pub struct AppearanceMarketRelease {
     pub listing_id: String,
     pub release_number: u32,
     pub package_version: String,
+    #[serde(alias = "minOpenBitFunVersion")]
     pub min_bitfun_version: String,
     pub package_sha256: String,
     pub package_size: u64,
@@ -157,6 +159,7 @@ pub struct AppearanceMarketSubmission {
     pub mode: Option<AppearancePackageMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub package_version: Option<String>,
+    #[serde(alias = "minOpenBitFunVersion")]
     pub min_bitfun_version: String,
     pub required_capabilities: Vec<String>,
     pub changelog: String,
@@ -185,6 +188,7 @@ pub struct AppearanceMarketSubmissionDraftRequest {
     pub listing_id: Option<String>,
     pub slug: String,
     pub release_number: u32,
+    #[serde(alias = "minOpenBitFunVersion")]
     pub min_bitfun_version: String,
     pub changelog: String,
     pub license: AppearanceMarketLicense,
@@ -277,6 +281,38 @@ pub fn compute_appearance_review_bundle_hash(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn renamed_market_version_decodes_without_changing_the_legacy_wire_shape() {
+        let fixture = include_str!(
+            "../../../../shared/appearance-market-contract-fixtures/listing-detail.json"
+        );
+        let legacy: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        let mut renamed = legacy.clone();
+        let version = renamed
+            .as_object_mut()
+            .unwrap()
+            .remove("minBitfunVersion")
+            .unwrap();
+        renamed["minOpenBitFunVersion"] = version;
+        for release in renamed["releases"].as_array_mut().unwrap() {
+            let version = release
+                .as_object_mut()
+                .unwrap()
+                .remove("minBitfunVersion")
+                .unwrap();
+            release["minOpenBitFunVersion"] = version;
+        }
+
+        let listing: AppearanceMarketListingDetail =
+            serde_json::from_value(renamed.clone()).unwrap();
+        assert_eq!(serde_json::to_value(listing).unwrap(), legacy);
+        renamed
+            .as_object_mut()
+            .unwrap()
+            .remove("minOpenBitFunVersion");
+        assert!(serde_json::from_value::<AppearanceMarketListingDetail>(renamed).is_err());
+    }
 
     #[test]
     fn slug_contract_is_strict_and_stable() {
