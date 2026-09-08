@@ -265,10 +265,14 @@ export class MarketAccountService {
     while (this.dependencies.now() < deadline) {
       await this.dependencies.sleep(Math.max(1, transaction.pollIntervalSeconds) * 1000);
       this.ensureCurrentAuth(generation);
+      if (this.dependencies.now() >= deadline) break;
       const status = await this.dependencies.api.authPoll(transaction);
       this.ensureCurrentAuth(generation);
       if (status === 'expired') break;
-      if (status !== 'authorized') continue;
+      if (status === 'pending') continue;
+      if (status !== 'authorized') {
+        throw new MarketAccountError('failed', 'The market returned an invalid GitHub authorization status. Please sign in again.');
+      }
 
       const me = await this.dependencies.api.me();
       this.ensureCurrentAuth(generation);
