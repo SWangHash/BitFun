@@ -8,11 +8,10 @@
  * TitleBar removed; window controls moved to NavBar, dialogs managed here.
  */
 
-import React, { useState, useCallback, useEffect, useMemo, useRef, useContext, lazy, Suspense } from 'react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useContext, lazy, Suspense } from 'react';
 import { useWorkspaceContext } from '../../infrastructure/contexts/WorkspaceContext';
 import { useWindowControls } from '../hooks/useWindowControls';
 import { isWindowFullscreenShortcut } from '../hooks/windowFullscreenShortcut';
-import { useAssistantBootstrap } from '../hooks/useAssistantBootstrap';
 import { usePermissionRequestNotify } from '../hooks/usePermissionRequestNotify';
 import { useApp } from '../hooks/useApp';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
@@ -35,6 +34,8 @@ import { SSHContext } from '@/features/ssh-remote/SSHRemoteContext';
 import { shortcutManager, parseStoredKeybindings } from '@/infrastructure/services/ShortcutManager';
 import { isMacOSDesktopRuntime, usesHostWindowControls } from '@/infrastructure/runtime';
 import { flowChatSessionConfigForWorkspace } from '../utils/projectSessionWorkspace';
+import { startSessionSceneLifecycle } from '../services/sessionSceneLifecycle';
+import { openMainSession } from '@/flow_chat/services/sessionActivation';
 import { notificationService } from '@/shared/notification-system';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { AppearanceBackgroundMediaLayer, appearanceRuntime, useAppearance } from '@/infrastructure/appearance';
@@ -78,6 +79,7 @@ interface WindowModeHint {
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
+  useLayoutEffect(startSessionSceneLifecycle, []);
   const { t } = useI18n('components');
   const { t: tCommon } = useI18n('common');
   const currentAppearance = useAppearance().current;
@@ -99,7 +101,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
       : 'local';
 
   const { isToolbarMode } = useToolbarModeContext();
-  const { ensureForWorkspace: ensureAssistantBootstrapForWorkspace } = useAssistantBootstrap();
   const isMacOS = useMemo(() => {
     return isMacOSDesktopRuntime();
   }, []);
@@ -347,11 +348,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           }
         }
 
-        const activeSessionId = sessionId || flowChatStore.getState().activeSessionId;
-        if (currentWorkspace.workspaceKind === WorkspaceKind.Assistant && activeSessionId) {
-          ensureAssistantBootstrapForWorkspace(currentWorkspace, activeSessionId);
-        }
-
         const pendingDescription = sessionStorage.getItem('pendingProjectDescription');
         if (pendingDescription && pendingDescription.trim()) {
           sessionStorage.removeItem('pendingProjectDescription');
@@ -429,7 +425,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     currentWorkspace?.connectionId,
     currentWorkspace?.sshHost,
     remoteSshFlowChatKey,
-    ensureAssistantBootstrapForWorkspace,
     t,
   ]);
 
@@ -603,7 +598,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
       }
       const flowChatManager = FlowChatManager.getInstance();
       const sessionConfig = flowChatSessionConfigForWorkspace(currentWorkspace);
-      await flowChatManager.createChatSession(sessionConfig, 'agentic');
+      const sessionId = await flowChatManager.createChatSession(sessionConfig, 'agentic');
+      await openMainSession(sessionId);
     } catch (error) {
       log.error('Failed to create FlowChat session', error);
     }
@@ -634,6 +630,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
         : {};
       void FlowChatManager.getInstance()
         .createAcpChatSession(clientId, config)
+        .then(sessionId => openMainSession(sessionId))
         .catch(error => log.error('Failed to create ACP FlowChat session', error));
     };
     window.addEventListener('openbitfun:create-acp-session', handler);

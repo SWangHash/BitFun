@@ -12,8 +12,7 @@ import {
 } from '@/app/components';
 import { confirmDanger } from '@/infrastructure/confirm-dialog';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
-import { useApp } from '@/app/hooks/useApp';
-import { useSceneStore } from '@/app/stores/sceneStore';
+import { openMainSession } from '@/flow_chat/services/sessionActivation';
 import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import type { WorkspaceInfo } from '@/shared/types';
 import { configAPI } from '@/infrastructure/api/service-api/ConfigAPI';
@@ -45,8 +44,6 @@ const NurseryGallery: React.FC = () => {
     setActiveWorkspace,
     setPrimaryAssistantWorkspace,
   } = useWorkspaceContext();
-  const openScene = useSceneStore(s => s.openScene);
-  const { switchLeftPanelTab } = useApp();
   const { openDefaults, openAssistant } = useNurseryStore();
   const notification = useNotification();
   const [creating, setCreating] = useState(false);
@@ -159,11 +156,12 @@ const NurseryGallery: React.FC = () => {
     async (workspace: WorkspaceInfo) => {
       if (startingSessionWorkspaceId) return;
       setStartingSessionWorkspaceId(workspace.id);
-      openScene('session');
-      switchLeftPanelTab('sessions');
       try {
-        await flowChatManager.createChatSession({ workspacePath: workspace.rootPath }, 'Claw');
-        await setActiveWorkspace(workspace.id);
+        const sessionId = await flowChatManager.createChatSession({ workspacePath: workspace.rootPath }, 'Claw');
+        await openMainSession(sessionId, {
+          workspaceId: workspace.id,
+          activateWorkspace: setActiveWorkspace,
+        });
       } catch (e) {
         log.error('Failed to create assistant session from gallery', e);
         notification.error(t('nursery.card.newSessionFailed'));
@@ -173,10 +171,8 @@ const NurseryGallery: React.FC = () => {
     },
     [
       notification,
-      openScene,
       setActiveWorkspace,
       startingSessionWorkspaceId,
-      switchLeftPanelTab,
       t,
     ],
   );

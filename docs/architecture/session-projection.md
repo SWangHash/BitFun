@@ -95,6 +95,29 @@ Any state that is per-Session is reached through its stream. A feature cannot
 hold Session state that is not surface-scoped, because there is nowhere to
 put it.
 
+## Web UI selection and scene lifetime
+
+`FlowChatStore` owns the selected session on the active device surface.
+`ModernFlowChatStore` is its presentation projection, not a second selection
+owner. Synchronization includes an empty selection and a missing selected
+record, both on subscription and after every source change. Explicit sync from
+an async opener cannot select a different session. Shell and standalone chat
+hosts share one source subscription.
+
+`app/services/sessionSceneLifecycle.ts`, installed for the `AppLayout` lifetime,
+binds the Session scene to that selected record. When it no longer exists, the
+shell closes the Session tab through `sceneStore`, which also removes its
+navigation history. Other tabs remain available; closing the final tab exposes
+the existing tabless empty surface. Delete, archive, workspace removal, and
+device-surface changes use this same rule instead of mutation-specific UI
+callbacks. Creating or opening a session establishes the record before opening
+its scene. Loading, offline, and failed history records still exist and remain
+recoverable; absence of rendered turns is never evidence of removal.
+
+This is frontend view reconciliation. It does not delete persisted sessions,
+create replacement sessions, or change the runtime state machine and remote
+wire contracts.
+
 ## Sources are not writers
 
 Every source above becomes a way of **obtaining positioned events**, applied

@@ -42,6 +42,7 @@ import type { SessionUsagePanelTab } from '../usage/sessionUsagePanelTypes';
 import { coerceSessionUsageReport } from '../usage/usageReportUtils';
 import { resolveSessionRelationship } from '../../utils/sessionMetadata';
 import { isRemoteWorkspaceSession } from '../../utils/sessionWorkspace';
+import { resolveSessionDriverId } from '../../session-drivers/resolve';
 import { absoluteSessionTurnIndexForId } from '../../utils/flowChatTurnOrdinal';
 import {
   composerPresentationToAccessibleText,
@@ -55,6 +56,7 @@ import {
 } from '../../utils/composerPresentation';
 import { restoreImageContextsFromPayload } from '../../utils/imageContextRestoration';
 import { UserMessagePresentationContent } from './UserMessagePresentationContent';
+import { UserMessageImage } from './UserMessageImage';
 import './UserMessageItem.scss';
 
 const log = createLogger('UserMessageItem');
@@ -195,7 +197,8 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const actionTurnIndex = resolvedAbsoluteTurnIndex !== undefined
       ? resolvedAbsoluteTurnIndex - 1
       : -1;
-    const isRemoteSession = isRemoteWorkspaceSession(currentSession ?? undefined, null);
+    const isDispatchSession = resolveSessionDriverId(resolvedSessionId ?? '', currentSession ?? undefined) === 'dispatch';
+    const isRemoteSession = isRemoteWorkspaceSession(currentSession ?? undefined, null) || isDispatchSession;
     const isSystemTriggered = Boolean(
       message?.metadata?.triggerSource && message.metadata.triggerSource !== 'desktop_ui',
     );
@@ -218,7 +221,9 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
       !steeringStatus;
     const canEdit = canEditBase && isSessionIdle && !isEditSubmitting && !sessionMutation;
     const canShowEditAction = allowUserMessageEdit && !isFailed && !isThreadGoalSystemMessage;
-    const editDisabledReason = isRemoteSession
+    const editDisabledReason = isDispatchSession
+      ? t('message.editDisabledDispatch')
+      : isRemoteSession
       ? t('message.editDisabledRemote')
       : isSystemTriggered
         ? t('message.cannotEdit')
@@ -231,6 +236,8 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
               : t('message.cannotEdit');
     const rollbackTooltip = canRollback
       ? t('message.rollbackTo', { index: actionTurnIndex + 1 })
+      : isDispatchSession
+        ? t('message.rollbackDisabledDispatch')
       : isRemoteSession
         ? t('message.rollbackDisabledRemote')
         : !isSessionIdle
@@ -627,14 +634,9 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
 
         {message.images && message.images.length > 0 && (
           <div className="user-message-item__images" data-openbitfun-component="user-message-item" data-openbitfun-part="images">
-            {message.images.map(img => {
-              const src = img.dataUrl || (img.imagePath ? `https://asset.localhost/${encodeURIComponent(img.imagePath)}` : undefined);
-              return src ? (
-                <div data-openbitfun-component="user-message-item" data-openbitfun-part="image" key={img.id} className="user-message-item__image-thumb" onClick={(e) => { e.stopPropagation(); setLightboxImage(src); }}>
-                  <img src={src} alt={img.name} />
-                </div>
-              ) : null;
-            })}
+            {message.images.map(img => (
+              <UserMessageImage key={img.id} image={img} onPreview={setLightboxImage} />
+            ))}
           </div>
         )}
 

@@ -817,6 +817,7 @@ pub struct ToggleMainWindowFullscreenResponse {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StartupWindowControlAction {
+    GetState,
     Minimize,
     ToggleMaximize,
     Close,
@@ -826,6 +827,12 @@ pub enum StartupWindowControlAction {
 #[serde(rename_all = "camelCase")]
 pub struct StartupWindowControlRequest {
     pub action: StartupWindowControlAction,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupWindowControlResponse {
+    pub is_maximized: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1023,21 +1030,22 @@ pub async fn startup_window_control(
     startup_trace: State<'_, DesktopStartupTrace>,
     app: tauri::AppHandle,
     request: StartupWindowControlRequest,
-) -> Result<(), String> {
+) -> Result<StartupWindowControlResponse, String> {
     #[cfg(not(target_env = "ohos"))]
     {
         let Some(window) = app.get_webview_window("main") else {
             return Err("Main window not found".to_string());
         };
 
+        let mut is_maximized = window.is_maximized().unwrap_or(false);
         match request.action {
+            StartupWindowControlAction::GetState => {}
             StartupWindowControlAction::Minimize => {
                 window.minimize().map_err(|error| {
                     format!("Failed to minimize main window during startup: {}", error)
                 })?;
             }
             StartupWindowControlAction::ToggleMaximize => {
-                let is_maximized = window.is_maximized().unwrap_or(false);
                 if is_maximized {
                     window.unmaximize().map_err(|error| {
                         format!("Failed to restore main window during startup: {}", error)
@@ -1047,6 +1055,7 @@ pub async fn startup_window_control(
                         format!("Failed to maximize main window during startup: {}", error)
                     })?;
                 }
+                is_maximized = !is_maximized;
             }
             StartupWindowControlAction::Close => {
                 let behavior = state
@@ -1055,29 +1064,29 @@ pub async fn startup_window_control(
                     .await
                     .unwrap_or_else(|_| "ask".to_string());
 
-            if behavior == "quit" {
-                log::info!("Quit requested from startup window control");
-                crate::save_main_window_state(&app, "startup_window_control_quit");
-                crate::perform_process_exit_cleanup().await;
-                crate::crash_diagnostics::mark_clean_shutdown("startup_window_control");
-                log::info!(
-                    "Desktop exit authorized after graceful shutdown: reason=startup_window_control"
-                );
-                app.exit(0);
-            } else {
-                if let Err(error) = crate::tray::setup_tray(&app, &startup_trace) {
-                    log::warn!("Failed to initialize tray before startup close: {}", error);
+                if behavior == "quit" {
+                    log::info!("Quit requested from startup window control");
+                    crate::save_main_window_state(&app, "startup_window_control_quit");
+                    crate::perform_process_exit_cleanup().await;
+                    crate::crash_diagnostics::mark_clean_shutdown("startup_window_control");
+                    log::info!(
+                        "Desktop exit authorized after graceful shutdown: reason=startup_window_control"
+                    );
+                    app.exit(0);
+                } else {
+                    if let Err(error) = crate::tray::setup_tray(&app, &startup_trace) {
+                        log::warn!("Failed to initialize tray before startup close: {}", error);
+                    }
+                    window.hide().map_err(|error| {
+                        format!("Failed to hide main window during startup close: {}", error)
+                    })?;
+                    log::info!("Main window hidden from startup window control");
                 }
-                window.hide().map_err(|error| {
-                    format!("Failed to hide main window during startup close: {}", error)
-                })?;
-                log::info!("Main window hidden from startup window control");
             }
         }
-    }
 
-    Ok(())
-}
+        Ok(StartupWindowControlResponse { is_maximized })
+    }
 
     #[cfg(target_env = "ohos")]
     Err("Main window not found".to_string())
@@ -1262,6 +1271,23 @@ pub async fn notify_system_error_if_minimized(error: &str) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn startup_window_control_contract_exposes_the_native_maximize_state() {
+        let request: super::StartupWindowControlRequest =
+            serde_json::from_value(serde_json::json!({ "action": "get_state" }))
+                .expect("get_state request");
+        assert!(matches!(
+            request.action,
+            super::StartupWindowControlAction::GetState
+        ));
+
+        let response = super::StartupWindowControlResponse { is_maximized: true };
+        assert_eq!(
+            serde_json::to_value(response).expect("serialize response"),
+            serde_json::json!({ "isMaximized": true })
+        );
+    }
+
     #[test]
     fn parse_ohos_update_response_accepts_no_update() {
         let (available, error) =

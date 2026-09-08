@@ -1,167 +1,130 @@
-**中文**  [English](README.md)
+**中文** · [English](README.md)
 
 <div align="center">
 
-![OpenBitFun](./png/OpenBitFun_title.png)
-
-### 桌面 AI Agent —— 每个任务，都给你一个能打开的应用
-
-能写代码、能做文档、能操控桌面，并提供小应用、Rust Runtime 和可自部署的多设备互控服务器。
-
-[**⬇ 下载 macOS · Windows · Linux 版**](https://github.com/GCWing/OpenBitFun/releases/latest) · [校验下载](./docs/verify-downloads.zh-CN.md)
-
-[官网](https://openbitfun.com/) · [快速开始](#第一次运行) · [安全策略](./SECURITY_CN.md) · [讨论区](https://github.com/GCWing/OpenBitFun/discussions) · [参与贡献](./CONTRIBUTING_CN.md)
-
-[![GitHub release](https://img.shields.io/github/v/release/GCWing/OpenBitFun?style=flat-square&color=blue)](https://github.com/GCWing/OpenBitFun/releases)
-[![Downloads](https://img.shields.io/github/downloads/GCWing/OpenBitFun/total?style=flat-square&color=brightgreen)](https://github.com/GCWing/OpenBitFun/releases)
-[![Stars](https://img.shields.io/github/stars/GCWing/OpenBitFun?style=flat-square&color=yellow)](https://github.com/GCWing/OpenBitFun/stargazers)
-[![Core code: MIT](https://img.shields.io/badge/core_code-MIT-yellow?style=flat-square)](https://github.com/GCWing/OpenBitFun/blob/main/LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/GCWing/OpenBitFun/releases)
+![OpenBitFun](./png/openbitfun-wordmark.png)
 
 [![Trendshift](https://trendshift.io/api/badge/repositories/44672)](https://trendshift.io/repositories/44672)
 
+### 持续推进，直到完成。
+
+**Built to keep going.**
+
+OpenBitFun 是一个开源 Agent 桌面工作台。我们把高效稳健的 **Rust Agent Runtime**、强大可塑的 **Agent Harness** 与优雅从容的 **桌面体验**放在一起，让更多人能够简单、顺畅地使用 Agent。
+
+让 AI 帮你写代码、修 Bug、查资料、写报告、做 PPT，制作工作中需要的小工具。你还可以为漫剧创作、视觉设计等领域定制专属 Agent，让它按你的工作流程协作。
+
+**如果你也期待这样的 Agent，欢迎点一颗 ⭐ Star，关注它的进展，也让更多人发现这个项目。**
+
+[下载体验](https://openbitfun.com/zh/download) · [Mini App 市场](https://market.openbitfun.com/miniapp/) · [参与共建](./CONTRIBUTING_CN.md)
+
+[![官网](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-openbitfun.com-0b7285?style=flat-square)](https://openbitfun.com/zh)
+[![Core code: MIT](https://img.shields.io/badge/core_code-MIT-yellow?style=flat-square)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://openbitfun.com/zh/download)
+
 </div>
 
-<!-- TODO: 把下面这张截图换成 20-30 秒的真实任务演示 GIF，
-     录制脚本见 scripts/record-demo.sh —— 这是整个 README 里最值得做的一张图。 -->
+![OpenBitFun 官网展示的桌面界面](./png/openbitfun-desktop.png)
 
----
+## 四种模式，按你的方式工作
 
-## 核心特性
+**Agent Harness 决定任务如何推进**，负责规划步骤、组织上下文、调用工具、协调多个 Agent 并整合结果。根据当前任务，选择适合你的协作方式：
 
-| 特性 | 说明 |
+![四种工作模式：极简、标准、极致与创造](./png/openbitfun-harness-modes.png)
+
+| 模式 | 什么时候选 |
 | --- | --- |
-| **Agentic Mini App** | 为任务生成专属界面——图表、看板、表单、面板——对话绑定该界面的实时状态 |
-| **自部署多设备互联互控** | 账号登录、跨设备会话同步、设备间操控，全部走你自己部署的 relay。零知识加密，不经第三方云 |
-| **编码交付** | 在真实 Git 仓库里规划、改代码、跑测试、提交。Agentic、规划与调试 Skill、Deep Review、长程任务 |
-| **办公交付** | 调研、写作、演示文稿、会议纪要、报告 |
-| **桌面执行层** | 浏览器、终端、桌面软件、文件系统、远程工作区 |
-| **四层可定制** | 自定义 Agent → MCP / Skills / Hooks → Mini App → 源码级改造 |
-| **性能** | KV Cache 平均命中率 98.67%；flashgrep 在千万行仓库上搜索平均快约 36 倍 |
-| **跨平台、模型自选** | Windows、macOS、Linux 三端，不绑定模型厂商 |
+| **极简 · Minimal** | **即时协作。** 目标明确、希望快速动手时，AI 直接执行，你随时反馈，在协作中持续调整。 |
+| **标准 · Standard** | **日常任务。** 工作需要多个步骤时，有序规划、逐步执行，并检查结果。 |
+| **极致 · Ultimate** | **复杂任务。** 问题需要深入分析时，拆解任务，由多个 Agent 分工协作、整合结果。 |
+| **创造 · Creative** | **创造与定制。** 想做自己的应用或扩展工作台时，创建 Mini App，定制 OpenBitFun 的界面与功能。 |
 
----
+## 从桌面到腕间，随处与 Agent 协作
 
-## 为什么是 OpenBitFun
+**换个设备，继续同一个任务。** 在电脑前深入工作，拿起手机继续对话，或从浏览器查看进度、补充要求、处理授权。任务由执行它的设备持续推进，你可以随时换一个入口参与。
 
-**Agentic Mini App。** 多数 Agent 把所有任务都挤进同一个对话框，OpenBitFun 选择为任务造一个专属界面——图表、看板、表单、面板——并让对话绑定这个界面的实时状态。你问的是眼前看到的东西，不必再把它复述一遍。社区已经做出从行情面板到各类垂直领域工具的版本。
+**手机端支持单屏、双屏、三屏布局自由切换。** 单屏时专注对话，展开后并排查看会话与文件；界面随屏幕形态调整，让折叠屏的空间真正用起来。
 
-[浏览公开 Mini App Gallery →](https://market.openbitfun.com/miniapp/)
+**手表、眼镜，也在成为 Agent 的新入口。** 通过设备扩展协议，OpenBitFun 正在把任务进度与轻量交互带到更多穿戴设备，让协作从桌面延伸到腕间与视野中。
 
-**自部署的多设备互联互控。** 账号登录、跨设备会话与配置同步、用一台设备操控另一台已登录设备，全部走**你自己部署**的 relay，不经任何第三方云中转——这往往直接决定了它在企业内网里能不能用。relay 是零知识设计：密钥在客户端本地派生，服务端只保存 Argon2id 哈希和 AES-GCM 封装后的材料。
+![OpenBitFun 多设备协作：电脑、手机、手表与眼镜](./png/openbitfun-multi-device.png)
 
-**可以改到底的 Runtime。** 从一个 Markdown 文件到 fork 整个 Runtime，四层连续：自定义 Agent → MCP / Skills / 兼容 Codex 的 Hooks → Mini App → 源码级改造。你可以用 OpenBitFun 来扩展 OpenBitFun。
+<details>
+<summary>连接与部署说明</summary>
 
-**真正命中的 KV Cache。** Agent 的成本大头不是生成的 token，而是每轮重复发送的上下文；而一个时间戳、一次工具列表重排序，就会让缓存从那个字节开始全部失效。运行时保证 prompt 前缀逐字节稳定：一轮 SWE-Bench-Pro 实测平均命中率 **98.67%**。
+工作区也可以通过 SSH 连接到远程主机、跳板机或容器，让文件、命令与 Agent 在目标环境中工作。桌面和 CLI 共享核心执行能力，移动端与消息机器人提供更多控制入口。
 
-**flashgrep。** Agent 在一个任务里会把同一个仓库检索几十到上百次，每次工具调用都冷启动遍历，开销可能超过模型推理本身。跨轮次常驻索引在 Chromium 这类千万行仓库上把搜索耗时最高降低 **94.6%**，平均约 **36 倍**。
+同账号设备互控、登录与同步服务由你[自部署 Relay](./src/apps/relay-server/README.md)。更多连接方式见[远程连接](./docs/interactive-capabilities/capabilities/feature.remote-connect.md)与[远程工作区](./docs/features/remote-workspaces.md)。
 
----
+</details>
 
-## 安装
+## 把想法，变成自己的应用
 
-**直接下载** —— 前往 [Releases](https://github.com/GCWing/OpenBitFun/releases/latest) 下载最新桌面端安装包，安装后配置模型即可开始使用。
+为仓库做一个 Git 洞察面板，为演示文稿做一个 PPT 工作台，或把常用操作集中到一张表单。**Mini App 让工作中的具体需求，变成可直接使用的小应用。**
 
-**或从源码运行：**
+描述需求，让 Agent 创建应用。每个 Mini App 都有自己的界面和 Agent 会话：你可以操作界面处理任务，也可以通过对话调整功能，让工具在使用中不断完善。
+
+做好的应用可以安装、反复使用。你也可以去 [Mini App 市场](https://market.openbitfun.com/miniapp/)发现适合自己的工具。
+
+## 用 OpenBitFun，创造 OpenBitFun
+
+**从角色、工具到界面和源码，都可以按需定制。** 从贴合工作习惯的专属 Agent 开始，逐步扩展你的工作台：
+
+- **定制专属 Agent。** 围绕漫剧创作、视觉设计、代码评审等领域，选择模型、设定角色，组合需要的工具与工作方法。
+- **接入工具与流程。** 通过 MCP 连接专业工具，把常用工作方法保存为 Skills，用 Hooks 扩展任务执行流程。
+- **改变界面与源码。** 安装[皮肤](https://market.openbitfun.com/skin/)调整外观，也可以修改 UI、工具与 Runtime 源码，构建自己的 OpenBitFun。
+
+**你可以直接让 OpenBitFun 的 Code Agent 修改和扩展 OpenBitFun 本身。**
+
+扩展方式见 [Agent 管理](./docs/interactive-capabilities/capabilities/feature.agents.md)、[Hooks 契约与兼容范围](./docs/features/agent-hooks.zh-CN.md)和[产品架构](./docs/architecture/product-architecture.md)。
+
+## 持续执行，也认真对待效率
+
+Rust Agent Runtime 承载会话状态、上下文管理与工具执行。持久会话、中断恢复、长期记忆与长程任务支持工作接续；上下文压缩和缓存复用帮助控制持续执行的资源开销。
+
+在这组 **DeepSWE v1.1** 评测中，OpenBitFun 的表现：
+
+- **GLM-5.3-Flash**：通过率 **64.6%**，耗时 P50 **42.9 分钟**。
+- **DeepSeek-V4-Flash**：通过率 **56.6%**，耗时 P50 **19.6 分钟**。
+
+![DeepSWE v1.1 评测：通过率、耗时 P50 与 Token P50 对比](./png/openbitfun-deepswe-v1.1.png)
+
+## 功能墙
+
+**图中只是 OpenBitFun 的部分功能。** 还有更多工具、工作流与扩展能力，等你在真实任务中探索。
+
+![OpenBitFun 功能墙](./png/openbitfun-feature-wall.jpg)
+
+## 我们想走向的未来
+
+OpenBitFun 仍在演进，我们希望继续探索三个方向：
+
+- **黑灯工厂**：白天讨论与设计，让任务在服务器上持续推进，第二天回到成果与验收。
+- **无限半径**：从桌面与手机继续走向穿戴和嵌入式设备，让工作在更多地方接续。
+- **应用进化**：从个人小工具到面向专业领域的定制版本，让更多人参与塑造软件。
+
+更可靠的长任务、更高效的 Runtime、更从容的桌面体验，是这些探索共同的基础。
+
+## 用它创造，也一起创造它
+
+**欢迎用 Star 关注 OpenBitFun，用作品、反馈和代码参与它的未来。**
+
+你可以分享真实任务与使用经验，贡献 Agent、Skills、Mini App 和皮肤，也可以从一处文档、一项交互或一个 Runtime 问题开始。想法与问题欢迎在本仓库的 Issues 和 Discussions 中讨论，开发流程见[贡献指南](./CONTRIBUTING_CN.md)。
+
+<details>
+<summary>下载、使用与源码运行</summary>
+
+前往[官方下载页](https://openbitfun.com/zh/download)，选择 Windows、macOS 或 Linux 安装包。安装后配置模型，打开工作区即可开始；操作说明见[使用手册](https://playbook.openbitfun.com)，安装包签名见[下载校验](./docs/verify-downloads.zh-CN.md)。
+
+从源码运行需准备 [Node.js](https://nodejs.org/) 22.12+、[pnpm](https://pnpm.io/) 10.15.0、[Rust 工具链](https://rustup.rs/)和 [Tauri 前置依赖](https://v2.tauri.app/start/prerequisites/)。克隆本仓库后运行：
 
 ```bash
 pnpm install
 pnpm run desktop:dev
 ```
 
-前置依赖：[Node.js](https://nodejs.org/) 22.12+（推荐 LTS）、[pnpm](https://pnpm.io/) 10.15.0（建议通过 Corepack 使用）、[Rust 工具链](https://rustup.rs/)、[Tauri 前置依赖](https://v2.tauri.app/start/prerequisites/)。更多说明见 [CONTRIBUTING_CN.md](./CONTRIBUTING_CN.md)。
+桌面开发环境支持前端热更新与 Rust 自动重编译。CLI 入口见 [CLI 使用说明](./src/apps/cli/README.md)。
 
-### 第一次运行
+</details>
 
-1. 启动 OpenBitFun，在欢迎页点击**打开**，选择一个项目文件夹。
-2. 打开**更多选项（…）→ 设置 → 模型 → 创建第一个配置**。
-3. 选择服务商，填写 API Key，选择一个或多个模型，然后点击**保存**。第一个保存的模型会自动成为主模型，并自动测试连接。
-4. 回到**会话**页，输入一个具体任务，按 Enter 或点击**发送**。
-
----
-
-## 你可以把什么交给 OpenBitFun
-
-两类复杂工作：在真实仓库里完成编码交付，在资料和文件中完成办公交付。遇到需要浏览器、桌面软件、终端或远程环境的任务时，它可以进入真实工作现场。
-
-| 场景 | 目标交付 | 典型能力 |
-| --- | --- | --- |
-| **编码** | 从真实仓库推进到可合并结果。 | Agentic、规划与调试 Skill、测试、Git、Deep Review、长程任务、Benchmark。 |
-| **办公** | 从资料推进到实用的文字和视觉交付物。 | 调研、演示文稿、总结、写作、会议纪要、报告。 |
-
-**通用能力**
-
-- **界面层**：Mini App 为任务生成专属 UI，并让对话绑定这个 UI 的实时状态。
-- **执行层**：文件系统、终端、Git、浏览器操作、桌面应用、Computer Use 和远程工作区，让任务走出编辑器时 Agent 仍能触达真实环境。
-- **定制层**：MCP、Skills、Hooks、Agent 自定义和源码级扩展，让 OpenBitFun 按你的工具链、角色和界面继续生长。
-
----
-
-## Agent 核心指标
-
-下面的数据用于观察 OpenBitFun Agent 的核心能力，统一使用 **Deepseek-V4-Pro** 测得。
-
-> [!NOTE]
-> 当前数据为每个 case 跑 1 次得到的 OpenBitFun 初始评测结果。评测会受到任务抽样、模型版本、运行环境和单次执行偶然性的影响，存在一定波动；这组数据仅用于说明当前 Agent 已具备可用的基础竞争力，并不代表固定排名或最终上限。后续会持续优化并放出完整评测详情。
-
-**1. 初始完成效果快照** —— 下图对比了 **SWE-Bench-Pro**（复杂软件工程）和 **SWE-Bench-Verified**（人工验证的 GitHub issue 修复）当前的单次运行结果。
-
-![Agent benchmark scores](./png/agent_benchmark_scores.svg)
-
-评测集说明：[SWE-Bench-Pro](https://labs.scale.com/leaderboard/swe_bench_pro_public) / [SWE-Bench-Verified](https://www.swebench.com/verified.html)
-
-**2. Token 经济** —— Agent 执行是否经济，需要综合评估端到端 Token 消耗、执行耗时和 KV Cache 复用。同一轮 SWE-Bench-Pro 中，OpenBitFun 的平均 KV Cache 命中率为 **98.67%**。后续完整评测会继续补充成本与耗时指标。
-
-![KV Cache hit rate distribution](./png/kv_cache_hit_rate.png)
-
-**3. 超大工程下的上下文检索** —— 成本之外，Agent 体验还取决于它能否在超大工程里快速找回上下文。面对 Chromium 这类千万行级代码仓库，OpenBitFun 通过 **flashgrep** 最高降低约 **94.6%** 搜索耗时，平均加速约 **36.1x**。
-
-![flashgrep search speed](./png/flashgrep_search_speed.png)
-
----
-
-## 定制你的 OpenBitFun
-
-OpenBitFun 的扩展路径从轻到重连续展开：
-
-| 层级 | 方式 | 适合场景 |
-| --- | --- | --- |
-| **L1** | Agent 自定义 | 定义角色、流程、约束和工具组合。 |
-| **L2** | MCP / Skills / [Hooks](docs/features/agent-hooks.zh-CN.md) | 接入外部工具和专业能力，并在 Agent 生命周期节点运行你自己的命令 —— 完全兼容 Codex Hooks，已有脚本无需适配。 |
-| **L3** | Mini App | 为任务生成专属界面、表单、面板或可视化。 |
-| **L4** | 源码级改造 | 修改工具、适配器、UI、Runtime 或产品形态。 |
-
-你可以用 OpenBitFun 的 Code Agent 来扩展 OpenBitFun 本身。
-
----
-
-## 我们要做成什么样
-
-- **黑灯工厂**（正在构建中）：白天设计，夜间任务流转到服务器持续执行，早上直接验收成果。
-- **无限半径**（正在构建中）：从桌面、浏览器持续延伸到移动端、可穿戴等更多设备，让工作随时接入、连续协作。
-- **应用进化**：支持自定义 Agent、MCP、Skills、Mini App 乃至源码级改造，组合专属工作流；**社区伙伴已拓展出短剧、媒体等丰富版本**。
-- **多快好省**：追求更高效率、更优效果与更低成本。
-- **极致桌面**：持续打磨更易用、更好用、更漂亮的桌面体验。
-
----
-
-## 社区与贡献
-
-有问题、想法或 Bug，欢迎到 [讨论区](https://github.com/GCWing/OpenBitFun/discussions) 和 [Issues](https://github.com/GCWing/OpenBitFun/issues) 交流。
-
-欢迎 Star、Issue 和 PR。我们尤其关注：
-
-1. Code Agent、Deep Review、调试和长任务执行能力
-2. Cowork、调研、文档和桌面工作流
-3. MCP、Skills、Mini App 和新领域 Agent
-4. Runtime 稳定性、性能、上下文效率和可验证性
-
-请将 PR 直接提交至 `main` 分支。更多说明见 [CONTRIBUTING_CN.md](./CONTRIBUTING_CN.md)。
-
----
-
-## 声明
-
-1. 本项目为业余时间探索、研究构建下一代人机协同交互，非商用盈利项目。
-2. AI 辅助开发是本项目工作流的一部分。贡献以代码和验证结果为准；AI 辅助 PR 请说明测试程度，详见 [CONTRIBUTING_CN.md](./CONTRIBUTING_CN.md)。
-3. 本项目依赖和参考了众多开源软件。感谢所有开源作者。如侵犯您的相关权益，请联系我们整改。
+核心代码采用 [MIT License](./LICENSE)，第三方依赖与资源遵循各自的许可证。感谢所有开源作者与贡献者。漏洞报告方式见[安全策略](./SECURITY_CN.md)。

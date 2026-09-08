@@ -29,7 +29,7 @@
     inline-size: var(--openbitfun-layout-confirm-dialog-icon-size);
     block-size: var(--openbitfun-layout-confirm-dialog-icon-size);
     border-radius: var(--openbitfun-radius-pill);
-    color: var(--openbitfun-color-status-info-content);
+    color: var(--openbitfun-color-status-info-emphasis);
     background: var(--openbitfun-color-status-info-surface);
   }
 
@@ -40,17 +40,17 @@
   }
 
   .icon[data-openbitfun-status="success"] {
-    color: var(--openbitfun-color-status-success-content);
+    color: var(--openbitfun-color-status-success-emphasis);
     background: var(--openbitfun-color-status-success-surface);
   }
 
   .icon[data-openbitfun-status="warning"] {
-    color: var(--openbitfun-color-status-warning-content);
+    color: var(--openbitfun-color-status-warning-emphasis);
     background: var(--openbitfun-color-status-warning-surface);
   }
 
   .icon[data-openbitfun-status="danger"] {
-    color: var(--openbitfun-color-status-danger-content);
+    color: var(--openbitfun-color-status-danger-emphasis);
     background: var(--openbitfun-color-status-danger-surface);
   }
 

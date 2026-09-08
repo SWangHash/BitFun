@@ -12,6 +12,11 @@ import {
   RemoteSessionManager,
 } from './services/RemoteSessionManager';
 import { reconcileDelegatedAccountOwner } from './services/delegatedAccountOwner';
+import {
+  clearMobileNavigation,
+  saveMobileNavigation,
+  type PairedNavigation,
+} from './services/MobileNavigationStore';
 import { ThemeProvider } from './theme';
 import { useConnectionHealth } from './hooks/useConnectionHealth';
 import { useWideLayout } from './hooks/useWideLayout';
@@ -58,6 +63,8 @@ const AppContent: React.FC = () => {
   const [sessionMgr, setSessionMgr] = useState<RemoteSessionManager | null>(null);
   const [accountDirectoryOpen, setAccountDirectoryOpen] = useState(false);
   const [preferredDeviceId, setPreferredDeviceId] = useState<string | undefined>();
+  const navigationRef = useRef<PairedNavigation | null>(null);
+  const controlTarget = useMobileStore((state) => state.controlTarget);
 
   // An authenticated account without a selected desktop has nothing to ping.
   useConnectionHealth(accountDirectoryOpen ? null : sessionMgr);
@@ -125,7 +132,13 @@ const AppContent: React.FC = () => {
   }, []);
 
   const handlePaired = useCallback(
-    (client: RelayHttpClient, sessionMgr: RemoteSessionManager, preferredDeviceId?: string) => {
+    (
+      client: RelayHttpClient,
+      sessionMgr: RemoteSessionManager,
+      preferredDeviceId?: string,
+      navigation?: PairedNavigation,
+    ) => {
+      navigationRef.current = navigation ?? null;
       const needsDevice = client.hasDelegatedIdentity && !client.isPaired && !client.pairedDeviceId;
       setAccountDirectoryOpen(needsDevice);
       setPreferredDeviceId(preferredDeviceId);
@@ -135,6 +148,7 @@ const AppContent: React.FC = () => {
         if (clientRef.current !== client) return;
         const ownerScopedStateWasReset = reconcileDelegatedAccountOwner(change);
         if (!ownerScopedStateWasReset) return;
+        navigationRef.current = null;
 
         // A detail page can retain local IDs in addition to Zustand state.
         // Return to the session root before any stale completion can render
@@ -311,6 +325,21 @@ const AppContent: React.FC = () => {
   const handleControlTargetChanged = useCallback(() => {
     setAccountDirectoryOpen(false);
     clearTimeout(timerRef.current);
+    const restored = navigationRef.current?.restored;
+    if (navigationRef.current) navigationRef.current.restored = null;
+    if (restored && restored.deviceId === clientRef.current?.pairedDeviceId && restored.session) {
+      setActiveSessionId(restored.session.id);
+      setActiveSessionName(restored.session.name);
+      setActiveSessionAgentType(restored.session.agentType);
+      setChatAutoFocus(false);
+      setPrevPage(null);
+      setNavDir(null);
+      pageStackRef.current = ['pairing', 'sessions', 'chat'];
+      history.replaceState({ page: 'chat' }, '');
+      setPage('chat');
+      setCompactSidebarOpen(false);
+      return;
+    }
     setActiveSessionId(null);
     setActiveSessionName('Session');
     setActiveSessionAgentType('agentic');
@@ -326,6 +355,8 @@ const AppContent: React.FC = () => {
   }, []);
 
   const handleDisconnect = useCallback(() => {
+    navigationRef.current = null;
+    clearMobileNavigation();
     setAccountDirectoryOpen(false);
     setPreferredDeviceId(undefined);
     delegatedOwnerUnlistenRef.current?.();
@@ -354,6 +385,20 @@ const AppContent: React.FC = () => {
     delegatedOwnerUnlistenRef.current?.();
     delegatedOwnerUnlistenRef.current = null;
   }, []);
+
+  useEffect(() => {
+    const navigation = navigationRef.current;
+    if (!navigation || accountDirectoryOpen || page === 'pairing' || !controlTarget
+      || controlTarget.deviceId !== clientRef.current?.pairedDeviceId) return;
+    saveMobileNavigation(navigation.scope, {
+      deviceId: controlTarget.deviceId,
+      session: page === 'chat' && activeSessionId ? {
+        id: activeSessionId,
+        name: activeSessionName,
+        agentType: activeSessionAgentType,
+      } : undefined,
+    });
+  }, [accountDirectoryOpen, activeSessionAgentType, activeSessionId, activeSessionName, controlTarget, page]);
 
   const isAnimating = navDir !== null;
   const currentPage: Page = page;

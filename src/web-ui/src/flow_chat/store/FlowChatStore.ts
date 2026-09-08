@@ -27,6 +27,7 @@ import {
   TokenUsage,
 } from '../types/flow-chat';
 import { createLogger } from '@/shared/utils/logger';
+import { optimisticTurnAdoptionKey } from '../utils/optimisticTurnAdoption';
 import {
   isRemoteTraceContext,
   markPhaseAfterAnimationFrames,
@@ -4797,6 +4798,12 @@ export class FlowChatStore {
           terminalTurnStatus === 'error'
             ? snapshot.lastError || session.error || 'Dispatched task failed'
             : undefined,
+          {
+            // A cached optimistic turn has no executor-owned terminal event.
+            // A previous job snapshot can have settled it while its follow-up
+            // was being submitted; the current target outcome must repair it.
+            preserveTerminalOutcome: optimisticTurnAdoptionKey(lastTurn) !== snapshot.jobId,
+          },
         );
         if (settledTurn !== lastTurn) {
           dialogTurns = [...dialogTurns.slice(0, -1), settledTurn];

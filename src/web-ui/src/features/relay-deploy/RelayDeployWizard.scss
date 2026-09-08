@@ -378,9 +378,9 @@
   &__check-icon {
     flex-shrink: 0;
 
-    &--ok { color: var(--openbitfun-color-status-success-content); }
-    &--warn { color: var(--openbitfun-color-status-warning-content); }
-    &--fail { color: var(--openbitfun-color-status-danger-content); }
+    &--ok { color: var(--openbitfun-color-status-success-emphasis); }
+    &--warn { color: var(--openbitfun-color-status-warning-emphasis); }
+    &--fail { color: var(--openbitfun-color-status-danger-emphasis); }
   }
 
   &__check-label {
@@ -457,7 +457,7 @@
       border: 1px solid var(--openbitfun-color-status-warning-border);
       color: var(--openbitfun-color-content-primary);
 
-      svg { color: var(--openbitfun-color-status-warning-content); flex-shrink: 0; margin-top: 1px; }
+      svg { color: var(--openbitfun-color-status-warning-emphasis); flex-shrink: 0; margin-top: 1px; }
     }
   }
 

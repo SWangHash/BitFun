@@ -3019,6 +3019,22 @@ test('third-party capability profiles reject ambient feature unions and unreview
   assert.match(messages, /future-image-owner Image dependency is missing a reviewed owner profile/);
 });
 
+test('relay WebSocket lifecycle client stays test-only without TLS or defaults', () => {
+  const pkg = packageAt('openbitfun-relay-service', 'src/crates/services/relay-service/Cargo.toml', [{
+    name: 'tokio-tungstenite', kind: 'dev', optional: false, uses_default_features: false,
+    features: ['connect', 'handshake'],
+  }]);
+  assert.deepEqual(findThirdPartyCapabilityFeatureViolations([pkg]), []);
+  for (const change of [
+    { kind: null }, { uses_default_features: true },
+    { features: ['connect', 'handshake', 'rustls-tls-native-roots'] },
+  ]) {
+    const mutated = structuredClone(pkg);
+    Object.assign(mutated.dependencies[0], change);
+    assert.ok(findThirdPartyCapabilityFeatureViolations([mutated]).length > 0);
+  }
+});
+
 test('services integrations image codecs stay attached to exact product owners', () => {
   const pkg = {
     ...packageAt('openbitfun-services-integrations', 'src/crates/services/services-integrations/Cargo.toml', [{

@@ -1278,7 +1278,7 @@ impl WorkspaceService {
 
     /// Removes a workspace.
     pub async fn remove_workspace(&self, workspace_id: &str) -> OpenBitFunResult<()> {
-        let (removed_workspace, result) = {
+        let (_removed_workspace, result) = {
             let mut manager = self.manager.write().await;
             let workspace = manager.get_workspace(workspace_id).cloned();
             let result = manager.remove_workspace(workspace_id);
@@ -1286,7 +1286,8 @@ impl WorkspaceService {
         };
 
         if result.is_ok() {
-            if let Some(workspace) = removed_workspace {
+            #[cfg(feature = "workspace-search")]
+            if let Some(workspace) = _removed_workspace {
                 if workspace.workspace_kind != WorkspaceKind::Remote {
                     if let Some(search_service) =
                         crate::service::search::get_global_workspace_search_service()

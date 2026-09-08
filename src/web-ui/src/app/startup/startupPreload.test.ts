@@ -7,19 +7,33 @@ function readIndexHtml(): string {
   return readFileSync(fileURLToPath(new URL('../../../index.html', import.meta.url)), 'utf8');
 }
 
+function readWindowControlsSource(): string {
+  return readFileSync(
+    fileURLToPath(new URL('../components/WindowControls/WindowControls.tsx', import.meta.url)),
+    'utf8',
+  );
+}
+
 describe('startup preload shell', () => {
-  it('uses injected startup locale text and wires static window controls', () => {
-    const invoke = vi.fn().mockResolvedValue(undefined);
+  it('uses injected startup locale text and mirrors native window-control state', async () => {
+    let isMaximized = true;
+    const invoke = vi.fn().mockImplementation((_command, payload) => {
+      const action = (payload as { request: { action: string } }).request.action;
+      if (action === 'toggle_maximize') isMaximized = !isMaximized;
+      return Promise.resolve({ isMaximized });
+    });
     const dom = new JSDOM(readIndexHtml(), {
       url: 'http://localhost:1422/',
       runScripts: 'dangerously',
       beforeParse(window) {
+        Object.defineProperty(window.navigator, 'platform', { value: 'Win32' });
         Object.assign(window, {
           __OPENBITFUN_BOOTSTRAP_LOCALE__: 'zh-CN',
           __OPENBITFUN_BOOTSTRAP_MESSAGES__: {
             loadingApp: '正在启动 OpenBitFun...',
             minimize: '最小化',
             maximize: '最大化',
+            restore: '还原',
             close: '关闭',
           },
           __OPENBITFUN_SHOW_STARTUP_WINDOW_CONTROLS__: true,
@@ -36,7 +50,31 @@ describe('startup preload shell', () => {
 
     const controls = dom.window.document.querySelector<HTMLElement>('[data-startup-window-controls]');
     expect(controls?.hidden).toBe(false);
+    expect(controls?.classList.contains('window-controls')).toBe(true);
+    expect(controls?.classList.contains('window-controls--windows')).toBe(true);
+    expect(controls?.getAttribute('data-openbitfun-component')).toBe('window-controls');
     expect(dom.window.document.querySelector('.splash-screen')?.hasAttribute('aria-hidden')).toBe(false);
+    await Promise.resolve();
+
+    const minimizeButton = dom.window.document.querySelector<HTMLButtonElement>('[data-startup-window-action="minimize"]');
+    expect(minimizeButton?.className).toBe('window-controls__btn window-controls__btn--minimize');
+    expect(minimizeButton?.querySelector('path')?.getAttribute('d')).toBe('M1 6.5h10');
+    expect(minimizeButton?.querySelectorAll('svg')).toHaveLength(1);
+
+    const maximizeButton = dom.window.document.querySelector<HTMLButtonElement>('[data-startup-window-action="toggle_maximize"]');
+    const visibleMaximizePath = () => Array.from(maximizeButton?.querySelectorAll('svg') ?? [])
+      .find(glyph => glyph.style.display !== 'none')
+      ?.querySelector('path')
+      ?.getAttribute('d');
+    expect(controls?.getAttribute('data-openbitfun-state')).toBe('maximized');
+    expect(maximizeButton?.getAttribute('aria-label')).toBe('还原');
+    expect(visibleMaximizePath()).toBe('M3.5 3.5v-2h7v7h-2 M1.5 3.5h7v7h-7z');
+
+    maximizeButton?.click();
+    await Promise.resolve();
+    expect(controls?.hasAttribute('data-openbitfun-state')).toBe(false);
+    expect(maximizeButton?.getAttribute('aria-label')).toBe('最大化');
+    expect(visibleMaximizePath()).toBe('M1.5 1.5h9v9h-9z');
 
     const closeButton = dom.window.document.querySelector<HTMLButtonElement>('[data-startup-window-action="close"]');
     expect(closeButton?.getAttribute('aria-label')).toBe('关闭');
@@ -45,6 +83,15 @@ describe('startup preload shell', () => {
     expect(invoke).toHaveBeenCalledWith('startup_window_control', {
       request: { action: 'close' },
     });
+    expect(invoke).toHaveBeenCalledWith('startup_window_control', {
+      request: { action: 'get_state' },
+    });
+
+    const html = readIndexHtml();
+    expect(html).toContain('href="/src/app/components/WindowControls/WindowControls.scss"');
+    expect(html).toContain('.window-controls.openbitfun-startup-window-controls');
+    expect(html).not.toContain('openbitfun-startup-window-controls__btn');
+    expect(readWindowControlsSource()).not.toContain("import './WindowControls.scss'");
   });
 
   it('shows the independent pet preload for the companion window', () => {

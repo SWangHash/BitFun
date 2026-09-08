@@ -1183,7 +1183,7 @@ async fn remote_connect_command_owner_preserves_cancel_and_group_routing() {
     assert_eq!(
         handle_remote_command(
             &host,
-            &RemoteCommand::Ping,
+            &RemoteCommand::Ping { client: None },
             RemoteConnectSubmissionSource::Relay
         )
         .await,
@@ -1431,10 +1431,10 @@ fn remote_connect_dialog_submit_outcome_builder_preserves_scheduler_shape() {
 }
 
 #[tokio::test]
-async fn remote_connect_dialog_runtime_keeps_legacy_restore_failure_tolerance() {
+async fn remote_connect_dialog_runtime_stops_before_prewarm_when_restore_fails() {
     let host = RecordingDialogHost::new(false, Some("D:/workspace/project")).with_restore_error();
 
-    submit_remote_dialog(
+    let error = submit_remote_dialog(
         &host,
         RemoteDialogSubmissionRequest {
             session_id: "session-1".to_string(),
@@ -1447,7 +1447,8 @@ async fn remote_connect_dialog_runtime_keeps_legacy_restore_failure_tolerance() 
         },
     )
     .await
-    .expect("restore failure is still tolerated before scheduler submit");
+    .expect_err("restore failure must not submit against a partially restored session");
+    assert_eq!(error, "restore failed");
 
     assert_eq!(
         host.events(),
@@ -1456,11 +1457,9 @@ async fn remote_connect_dialog_runtime_keeps_legacy_restore_failure_tolerance() 
             "resolve_workspace:session-1",
             "session_exists:session-1",
             "restore:session-1:D:/workspace/project:<none>:<none>",
-            "prewarm:session-1:D:/workspace/project",
-            "submit:session-1",
         ]
     );
-    assert_eq!(host.submitted().turn_id, "turn-1");
+    assert!(host.submitted.lock().unwrap().is_none());
 }
 
 #[tokio::test]
@@ -1787,7 +1786,8 @@ async fn remote_connect_file_command_handler_owns_owner_flow_and_uses_host_root(
         &[Some("session-1".to_string())]
     );
 
-    let error = handle_remote_workspace_file_command(&host, &RemoteCommand::Ping).await;
+    let error =
+        handle_remote_workspace_file_command(&host, &RemoteCommand::Ping { client: None }).await;
     assert_eq!(
         error,
         RemoteResponse::Error {
@@ -3151,4 +3151,27 @@ fn remote_connect_tool_preview_slimming_keeps_short_fields_and_drops_large_strin
     assert_eq!(text_preview.len(), 200);
 
     assert!(make_slim_tool_params(&serde_json::json!(42)).is_none());
+}
+
+#[test]
+fn control_ping_accepts_legacy_and_additive_client_identity() {
+    use openbitfun_services_integrations::remote_connect::RemoteCommand;
+    let legacy = serde_json::json!({ "cmd": "ping" });
+    let old: RemoteCommand = serde_json::from_value(legacy.clone()).unwrap();
+    assert_eq!(old, RemoteCommand::Ping { client: None });
+    assert_eq!(serde_json::to_value(old).unwrap(), legacy);
+    let current =
+        serde_json::json!({ "cmd": "ping", "client": { "id": "page-1", "name": "Safari · iOS" } });
+    let decoded: RemoteCommand = serde_json::from_value(current.clone()).unwrap();
+    assert_eq!(serde_json::to_value(decoded).unwrap(), current);
+    // Previous hosts use an internally tagged unit variant and ignore additive fields.
+    #[derive(serde::Deserialize)]
+    #[serde(tag = "cmd", rename_all = "snake_case")]
+    enum LegacyCommand {
+        Ping,
+    }
+    assert!(matches!(
+        serde_json::from_value::<LegacyCommand>(current).unwrap(),
+        LegacyCommand::Ping
+    ));
 }

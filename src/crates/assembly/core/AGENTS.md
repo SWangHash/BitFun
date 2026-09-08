@@ -231,3 +231,15 @@ cargo test -p openbitfun-core --no-default-features --features agent-runtime,git
 cargo test -p openbitfun-core --no-default-features --features agent-runtime,git --lib delete_file_tool::tests
 cargo test -p openbitfun-core --no-default-features --features agent-runtime,remote-workspace,git --lib service::snapshot::
 ```
+
+Skill discovery, installation provenance, and local/remote registry regressions:
+
+```bash
+cargo test --locked -p openbitfun-core --no-default-features --features agent-runtime,git --lib agentic::tools::implementations::skills::
+```
+
+Detached Dispatch controller, target query compatibility, and managed-baseline checks:
+
+```bash
+cargo test --locked -p openbitfun-core --no-default-features --features agent-runtime,dispatch-store,ssh-remote,git --lib service::dispatch::
+```

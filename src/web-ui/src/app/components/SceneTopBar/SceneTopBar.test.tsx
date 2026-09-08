@@ -2,11 +2,14 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
-import { describe, expect, it, vi } from 'vitest';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import SceneTopBar from './SceneTopBar';
 
-const sceneState = vi.hoisted(() => ({ openTabs: [{}] as unknown[] }));
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+const sceneState = vi.hoisted(() => ({ openTabs: [{}] as unknown[], selectTab: vi.fn(), closeTab: vi.fn() }));
+const startDragging = vi.hoisted(() => vi.fn(async () => {}));
 const stylesheet = readFileSync(
   resolve(process.cwd(), 'src/app/components/SceneTopBar/SceneTopBar.scss'),
   'utf8',
@@ -15,6 +18,7 @@ const stylesheet = readFileSync(
 const runtimeState = vi.hoisted(() => ({ usesHostWindowControls: false }));
 
 vi.mock('@/app/components/WindowControls', () => ({ WindowControls: () => <button>Window controls</button> }));
+vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({ startDragging }) }));
 vi.mock('@/infrastructure/runtime', () => ({
   isTauriRuntime: () => false,
   isOpenHarmonyRuntime: () => false,
@@ -22,10 +26,42 @@ vi.mock('@/infrastructure/runtime', () => ({
   usesHostWindowControls: () => runtimeState.usesHostWindowControls,
 }));
 vi.mock('../../stores/sceneStore', () => ({ useSceneStore: (selector: (state: typeof sceneState) => unknown) => selector(sceneState) }));
-vi.mock('../SceneBar/SceneBar', () => ({ default: () => <div role="tablist"><button role="tab">Settings</button></div> }));
-vi.mock('./SceneChrome', () => ({ SceneChromeHost: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props}><button>Scene action</button></div> }));
+vi.mock('../SceneBar/SceneBar', async () => {
+  const { TabGroup } = await import('@openbitfun/ui');
+  return {
+    default: () => <TabGroup
+      value="0"
+      onValueChange={sceneState.selectTab}
+      items={sceneState.openTabs.map((_, index) => ({
+        value: String(index),
+        label: <span>Scene {index}</span>,
+        endAction: <button onClick={sceneState.closeTab} aria-label={`Close scene ${index}`}>
+          <svg><path d="M0 0L1 1" /></svg>
+        </button>,
+      }))}
+    />,
+  };
+});
+vi.mock('./SceneChrome', () => ({
+  SceneChromeHost: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>
+    <button><svg><path d="M0 0L1 1" /></svg>Scene action</button>
+    <input aria-label="Scene search" />
+    <div contentEditable suppressContentEditableWarning><span>Editable title</span></div>
+  </div>,
+}));
 
 describe('SceneTopBar', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('__TAURI_INTERNALS__', {
+      invoke: vi.fn(),
+      metadata: { currentWindow: { label: 'main' } },
+    });
+    sceneState.openTabs = [{}];
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
   it('extends the Toolbar divider through both side gaps on the same pixel row', () => {
     expect(stylesheet).not.toContain('border-block-end: 0;');
     expect(stylesheet).toContain(
@@ -49,8 +85,16 @@ describe('SceneTopBar', () => {
       expect(toolbar.getAttribute('data-size')).toBe('md');
       expect(toolbar.getAttribute('data-bordered')).toBe('true');
       expect(toolbar.querySelector(':scope > [data-openbitfun-part="leading"] [role="tablist"]')).not.toBeNull();
-      expect(toolbar.querySelector(':scope > [data-openbitfun-part="trailing"] [data-openbitfun-part="sceneActions"]')).not.toBeNull();
-      expect(toolbar.querySelector('[data-openbitfun-part="controls"] button')).not.toBeNull();
+      const trailing = toolbar.querySelector(':scope > [data-openbitfun-part="trailing"]')!;
+      const actions = trailing.querySelector('[data-openbitfun-part="sceneActions"]')!;
+      const divider = trailing.querySelector('.openbitfun-scene-top-bar__actions-divider')!;
+      const controls = trailing.querySelector('[data-openbitfun-part="controls"]')!;
+      expect(actions.nextElementSibling).toBe(divider);
+      expect(divider.getAttribute('data-openbitfun-part')).toBe('separator');
+      expect(divider.getAttribute('aria-hidden')).toBe('true');
+      expect(divider.nextElementSibling).toBe(controls);
+      expect(controls.querySelector('button')).not.toBeNull();
+      expect(stylesheet).toContain('&__actions:empty + &__actions-divider');
       act(() => toolbar.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
       expect(maximize).toHaveBeenCalledOnce();
       act(() => toolbar.querySelector('[data-openbitfun-part="sceneActions"] button')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));

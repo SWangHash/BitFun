@@ -33,4 +33,6 @@ The same data is available as `@openbitfun/theme-openbitfun/reference-colors.jso
 - `color.surface.tertiary` is an opaque low-emphasis fill for persistent grouped content such as cards and field groups.
 - `color.surface.subtle` is a translucent local tint for transient feedback and small inset details. It must not define a persistent application plane.
 - `color.selection.surface` owns persistent neutral selection. Hover and pressed colors remain action feedback and are not substitutes for selection.
-- `color.codeChange.added` and `color.codeChange.removed` own code-line and compact diff-count accents; success/danger status and Git lifecycle colors remain separate semantics.
+- `color.codeChange.added` (`#1aa73e`) and `color.codeChange.removed` (`#ec221f`) also anchor success and danger emphasis. Warning emphasis uses `#ff8c00`; information uses the existing creative-action blue (`#2e7eff`). These clear hues share light tints instead of separate per-component palettes.
+- `color.status.*.emphasis` colors icons and short emphasis. `content` derives a readable shade from that anchor for text; `surface` and `border` derive 10% and 30% tints. High-contrast themes may strengthen text contrast without changing the emphasis anchors.
+- Status source tokens retain their `color-mix()` references. The theme build resolves these mixes to concrete hex/RGBA values so CSS, plugins, and renderer payloads consume the same palette without relying on renderer-specific CSS color support.

@@ -381,6 +381,26 @@
         }
       }
     },
+    "当前账号": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current account"
+          }
+        }
+      }
+    },
+    "当前身份": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current identity"
+          }
+        }
+      }
+    },
     "产品": {
       "localizations": {
         "en": {
@@ -1477,6 +1497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Model"
+          }
+        }
+      }
+    },
+    "默认模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default model"
           }
         }
       }
@@ -3647,6 +3677,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The reply was interrupted. Received content was kept."
+          }
+        }
+      }
+    },
+    "本次回复失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This response failed"
           }
         }
       }

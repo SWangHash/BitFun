@@ -52,8 +52,18 @@
       "ring": { "$type": "color", "$value": "{ref.color.amber.400}" }
     },
     "status": {
+      "info": {
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.info.emphasis} 40%, {ref.color.neutral.0})" }
+      },
+      "success": {
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.success.emphasis} 35%, {ref.color.neutral.0})" }
+      },
       "warning": {
-        "emphasis": { "$type": "color", "$value": "{ref.color.amber.400}" }
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.warning.emphasis} 75%, {ref.color.neutral.0})" },
+        "surface": { "$type": "color", "$value": "color-mix(in srgb, {color.status.warning.emphasis} 4%, transparent)" }
+      },
+      "danger": {
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.danger.emphasis} 40%, {ref.color.neutral.0})" }
       }
     }
   }

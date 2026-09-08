@@ -58,6 +58,9 @@ $_section-header-height: 22px;
       flex: 1 1 auto;
       min-width: 0;
       max-width: 100%;
+      // Keep sticky headers below SceneNav even when reduced motion removes
+      // the transform that otherwise establishes this stacking context.
+      isolation: isolate;
       opacity: 1;
       transform: translate3d(0, 0, 0);
       transition: none;
@@ -1472,8 +1475,8 @@ $_section-header-height: 22px;
   line-height: var(--openbitfun-type-modifier-leading-dense-line-height);
 }
 
-// Attached remote parties are shown once per device kind. Message-app marks
-// stay unframed and inherit the theme foreground; connection state is already
+// Attached remote parties are shown once per device kind with unframed icons.
+// Message-app marks inherit the theme foreground; connection state is already
 // communicated by the device overview rather than by recoloring the brand.
 .openbitfun-nav-panel__footer-device-status-attached {
   display: flex;
@@ -1492,9 +1495,6 @@ $_section-header-height: 22px;
   justify-content: center;
   gap: 1px;
   box-sizing: border-box;
-  border: 1px solid var(--openbitfun-color-border-subtle);
-  border-radius: var(--openbitfun-radius-sm);
-  background: var(--openbitfun-color-surface-subtle);
   line-height: var(--openbitfun-type-modifier-leading-none-line-height);
 
   &[data-openbitfun-device-kind='message-app'] {
@@ -2000,49 +2000,10 @@ $_section-header-height: 22px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: var(--openbitfun-radius-sm);
-  background: var(--openbitfun-color-action-quiet-hover);
   color: var(--openbitfun-color-content-primary);
 
   svg {
     flex-shrink: 0;
-  }
-}
-
-.openbitfun-device-overview__service {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
-  align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  margin: var(--openbitfun-space-4) var(--openbitfun-space-5) 0;
-  padding: 5px 8px;
-  border-radius: var(--openbitfun-radius-sm);
-  background: var(--openbitfun-color-surface-subtle);
-  color: var(--openbitfun-color-content-muted);
-  font-size: var(--openbitfun-type-micro-font-size);
-
-  strong {
-    grid-column: 2;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--openbitfun-color-content-secondary);
-    font-size: var(--openbitfun-type-label-sm-font-size);
-    font-weight: var(--openbitfun-type-label-selected-font-weight);
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  small {
-    grid-column: 2 / -1;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--openbitfun-color-content-muted);
-    font-size: var(--openbitfun-type-overline-sm-font-size);
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 

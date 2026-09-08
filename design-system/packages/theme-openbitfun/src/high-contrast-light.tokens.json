@@ -52,9 +52,18 @@
       "ring": { "$type": "color", "$value": "{ref.color.blue.700}" }
     },
     "status": {
+      "info": {
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.info.emphasis} 60%, {ref.color.neutral.1000})" }
+      },
+      "success": {
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.success.emphasis} 50%, {ref.color.neutral.1000})" }
+      },
       "warning": {
-        "emphasis": { "$type": "color", "$value": "{ref.color.amber.800}" },
-        "surface": { "$type": "color", "$value": "rgba(154, 101, 31, 0.04)" }
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.warning.emphasis} 40%, {ref.color.neutral.1000})" },
+        "surface": { "$type": "color", "$value": "color-mix(in srgb, {color.status.warning.emphasis} 4%, transparent)" }
+      },
+      "danger": {
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.danger.emphasis} 60%, {ref.color.neutral.1000})" }
       }
     }
   }

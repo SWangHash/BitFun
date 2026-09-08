@@ -213,8 +213,8 @@ export class SystemAPI {
    
   async checkPathExists(path: string): Promise<boolean> {
     try {
-      return await api.invoke('check_path_exists', { 
-        request: { path } 
+      return await api.invoke('check_path_exists', {
+        request: { path }
       });
     } catch (error) {
       throw createTauriCommandError('check_path_exists', error, { path });

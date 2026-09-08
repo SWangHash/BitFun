@@ -4,36 +4,6 @@ import { flowChatStore } from '../store/FlowChatStore';
 import { flowChatManager } from './FlowChatManager';
 import { syncSessionToModernStore } from './storeSync';
 
-/**
- * Leave the Session scene when archiving removed the session that was active
- * before the operation. FlowChat intentionally clears activeSessionId for this
- * transition; keeping the scene open would leave its composer without a
- * session state machine and render a disabled send button.
- */
-export function closeSessionSceneAfterActiveSessionArchive(
-  activeSessionIdBeforeArchive: string | null,
-): boolean {
-  if (!activeSessionIdBeforeArchive) {
-    return false;
-  }
-
-  const flowChatState = flowChatStore.getState();
-  if (
-    flowChatState.activeSessionId !== null
-    || flowChatState.sessions.has(activeSessionIdBeforeArchive)
-  ) {
-    return false;
-  }
-
-  const sceneState = useSceneStore.getState();
-  if (!sceneState.openTabs.some(tab => tab.id === 'session')) {
-    return false;
-  }
-
-  sceneState.closeScene('session');
-  return true;
-}
-
 export async function openMainSession(
   sessionId: string,
   options?: {
@@ -59,7 +29,10 @@ export async function openMainSession(
 }
 
 export async function activateMainSession(sessionId: string): Promise<boolean> {
-  const isTargetActive = () => flowChatStore.getState().activeSessionId === sessionId;
+  const isTargetActive = () => {
+    const state = flowChatStore.getState();
+    return state.activeSessionId === sessionId && state.sessions.has(sessionId);
+  };
   const targetSession = flowChatStore.getState().sessions.get(sessionId) ?? null;
   if (!targetSession) {
     return false;

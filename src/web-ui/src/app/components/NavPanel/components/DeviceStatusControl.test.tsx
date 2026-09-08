@@ -127,7 +127,7 @@ describe('device status card', () => {
     expect(element('nav-device-status-summary').textContent).toContain('Build workstation');
   });
 
-  it('keeps connected controllers and their connection service visible', () => {
+  it('keeps connected controllers visible without the connection service card', () => {
     state.overview = overview({ remoteStatus: {
       is_connected: true,
       pairing_state: 'connected',
@@ -140,7 +140,7 @@ describe('device status card', () => {
     render();
     expect(element('nav-device-status-summary').textContent).toContain('Workstation');
     expect(element('nav-device-status-connected-devices').textContent).toContain('My phone');
-    expect(element('nav-device-connection-service').textContent).toContain('deviceOverview.sameNetwork');
+    expect(document.querySelector('[data-testid="nav-device-connection-service"]')).toBeNull();
   });
 
   it('keeps detached execution activity visible without changing the primary device', () => {

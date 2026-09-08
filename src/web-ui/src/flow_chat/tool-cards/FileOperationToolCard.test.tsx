@@ -10,6 +10,8 @@ import type { FlowToolItem, ToolCardConfig } from '../types/flow-chat';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const mocks = vi.hoisted(() => ({
+  dispatchSession: false,
+  openDispatchFile: vi.fn<(...args: unknown[]) => Promise<void>>(async () => undefined),
   snapshotsAvailable: true,
   emitSnapshotEvent: vi.fn(),
   getOperationSummary: vi.fn(async () => null),
@@ -25,6 +27,15 @@ const mocks = vi.hoisted(() => ({
   })),
   typewriterMode: 'passthrough' as 'passthrough' | 'partial',
   writePlanDisplayProps: [] as Array<Record<string, unknown>>,
+}));
+
+vi.mock('../session-drivers/sessionFileNavigation', () => ({
+  hasSessionFileProvider: () => mocks.dispatchSession,
+  openFileThroughSession: (...args: unknown[]) => {
+    if (!mocks.dispatchSession) return false;
+    void mocks.openDispatchFile(...args);
+    return true;
+  },
 }));
 
 vi.mock('./WritePlanDisplay', () => ({
@@ -160,6 +171,26 @@ describe('FileOperationToolCard', () => {
       modifiedContent: '',
       anchorLine: undefined,
     });
+  });
+
+  it('routes recorded target snapshots through the target file query without controller snapshot IO', async () => {
+    mocks.dispatchSession = true;
+    try {
+      const toolItem = {
+        id: 'dispatch-edit', type: 'tool', toolName: 'Edit', status: 'completed', endTime: 10,
+        toolCall: { id: 'call-1', name: 'Edit', input: { file_path: '/target/file.ts', old_string: 'before', new_string: 'after' } },
+        toolResult: { success: true, result: { snapshot_recorded: true } },
+      } as FlowToolItem;
+      const config = { toolName: 'Edit', displayName: 'Edit', icon: 'EDIT', requiresConfirmation: false, resultDisplayType: 'detailed', displayMode: 'standard' } as ToolCardConfig;
+      await act(async () => root.render(<FileOperationToolCard toolItem={toolItem} config={config} sessionId="dispatch-session" />));
+      await act(async () => { container.querySelector<HTMLButtonElement>('[data-testid="chat-file-change-open-file"]')?.click(); });
+      expect(mocks.openDispatchFile).toHaveBeenCalledWith('dispatch-session', '/target/file.ts', 'file.ts');
+      expect(mocks.getOperationSummary).not.toHaveBeenCalled();
+      expect(mocks.getOperationDiff).not.toHaveBeenCalled();
+      expect(mocks.openFile).not.toHaveBeenCalled();
+    } finally {
+      mocks.dispatchSession = false;
+    }
   });
 
   it('keeps remote file results usable without summary, diff, or refresh snapshot requests', async () => {

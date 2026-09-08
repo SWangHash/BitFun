@@ -3,6 +3,8 @@
  *
  * Tab rules:
  *   - Every explicitly opened scene stays in openTabs until the user closes it.
+ *     Session scenes additionally require a selected session; the shell-owned
+ *     sessionSceneLifecycle retires their tabs when that resource disappears.
  *   - Pinned tabs stay ahead of regular tabs; closeability is an independent
  *     scene-definition capability.
  *   - The app starts with no tabs. SceneViewport owns the tabless welcome

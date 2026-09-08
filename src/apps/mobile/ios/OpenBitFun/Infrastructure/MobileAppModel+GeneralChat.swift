@@ -131,6 +131,7 @@ extension MobileAppModel {
     }
 
     func apply(coreState state: GeneralChatUiState) {
+        if designGalleryPreview { return }
         generalConfigured = state.configured
         generalConfigBaseURL = state.config.baseUrl
         generalConfigModel = state.config.model
@@ -220,7 +221,8 @@ extension MobileAppModel {
             streaming: false,
             typing: false,
             pending: false,
-            showRetry: false
+            showRetry: false,
+            error: nil
         )
     }
 
@@ -238,7 +240,8 @@ extension MobileAppModel {
             streaming: row.streaming,
             typing: row.typing,
             pending: row.pending,
-            showRetry: row.showRetry
+            showRetry: row.showRetry,
+            error: row.error
         )
     }
 

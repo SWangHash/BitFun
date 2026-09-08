@@ -192,7 +192,7 @@
     padding: var(--openbitfun-space-6);
 
     > svg {
-      color: var(--openbitfun-color-status-warning-content);
+      color: var(--openbitfun-color-status-warning-emphasis);
     }
 
     p {
@@ -229,7 +229,7 @@
 
     svg {
       flex: 0 0 auto;
-      color: var(--openbitfun-color-status-success-content);
+      color: var(--openbitfun-color-status-success-emphasis);
     }
   }
 
@@ -305,7 +305,7 @@
     svg {
       flex: 0 0 auto;
       margin-top: 2px;
-      color: var(--openbitfun-color-status-warning-content);
+      color: var(--openbitfun-color-status-warning-emphasis);
     }
 
     strong {
@@ -336,8 +336,8 @@
     }
 
     &--update {
-      border-bottom-color: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 28%, var(--openbitfun-color-border-subtle));
-      background: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 12%, var(--openbitfun-color-surface-subtle));
+      border-bottom-color: var(--openbitfun-color-status-warning-border);
+      background: var(--openbitfun-color-status-warning-surface);
     }
   }
 
@@ -411,7 +411,7 @@
     color: var(--openbitfun-color-content-secondary);
 
     svg {
-      color: var(--openbitfun-color-status-success-content);
+      color: var(--openbitfun-color-status-success-emphasis);
     }
   }
 
@@ -523,7 +523,7 @@
 
     svg {
       flex: 0 0 auto;
-      color: var(--openbitfun-color-status-warning-content);
+      color: var(--openbitfun-color-status-warning-emphasis);
     }
 
     p {

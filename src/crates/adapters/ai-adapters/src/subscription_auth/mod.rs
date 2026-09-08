@@ -10,6 +10,7 @@
 
 mod antigravity;
 mod codex;
+mod device_flow;
 mod grok;
 mod hermes;
 mod jwt;
@@ -1020,6 +1021,49 @@ mod tests {
 
     fn test_session_id() -> String {
         uuid::Uuid::new_v4().to_string()
+    }
+
+    #[tokio::test]
+    async fn legacy_codex_and_grok_expiry_is_bounded_for_client_caches() {
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+        let _guard = test_lock().lock().await;
+        store::set_store_path_for_test(temp_store_path());
+        let now = chrono::Utc::now().timestamp();
+        let actual_expiry = now + 20 * 60;
+        let body = URL_SAFE_NO_PAD.encode(
+            serde_json::to_vec(&serde_json::json!({
+                "exp": actual_expiry, "chatgpt_account_id": "test-account"
+            }))
+            .unwrap(),
+        );
+        let token = format!("e30.{body}.test");
+        for provider in [SubscriptionProvider::Codex, SubscriptionProvider::Grok] {
+            // Shape written by older builds: metadata assumes a one-hour
+            // lifetime even though the actual JWT expires after twenty minutes.
+            let credential: StoredCredential = serde_json::from_value(serde_json::json!({
+                "type": "oauth", "access": token, "refresh": "unused-synthetic-refresh",
+                "expires": (now + 3600) * 1000
+            }))
+            .unwrap();
+            store::upsert(provider.key(), credential).await.unwrap();
+            let revision = store::load_entry_with_revision(provider.key())
+                .await
+                .unwrap()
+                .revision;
+            let resolved = resolve_with_options(provider, &SubscriptionHttpOptions::default())
+                .await
+                .unwrap();
+            assert_eq!(resolved.expires_at, Some(actual_expiry));
+            assert_eq!(resolved.api_key, token);
+            // No rotation or mutation is needed for a still-usable legacy JWT.
+            assert_eq!(
+                store::load_entry_with_revision(provider.key())
+                    .await
+                    .unwrap()
+                    .revision,
+                revision
+            );
+        }
     }
 
     #[test]

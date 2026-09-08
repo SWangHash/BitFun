@@ -338,9 +338,9 @@
     width: 16px;
     height: 16px;
     padding: 0;
-    border: 1px solid color-mix(in srgb, var(--openbitfun-color-status-success-content) 36%, var(--openbitfun-color-border-subtle));
+    border: 1px solid var(--openbitfun-color-status-success-border);
     border-radius: 999px;
-    background: color-mix(in srgb, var(--openbitfun-color-status-success-content) 12%, var(--openbitfun-color-action-quiet-hover));
+    background: color-mix(in srgb, var(--openbitfun-color-status-success-emphasis) 12%, var(--openbitfun-color-action-quiet-hover));
     color: color-mix(in srgb, var(--openbitfun-color-status-success-content) 76%, var(--openbitfun-color-content-primary));
     overflow: hidden;
     // Kill the inline strut so the 16x16 circle stays optically centered against the title.
@@ -378,9 +378,9 @@
     gap: 3px;
     height: 14px;
     padding: 0 5px;
-    border: 1px solid color-mix(in srgb, var(--openbitfun-color-status-warning-content) 35%, var(--openbitfun-color-border-subtle));
+    border: 1px solid var(--openbitfun-color-status-warning-border);
     border-radius: 999px;
-    background: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 14%, transparent);
+    background: color-mix(in srgb, var(--openbitfun-color-status-warning-emphasis) 14%, transparent);
     color: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 80%, var(--openbitfun-color-content-primary));
     font-size: var(--openbitfun-type-micro-font-size);
     font-weight: var(--openbitfun-type-label-selected-font-weight);
@@ -588,7 +588,7 @@
 
     &.confirm:hover {
       color: var(--openbitfun-color-status-success-content);
-      background: color-mix(in srgb, var(--openbitfun-color-status-success-content) 12%, transparent);
+      background: var(--openbitfun-color-status-success-surface);
     }
 
     &.cancel:hover {
@@ -640,13 +640,13 @@
     margin-left: auto;
 
     &.is-healthy {
-      background: var(--openbitfun-color-status-success-content);
-      box-shadow: 0 0 4px color-mix(in srgb, var(--openbitfun-color-status-success-content) 40%, transparent);
+      background: var(--openbitfun-color-status-success-emphasis);
+      box-shadow: 0 0 4px color-mix(in srgb, var(--openbitfun-color-status-success-emphasis) 40%, transparent);
     }
 
     &.is-error {
-      background: var(--openbitfun-color-status-warning-content);
-      box-shadow: 0 0 4px color-mix(in srgb, var(--openbitfun-color-status-warning-content) 40%, transparent);
+      background: var(--openbitfun-color-status-warning-emphasis);
+      box-shadow: 0 0 4px color-mix(in srgb, var(--openbitfun-color-status-warning-emphasis) 40%, transparent);
     }
   }
 

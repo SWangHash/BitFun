@@ -17,6 +17,7 @@ use crate::external_sources::{
 };
 use crate::infrastructure::get_path_manager_arc;
 use crate::util::errors::{OpenBitFunError, OpenBitFunResult};
+use futures::{stream, StreamExt};
 use log::{debug, error, warn};
 use openbitfun_agent_runtime::skills::{
     annotate_shadowed_skills, build_mode_skill_infos, filter_candidates_for_mode,
@@ -40,7 +41,7 @@ use openbitfun_services_core::bounded_fs::{read_bounded_text, BoundedTextRead};
 use openbitfun_services_core::workspace_text::read_workspace_relative_text_bounded;
 #[cfg(feature = "external-sources")]
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tokio::fs;
@@ -56,6 +57,9 @@ const MAX_OPENCODE_CONFIGURED_POLICY_BYTES: usize = 64 * 1024;
 #[cfg(feature = "external-sources")]
 const OPENCODE_CONFIGURED_PRIORITY_BAND: usize =
     MAX_OPENCODE_CONFIGURED_SKILL_ROOTS * MAX_OPENCODE_CONFIGURED_SKILLS_PER_ROOT;
+
+// Bound remote IO across the whole scan, including workspaces with many roots.
+const REMOTE_SKILL_SCAN_CONCURRENCY: usize = 4;
 
 const DEEP_RESEARCH_AGENT_ID: &str = "DeepResearch";
 const DEEP_RESEARCH_SKILL_NAME: &str = "deep-research";
@@ -89,6 +93,7 @@ mod implicit_invocation_policy_tests {
             source_slot: "codex".to_string(),
             source_id: "codex".to_string(),
             source_label: "Codex".to_string(),
+            installation_source: None,
             dir_name: name.to_string(),
             is_builtin: false,
             group_key: None,
@@ -182,6 +187,49 @@ async fn local_source_path_is_cacheable(path: &Path) -> bool {
     }
 }
 
+// The skills installer records repository provenance separately from SKILL.md.
+// Read existing lock versions without rewriting them; a missing origin must
+// never turn a name-only match into an installed marketplace package.
+fn parse_skill_installation_sources(content: &str) -> HashMap<String, String> {
+    let lock: serde_json::Value = match serde_json::from_str(content) {
+        Ok(lock) => lock,
+        Err(error) => {
+            warn!("Ignoring invalid skill installation provenance: {}", error);
+            return HashMap::new();
+        }
+    };
+    lock.get("skills")
+        .and_then(serde_json::Value::as_object)
+        .into_iter()
+        .flatten()
+        .filter_map(|(name, entry)| {
+            if entry.get("sourceType").and_then(serde_json::Value::as_str) != Some("github") {
+                return None;
+            }
+            let source = entry.get("source")?.as_str()?.trim();
+            (!source.is_empty()).then(|| (name.clone(), source.to_string()))
+        })
+        .collect()
+}
+
+fn skill_installation_lock_path(entry: &SkillRootEntry) -> Option<PathBuf> {
+    match (entry.level, entry.slot) {
+        (SkillLocation::Project, "agents") => {
+            Some(entry.path.parent()?.parent()?.join("skills-lock.json"))
+        }
+        (SkillLocation::User, "home.agents") => {
+            let default_path = entry.path.parent()?.join(".skill-lock.json");
+            Some(
+                std::env::var_os("XDG_STATE_HOME")
+                    .filter(|path| !path.is_empty())
+                    .map(|path| PathBuf::from(path).join("skills/.skill-lock.json"))
+                    .unwrap_or(default_path),
+            )
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod local_skill_scan_tests {
     use super::{SkillLocation, SkillRegistry, SkillRootEntry};
@@ -206,6 +254,66 @@ mod local_skill_scan_tests {
             source_label: "Test",
             priority: 0,
             is_builtin: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn installation_source_uses_only_the_matching_project_lock_and_existing_skills() {
+        let temp = tempfile::tempdir().unwrap();
+        let skills_path = temp.path().join(".agents/skills");
+        write_skill(&skills_path.join("shared-review"));
+        fs::write(temp.path().join("skills-lock.json"), r#"{
+            "version": 1, "skills": {
+                "shared-review": {"source":"first/skills", "sourceType":"github", "computedHash":"old"},
+                "deleted": {"source":"other/skills", "sourceType":"github"}
+            }
+        }"#).unwrap();
+        let mut entry = test_root(&skills_path);
+        entry.level = SkillLocation::Project;
+        entry.slot = "agents";
+        let scanned = SkillRegistry::scan_skills_in_dir(&entry).await;
+        assert_eq!(scanned.len(), 1);
+        assert_eq!(
+            scanned[0].info.installation_source.as_deref(),
+            Some("first/skills")
+        );
+
+        entry.slot = "claude";
+        assert!(SkillRegistry::scan_skills_in_dir(&entry).await[0]
+            .info
+            .installation_source
+            .is_none());
+        entry.slot = "agents";
+        fs::write(
+            temp.path().join("skills-lock.json"),
+            "invalid existing user data",
+        )
+        .unwrap();
+        let scanned = SkillRegistry::scan_skills_in_dir(&entry).await;
+        assert_eq!(scanned.len(), 1);
+        assert!(scanned[0].info.installation_source.is_none());
+        assert_eq!(
+            fs::read_to_string(temp.path().join("skills-lock.json")).unwrap(),
+            "invalid existing user data"
+        );
+    }
+
+    #[test]
+    fn installation_source_accepts_existing_global_lock_versions_without_name_fallback() {
+        for version in [1, 2, 3] {
+            let content = format!(
+                r#"{{"version":{version},"skills":{{
+                "eli5":{{"source":"first/skills","sourceType":"github","unknown":true}},
+                "local":{{"source":"first/skills","sourceType":"local"}},
+                "missing":{{"sourceType":"github"}}
+            }}}}"#
+            );
+            let sources = super::parse_skill_installation_sources(&content);
+            assert_eq!(sources.len(), 1);
+            assert_eq!(
+                sources.get("eli5").map(String::as_str),
+                Some("first/skills")
+            );
         }
     }
 
@@ -790,6 +898,25 @@ impl SkillRegistry {
             }
         };
         let mut cacheable = root_cacheable;
+        let installation_sources = if let Some(lock_path) = skill_installation_lock_path(entry) {
+            cacheable &= local_source_path_is_cacheable(&lock_path).await;
+            match fs::read_to_string(&lock_path).await {
+                Ok(content) => parse_skill_installation_sources(&content),
+                Err(error) => {
+                    if error.kind() != std::io::ErrorKind::NotFound {
+                        warn!(
+                            "Failed to read skill installation provenance {}: {}",
+                            lock_path.display(),
+                            error
+                        );
+                        cacheable = false;
+                    }
+                    HashMap::new()
+                }
+            }
+        } else {
+            HashMap::new()
+        };
 
         loop {
             let item = match read_dir.next_entry().await {
@@ -868,7 +995,7 @@ impl SkillRegistry {
                             SkillLocation::User => USER_SKILL_KEY_PREFIX,
                             SkillLocation::Project => PROJECT_SKILL_KEY_PREFIX,
                         };
-                        skills.push(SkillCandidate::from_data(
+                        let mut candidate = SkillCandidate::from_data(
                             skill_data,
                             entry.slot,
                             entry.source_id,
@@ -876,7 +1003,10 @@ impl SkillRegistry {
                             key_prefix,
                             entry.priority,
                             entry.is_builtin,
-                        ));
+                        );
+                        candidate.info.installation_source =
+                            installation_sources.get(&candidate.info.name).cloned();
+                        skills.push(candidate);
                     }
                     Err(error) => {
                         error!("Failed to parse SKILL.md in {}: {}", path.display(), error);
@@ -1250,75 +1380,116 @@ impl SkillRegistry {
         fs: &dyn WorkspaceFileSystem,
         remote_root: &str,
     ) -> Vec<SkillCandidate> {
-        let mut roots = Vec::new();
         let root = remote_root.trim_end_matches('/');
-        for (priority, spec) in PROJECT_SKILL_ROOTS.iter().enumerate() {
-            let path = format!("{}/{}/{}", root, spec.parent, spec.subdir);
-            if fs.is_dir(&path).await.unwrap_or(false) {
-                roots.push(RemoteSkillRootEntry {
+        // Finish directory discovery before scanning files, so the two bounded
+        // stages cannot multiply the number of simultaneous SFTP operations.
+        // `buffered` preserves source precedence and sorted directory order even
+        // when responses complete in a different order.
+        let root_scans = PROJECT_SKILL_ROOTS
+            .iter()
+            .enumerate()
+            .map(|(priority, spec)| async move {
+                let path = format!("{}/{}/{}", root, spec.parent, spec.subdir);
+                let entry = RemoteSkillRootEntry {
                     path,
                     slot: spec.slot,
                     source_id: spec.source_id,
                     source_label: spec.source_label,
                     priority,
-                });
-            }
-        }
-
-        let mut skills = Vec::new();
-        for entry in roots {
-            let mut entries = match fs.read_dir(&entry.path).await {
-                Ok(value) => value,
-                Err(_) => continue,
-            };
-            sort_remote_dir_entries(&mut entries);
-
-            for item in entries {
-                if !item.is_dir || item.is_symlink {
-                    continue;
-                }
-
-                let Some(dir_name) = normalize_remote_skill_dir_name(&item.path) else {
-                    continue;
                 };
-                let skill_md_path = format!("{}/SKILL.md", item.path.trim_end_matches('/'));
-                if !fs.is_file(&skill_md_path).await.unwrap_or(false) {
-                    continue;
-                }
+                let mut items = if fs.is_dir(&entry.path).await.unwrap_or(false) {
+                    fs.read_dir(&entry.path).await.unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
+                sort_remote_dir_entries(&mut items);
+                (entry, items)
+            })
+            .collect::<Vec<_>>();
+        let roots = stream::iter(root_scans)
+            .buffered(REMOTE_SKILL_SCAN_CONCURRENCY)
+            .collect::<Vec<_>>()
+            .await;
 
-                match fs.read_file_text(&skill_md_path).await {
-                    Ok(content) => match Self::parse_skill_markdown(
+        let installation_sources = if roots
+            .iter()
+            .any(|(entry, items)| entry.slot == "agents" && !items.is_empty())
+        {
+            match fs.read_file_text(&format!("{root}/skills-lock.json")).await {
+                Ok(content) => parse_skill_installation_sources(&content),
+                Err(error) => {
+                    debug!(
+                        "Remote skill installation provenance unavailable for {}: {}",
+                        root, error
+                    );
+                    HashMap::new()
+                }
+            }
+        } else {
+            HashMap::new()
+        };
+
+        let directories = roots.iter().flat_map(|(entry, items)| {
+            items
+                .iter()
+                .filter(|item| item.is_dir && !item.is_symlink)
+                .map(move |item| (entry, item))
+        });
+        let skill_scans = directories
+            .map(|(entry, item)| {
+                let installation_sources = &installation_sources;
+                async move {
+                    let dir_name = normalize_remote_skill_dir_name(&item.path)?;
+                    let skill_md_path = format!("{}/SKILL.md", item.path.trim_end_matches('/'));
+                    if !fs.is_file(&skill_md_path).await.unwrap_or(false) {
+                        return None;
+                    }
+                    let content = match fs.read_file_text(&skill_md_path).await {
+                        Ok(content) => content,
+                        Err(error) => {
+                            debug!("Failed to read {}: {}", skill_md_path, error);
+                            return None;
+                        }
+                    };
+                    let mut skill_data = match Self::parse_skill_markdown(
                         item.path.clone(),
                         &content,
                         SkillLocation::Project,
                         false,
                         entry.slot,
                     ) {
-                        Ok(mut skill_data) => {
-                            Self::apply_remote_openai_policy(&mut skill_data, fs, &item.path).await;
-                            skill_data.dir_name = dir_name;
-                            skills.push(SkillCandidate::from_data(
-                                skill_data,
-                                entry.slot,
-                                entry.source_id,
-                                entry.source_label,
-                                PROJECT_SKILL_KEY_PREFIX,
-                                entry.priority,
-                                false,
-                            ));
-                        }
+                        Ok(data) => data,
                         Err(error) => {
                             error!("Failed to parse SKILL.md in {}: {}", item.path, error);
+                            return None;
                         }
-                    },
-                    Err(error) => {
-                        debug!("Failed to read {}: {}", skill_md_path, error);
+                    };
+                    Self::apply_remote_openai_policy(&mut skill_data, fs, &item.path).await;
+                    skill_data.dir_name = dir_name;
+                    let mut candidate = SkillCandidate::from_data(
+                        skill_data,
+                        entry.slot,
+                        entry.source_id,
+                        entry.source_label,
+                        PROJECT_SKILL_KEY_PREFIX,
+                        entry.priority,
+                        false,
+                    );
+                    if entry.slot == "agents" {
+                        candidate.info.installation_source =
+                            installation_sources.get(&candidate.info.name).cloned();
                     }
+                    Some(candidate)
                 }
-            }
-        }
-
-        skills
+            })
+            .collect::<Vec<_>>();
+        stream::iter(skill_scans)
+            .buffered(REMOTE_SKILL_SCAN_CONCURRENCY)
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .flatten()
+            .collect()
     }
 
     async fn scan_skill_candidates_for_remote_workspace(
@@ -1326,8 +1497,11 @@ impl SkillRegistry {
         fs: &dyn WorkspaceFileSystem,
         remote_root: &str,
     ) -> Vec<SkillCandidate> {
-        let mut skills = self.scan_skill_candidates_for_workspace(None).await;
-        skills.extend(Self::scan_remote_project_skills(fs, remote_root).await);
+        let (mut skills, project_skills) = tokio::join!(
+            self.scan_skill_candidates_for_workspace(None),
+            Self::scan_remote_project_skills(fs, remote_root),
+        );
+        skills.extend(project_skills);
         skills
     }
 
@@ -2216,5 +2390,204 @@ mod opencode_configured_skill_tests {
     #[cfg(windows)]
     fn create_dir_symlink(target: &Path, link: &Path) -> bool {
         std::os::windows::fs::symlink_dir(target, link).is_ok()
+    }
+}
+
+#[cfg(test)]
+mod remote_scan_tests {
+    use super::SkillRegistry;
+    use crate::agentic::workspace::{WorkspaceDirEntry, WorkspaceFileSystem};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::{Duration, Instant};
+
+    #[derive(Default)]
+    struct DelayedFs {
+        active: AtomicUsize,
+        peak: AtomicUsize,
+        calls: AtomicUsize,
+        installation_lock: Option<String>,
+    }
+
+    impl DelayedFs {
+        async fn round_trip(&self) {
+            let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+            self.peak.fetch_max(active, Ordering::SeqCst);
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            self.active.fetch_sub(1, Ordering::SeqCst);
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl WorkspaceFileSystem for DelayedFs {
+        async fn read_file(&self, path: &str) -> anyhow::Result<Vec<u8>> {
+            Ok(self.read_file_text(path).await?.into_bytes())
+        }
+        async fn read_file_text(&self, path: &str) -> anyhow::Result<String> {
+            self.round_trip().await;
+            if path.ends_with("skills-lock.json") {
+                assert_eq!(path, "/remote/project/skills-lock.json");
+                return self
+                    .installation_lock
+                    .clone()
+                    .ok_or_else(|| anyhow::anyhow!("missing lock"));
+            }
+            if path.ends_with("openai.yaml") {
+                return Ok("policy:\n  allow_implicit_invocation: false\n".into());
+            }
+            let name = path.rsplit('/').nth(1).unwrap();
+            Ok(format!(
+                "---\nname: {name}\ndescription: {path}\n---\nBody\n"
+            ))
+        }
+        async fn write_file(&self, _: &str, _: &[u8]) -> anyhow::Result<()> {
+            anyhow::bail!("read-only fixture")
+        }
+        async fn exists(&self, path: &str) -> anyhow::Result<bool> {
+            self.is_file(path).await
+        }
+        async fn is_file(&self, path: &str) -> anyhow::Result<bool> {
+            self.round_trip().await;
+            Ok(path.ends_with("SKILL.md") || path.ends_with("skill-00/agents/openai.yaml"))
+        }
+        async fn is_dir(&self, path: &str) -> anyhow::Result<bool> {
+            self.round_trip().await;
+            Ok(path.contains("/.openbitfun/")
+                || path.contains("/.codex/")
+                || (self.installation_lock.is_some() && path.contains("/.agents/")))
+        }
+        async fn read_dir(&self, path: &str) -> anyhow::Result<Vec<WorkspaceDirEntry>> {
+            self.round_trip().await;
+            Ok((0..13)
+                .rev()
+                .map(|index| WorkspaceDirEntry {
+                    name: format!("skill-{index:02}"),
+                    path: format!("{path}/skill-{index:02}"),
+                    is_dir: true,
+                    is_symlink: index == 12,
+                    modified: None,
+                })
+                .collect())
+        }
+    }
+
+    #[tokio::test]
+    async fn remote_scan_reads_provenance_from_the_remote_project_only() {
+        let mut fs = DelayedFs {
+            installation_lock: Some(
+                r#"{"version":1,"skills":{
+                "skill-00":{"source":"remote/skills","sourceType":"github"},
+                "deleted":{"source":"missing/skills","sourceType":"github"}
+            }}"#
+                .into(),
+            ),
+            ..Default::default()
+        };
+        let skills = SkillRegistry::scan_remote_project_skills(&fs, "/remote/project/").await;
+        assert_eq!(skills.len(), 36);
+        let installed = skills
+            .iter()
+            .filter(|skill| skill.info.installation_source.is_some())
+            .collect::<Vec<_>>();
+        assert_eq!(installed.len(), 1);
+        assert_eq!(installed[0].info.source_slot, "agents");
+        assert_eq!(installed[0].info.name, "skill-00");
+        assert_eq!(
+            installed[0].info.installation_source.as_deref(),
+            Some("remote/skills")
+        );
+
+        fs.installation_lock = Some("invalid remote lock".into());
+        let skills = SkillRegistry::scan_remote_project_skills(&fs, "/remote/project/").await;
+        assert_eq!(skills.len(), 36);
+        assert!(skills
+            .iter()
+            .all(|skill| skill.info.installation_source.is_none()));
+    }
+
+    #[tokio::test]
+    async fn remote_scan_preserves_order_and_policy_with_bounded_io() {
+        let fs = DelayedFs::default();
+        let start = Instant::now();
+        let skills = SkillRegistry::scan_remote_project_skills(&fs, "/remote/project/").await;
+        eprintln!(
+            "remote scan: {:?}, {} logical IO calls, peak {}",
+            start.elapsed(),
+            fs.calls.load(Ordering::SeqCst),
+            fs.peak.load(Ordering::SeqCst)
+        );
+        assert_eq!(skills.len(), 24);
+        for group in skills.chunks(12) {
+            assert_eq!(
+                group
+                    .iter()
+                    .map(|skill| skill.info.name.clone())
+                    .collect::<Vec<_>>(),
+                (0..12)
+                    .map(|index| format!("skill-{index:02}"))
+                    .collect::<Vec<_>>()
+            );
+            assert!(!group[0].info.allow_implicit_invocation);
+            assert!(group[1].info.allow_implicit_invocation);
+        }
+        assert!(skills[0].priority < skills[12].priority);
+        assert_eq!(fs.calls.load(Ordering::SeqCst), 82);
+        assert_eq!(fs.active.load(Ordering::SeqCst), 0);
+        assert!(fs.peak.load(Ordering::SeqCst) > 1);
+        assert!(fs.peak.load(Ordering::SeqCst) <= super::REMOTE_SKILL_SCAN_CONCURRENCY);
+
+        // The same project catalog on disk must retain the remote scan's source
+        // precedence and invocation policy, without involving user-global skills.
+        let local_root = tempfile::tempdir().unwrap();
+        for parent in [".openbitfun", ".codex"] {
+            for index in 0..12 {
+                let name = format!("skill-{index:02}");
+                let dir = local_root.path().join(parent).join("skills").join(&name);
+                std::fs::create_dir_all(&dir).unwrap();
+                std::fs::write(
+                    dir.join("SKILL.md"),
+                    format!("---\nname: {name}\ndescription: fixture\n---\nBody\n"),
+                )
+                .unwrap();
+                if index == 0 {
+                    std::fs::create_dir_all(dir.join("agents")).unwrap();
+                    std::fs::write(
+                        dir.join("agents/openai.yaml"),
+                        "policy:\n  allow_implicit_invocation: false\n",
+                    )
+                    .unwrap();
+                }
+            }
+        }
+        let start = Instant::now();
+        let mut local = Vec::new();
+        for entry in SkillRegistry::get_project_skill_roots(local_root.path()) {
+            local.extend(SkillRegistry::scan_skills_in_dir(&entry).await);
+        }
+        eprintln!(
+            "local project scan: {:?}, {} skills",
+            start.elapsed(),
+            local.len()
+        );
+        let catalog = |candidates: Vec<openbitfun_agent_runtime::skills::SkillCandidate>| {
+            candidates
+                .into_iter()
+                .map(|candidate| {
+                    (
+                        candidate.info.key,
+                        candidate.info.name,
+                        candidate.info.allow_implicit_invocation,
+                        candidate.priority,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        // Local directory enumeration is sorted by the shared resolver later.
+        local.sort_by(|a, b| {
+            a.priority
+                .cmp(&b.priority)
+                .then(a.info.name.cmp(&b.info.name))
+        });
+        assert_eq!(catalog(local), catalog(skills));
     }
 }

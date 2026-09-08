@@ -174,6 +174,10 @@ function createChromeThemeTokens(
   const chrome = palette.colors.chrome;
   if (!chrome) return undefined;
   const values = createThemeTokenValues(palette);
+  const statusTheme = themes[chrome.type ?? palette.type];
+  for (const name of Object.keys(statusTheme) as ThemeTokenName[]) {
+    if (name.startsWith('color.status.')) values[name] = statusTheme[name];
+  }
   const scrollbar = chrome.scrollbar ?? palette.colors.scrollbar ?? {
     thumb: palette.type === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.15)',
     thumbHover: palette.type === 'dark' ? 'rgba(255, 255, 255, 0.24)' : 'rgba(0, 0, 0, 0.3)',

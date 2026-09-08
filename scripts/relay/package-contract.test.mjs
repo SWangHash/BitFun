@@ -35,7 +35,7 @@ test('formal and nightly releases gate publication on Linux binaries', () => {
     assert.match(workflow, /openbitfun-cli-\*\.tar\.gz/);
     assert.match(workflow, /linux-release-assets\/\*\.tar\.gz\.sig/);
     assert.match(workflow, /linux-release-assets\/\*\.tar\.gz\.sha256\.sig/);
-    assert.match(workflow, /\$\{cli_url\}\.sha256\.sig/);
+    assert.match(workflow, /\$\{(?:cli|archive)_url\}\.sha256\.sig/);
     assert.match(workflow, /linux-binaries\.json/);
   }
 

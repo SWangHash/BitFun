@@ -69,6 +69,7 @@ import {
   type PendingLargePasteMap,
 } from '../store/sessionComposerStore';
 import { getActiveSurfaceScope } from '@/infrastructure/peer-device/deviceSurface';
+import { useAssistantBootstrap } from '@/app/hooks/useAssistantBootstrap';
 import {
   clearComposerForSubmission,
   failedSubmissionRecoveryTarget,
@@ -153,7 +154,7 @@ import {
 } from '@/infrastructure/config';
 import { useComputerUseEnabled } from '@/infrastructure/config/hooks/useComputerUseEnabled';
 import type { ToolPermissionConfig } from '@/infrastructure/config/types';
-import type { ModeSkillInfo } from '@/infrastructure/config/types';
+import { useResolvedModeSkills } from '../hooks/useResolvedModeSkills';
 import { SubagentAPI, type SubagentInfo } from '@/infrastructure/api/service-api/SubagentAPI';
 import MCPAPI, { type MCPPrompt, type MCPPromptMessage, type MCPServerInfo } from '@/infrastructure/api/service-api/MCPAPI';
 import {
@@ -1201,10 +1202,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const suppressNextUserDefaultModeApplicationRef = useRef(false);
 
   const openScene = useSceneStore(s => s.openScene);
-  const [resolvedModeSkills, setResolvedModeSkills] = useState<ModeSkillInfo[]>([]);
-  const [resolvedModeSkillsLoading, setResolvedModeSkillsLoading] = useState(false);
-  const [resolvedModeSkillsLoadFailed, setResolvedModeSkillsLoadFailed] = useState(false);
-  const [resolvedModeSkillsRequestVersion, setResolvedModeSkillsRequestVersion] = useState(0);
   const [subagentToolInfo, setSubagentToolInfo] = useState<SubagentInfo | null>(null);
   const [targetModeEnabledTools, setTargetModeEnabledTools] = useState<string[] | null>(null);
   const [targetModeToolsResolved, setTargetModeToolsResolved] = useState(false);
@@ -1212,11 +1209,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { computerUseEnabled } = useComputerUseEnabled();
 
   const setChatInputHeight = useChatInputState(state => state.setInputHeight);
-  const userInvocableSkills = useMemo(
-    // Management keeps the full catalog; invocation surfaces apply both runtime and author visibility.
-    () => resolvedModeSkills.filter(isSkillAvailableForUserInvocation),
-    [resolvedModeSkills]
-  );
 
   useEffect(() => {
     const store = FlowChatStore.getInstance();
@@ -1468,6 +1460,39 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }),
     [effectiveSendAgentType, isSubagentInputTarget, targetSkillToolAgents],
   );
+  const [slashCommandState, setSlashCommandState] = useState<{
+    isActive: boolean;
+    kind: 'actions' | 'all' | 'skills';
+    query: string;
+    selectedIndex: number;
+  }>({
+    isActive: false,
+    kind: 'all',
+    query: '',
+    selectedIndex: 0,
+  });
+  const {
+    skills: resolvedModeSkills,
+    loading: resolvedModeSkillsLoading,
+    hasLoaded: resolvedModeSkillsLoaded,
+    failed: resolvedModeSkillsLoadFailed,
+    retry: retryResolvedModeSkills,
+  } = useResolvedModeSkills({
+    enabled: isSceneActive && canUseSkillsForTarget && (
+      isModeDropdownOpen ||
+      (slashCommandState.isActive && (slashCommandState.kind === 'all' || slashCommandState.kind === 'skills'))
+    ),
+    surfaceEpoch: deviceSurfaceScope.epoch,
+    connectionId: sessionBoundRemoteConnectionId,
+    modeId: effectiveSendAgentType,
+    workspacePath: targetWorkspacePath,
+  });
+  const userInvocableSkills = useMemo(
+    // Management keeps the full catalog; invocation surfaces apply both runtime and author visibility.
+    () => resolvedModeSkills.filter(isSkillAvailableForUserInvocation),
+    [resolvedModeSkills]
+  );
+
   const quickSkillShortcuts = useMemo(
     () => canUseSkillsForTarget
       ? resolveChatInputQuickSkillShortcuts(resolvedModeSkills)
@@ -1681,17 +1706,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     startOffset: 0,
   });
   
-  const [slashCommandState, setSlashCommandState] = useState<{
-    isActive: boolean;
-    kind: 'actions' | 'all' | 'skills';
-    query: string;
-    selectedIndex: number;
-  }>({
-    isActive: false,
-    kind: 'all',
-    query: '',
-    selectedIndex: 0,
-  });
   const slashCommandPickerLayout = useAnchoredPopoverPosition({
     open: slashCommandState.isActive,
     anchorRef: mentionAnchorRef,
@@ -1825,6 +1839,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       selectedIndex: 0,
     });
   }, [deviceSurfaceScope.epoch, effectiveTargetSessionId, replaceContexts]);
+
+  const applyAssistantBootstrapDraft = useCallback((value: string) => {
+    dispatchInput({ type: 'SET_VALUE', payload: value });
+  }, [dispatchInput]);
+  useAssistantBootstrap(effectiveTargetSession, applyAssistantBootstrapDraft);
 
   useEffect(() => {
     let previousContexts = useContextStore.getState().contexts;
@@ -3000,61 +3019,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [modeState.dropdownOpen]);
-
-  const shouldLoadResolvedModeSkills = canUseSkillsForTarget && (
-    isModeDropdownOpen ||
-    (slashCommandState.isActive && (slashCommandState.kind === 'all' || slashCommandState.kind === 'skills'))
-  );
-  const skillResolutionModeId = effectiveSendAgentType;
-
-  useEffect(() => {
-    if (!shouldLoadResolvedModeSkills) {
-      setResolvedModeSkills([]);
-      setResolvedModeSkillsLoading(false);
-      setResolvedModeSkillsLoadFailed(false);
-      return;
-    }
-    let cancelled = false;
-    setResolvedModeSkillsLoading(true);
-    setResolvedModeSkillsLoadFailed(false);
-    (async () => {
-      try {
-        const list = await configAPI.getModeSkillConfigs({
-          modeId: skillResolutionModeId,
-          workspacePath: targetWorkspacePath || undefined,
-        });
-        if (!cancelled) {
-          setResolvedModeSkills(list);
-        }
-      } catch (err) {
-        log.error('Failed to load mode-resolved skills for chat input', {
-          err,
-          modeId: skillResolutionModeId,
-          workspacePath: targetWorkspacePath || undefined,
-        });
-        if (!cancelled) {
-          setResolvedModeSkills([]);
-          setResolvedModeSkillsLoadFailed(true);
-        }
-      } finally {
-        if (!cancelled) {
-          setResolvedModeSkillsLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    resolvedModeSkillsRequestVersion,
-    shouldLoadResolvedModeSkills,
-    skillResolutionModeId,
-    targetWorkspacePath,
-  ]);
-
-  const retryResolvedModeSkills = useCallback(() => {
-    setResolvedModeSkillsRequestVersion(version => version + 1);
-  }, []);
 
   React.useEffect(() => {
     if (!effectiveTargetSessionId || !sessionBoundWorkspacePath) {
@@ -6467,7 +6431,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                             open={activeBoostSubmenu === 'skills'}
                             onOpenChange={open => setBoostSubmenuOpen('skills', open)}
                           >
-                            {resolvedModeSkillsLoading ? (
+                            {resolvedModeSkillsLoading && !resolvedModeSkillsLoaded ? (
                               <div className="openbitfun-chat-input__boost-submenu-loading" data-openbitfun-component="chat-input" data-openbitfun-part="boostSubmenuState" data-openbitfun-state="loading">
                                 <Loader2 size={14} className="openbitfun-chat-input__boost-submenu-spinner" aria-hidden />
                                 <span>{t('chatInput.boostSkillsLoading')}</span>

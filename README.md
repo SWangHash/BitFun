@@ -1,169 +1,128 @@
-**English**  [中文](README.zh-CN.md)
+**English** · [中文](README.zh-CN.md)
 
 <div align="center">
 
-![OpenBitFun](./png/OpenBitFun_title.png)
-
-### A desktop AI agent that turns every task into an app you can open
-
-Writes code, produces documents, and drives the desktop — with Mini Apps, a Rust runtime, and a self-hostable device-sync server.
-
-[**⬇ Download for macOS · Windows · Linux**](https://github.com/GCWing/OpenBitFun/releases/latest) · [Verify downloads](./docs/verify-downloads.md)
-
-[Website](https://openbitfun.com/) · [Quick start](#first-run) · [Security](./SECURITY.md) · [Discussions](https://github.com/GCWing/OpenBitFun/discussions) · [Contributing](./CONTRIBUTING.md)
-
-[![GitHub release](https://img.shields.io/github/v/release/GCWing/OpenBitFun?style=flat-square&color=blue)](https://github.com/GCWing/OpenBitFun/releases)
-[![Downloads](https://img.shields.io/github/downloads/GCWing/OpenBitFun/total?style=flat-square&color=brightgreen)](https://github.com/GCWing/OpenBitFun/releases)
-[![Stars](https://img.shields.io/github/stars/GCWing/OpenBitFun?style=flat-square&color=yellow)](https://github.com/GCWing/OpenBitFun/stargazers)
-[![Core code: MIT](https://img.shields.io/badge/core_code-MIT-yellow?style=flat-square)](https://github.com/GCWing/OpenBitFun/blob/main/LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://github.com/GCWing/OpenBitFun/releases)
+![OpenBitFun](./png/openbitfun-wordmark.png)
 
 [![Trendshift](https://trendshift.io/api/badge/repositories/44672)](https://trendshift.io/repositories/44672)
 
+### Built to keep going.
+
+OpenBitFun is an open-source desktop workspace for AI agents. It brings together a fast, reliable **Rust Agent Runtime**, a powerful, flexible **Agent Harness**, and a polished **desktop experience** to make working with agents straightforward.
+
+Use AI to write code, fix bugs, research a topic, draft reports, create presentations, and build tools for your daily work. You can also create a specialist agent for motion comic production, visual design, or your own field, with a workflow tailored to your needs.
+
+**⭐ Star OpenBitFun to follow its progress and help others discover the project.**
+
+[Download](https://openbitfun.com/download) · [Mini App Marketplace](https://market.openbitfun.com/miniapp/) · [Contribute](./CONTRIBUTING.md)
+
+[![Website](https://img.shields.io/badge/Website-openbitfun.com-0b7285?style=flat-square)](https://openbitfun.com/)
+[![Core code: MIT](https://img.shields.io/badge/core_code-MIT-yellow?style=flat-square)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?style=flat-square)](https://openbitfun.com/download)
+
 </div>
 
-<!-- TODO: replace the screenshot below with a 20-30s demo GIF of a real task running end to end.
-     See scripts/record-demo.sh — this is the single highest-impact asset in this README. -->
+![The OpenBitFun desktop interface](./png/openbitfun-desktop.png)
 
----
+## Four modes for the way you work
 
-## Key features
+**The Agent Harness shapes how a task gets done.** It plans steps, manages context, calls tools, coordinates agents, and brings their results together. Choose the mode that fits the task:
 
-| Feature | What it does |
+![Four working modes: Minimal, Standard, Ultimate, and Creative](./png/openbitfun-harness-modes.png)
+
+| Mode | When to use it |
 | --- | --- |
-| **Agentic Mini Apps** | A task gets its own interface — chart, board, form, panel — with a conversation bound to that interface's live state |
-| **Self-hosted multi-device control** | Login, cross-device session sync, and controlling one device from another run through a relay you deploy. Zero-knowledge; no vendor cloud in the path |
-| **Coding** | Plan, edit, test, and commit inside real Git repositories. Agentic, planning and debugging Skills, Deep Review, long-horizon tasks |
-| **Office work** | Research, writing, presentations, meeting notes, reports |
-| **Desktop execution** | Browser, terminal, desktop applications, the filesystem, and remote workspaces |
-| **Four tiers of customization** | Custom Agents → MCP / Skills / Hooks → Mini Apps → source-level changes |
-| **Performance** | 98.67% average KV cache hit rate; flashgrep searches Chromium-scale trees ~36x faster |
-| **Cross-platform and model-agnostic** | Windows, macOS, and Linux. You choose what it runs on |
+| **Minimal** | **Quick collaboration.** Start with a clear goal. The agent acts directly, you give feedback, and you refine the work together. |
+| **Standard** | **Everyday tasks.** For work with several steps: plan the approach, work through it, and check the results. |
+| **Ultimate** | **Complex tasks.** Dig into demanding problems, divide the work among agents, and bring their results together. |
+| **Creative** | **Creation and customization.** Build Mini Apps or extend OpenBitFun's interface and capabilities to make the workspace your own. |
 
----
+## Your agent, across devices
 
-## Why OpenBitFun
+**Switch devices. Keep the task moving.** Start at your desktop, pick up the conversation on your phone, or use a browser to check progress, add instructions, and respond to approval requests. Work continues on the device running the task, wherever you connect from.
 
-**Agentic Mini Apps.** Most agents push every task through the same chat box. OpenBitFun builds the task its own interface instead — a chart, a board, a form, a panel — and binds a conversation to that interface's live state. You ask about what is on screen rather than re-describing it. Community builds already range from market dashboards to domain-specific tools.
+**On mobile, switch between layouts for one, two, or three screens.** Focus on the conversation with a single screen, then unfold your phone to view conversations and files side by side. The interface adapts as the screen layout changes.
 
-[Browse the public Mini Apps gallery →](https://market.openbitfun.com/miniapp/)
+**We're also building ways to connect from watches and glasses.** The device extension protocol lets us bring task updates and simple interactions to more wearables, extending collaboration from your desk to your wrist and beyond.
 
-**Self-hosted multi-device control.** Account login, cross-device session and settings sync, and controlling one signed-in device from another all run through a relay *you* deploy. Nothing is brokered by a vendor's cloud — the distinction that decides whether this is allowed inside a company network at all. The relay is zero-knowledge: clients derive keys locally, and the server only ever holds Argon2id hashes and AES-GCM-wrapped material.
+![OpenBitFun across a laptop, phone, watch, and glasses](./png/openbitfun-multi-device.png)
 
-**A runtime you can reshape.** Four continuous tiers, from a single Markdown file to forking the runtime: custom Agents → MCP / Skills / Codex-compatible Hooks → Mini Apps → source-level changes. You extend OpenBitFun using OpenBitFun.
+<details>
+<summary>Connection and deployment details</summary>
 
-**KV cache that actually hits.** Agent cost is dominated not by generated tokens but by context re-sent every turn, and a single timestamp or reordered tool list invalidates the cache from that byte onward. Prompt assembly is byte-stable across turns: **98.67%** average cache hit rate over a SWE-Bench-Pro run.
+Use SSH to work on a remote host, through a jump host, or inside a container, with files, commands, and agent execution in the target environment. The desktop app and CLI share core execution capabilities; mobile clients and messaging bots offer more ways to control tasks.
 
-**flashgrep.** An agent re-searches the same repository dozens to hundreds of times per task, and cold traversal on every tool call can cost more than inference itself. A resident cross-turn index cuts search time by up to **94.6%** on Chromium-scale trees — roughly **36x** on average.
+Account login, synchronization, and control between devices on the same account run through a [Relay server you deploy](./src/apps/relay-server/README.md). See [Remote Connect](./docs/interactive-capabilities/capabilities/feature.remote-connect.md) and [remote workspaces](./docs/features/remote-workspaces.md) for connection options.
 
----
+</details>
 
-## Install
+## Turn everyday needs into useful apps
 
-**Download a build** — grab the latest installer from [Releases](https://github.com/GCWing/OpenBitFun/releases/latest), install it, configure your model, and you are ready to go.
+Build a Git insights panel for a repository, a workspace for presentations, or a form that brings routine actions together. **Mini Apps turn specific needs into tools you can use.**
 
-**Or run from source:**
+Describe what you need and let the agent build it. Each Mini App pairs a dedicated interface with an agent conversation, so you can use the app for everyday work and keep improving it through chat.
+
+Install and reuse the apps you build, or explore the [Mini App Marketplace](https://market.openbitfun.com/miniapp/) for tools that fit your work.
+
+## Extend OpenBitFun with OpenBitFun
+
+**Customize the roles, tools, interface, and source code.** Start with an agent that fits your work, then extend the workspace around it:
+
+- **Build a specialist agent.** Choose a model, define its role, and equip it with the tools and workflows it needs for motion comic production, visual design, code review, or your own field.
+- **Connect tools and workflows.** Connect tools through MCP, turn repeatable processes into Skills, and use Hooks to customize how tasks run.
+- **Change the interface and source.** Install [skins](https://market.openbitfun.com/skin/) for a new look, or modify the UI, tools, and runtime source to build your own version of OpenBitFun.
+
+**You can ask OpenBitFun's Code Agent to modify and extend OpenBitFun itself.**
+
+Learn more about [agent management](./docs/interactive-capabilities/capabilities/feature.agents.md), [Hooks and compatibility](./docs/features/agent-hooks.md), and the [product architecture](./docs/architecture/product-architecture.md).
+
+## Built for sustained work
+
+The Rust Agent Runtime manages session state, context, and tool execution. Persistent sessions, interruption recovery, long-term memory, and support for extended tasks help keep work moving. Context compression and cache reuse help control resource consumption over longer runs.
+
+In this **DeepSWE v1.1** evaluation, OpenBitFun achieved:
+
+- **GLM-5.3-Flash**: **64.6%** pass rate, **42.9 minutes** median runtime (P50).
+- **DeepSeek-V4-Flash**: **56.6%** pass rate, **19.6 minutes** median runtime (P50).
+
+![DeepSWE v1.1 comparison: pass rate, runtime P50, and token P50](./png/openbitfun-deepswe-v1.1.png)
+
+## More to explore
+
+**These are just some of OpenBitFun's features.** Explore more tools, workflows, and extensions as you put it to work on your own tasks.
+
+![A selection of OpenBitFun's features](./png/openbitfun-feature-wall.jpg)
+
+## Where we're headed
+
+OpenBitFun is still evolving. Here are three directions we want to explore:
+
+- **Lights-Out Factory**: Plan and design during the day, let tasks continue on a server, and come back the next morning to review the results.
+- **Infinite Radius**: Extend from desktops and phones to wearables and embedded devices, so work can continue in more places.
+- **App Evolution**: Enable more people to shape software, from personal tools to versions tailored to a profession or industry.
+
+Getting there means making long-running tasks more reliable, the runtime more efficient, and the desktop experience smoother.
+
+## Build with it. Help shape it.
+
+**Star OpenBitFun to follow along. Share what you build, offer feedback, or contribute code to help shape what comes next.**
+
+Share your use cases and experience, contribute agents, Skills, Mini Apps, or skins, or help improve the docs, interface, and runtime. Ideas and questions are welcome in this repository's Issues and Discussions. See the [contribution guide](./CONTRIBUTING.md) for the development workflow.
+
+<details>
+<summary>Download, setup, and running from source</summary>
+
+Get the Windows, macOS, or Linux package from the [official download page](https://openbitfun.com/download). Install it, configure a model, and open a workspace to get started. See the [user guide](https://playbook.openbitfun.com) for usage instructions and [download verification](./docs/verify-downloads.md) for package signature checks.
+
+To run from source, install [Node.js](https://nodejs.org/) 22.12+, [pnpm](https://pnpm.io/) 10.15.0, the [Rust toolchain](https://rustup.rs/), and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). Clone the repository, then run:
 
 ```bash
 pnpm install
 pnpm run desktop:dev
 ```
 
-Prerequisites: [Node.js](https://nodejs.org/) 22.12+ (LTS recommended), [pnpm](https://pnpm.io/) 10.15.0 via Corepack, the [Rust toolchain](https://rustup.rs/), and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). More detail in [CONTRIBUTING.md](./CONTRIBUTING.md).
+Desktop development supports frontend hot reload and automatic Rust rebuilds. See the [CLI guide](./src/apps/cli/README.md) for the command-line workflow.
 
-### First run
+</details>
 
-1. Launch OpenBitFun, then use the workspace controls to open a project folder.
-2. Open **More options (…) → Settings → Models → Create First Configuration**.
-3. Choose a provider, enter its API key, select one or more models, and click **Save**. OpenBitFun makes the first saved model primary and tests the connection automatically.
-4. Return to the **Session** tab, type a concrete task, and press Enter or click **Send**.
-
----
-
-## What you can hand to OpenBitFun
-
-Two kinds of complex work: shipping code in real repositories, and turning source material into office deliverables. When a task needs the browser, desktop apps, the terminal, or a remote environment, OpenBitFun can enter the real workspace.
-
-| Scenario | Delivery goal | Typical capabilities |
-| --- | --- | --- |
-| **Coding** | Move from a real repository to a mergeable result. | Agentic, planning and debugging Skills, testing, Git, Deep Review, long-horizon tasks, and benchmarks. |
-| **Office Work** | Move from source material to useful written and visual deliverables. | Research, presentations, summarization, writing, meeting notes, and reports. |
-
-**Shared capabilities**
-
-- **Interface layer**: Mini Apps give a task its own UI, with the conversation bound to that UI's live state.
-- **Execution layer**: the filesystem, terminals, Git, browser operation, desktop applications, Computer Use, and remote workspaces let the Agent reach the real environment when a task leaves the editor.
-- **Customization layer**: MCP, Skills, Hooks, custom Agents, and source-level extension let OpenBitFun keep growing around your tools, roles, and interfaces.
-
----
-
-## Agent core metrics
-
-The data below evaluates OpenBitFun's core Agent capabilities, all measured with **Deepseek-V4-Pro**.
-
-> [!NOTE]
-> These are OpenBitFun's initial evaluation results, with each case run once. Benchmarks fluctuate with task sampling, model versions, runtime environment, and single-run variance, so treat these as an initial sanity signal that the Agent is already reasonably capable — not as a fixed ranking claim or a final ceiling. Full benchmark details will follow.
-
-**1. Initial completion snapshot** — The chart below compares the current single-run results on **SWE-Bench-Pro** (complex software engineering) and **SWE-Bench-Verified** (human-verified GitHub issue fixes).
-
-![Agent benchmark scores](./png/agent_benchmark_scores.svg)
-
-Benchmark references: [SWE-Bench-Pro](https://labs.scale.com/leaderboard/swe_bench_pro_public) / [SWE-Bench-Verified](https://www.swebench.com/verified.html)
-
-**2. Token economy** — Agent economy needs to be evaluated across end-to-end token consumption, execution time, and KV Cache reuse. From the same SWE-Bench-Pro round, OpenBitFun's average KV Cache hit rate was **98.67%**. The follow-up report will add broader cost and latency metrics.
-
-![KV Cache hit rate distribution](./png/kv_cache_hit_rate.png)
-
-**3. Context retrieval at scale** — Agent experience also depends on how quickly it retrieves context in very large projects. On tens-of-millions-line repositories such as Chromium, OpenBitFun uses **flashgrep** to cut search time by up to **94.6%**, averaging a **36.1x** speedup.
-
-![flashgrep search speed](./png/flashgrep_search_speed.png)
-
----
-
-## Customize your OpenBitFun
-
-OpenBitFun's extension paths progress continuously from light to deep customization:
-
-| Tier | Path | Best for |
-| --- | --- | --- |
-| **L1** | Custom Agent | Defining roles, flows, constraints, and tool bundles. |
-| **L2** | MCP / Skills / [Hooks](docs/features/agent-hooks.md) | Connecting external tools and professional capabilities, and running your own commands at Agent lifecycle points — fully Codex-hook compatible, so existing hook scripts work as-is. |
-| **L3** | Mini App | Generating dedicated interfaces, forms, panels, or visualizations for tasks. |
-| **L4** | Source-level customization | Changing tools, adapters, UI, Runtime, or product shape. |
-
-You can use OpenBitFun's Code Agent to extend OpenBitFun itself.
-
----
-
-## Where this is going
-
-- **Lights-Out Factory** (in progress): Design during the day, let tasks flow to the server and run through the night, then review the results in the morning.
-- **Infinite Radius** (in progress): Extending from desktop and browser to mobile, wearables, and more devices, so work stays accessible and continuous.
-- **App Evolution**: Build tailored workflows with custom Agents, MCP, Skills, Mini Apps, or source-level customization. **Community contributors have already created specialized versions for short-form drama, media, and more**.
-- **Better, Faster, Cheaper**: Pursue greater efficiency, better results, and lower cost.
-- **Ultimate Desktop**: Continuously refine an easier-to-use, more capable, and more beautiful desktop experience.
-
----
-
-## Community & contributing
-
-Questions, ideas, and bug reports are all welcome in [Discussions](https://github.com/GCWing/OpenBitFun/discussions) and [Issues](https://github.com/GCWing/OpenBitFun/issues).
-
-Stars, Issues, and PRs are welcome. We especially care about:
-
-1. Code Agent, Deep Review, debugging, and long-task execution capabilities
-2. Cowork, research, document, and desktop workflows
-3. MCP, Skills, Mini App, and new domain Agents
-4. Runtime stability, performance, context efficiency, and verifiability
-
-Please submit PRs directly to the `main` branch. For more details, see [CONTRIBUTING.md](./CONTRIBUTING.md).
-
----
-
-## Disclaimer
-
-1. This project is spare-time exploration and research into next-generation human-machine collaboration, not a commercial profit-making project.
-2. AI-assisted development is part of this project's workflow. Contributions are reviewed as code, and AI-assisted PRs should disclose their testing level; see [CONTRIBUTING.md](./CONTRIBUTING.md).
-3. This project depends on and references many open-source projects. Thanks to all open-source authors. **If your rights are affected, please contact us for remediation.**
-
----
+Core code is licensed under the [MIT License](./LICENSE). Third-party dependencies and assets retain their own licenses. Thanks to the open-source authors and contributors who make this work possible. To report a vulnerability, see the [security policy](./SECURITY.md).

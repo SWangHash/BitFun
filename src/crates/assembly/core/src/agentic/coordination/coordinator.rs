@@ -2383,6 +2383,45 @@ Update the persona files and delete BOOTSTRAP.md as soon as bootstrap is complet
         self.ensure_runtime_ownership(workspace_path, Some(remote_connection_id), remote_ssh_host)
     }
 
+    /// Rebuilds process-local Remote ownership from the Workspace owner's
+    /// saved identity after a host restart, without opening or selecting it.
+    pub(crate) async fn ensure_known_remote_workspace_runtime_ownership(
+        &self,
+        workspace_service: &WorkspaceService,
+        workspace_path: &Path,
+        connection_id: &str,
+        ssh_host: Option<&str>,
+    ) -> OpenBitFunResult<()> {
+        let known = workspace_service
+            .find_known_remote_workspace_for_path(
+                &workspace_path.to_string_lossy(),
+                Some(connection_id),
+                ssh_host,
+            )
+            .await
+            .filter(|workspace| {
+                workspace.remote_ssh_connection_id() == Some(connection_id)
+                    && ssh_host.is_none_or(|requested_host| {
+                        workspace.metadata.get("sshHost").and_then(|value| value.as_str())
+                            == Some(requested_host)
+                    })
+            })
+            .ok_or_else(|| OpenBitFunError::service(format!(
+                "Remote workspace ownership is unavailable: the saved workspace does not match connection '{connection_id}' at {}",
+                workspace_path.display()
+            )))?;
+        let known_host = known
+            .metadata
+            .get("sshHost")
+            .and_then(|value| value.as_str());
+        self.ensure_verified_remote_workspace_runtime_ownership(
+            &known.root_path,
+            connection_id,
+            known_host,
+        )?;
+        self.ensure_runtime_ownership(workspace_path, Some(connection_id), ssh_host)
+    }
+
     /// Gates workspace attachment before opening it, then prepares local
     /// Snapshot ownership without treating remote workspaces as local paths.
     pub async fn open_workspace_with_runtime_ownership(
@@ -17577,6 +17616,117 @@ mod tests {
 
         assert_eq!(opened.workspace_kind, WorkspaceKind::Remote);
         assert_eq!(opened.remote_ssh_connection_id(), Some("conn-known-remote"));
+    }
+
+    #[cfg(feature = "remote-workspace")]
+    #[tokio::test]
+    async fn remote_workspace_runtime_ownership_recovers_without_selecting_the_workspace() {
+        let root = tempfile::tempdir().expect("test root");
+        let path_manager = Arc::new(PathManager::with_user_root_for_tests(
+            root.path().join("user"),
+        ));
+        let workspace_service =
+            crate::service::workspace::WorkspaceService::new_for_test_path_manager(path_manager)
+                .await;
+        let remote_path = PathBuf::from(format!("/remote/project-{}", uuid::Uuid::new_v4()));
+        for (connection, host) in [("conn-a", "host-a"), ("conn-b", "host-b")] {
+            workspace_service
+                .track_workspace_activity(
+                    remote_path.clone(),
+                    crate::service::workspace::WorkspaceCreateOptions {
+                        workspace_kind: WorkspaceKind::Remote,
+                        remote_connection_id: Some(connection.to_string()),
+                        remote_ssh_host: Some(host.to_string()),
+                        ..Default::default()
+                    },
+                    crate::service::workspace::WorkspaceActivityMode::TouchOnly,
+                )
+                .await
+                .expect("remember remote workspace");
+        }
+        let owner = Arc::new(CoreRuntimeOwnership::embedded_with_facts(
+            root.path().join("ownership"),
+            "openbitfun".to_string(),
+            "test",
+        ));
+        let (coordinator, _) = test_coordinator_with_config_and_ownership(100, false, owner);
+        assert!(coordinator
+            .ensure_workspace_runtime_ownership(&remote_path, Some("conn-a"), Some("host-a"))
+            .is_err());
+        coordinator
+            .ensure_known_remote_workspace_runtime_ownership(
+                &workspace_service,
+                &remote_path,
+                "conn-a",
+                Some("host-a"),
+            )
+            .await
+            .expect("recover target A from the Workspace owner's saved facts");
+        coordinator
+            .ensure_workspace_runtime_ownership(&remote_path, Some("conn-a"), Some("host-a"))
+            .expect("restored session mutations can run without a desktop workspace selection");
+        assert!(coordinator
+            .ensure_workspace_runtime_ownership(&remote_path, Some("conn-b"), Some("host-b"))
+            .is_err());
+        assert!(workspace_service.get_opened_workspaces().await.is_empty());
+        assert!(workspace_service.get_current_workspace().await.is_none());
+        assert!(!remote_path.exists());
+    }
+
+    #[cfg(feature = "remote-workspace")]
+    #[tokio::test]
+    async fn remote_workspace_runtime_ownership_rejects_mismatched_saved_identity() {
+        let root = tempfile::tempdir().expect("test root");
+        let path_manager = Arc::new(PathManager::with_user_root_for_tests(
+            root.path().join("user"),
+        ));
+        let workspace_service =
+            crate::service::workspace::WorkspaceService::new_for_test_path_manager(path_manager)
+                .await;
+        let remote_path = root.path().join("same-path-local-sentinel");
+        std::fs::create_dir(&remote_path).expect("local collision");
+        std::fs::write(remote_path.join("owner.txt"), "local").expect("local sentinel");
+        workspace_service
+            .track_workspace_activity(
+                remote_path.clone(),
+                crate::service::workspace::WorkspaceCreateOptions {
+                    workspace_kind: WorkspaceKind::Remote,
+                    remote_connection_id: Some("conn-a".to_string()),
+                    remote_ssh_host: Some("host-a".to_string()),
+                    ..Default::default()
+                },
+                crate::service::workspace::WorkspaceActivityMode::TouchOnly,
+            )
+            .await
+            .expect("remember remote workspace");
+        let owner = Arc::new(CoreRuntimeOwnership::embedded_with_facts(
+            root.path().join("ownership"),
+            "openbitfun".to_string(),
+            "test",
+        ));
+        let (coordinator, _) = test_coordinator_with_config_and_ownership(100, false, owner);
+        for (connection, host) in [("unknown", "host-a"), ("conn-a", "wrong-host")] {
+            let error = coordinator
+                .ensure_known_remote_workspace_runtime_ownership(
+                    &workspace_service,
+                    &remote_path,
+                    connection,
+                    Some(host),
+                )
+                .await
+                .expect_err(
+                    "a matching path or one identity field must not authorize another target",
+                );
+            assert!(error.to_string().contains("saved workspace does not match"));
+        }
+        assert!(coordinator
+            .ensure_workspace_runtime_ownership(&remote_path, Some("conn-a"), Some("host-a"))
+            .is_err());
+        assert_eq!(
+            std::fs::read_to_string(remote_path.join("owner.txt")).unwrap(),
+            "local"
+        );
+        assert!(workspace_service.get_opened_workspaces().await.is_empty());
     }
 
     #[tokio::test]

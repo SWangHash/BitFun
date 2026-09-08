@@ -6,11 +6,16 @@
   flex-direction: column;
   gap: 5px;
   box-sizing: border-box;
+  // The composer centers its children, so constrain the band before laying out
+  // long resources; otherwise its intrinsic width can exceed the composer.
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: 6px;
   padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--openbitfun-color-status-warning-content) 52%, var(--openbitfun-color-border-default));
+  border: 1px solid var(--openbitfun-color-status-warning-border);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--openbitfun-color-surface-raised) 94%, var(--openbitfun-color-status-warning-content));
+  background: var(--openbitfun-color-status-warning-surface);
   color: var(--openbitfun-color-content-primary);
   font-size: var(--openbitfun-type-flow-control-font-size);
   animation: openbitfun-chat-input-approval-in 160ms cubic-bezier(0.23, 1, 0.32, 1);
@@ -24,7 +29,7 @@
 
   &__icon {
     flex: none;
-    color: var(--openbitfun-color-status-warning-content);
+    color: var(--openbitfun-color-status-warning-emphasis);
   }
 
   &__action {
@@ -37,13 +42,15 @@
     color: var(--openbitfun-color-content-secondary);
   }
 
-  // The resource is the part worth the remaining width: which file, which
-  // command. Identity and owner are context and yield first.
-  &__resource {
+  // Keep the full command readable without letting it widen the composer or
+  // push the approval actions out of view. Only the resource body scrolls.
+  .openbitfun-chat-input-approval__resource {
+    flex: none;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    max-height: min(160px, 25vh);
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   &__owner {
@@ -61,8 +68,8 @@
     margin-left: auto;
     padding: 1px 6px;
     border-radius: 8px;
-    color: var(--openbitfun-color-content-on-dark);
-    background: var(--openbitfun-color-status-warning-content);
+    color: var(--openbitfun-color-content-on-light);
+    background: var(--openbitfun-color-status-warning-emphasis);
     font-size: var(--openbitfun-type-flow-support-font-size);
     font-weight: var(--openbitfun-type-heading-page-font-weight);
     cursor: default;
@@ -70,6 +77,7 @@
 
   &__note {
     margin: 0;
+    overflow-wrap: anywhere;
     color: var(--openbitfun-color-status-warning-content);
     font-size: var(--openbitfun-type-flow-support-font-size);
 
@@ -111,11 +119,11 @@
 
     &--active {
       color: var(--openbitfun-color-content-primary);
-      background: color-mix(in srgb, var(--openbitfun-color-status-warning-content) 18%, transparent);
+      background: color-mix(in srgb, var(--openbitfun-color-status-warning-emphasis) 18%, transparent);
     }
 
     &:focus-visible {
-      outline: 2px solid var(--openbitfun-color-status-warning-content);
+      outline: 2px solid var(--openbitfun-color-status-warning-emphasis);
       outline-offset: 1px;
     }
   }

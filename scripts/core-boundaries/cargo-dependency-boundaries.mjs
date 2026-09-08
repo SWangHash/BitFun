@@ -557,6 +557,12 @@ const THIRD_PARTY_CAPABILITY_PROFILES = new Map([
     label: 'Tokio Tungstenite',
     packages: new Map([
       ['openbitfun-core', dependencyProfile([], { optional: true })],
+      // Loopback WebSocket lifecycle regressions only; the relay runtime is
+      // an Axum server and does not acquire a TLS/client capability.
+      ['openbitfun-relay-service', dependencyProfile(['connect', 'handshake'], {
+        kind: 'dev',
+        useDefaultFeatures: false,
+      })],
       ['openbitfun-services-integrations', dependencyProfile([], {
         optional: true,
         ownerFeatureCapabilities: new Map([

@@ -195,29 +195,32 @@
     },
     "status": {
       "info": {
-        "content": { "$type": "color", "$value": "{ref.color.neutral.750}" },
-        "surface": { "$type": "color", "$value": "{ref.color.neutral.100}" },
-        "border": { "$type": "color", "$value": "rgba(16, 26, 39, 0.15)" }
+        "emphasis": { "$description": "Clear blue status emphasis, sharing the existing creative-action blue anchor.", "$type": "color", "$value": "{ref.color.blue.550}" },
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.info.emphasis} 76%, {ref.color.neutral.1000})" },
+        "surface": { "$type": "color", "$value": "color-mix(in srgb, {color.status.info.emphasis} 10%, transparent)" },
+        "border": { "$type": "color", "$value": "color-mix(in srgb, {color.status.info.emphasis} 30%, transparent)" }
       },
       "success": {
-        "content": { "$type": "color", "$value": "{ref.color.green.700}" },
-        "surface": { "$type": "color", "$value": "{ref.color.green.100}" },
-        "border": { "$type": "color", "$value": "{ref.color.green.700}" }
+        "emphasis": { "$description": "Status icons and short emphasis share the code-change anchor; use content for readable text.", "$type": "color", "$value": "{color.codeChange.added}" },
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.success.emphasis} 68%, {ref.color.neutral.1000})" },
+        "surface": { "$type": "color", "$value": "color-mix(in srgb, {color.status.success.emphasis} 10%, transparent)" },
+        "border": { "$type": "color", "$value": "color-mix(in srgb, {color.status.success.emphasis} 30%, transparent)" }
       },
       "warning": {
-        "content": { "$type": "color", "$value": "{ref.color.amber.800}" },
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.warning.emphasis} 54%, {ref.color.neutral.1000})" },
         "emphasis": {
           "$description": "Short warning-state emphasis using the product orange anchor; use warning content for longer text.",
           "$type": "color",
           "$value": "{ref.color.amber.550}"
         },
-        "surface": { "$type": "color", "$value": "rgba(154, 101, 31, 0.08)" },
-        "border": { "$type": "color", "$value": "rgba(154, 101, 31, 0.25)" }
+        "surface": { "$type": "color", "$value": "color-mix(in srgb, {color.status.warning.emphasis} 10%, transparent)" },
+        "border": { "$type": "color", "$value": "color-mix(in srgb, {color.status.warning.emphasis} 30%, transparent)" }
       },
       "danger": {
-        "content": { "$type": "color", "$value": "{ref.color.red.700}" },
-        "surface": { "$type": "color", "$value": "rgba(167, 67, 82, 0.12)" },
-        "border": { "$type": "color", "$value": "rgba(167, 67, 82, 0.36)" }
+        "emphasis": { "$description": "Status icons and short emphasis share the code-change anchor; use content for readable text.", "$type": "color", "$value": "{color.codeChange.removed}" },
+        "content": { "$type": "color", "$value": "color-mix(in srgb, {color.status.danger.emphasis} 80%, {ref.color.neutral.1000})" },
+        "surface": { "$type": "color", "$value": "color-mix(in srgb, {color.status.danger.emphasis} 10%, transparent)" },
+        "border": { "$type": "color", "$value": "color-mix(in srgb, {color.status.danger.emphasis} 30%, transparent)" }
       }
     }
   },

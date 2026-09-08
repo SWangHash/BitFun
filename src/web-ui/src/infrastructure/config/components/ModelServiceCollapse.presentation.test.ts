@@ -51,6 +51,9 @@ describe('model service collapsed presentation', () => {
     expect(modelSettingsStyles).toMatch(
       /&__provider-group-header\s*\{[^}]*background:\s*transparent/,
     );
+    expect(modelSettingsStyles).toMatch(
+      /\.openbitfun-collection-item__details\s*\{[^}]*background:\s*transparent/,
+    );
   });
 
   it('draws one consistent divider between provider headers and model rows', () => {
@@ -75,6 +78,23 @@ describe('model service collapsed presentation', () => {
     );
     expect(modelSettingsSource).toContain('data-openbitfun-part="modelActions"');
     expect(modelSettingsSource).toContain('toggleOnRowClick');
+  });
+
+  it('keeps model connection test progress and results visible without hover or expansion', () => {
+    const badgeStart = modelSettingsSource.indexOf('const badge = (');
+    const detailsStart = modelSettingsSource.indexOf('const details = (', badgeStart);
+    const badgeSource = modelSettingsSource.slice(badgeStart, detailsStart);
+
+    expect(badgeSource).toContain('{(isTesting || testResult) && (');
+    expect(badgeSource).toContain('openbitfun-model-settings__status-dot');
+    expect(badgeSource).not.toContain('<StatusPill');
+    expect(badgeSource).toContain('role="status"');
+    expect(badgeSource).toContain('aria-live="polite"');
+    expect(badgeSource).toContain('aria-label={testStatusLabel}');
+    expect(badgeSource).toContain("isTesting ? 'is-testing' : testResult?.success ? 'is-success' : 'is-error'");
+    expect(modelSettingsSource).toContain(
+      "isTesting\n      ? t('messages.testing')\n      : testResult?.message.split('\\n', 1)[0]",
+    );
   });
 
   it('uses the semantic highlight color for each provider model count', () => {

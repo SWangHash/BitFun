@@ -5,6 +5,7 @@
 
 pub mod ai;
 pub mod errors;
+pub mod installer_config_handoff;
 pub mod model;
 pub mod product_identity;
 pub mod session;

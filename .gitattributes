@@ -24,6 +24,12 @@
 *.mjs               text eol=lf
 *.cjs               text eol=lf
 
+# pnpm patch files are parsed byte-exact by the patch engine on POSIX hosts;
+# a CRLF checkout makes pnpm fail with ERR_PNPM_INVALID_PATCH ("invalid char
+# in unquoted filename"). The lockfile patch hash is computed over LF-normalized
+# bytes, so forcing LF also keeps the recorded hash stable on every platform.
+*.patch             text eol=lf
+
 # Generated frontend/mobile contracts compare exact file contents. Keep both
 # their source fragments and generated outputs stable on every checkout so a
 # Windows or hosted runner cannot report newline-only generated drift.

@@ -29,6 +29,17 @@ provider-neutral contracts owned by `openbitfun-agent-stream`.
 
 ## Verification
 
+Subscription model discovery must use the authenticated account catalog.
+Antigravity uses `v1internal:fetchAvailableModels`; preserve returned wire IDs
+and restrict alias translation to known legacy names. Codex's `supported_in_api`
+flag describes the public API, not subscription availability. OpenCode catalog
+models must stay grouped by plan and wire format. Never mask a failed account
+lookup with a static catalog or another application's local model cache.
+
+For the auth/discovery path, use `cargo test -p openbitfun-ai-adapters --features
+subscription-auth --lib`. Device-grant timing tests use the dev-only Tokio
+test clock and synthetic tokens; they do not authorize real accounts.
+
 ```bash
 cargo test -p openbitfun-agent-stream
 cargo test -p openbitfun-ai-adapters

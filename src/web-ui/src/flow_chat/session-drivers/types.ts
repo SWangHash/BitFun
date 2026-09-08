@@ -19,6 +19,7 @@ import type { SessionTitleDescriptor } from '../utils/sessionTitle';
 import type { ImageContextData as ImageInputContextData } from '@/infrastructure/api/service-api/ImageContextTypes';
 import type { SessionDriverId } from './resolve';
 import type { SurfaceScope } from '@/infrastructure/peer-device/deviceSurface';
+import type { LineRange } from '@/shared/editor/LineRange';
 
 export type { SessionDriverId } from './resolve';
 
@@ -178,6 +179,11 @@ export interface SessionCascadeRemoval {
 
 export interface SessionDriver {
   readonly id: SessionDriverId;
+
+  /** When provided, all session file previews belong to this transport. */
+  readonly fileAccess?: {
+    open(sessionId: string, filePath: string, fileName: string, lineRange?: LineRange): Promise<void>;
+  };
 
   /** Create the flavor's session and return its id. */
   createSession(context: FlowChatContext, seed: SessionCreationSeed): Promise<string>;

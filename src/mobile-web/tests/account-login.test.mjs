@@ -20,6 +20,46 @@ const offline = { device_id: 'desktop-a', device_name: 'Offline desktop', online
 const online = { device_id: 'desktop-b', device_name: 'Online desktop', online: true };
 const controller = { device_id: 'browser', device_name: 'Browser', online: true };
 
+const navigationModule = await loadSource('../src/services/MobileNavigationStore.ts');
+const { loadMobileNavigation, saveMobileNavigation, clearMobileNavigation } = await import(navigationModule.url);
+
+test('same-tab reload restores the selected device and session only within the authenticated QR scope', () => {
+  const entries = new Map();
+  const storage = {
+    getItem: key => entries.get(key) ?? null,
+    setItem: (key, value) => entries.set(key, value),
+    removeItem: key => entries.delete(key),
+  };
+  const scope = {
+    accountId: 'account-a', controllerDeviceId: 'browser-a',
+    relayUrl: 'https://relay.example.com', routeKey: '/relay/r/room/#/pair?did=desktop-a',
+  };
+  const navigation = { deviceId: 'desktop-b', session: { id: 'session-b', name: 'Task B', agentType: 'agentic' } };
+  saveMobileNavigation(scope, navigation, storage);
+  assert.deepEqual(loadMobileNavigation(scope, storage), navigation);
+  for (const replacement of [
+    { accountId: 'account-b' }, { controllerDeviceId: 'browser-b' },
+    { relayUrl: 'https://another-relay.example.com' }, { routeKey: '/relay/r/new/#/pair?did=desktop-c' },
+  ]) {
+    assert.equal(loadMobileNavigation({ ...scope, ...replacement }, storage), null);
+  }
+  clearMobileNavigation(storage);
+  assert.equal(loadMobileNavigation(scope, storage), null);
+});
+
+test('unsupported or unreadable navigation stays intact and unavailable browser storage is optional', () => {
+  for (const raw of ['{', JSON.stringify({ version: 2, deviceId: 'future' })]) {
+    let retained = raw;
+    const storage = { getItem: () => retained, setItem: value => { retained = value; }, removeItem: () => { retained = ''; } };
+    assert.equal(loadMobileNavigation({}, storage), null);
+    assert.equal(retained, raw);
+  }
+  const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); }, removeItem: () => { throw new Error('blocked'); } };
+  assert.equal(loadMobileNavigation({}, blocked), null);
+  assert.doesNotThrow(() => saveMobileNavigation({}, { deviceId: 'device' }, blocked));
+  assert.doesNotThrow(() => clearMobileNavigation(blocked));
+});
+
 test('empty, offline and controller-only directories leave the account without a target', () => {
   for (const devices of [[], [offline], [controller], [offline, controller]]) {
     assert.equal(selectAccountDevice(devices, 'browser'), null);

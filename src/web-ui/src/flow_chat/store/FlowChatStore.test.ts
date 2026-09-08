@@ -505,6 +505,37 @@ describe('FlowChatStore dispatch observer boundaries', () => {
     expect(appliedSession.error).toBe('Target execution failed');
     expect(appliedSession.dialogTurns[0]).toBe(terminalTurn);
   });
+
+  it('repairs a cached optimistic success when a follow-up fails before the executor adopts it', () => {
+    const session = createSession({
+      workspacePath: '/source',
+      config: {
+        dispatchTarget: { kind: 'ssh', connectionId: 'ssh-1', workspacePath: '/target', displayName: 'host' },
+        dispatchJobId: 'job-1',
+        dispatchJobState: 'failed',
+        dispatchCursor: 10,
+      },
+      dialogTurns: [{
+        id: 'dispatch_pending_job-1',
+        sessionId: 'session-1',
+        userMessage: {
+          id: 'user-1', content: 'continue task', timestamp: 1,
+          metadata: { __openbitfunOptimisticDispatchJobId: 'job-1' },
+        },
+        modelRounds: [], status: 'completed', startTime: 1, endTime: 2, success: true,
+      }],
+    });
+    flowChatStore.setState(() => ({
+      sessions: new Map([[session.sessionId, session]]), activeSessionId: session.sessionId,
+    }));
+    flowChatStore.applyDispatchSnapshot(session.sessionId, {
+      jobId: 'job-1', state: 'failed', cursor: 10, expectedCursor: 10,
+      lastError: 'Unsupported target reasoning preset', terminalDrained: true,
+    });
+    expect(flowChatStore.getState().sessions.get(session.sessionId)?.dialogTurns[0]).toMatchObject({
+      status: 'error', success: false, error: 'Unsupported target reasoning preset', modelRounds: [],
+    });
+  });
 });
 
 describe('FlowChatStore metadata persistence callbacks', () => {

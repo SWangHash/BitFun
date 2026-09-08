@@ -1111,6 +1111,7 @@ public class RemoteSessionStore internal constructor(
             tools = null,
             items = null,
             images = wireImages,
+            error = null,
         )
         timelineStore.appendOptimisticMessage(local)
         setBusy(current, true)
@@ -1496,6 +1497,7 @@ private data class StoredRemoteMessagePayload(
     val tools: List<RemoteToolStatusResponse>? = null,
     val items: List<ChatMessageItemResponse>? = null,
     val images: List<ImageAttachment>? = null,
+    val error: String? = null,
 )
 
 private val STORE_JSON = Json { ignoreUnknownKeys = true }
@@ -1504,7 +1506,13 @@ private fun toPersisted(sessionId: String, m: ChatMessage): PersistedRemoteMessa
     messageId = m.id, sessionId = sessionId, role = m.role, text = m.text, status = m.status,
     timestamp = m.timestamp, thinking = m.thinking,
     payloadJson = STORE_JSON.encodeToString(StoredRemoteMessagePayload(
-        m.renderVersion, m.turnId, m.detail, m.tools, m.items, m.images,
+        renderVersion = m.renderVersion,
+        turnId = m.turnId,
+        detail = m.detail,
+        tools = m.tools,
+        items = m.items,
+        images = m.images,
+        error = m.error,
     )),
 )
 
@@ -1518,7 +1526,7 @@ private fun toChatMessage(m: PersistedRemoteMessage): ChatMessage {
         id = m.messageId, role = m.role, text = m.text, status = m.status,
         renderVersion = payload.renderVersion, turnId = payload.turnId, detail = payload.detail,
         timestamp = m.timestamp, thinking = m.thinking, tools = payload.tools,
-        items = payload.items, images = payload.images,
+        items = payload.items, images = payload.images, error = payload.error,
     )
 }
 
@@ -1545,15 +1553,16 @@ internal object RemoteResponseMapper {
             id = item.resolvedId ?: generatedId(item.role, item.timestamp.orEmpty(), text),
             role = item.role,
             text = text,
-            status = if (item.role == "assistant") "done" else "sent",
+            status = item.status ?: if (item.role == "assistant") "done" else "sent",
             renderVersion = null,
-            turnId = null,
+            turnId = item.turnId,
             detail = messageDetail(tools),
             timestamp = item.timestamp,
             thinking = item.thinking,
             tools = tools,
             items = item.items,
             images = item.images,
+            error = item.error,
         )
     }
 
@@ -1572,6 +1581,7 @@ internal object RemoteResponseMapper {
             tools = tools,
             items = turn.items,
             images = null,
+            error = turn.error,
         )
     }
 

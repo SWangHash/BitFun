@@ -7,6 +7,8 @@ mod file_name_search;
 pub mod paths;
 mod product_paths;
 pub mod remote_git;
+#[cfg(feature = "remote-ssh-concrete")]
+mod sftp_file;
 mod shell;
 #[cfg(feature = "remote-ssh-concrete")]
 mod transport;

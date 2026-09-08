@@ -98,7 +98,7 @@ vi.mock('react-i18next', async (importOriginal) => ({
         'usage.card.tokenUsage': 'Tokens usage',
         'usage.card.dataDelayDisclaimer': 'Usage statistics may be delayed. System records are authoritative.',
         'usage.loading.title': 'Generating usage report',
-        'usage.loading.description': 'Reading local session records and preparing a privacy-safe summary.',
+        'usage.loading.description': 'Reading session records and preparing a privacy-safe summary.',
         'usage.loading.steps.collecting': 'Reading session records',
         'usage.loading.steps.tokens': 'Summarizing token and tool activity',
         'usage.loading.steps.safety': 'Checking privacy-safe display fields',
@@ -974,7 +974,7 @@ describe('Session usage report UI components', () => {
 
     expect(container.querySelector('.session-usage-report-card--loading')).not.toBeNull();
     expect(container.textContent).toContain('Generating usage report');
-    expect(container.textContent).toContain('Reading local session records');
+    expect(container.textContent).toContain('Reading session records');
     expect(container.textContent).not.toContain('Unknown values are not counted as zero');
   });
 

@@ -604,6 +604,7 @@ export const ModernFlowChatContainer: React.FC<ModernFlowChatContainerProps> = (
   const { handleToolConfirm, handleToolReject } = useFlowChatToolActions();
 
   const { handleFileViewRequest } = useFlowChatFileActions({
+    sessionId: activeSession?.sessionId,
     workspacePath,
     onFileViewRequest,
   });

@@ -1,5 +1,6 @@
 mod permissions;
 pub(crate) mod protocol;
+mod query_file;
 mod runner;
 mod store;
 mod worker;
@@ -63,7 +64,7 @@ pub(crate) async fn run_dispatch_verb(
             serde_json::to_value(answer(parse(input)?)?).context("encode permission answer")
         }
         "append" => serde_json::to_value(append(parse(input)?)?).context("encode appended message"),
-        "continue" => serde_json::to_value(continue_job(parse(input)?)?)
+        "continue" => serde_json::to_value(continue_job(parse(input)?).await?)
             .context("encode follow-up turn response"),
         "query" => query(parse(input)?).await.context("encode query response"),
         "workspace-provision" => serde_json::to_value(workspace::provision(parse::<
@@ -134,6 +135,9 @@ async fn probe(request: DispatchProbeRequest) -> Result<DispatchProbeResponse> {
     capabilities.push(
         openbitfun_services_core::dispatch_contract::DISPATCH_SETUP_AUDIT_MODEL_SYNC_CAPABILITY
             .to_string(),
+    );
+    capabilities.push(
+        openbitfun_services_core::dispatch_contract::DISPATCH_READ_FILE_CAPABILITY.to_string(),
     );
     if runner::is_supported() {
         capabilities.push(
@@ -221,7 +225,7 @@ async fn submit(mut request: DispatchSubmitRequest) -> Result<DispatchSubmitResp
 /// rewinds so a fresh worker can pick up the queued prompt. That is what makes
 /// the controller's projection a continuous transcript instead of one job per
 /// message.
-fn continue_job(request: DispatchContinueRequest) -> Result<DispatchContinueResponse> {
+async fn continue_job(request: DispatchContinueRequest) -> Result<DispatchContinueResponse> {
     if request.protocol_version != DISPATCH_PROTOCOL_VERSION {
         bail!(
             "unsupported dispatch protocolVersion {}; target requires {}",
@@ -266,7 +270,23 @@ fn continue_job(request: DispatchContinueRequest) -> Result<DispatchContinueResp
     let job = store.load_job(&request.job_id)?;
     // A worker may still be settling the previous turn's terminal state.
     reconcile_worker_liveness(&store, &request.job_id)?;
-    let state = store.queue_follow_up_turn(&request)?;
+    let state = if let Some(state) = store.load_existing_follow_up_for_intent(&request)? {
+        state
+    } else {
+        // Validate before acceptance, just as submit does. The worker still
+        // revalidates in case target configuration changes before it starts.
+        let selected_model =
+            select_ready_model(request.model.as_deref().or(job.request.model.as_deref())).await?;
+        validate_reasoning_preset(
+            &selected_model,
+            request
+                .reasoning_preset
+                .as_deref()
+                .or(job.request.reasoning_preset.as_deref()),
+        )
+        .await?;
+        store.queue_follow_up_turn(&request)?
+    };
     ensure_worker_spawned(&store, &request.job_id, state.state)?;
     Ok(DispatchContinueResponse {
         accepted: true,
@@ -286,16 +306,38 @@ async fn query(request: DispatchQueryRequest) -> Result<serde_json::Value> {
     let store = DispatchStore::open_default()?;
     let job = store.load_job(&request.job_id)?;
     match request.kind {
+        DispatchQueryKind::ReadFile => {
+            let file_path = request
+                .file_path
+                .as_deref()
+                .filter(|path| !path.trim().is_empty())
+                .context("Dispatch file query requires a filePath")?;
+            let (path, content) =
+                query_file::read_workspace_file(Path::new(&job.request.workspace_path), file_path)?;
+            Ok(serde_json::json!({
+                "kind": "readFile",
+                "jobId": request.job_id,
+                "sessionId": job.request.session_id,
+                "filePath": path,
+                "content": content,
+            }))
+        }
         DispatchQueryKind::UsageReport => {
+            if request.file_path.is_some() {
+                bail!("usageReport does not accept a filePath");
+            }
             let path_manager = openbitfun_core::infrastructure::PathManager::new()
                 .map_err(|error| anyhow::anyhow!("resolve OpenBitFun storage root: {error}"))?;
+            let token_usage = openbitfun_core::service::token_usage::TokenUsageService::for_queries(
+                &path_manager,
+            );
             let persistence = openbitfun_core::agentic::persistence::PersistenceManager::new(
                 std::sync::Arc::new(path_manager),
             )
             .map_err(|error| anyhow::anyhow!("open session persistence: {error}"))?;
             let report = openbitfun_core::service::session_usage::generate_session_usage_report(
                 &persistence,
-                None,
+                Some(&token_usage),
                 openbitfun_core::service::session_usage::SessionUsageReportRequest {
                     session_id: job.request.session_id.clone(),
                     workspace_path: Some(job.request.workspace_path.clone()),

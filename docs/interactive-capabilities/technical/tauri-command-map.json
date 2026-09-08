@@ -9765,7 +9765,7 @@
       "visibility": "implementation",
       "rustPath": "api::system_api::startup_window_control",
       "sourceFile": "src/apps/desktop/src/api/system_api.rs",
-      "signature": "fn startup_window_control( state: State<'_, AppState>, startup_trace: State<'_, DesktopStartupTrace>, app: tauri::AppHandle, request: StartupWindowControlRequest, ) -> Result<(), String>",
+      "signature": "fn startup_window_control( state: State<'_, AppState>, startup_trace: State<'_, DesktopStartupTrace>, app: tauri::AppHandle, request: StartupWindowControlRequest, ) -> Result<StartupWindowControlResponse, String>",
       "remoteWorkspacePolicy": "LocalOnly"
     },
     {

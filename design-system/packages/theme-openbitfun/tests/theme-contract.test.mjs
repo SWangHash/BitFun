@@ -17,6 +17,7 @@ import {
   themeTokenCatalog,
   themes,
 } from "../dist/index.js";
+import { resolveStatusColors } from "../scripts/resolve-status-colors.mjs";
 
 const packageDirectory = fileURLToPath(new URL("../", import.meta.url));
 
@@ -115,11 +116,29 @@ test("code-change semantics retain the requested addition and removal accents", 
   }
 });
 
-test("warning emphasis retains the product orange anchor in default themes", () => {
-  assert.equal(themes.light["color.status.warning.emphasis"], "#ff8c00");
-  assert.equal(themes.dark["color.status.warning.emphasis"], "#ff8c00");
-  assert.equal(themes.highContrastLight["color.status.warning.emphasis"], "#75501d");
-  assert.equal(themes.highContrastDark["color.status.warning.emphasis"], "#ffcc00");
+test("status families derive from the code-change and product emphasis anchors", async () => {
+  for (const mode of themeModes) {
+    const values = themes[mode];
+    assert.equal(values["color.status.success.emphasis"], values["color.codeChange.added"]);
+    assert.equal(values["color.status.danger.emphasis"], values["color.codeChange.removed"]);
+    assert.equal(values["color.status.info.emphasis"], values["color.identity.harness.creative"]);
+  }
+
+  // Editing the canonical addition anchor must reach every derived status role.
+  const source = mergeTokenDocuments(await readSource("reference.tokens.json"), await readSource("light.tokens.json"));
+  source.color.codeChange.added.$value = "#123456";
+  const updated = resolveStatusColors(resolveTokens(source));
+  assert.equal(updated["color.status.success.emphasis"].value, "#123456");
+  assert.equal(updated["color.status.success.content"].value, "#0c233a");
+  assert.equal(updated["color.status.success.surface"].value, "rgba(18, 52, 86, 0.1)");
+  assert.equal(updated["color.status.success.border"].value, "rgba(18, 52, 86, 0.3)");
+  assert.equal(updated["color.status.success.content"].sourceValue, source.color.status.success.content.$value);
+});
+
+test("warning emphasis retains the product orange anchor in every theme", () => {
+  for (const mode of themeModes) {
+    assert.equal(themes[mode]["color.status.warning.emphasis"], "#ff8c00");
+  }
 });
 
 test("semantic theme documents route solid colors through reference scales", async () => {
@@ -166,20 +185,10 @@ test("all theme variants expose the same semantic theme contract", async () => {
   }
 });
 
-test("primary text and primary action pairs meet normal text contrast", async () => {
-  const [reference, light, dark, highContrastLight, highContrastDark] = await Promise.all([
-    readSource("reference.tokens.json"),
-    readSource("light.tokens.json"),
-    readSource("dark.tokens.json"),
-    readSource("high-contrast-light.tokens.json"),
-    readSource("high-contrast-dark.tokens.json"),
+test("text, action, and field focus pairs meet their contrast requirements", () => {
+  const variants = Object.entries(themes).map(([mode, values]) => [
+    mode, Object.fromEntries(Object.entries(values).map(([name, value]) => [name, { value }])),
   ]);
-  const variants = [
-    ["light", resolveTokens(mergeTokenDocuments(reference, light))],
-    ["dark", resolveTokens(mergeTokenDocuments(reference, dark))],
-    ["highContrastLight", resolveTokens(mergeTokenDocuments(reference, light, highContrastLight))],
-    ["highContrastDark", resolveTokens(mergeTokenDocuments(reference, dark, highContrastDark))],
-  ];
 
   for (const [mode, variant] of variants) {
     const backdrop = parseColor(variant["color.surface.canvas"].value);
@@ -286,7 +295,7 @@ test("default modes preserve the built-in Appearance anchor values", () => {
   assert.equal(themes.light["color.identity.globalSearch.openProject"], "#059cb0");
   assert.equal(themes.light["color.identity.globalSearch.newProject"], "#3271d7");
   assert.equal(themes.light["color.identity.globalSearch.openFiles"], "#9e54ff");
-  assert.equal(themes.light["color.status.warning.surface"], "rgba(154, 101, 31, 0.08)");
+  assert.equal(themes.light["color.status.warning.surface"], "rgba(255, 140, 0, 0.1)");
   assert.equal(themes.light["shadow.base"], "0 4px 8px rgba(16, 26, 39, 0.07)");
   assert.equal(themes.light["shadow.composer"], "0 2px 6px rgba(0, 0, 0, 0.08)");
   assert.equal(themes.light["shadow.menu"], "0 4px 10px rgba(0, 0, 0, 0.12)");

@@ -250,6 +250,7 @@ async fn persist_tokens(tokens: TokenResponse, expected_revision: u64) -> Result
         .clone()
         .ok_or_else(|| anyhow!("codex token response missing refresh_token"))?;
     let expires = now_ms() + tokens.expires_in.unwrap_or(3600) * 1000;
+    let expires = jwt::effective_expiry_ms(&access, expires);
     let account_id = account_id_from(&tokens);
     let metadata = metadata_from(&tokens);
     let outcome = store::upsert_if_revision(
@@ -398,6 +399,7 @@ async fn ensure_fresh(options: &SubscriptionHttpOptions) -> Result<(String, Opti
         return Err(anyhow!("Codex credential is not an OAuth login"));
     };
 
+    let expires = jwt::effective_expiry_ms(&access, expires);
     if expires > now_ms() + REFRESH_LEEWAY_MS {
         return Ok((access, account_id, expires));
     }
@@ -409,6 +411,7 @@ async fn ensure_fresh(options: &SubscriptionHttpOptions) -> Result<(String, Opti
         .ok_or_else(|| anyhow!("codex refresh response missing access_token"))?;
     let new_refresh = refreshed.refresh_token.clone().unwrap_or(refresh_token);
     let new_expires = now_ms() + refreshed.expires_in.unwrap_or(3600) * 1000;
+    let new_expires = jwt::effective_expiry_ms(&new_access, new_expires);
     let new_account_id = account_id_from(&refreshed).or(account_id);
     let new_metadata = metadata_from(&refreshed).or(metadata);
     let outcome = store::upsert_if_revision(
@@ -440,8 +443,9 @@ async fn ensure_fresh(options: &SubscriptionHttpOptions) -> Result<(String, Opti
                     expires,
                     account_id,
                     ..
-                }) if expires > now_ms() => {
+                }) if jwt::effective_expiry_ms(&access, expires) > now_ms() => {
                     log::info!("codex refresh reused tokens committed by a concurrent refresh");
+                    let expires = jwt::effective_expiry_ms(&access, expires);
                     Ok((access, account_id, expires))
                 }
                 _ => Err(super::store_revision_conflict(

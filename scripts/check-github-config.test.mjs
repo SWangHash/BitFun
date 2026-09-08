@@ -1076,8 +1076,7 @@ test('stages unique release asset names before publishing', () => {
   );
   const steps = workflow.jobs['upload-release-assets'].steps;
   const stagingIndexes = [
-    steps.findIndex((step) => step.name === 'Stage stable release assets'),
-    steps.findIndex((step) => step.name === 'Stage beta release assets'),
+    steps.findIndex((step) => step.name === 'Stage release assets'),
   ];
   const uploadIndex = steps.findIndex((step) => step.name === 'Upload to release');
 
@@ -1182,10 +1181,10 @@ test('Desktop packaging keeps beta identity explicit and stable-safe', () => {
     (step) => step.name === 'Publish beta channel manifest',
   );
   assert.ok(verifyIndexPublished >= 0 && verifyIndexPublished < promoteIndex);
-  assert.match(workflow.jobs['linux-binaries'].if, /release_channel == 'stable'/);
+  assert.doesNotMatch(workflow.jobs['linux-binaries'].if, /release_channel/);
   assert.equal(
-    uploadSteps.find((step) => step.name === 'Stage beta release assets').if,
-    "needs.prepare.outputs.release_channel == 'beta'",
+    uploadSteps.find((step) => step.name === 'Stage release assets').if,
+    undefined,
   );
   assert.match(
     uploadSteps.find((step) => step.name === 'Generate updater manifest').run,
@@ -1228,6 +1227,106 @@ test('beta publishing cannot advance the Relay latest image tag', () => {
   );
   assert.match(imageTags.run, /RELEASE_CHANNEL.*stable/);
   assert.doesNotMatch(imageTags.run, /RELEASE_PRERELEASE/);
+});
+
+test('stable and beta publication require every producer, while artifact-only runs never publish', () => {
+  const { jobs } = yaml.parse(readFileSync(
+    path.join(repoRoot, '.github/workflows/desktop-package.yml'), 'utf8',
+  ));
+  // These workflow conditions use the shared Boolean/string subset of Actions
+  // expressions and JavaScript. Exercise the actual conditions, not a copy.
+  const condition = (job, needs) => {
+    const expression = job.if.replace(/needs\.([\w-]+)/g, 'needs["$1"]');
+    return Function('needs', 'always', `return (${expression});`)(needs, () => true);
+  };
+  const results = ['success', 'failure', 'cancelled', 'skipped'];
+  for (const channel of ['stable', 'beta']) {
+    for (const upload of ['true', 'false']) {
+      for (const desktop of results) for (const linux of results) for (const image of results) {
+        const needs = {
+          prepare: { outputs: { release_channel: channel, upload_to_release: upload, relay_image_only: 'false' } },
+          package: { result: desktop },
+          'linux-binaries': { result: linux },
+          'publish-relay-image': { result: image },
+        };
+        assert.equal(condition(jobs['linux-binaries'], needs), true);
+        assert.equal(condition(jobs['publish-relay-image'], needs), upload === 'true' && linux === 'success');
+        assert.equal(condition(jobs['upload-release-assets'], needs),
+          upload === 'true' && [desktop, linux, image].every((result) => result === 'success'),
+          JSON.stringify(needs));
+      }
+    }
+    const backfill = {
+      prepare: { outputs: { release_channel: channel, upload_to_release: 'true', relay_image_only: 'true' } },
+      package: { result: 'skipped' },
+      'linux-binaries': { result: 'skipped' },
+      'publish-relay-image': { result: 'success' },
+    };
+    assert.equal(condition(jobs['linux-binaries'], backfill), false);
+    assert.equal(condition(jobs['publish-relay-image'], backfill), true);
+    assert.equal(condition(jobs['upload-release-assets'], backfill), false);
+  }
+  const backfillRelease = jobs['publish-relay-image'].steps.find(
+    (step) => step.name === 'Attach descriptor to an existing release (image-only backfill)',
+  );
+  assert.equal(backfillRelease.with.prerelease, "${{ needs.prepare.outputs.release_channel == 'beta' }}");
+  assert.equal(backfillRelease.with.make_latest, 'false');
+  const steps = jobs['upload-release-assets'].steps;
+  for (const name of [
+    'Download Linux binary artifacts', 'Download Relay image descriptor',
+    'Generate Linux binaries manifest', 'Stage release assets',
+    'Verify published Linux binaries manifest', 'Verify published Relay image descriptor',
+  ]) {
+    assert.equal(steps.find((step) => step.name === name)?.if, undefined, name);
+    assert.ok(steps.some((step) => step.name === name), name);
+  }
+  const stage = steps.find((step) => step.name === 'Stage release assets');
+  for (const pattern of [
+    'linux-release-assets/openbitfun-cli-*.tar.gz',
+    'linux-release-assets/openbitfun-relay-server-*.tar.gz',
+    'linux-release-assets/*.tar.gz.sig', 'linux-release-assets/*.tar.gz.sha256.sig',
+    'linux-release-assets/linux-binaries.json', 'relay-image-assets/relay-image.json.sig',
+  ]) assert.ok(stage.run.includes(pattern), pattern);
+  assert.match(steps.find((step) => step.name === 'Generate Linux binaries manifest').run, /--repo "\$\{\{ github.repository \}\}"/);
+  for (const name of ['Verify published Linux binaries manifest', 'Verify published Relay image descriptor']) {
+    const verification = steps.find((step) => step.name === name);
+    assert.match(verification.run, /github.repository/);
+    assert.ok(steps.indexOf(verification) < steps.findIndex((step) => step.name === 'Publish beta channel manifest'));
+  }
+});
+
+test('Relay image tag selection keeps Beta and old stable backfills away from latest', {
+  skip: process.platform === 'win32',
+}, (t) => {
+  const { jobs } = yaml.parse(readFileSync(
+    path.join(repoRoot, '.github/workflows/desktop-package.yml'), 'utf8',
+  ));
+  const step = jobs['publish-relay-image'].steps.find((entry) => entry.name === 'Resolve image tags');
+  const root = mkdtempSync(path.join(tmpdir(), 'openbitfun-image-tags-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  for (const scenario of [
+    { channel: 'beta', version: '1.0.0-beta.3', imageOnly: 'false', latest: false },
+    { channel: 'beta', version: '1.0.0-beta.3', imageOnly: 'true', latest: false },
+    { channel: 'stable', version: '1.0.0', imageOnly: 'false', latest: true },
+    { channel: 'stable', version: '1.0.0', imageOnly: 'true', latest: true },
+    { channel: 'stable', version: '0.2.19', imageOnly: 'true', latest: false },
+  ]) {
+    const output = path.join(root, 'output');
+    writeFileSync(output, '');
+    const result = spawnSync('bash', ['-c', `gh() { printf 'v1.0.0\\n'; }\n${step.run}`], {
+      env: { ...process.env, GITHUB_OUTPUT: output, GITHUB_REPOSITORY: 'test-owner/OpenBitFun',
+        IMAGE: 'ghcr.io/test-owner/openbitfun-relay-server', RELEASE_TAG: `v${scenario.version}`,
+        RELEASE_VERSION: scenario.version, RELEASE_CHANNEL: scenario.channel, IMAGE_ONLY: scenario.imageOnly },
+      encoding: 'utf8', windowsHide: true,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const tags = readFileSync(output, 'utf8').trim().split('\n');
+    assert.deepEqual(tags, [
+      'value<<EOF', `ghcr.io/test-owner/openbitfun-relay-server:v${scenario.version}`,
+      `ghcr.io/test-owner/openbitfun-relay-server:${scenario.version}`,
+      ...(scenario.latest ? ['ghcr.io/test-owner/openbitfun-relay-server:latest'] : []), 'EOF',
+    ]);
+  }
 });
 
 test('beta channel readback retries stale content and fails if it never converges', {

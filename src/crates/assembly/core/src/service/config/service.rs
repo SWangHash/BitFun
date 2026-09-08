@@ -3,7 +3,7 @@
 //! Provides comprehensive configuration management functionality.
 
 use super::manager::{
-    validate_current_config_value, validate_openbitfun_product_version, ConfigManager,
+    validate_current_config_value, validate_openbitfun_product_identity, ConfigManager,
     ConfigManagerSettings, ConfigStatistics,
 };
 use super::types::*;
@@ -71,11 +71,7 @@ enum ConfigImportSource {
 }
 
 fn validate_config_export(export: &ConfigExport) -> OpenBitFunResult<()> {
-    validate_openbitfun_product_version(
-        &export.product_id,
-        &export.version,
-        "Configuration export",
-    )?;
+    validate_openbitfun_product_identity(&export.product_id, "Configuration export")?;
     if export.format_version != CURRENT_CONFIG_EXPORT_FORMAT_VERSION {
         return Err(OpenBitFunError::validation(format!(
             "Configuration export format_version must be {CURRENT_CONFIG_EXPORT_FORMAT_VERSION}, found {}",
@@ -1044,29 +1040,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pre_1_0_exports_are_rejected_without_changing_current_config() {
-        for account_sync in [false, true] {
-            let (service, _dir) = test_service("pre-1-export-rejected").await;
-            let mut local = GlobalConfig::default();
-            local.app.hooks.enabled = false;
-            service.set_config("", &local).await.unwrap();
-            let before: serde_json::Value = service.get_config(None).await.unwrap();
-
-            let mut export = current_export(GlobalConfig::default());
-            export.version = "0.2.18".to_string();
-            let imported = if account_sync {
-                service.import_account_settings(export).await.unwrap()
-            } else {
-                service.import_config(export).await.unwrap()
-            };
-            assert!(!imported.success);
-            assert!(imported.errors[0].contains("predates OpenBitFun 1.0.0"));
-            let after: serde_json::Value = service.get_config(None).await.unwrap();
-            assert_eq!(after, before);
-        }
-    }
-
-    #[tokio::test]
     async fn imports_still_honor_explicit_deletions_and_default_elision_in_backups() {
         for account_sync in [false, true] {
             let (service, _dir) = test_service("import-explicit-deletions").await;
@@ -1491,7 +1464,7 @@ mod tests {
         for (path, value) in [
             ("product_id", serde_json::json!("another-product")),
             ("schema_version", serde_json::json!(2)),
-            ("version", serde_json::json!("0.2.18")),
+            ("version", serde_json::json!("tampered-build")),
             ("last_modified", serde_json::json!(0)),
         ] {
             let error = service.set_config(path, value).await.unwrap_err();
@@ -1852,8 +1825,8 @@ mod tests {
         config.ai.default_models.speech_recognition = Some("speech".to_string());
         let original = serde_json::to_string_pretty(&config).expect("serialize config");
         tokio::fs::write(path_manager.app_config_file(), &original)
-        .await
-        .expect("seed config");
+            .await
+            .expect("seed config");
 
         let error = match ConfigService::with_settings(ConfigManagerSettings {
             path_manager: Some(path_manager.clone()),
@@ -2314,8 +2287,8 @@ mod tests {
         let original =
             serde_json::to_string_pretty(&raw_config).expect("retired config should serialize");
         tokio::fs::write(path_manager.app_config_file(), &original)
-        .await
-        .expect("retired config should be written");
+            .await
+            .expect("retired config should be written");
 
         let error = match ConfigService::with_settings(settings()).await {
             Ok(_) => panic!("retired reasoning fields must fail startup"),

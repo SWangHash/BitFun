@@ -68,6 +68,31 @@ test('Desktop DMG uses the branded installer layout', () => {
     appPosition: { x: 180, y: 170 },
     applicationFolderPosition: { x: 480, y: 170 },
   });
+
+  // Finder uses the PNG's physical size, not just its pixel dimensions.
+  // A 660x400 image tagged at 96 DPI renders at 495x300 points and leaves gaps.
+  const dmg = config.bundle.macOS.dmg;
+  const background = readFileSync(join(ROOT, 'src', 'apps', 'desktop', dmg.background));
+  assert.deepEqual(background.subarray(0, 8), Buffer.from('89504e470d0a1a0a', 'hex'));
+  let pixels;
+  let density;
+  for (let offset = 8; offset < background.length; ) {
+    const length = background.readUInt32BE(offset);
+    const type = background.toString('ascii', offset + 4, offset + 8);
+    if (type === 'IHDR') {
+      pixels = [background.readUInt32BE(offset + 8), background.readUInt32BE(offset + 12)];
+    } else if (type === 'pHYs') {
+      assert.equal(background[offset + 16], 1, 'background density must be in pixels per metre');
+      density = [background.readUInt32BE(offset + 8), background.readUInt32BE(offset + 12)];
+    }
+    offset += length + 12;
+  }
+  assert.ok(pixels && density, 'DMG background must declare pixel dimensions and physical density');
+  for (const [axis, points] of [dmg.windowSize.width, dmg.windowSize.height].entries()) {
+    const imagePoints = pixels[axis] * 72 / (density[axis] * 0.0254);
+    // PNG stores integer pixels/metre, so 72 DPI rounds to 2835 pixels/metre.
+    assert.ok(Math.abs(imagePoints - points) < 0.1, `background axis ${axis} must match Finder points`);
+  }
 });
 
 test('Desktop builds prepare and bundle the OpenCode extension Host', () => {
@@ -170,12 +195,16 @@ function retryFixture() {
     'macos',
     'OpenBitFun.app'
   );
+  const executableDir = join(appDir, 'Contents', 'MacOS');
+  const executablePath = join(executableDir, 'openbitfun-desktop');
   mkdirSync(desktopDir, { recursive: true });
-  mkdirSync(appDir, { recursive: true });
+  mkdirSync(executableDir, { recursive: true });
+  writeFileSync(executablePath, 'test executable');
 
   return {
     appDir,
     desktopDir,
+    executablePath,
     runtime: {
       cargoTargetDir: targetDir,
       githubActions: 'true',
@@ -195,6 +224,28 @@ test('retries a failed GitHub Actions DMG bundle after a fresh app bundle', () =
         DMG_ARGS,
         fixture.desktopDir,
         Date.now(),
+        fixture.runtime
+      ),
+      true
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test('retries when a restored app directory contains a freshly bundled executable', () => {
+  const fixture = retryFixture();
+  try {
+    const buildStartedAt = Date.now();
+    const staleTime = new Date(buildStartedAt - 60_000);
+    utimesSync(fixture.appDir, staleTime, staleTime);
+
+    assert.equal(
+      shouldRetryMacDmgBuild(
+        FAILED_BUILD,
+        DMG_ARGS,
+        fixture.desktopDir,
+        buildStartedAt,
         fixture.runtime
       ),
       true
@@ -228,6 +279,7 @@ test('does not retry failures outside the narrow DMG bundling boundary', () => {
 
     const staleTime = new Date(Date.now() - 60_000);
     utimesSync(fixture.appDir, staleTime, staleTime);
+    utimesSync(fixture.executablePath, staleTime, staleTime);
     assert.equal(
       shouldRetryMacDmgBuild(
         FAILED_BUILD,

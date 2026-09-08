@@ -4,6 +4,7 @@
 //! `opencode.ai/console`, aligned with OpenCode's `provider/opencode.ts`.
 //! One OAuth identity can authenticate both the Zen and Go API products.
 
+use super::device_flow::{poll_device_code, DevicePoll};
 use super::store::{self, StoredCredential};
 use super::{
     OpenCodePlan, ResolvedCredential, StartedLogin, SubscriptionApiOffering,
@@ -153,17 +154,10 @@ async fn request_device_code(options: &SubscriptionHttpOptions) -> Result<Device
     resp.json().await.context("parse opencode device response")
 }
 
-/// Outcome of a single device-token poll.
-enum DevicePoll {
-    Authorized(TokenResponse),
-    Pending,
-    SlowDown,
-}
-
 fn classify_device_poll_error(
     status: reqwest::StatusCode,
     pending: &PendingResponse,
-) -> Result<DevicePoll> {
+) -> Result<DevicePoll<TokenResponse>> {
     match pending.error.as_str() {
         "authorization_pending" => Ok(DevicePoll::Pending),
         "slow_down" => Ok(DevicePoll::SlowDown),
@@ -185,7 +179,10 @@ fn classify_device_poll_error(
 }
 
 /// One poll attempt against the device-token endpoint.
-async fn poll_once(device_code: &str, options: &SubscriptionHttpOptions) -> Result<DevicePoll> {
+async fn poll_once(
+    device_code: &str,
+    options: &SubscriptionHttpOptions,
+) -> Result<DevicePoll<TokenResponse>> {
     let client = http_client(options)?;
     let resp = client
         .post(format!("{SERVER}/auth/device/token"))
@@ -431,47 +428,42 @@ async fn fetch_remote_offerings(
     client: &reqwest::Client,
     access: &str,
     org_id: Option<&str>,
-) -> Option<Vec<SubscriptionApiOffering>> {
+) -> Result<Option<Vec<SubscriptionApiOffering>>> {
     let mut request = client
         .get(format!("{SERVER}/api/config"))
         .bearer_auth(access);
     if let Some(org_id) = org_id {
         request = request.header("x-org-id", org_id);
     }
-    let response = match request.send().await {
-        Ok(response) => response,
-        Err(error) => {
-            log::warn!("fetch OpenCode provider catalog failed: {error}");
-            return None;
-        }
-    };
+    let response = request
+        .send()
+        .await
+        .context("fetch OpenCode provider catalog")?;
     // OpenCode treats 404 as "no remote provider override" rather than an
-    // authentication or transport failure. Keep the existing catalog/fallback
-    // without emitting a misleading warning.
+    // authentication or transport failure. Let the caller clear stale catalog
+    // metadata without emitting a misleading warning.
     if response.status() == reqwest::StatusCode::NOT_FOUND {
-        return None;
+        return Ok(None);
     }
     if !response.status().is_success() {
-        log::warn!(
-            "fetch OpenCode provider catalog failed: status={}",
+        return Err(anyhow!(
+            "OpenCode provider catalog failed: HTTP {}",
             response.status()
-        );
-        return None;
+        ));
     }
-    match response.json::<RemoteConfigResponse>().await {
-        Ok(remote) => Some(offerings_from_remote_config(remote.config)),
-        Err(error) => {
-            log::warn!("parse OpenCode provider catalog failed: {error}");
-            None
-        }
-    }
+    let remote = response
+        .json::<RemoteConfigResponse>()
+        .await
+        .context("parse OpenCode provider catalog")?;
+    Ok(Some(offerings_from_remote_config(remote.config)))
 }
 
 async fn fetch_metadata(
     access: &str,
     existing: Option<&serde_json::Value>,
     options: &SubscriptionHttpOptions,
-) -> serde_json::Value {
+    require_catalog: bool,
+) -> Result<serde_json::Value> {
     let mut metadata = existing
         .and_then(serde_json::Value::as_object)
         .cloned()
@@ -480,10 +472,7 @@ async fn fetch_metadata(
         "server".to_string(),
         serde_json::Value::String(SERVER.to_string()),
     );
-    let client = match http_client(options) {
-        Ok(client) => client,
-        Err(_) => return serde_json::Value::Object(metadata),
-    };
+    let client = http_client(options)?;
 
     if let Ok(resp) = client
         .get(format!("{SERVER}/api/user"))
@@ -531,13 +520,20 @@ async fn fetch_metadata(
     }
 
     let org_id = metadata.get("org_id").and_then(serde_json::Value::as_str);
-    if let Some(offerings) = fetch_remote_offerings(&client, access, org_id).await {
-        if let Ok(value) = serde_json::to_value(offerings) {
-            metadata.insert(OFFERINGS_METADATA_KEY.to_string(), value);
+    match fetch_remote_offerings(&client, access, org_id).await {
+        Ok(offerings) => {
+            // 404 means no override. Do not continue advertising a removed
+            // remote catalog from a prior account/profile snapshot.
+            metadata.insert(
+                OFFERINGS_METADATA_KEY.to_string(),
+                serde_json::to_value(offerings.unwrap_or_else(fallback_offerings))?,
+            );
         }
+        Err(error) if require_catalog => return Err(error),
+        Err(error) => log::warn!("OpenCode signed in without a refreshed model catalog: {error:#}"),
     }
 
-    serde_json::Value::Object(metadata)
+    Ok(serde_json::Value::Object(metadata))
 }
 
 async fn persist_tokens(
@@ -636,35 +632,18 @@ pub(crate) async fn begin_login(
             super::SubscriptionProvider::Opencode,
             cancel,
             async {
-                let mut wait = interval;
-                let deadline = tokio::time::Instant::now() + Duration::from_secs(expires_in);
-                loop {
-                    let sleep = Duration::from_secs(wait);
-                    if tokio::time::Instant::now() + sleep > deadline {
-                        return Err(anyhow!("OpenCode device authorization code expired"));
-                    }
-                    tokio::time::sleep(sleep).await;
-                    match poll_once(&device_code, &options).await? {
-                        DevicePoll::Authorized(tokens) => {
-                            // Optional profile/org network calls belong to the
-                            // cancellable authorization phase. The provider
-                            // commit lock should cover only the credential
-                            // store transaction, never up to 60 seconds of
-                            // metadata fetching.
-                            let metadata =
-                                fetch_metadata(&tokens.access_token, None, &options).await;
-                            return Ok((tokens, metadata));
-                        }
-                        DevicePoll::Pending => {
-                            wait = interval;
-                        }
-                        // RFC 8628: on slow_down, increase the poll interval
-                        // by 5 seconds.
-                        DevicePoll::SlowDown => {
-                            wait = wait.saturating_add(5);
-                        }
-                    }
-                }
+                let tokens = poll_device_code(
+                    Duration::from_secs(interval),
+                    Duration::from_secs(expires_in),
+                    Duration::ZERO,
+                    false,
+                    || poll_once(&device_code, &options),
+                )
+                .await
+                .context("complete OpenCode device authorization")?;
+                // Keep optional profile/catalog IO outside the credential commit lock.
+                let metadata = fetch_metadata(&tokens.access_token, None, &options, false).await?;
+                Ok((tokens, metadata))
             },
             move |(tokens, metadata)| persist_tokens(tokens, metadata, expected_revision),
         )
@@ -777,17 +756,21 @@ async fn ensure_fresh(options: &SubscriptionHttpOptions) -> Result<FreshCredenti
 
 /// Refreshes account/org/catalog metadata using a fresh credential.
 pub(crate) async fn refresh_profile(options: &SubscriptionHttpOptions) -> Result<()> {
-    let access = ensure_fresh(options).await?.access;
+    ensure_fresh(options).await?;
     let snapshot = store::load_entry_with_revision(STORE_KEY).await?;
     let entry = snapshot
         .credential
         .ok_or_else(|| anyhow!("OpenCode is not connected; sign in first"))?;
-    let existing_metadata = match &entry {
-        StoredCredential::Oauth { metadata, .. } | StoredCredential::Api { metadata, .. } => {
-            metadata.as_ref()
-        }
+    // Bind the network credential to the same snapshot that is updated by CAS.
+    // A sign-in between refresh and snapshot load must not attach the old
+    // account's profile/catalog to the new account's credential.
+    let (access, existing_metadata) = match &entry {
+        StoredCredential::Oauth {
+            access, metadata, ..
+        } => (access, metadata.as_ref()),
+        StoredCredential::Api { key, metadata } => (key, metadata.as_ref()),
     };
-    let metadata = fetch_metadata(&access, existing_metadata, options).await;
+    let metadata = fetch_metadata(access, existing_metadata, options, true).await?;
     if existing_metadata == Some(&metadata) {
         return Ok(());
     }

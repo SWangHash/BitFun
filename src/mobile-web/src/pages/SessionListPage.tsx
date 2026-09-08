@@ -25,6 +25,7 @@ import {
 } from '../services/RemoteSessionManager';
 import { useMobileStore } from '../services/store';
 import { createRemoteCacheScope, remoteCache } from '../services/RemoteCache';
+import { sessionMatchesWorkspace, workspaceIdentityKey } from '../services/workspaceIdentity';
 import { useTheme } from '../theme';
 import logoMarkDark from '../assets/openbitfun-mark-dark.png';
 import logoMarkLight from '../assets/openbitfun-mark-light.png';
@@ -73,7 +74,7 @@ function compactSelectedDeviceIdForClient(client?: RelayHttpClient): string | nu
 type CompactWorkspaceLoadStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
 function compactWorkspaceKey(workspace: RecentWorkspaceEntry): string {
-  return `${workspace.remote_connection_id ?? 'local'}:${workspace.remote_ssh_host ?? ''}:${workspace.path}`;
+  return workspaceIdentityKey(workspace);
 }
 
 function mergeCompactWorkspaces(
@@ -110,10 +111,15 @@ function mergeCompactWorkspaces(
   recent.forEach(append);
   sessions.forEach((session) => {
     if (!session.workspace_path) return;
+    if (!session.workspace_identity && merged.some((workspace) => (
+      workspace.path === session.workspace_path
+    ))) return;
     append({
       path: session.workspace_path,
       name: session.workspace_name || session.workspace_path.split('/').filter(Boolean).pop() || session.workspace_path,
       last_opened: session.updated_at,
+      remote_connection_id: session.workspace_identity?.remote_connection_id,
+      remote_ssh_host: session.workspace_identity?.remote_ssh_host,
     });
   });
   return merged;
@@ -663,7 +669,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
       cached.workspaces.forEach((workspace) => {
         const key = compactWorkspaceKey(workspace);
         const workspaceSessions = cached.sessions.filter((session) => (
-          session.workspace_path === workspace.path
+          sessionMatchesWorkspace(session, workspace, cached.workspaces)
         ));
         if (workspaceSessions.length > 0) {
           cachedByWorkspace[key] = workspaceSessions;
@@ -729,6 +735,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
       offsetRef.current = resp.sessions.length;
       remoteCache.saveSessionPage(cacheScope, resp.sessions, {
         workspacePath,
+        workspaceIdentity: identity,
         replaceWorkspace: query.trim().length === 0,
       });
     } catch (e: any) {
@@ -906,6 +913,10 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
       setCompactVisibleSessionCounts((current) => ({ ...current, [key]: 3 }));
       remoteCache.saveSessionPage(cacheScope, response.sessions, {
         workspacePath: workspace.path,
+        workspaceIdentity: {
+          remoteConnectionId: workspace.remote_connection_id,
+          remoteSshHost: workspace.remote_ssh_host,
+        },
         replaceWorkspace: true,
       });
     } catch (error: unknown) {
@@ -939,6 +950,10 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
       setCompactVisibleSessionCounts((current) => ({ ...current, [key]: 3 }));
       remoteCache.saveSessionPage(cacheScope, response.sessions, {
         workspacePath: workspace.path,
+        workspaceIdentity: {
+          remoteConnectionId: workspace.remote_connection_id,
+          remoteSshHost: workspace.remote_ssh_host,
+        },
         replaceWorkspace: true,
       });
     } catch (error: unknown) {
@@ -987,7 +1002,13 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
         ...current,
         [key]: Math.min(visibleCount + 3, merged.length),
       }));
-      remoteCache.saveSessionPage(cacheScope, response.sessions, { workspacePath: workspace.path });
+      remoteCache.saveSessionPage(cacheScope, response.sessions, {
+        workspacePath: workspace.path,
+        workspaceIdentity: {
+          remoteConnectionId: workspace.remote_connection_id,
+          remoteSshHost: workspace.remote_ssh_host,
+        },
+      });
     } catch (error: unknown) {
       if (!isSessionListCurrent(targetEpoch) || isRemoteControlTargetChangedError(error)) return;
       setError(String((error as { message?: string })?.message || error));
@@ -1038,6 +1059,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
       setCompactVisibleSessionCounts((current) => ({ ...current, [key]: 3 }));
       remoteCache.saveSessionPage(cacheScope, response.sessions, {
         workspacePath: workspace.path,
+        workspaceIdentity: identity,
         replaceWorkspace: true,
       });
       onSelectSession(sessionId, t('sessions.remoteCodeSession'), true, agentType);
@@ -1170,7 +1192,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
       setHasMore(resp.has_more);
       offsetRef.current += resp.sessions.length;
       liveDataSeqRef.current += 1;
-      remoteCache.saveSessionPage(cacheScope, resp.sessions, { workspacePath });
+      remoteCache.saveSessionPage(cacheScope, resp.sessions, { workspacePath, workspaceIdentity: identity });
     } catch (e: any) {
       if (
         requestSeq !== listRequestSeqRef.current
@@ -1275,6 +1297,10 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
         offsetRef.current = resp.sessions.length;
         remoteCache.saveSessionPage(cacheScope, resp.sessions, {
           workspacePath: ws?.path,
+          workspaceIdentity: {
+            remoteConnectionId: ws?.remote_connection_id,
+            remoteSshHost: ws?.remote_ssh_host,
+          },
           replaceWorkspace: searchQuery.trim().length === 0,
         });
       } else {
@@ -1658,7 +1684,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
                   const key = compactWorkspaceKey(workspace);
                   const expanded = compactExpandedWorkspaces.has(key);
                   const projectedSessions = sessions.filter((session) => (
-                    (session.workspace_path || currentWorkspace?.path) === workspace.path
+                    sessionMatchesWorkspace(session, workspace, compactWorkspaces)
                   ));
                   const workspaceSessions = compactWorkspaceSessions[key] ?? projectedSessions;
                   const status = compactWorkspaceStatuses[key]
@@ -1674,7 +1700,14 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
                           <span className="harmony-sidebar__folder-icon" aria-hidden="true">
                             <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2h7A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>
                           </span>
-                          <span className="harmony-sidebar__row-label">{workspace.name || workspace.path}</span>
+                          <span className="harmony-sidebar__workspace-copy">
+                            <span className="harmony-sidebar__row-label">{workspace.name || workspace.path}</span>
+                            {workspace.remote_ssh_host && (
+                              <span className="harmony-sidebar__workspace-host" title={workspace.remote_ssh_host}>
+                                {workspace.remote_ssh_host}
+                              </span>
+                            )}
+                          </span>
                         </MobileButton>
                         <MobileIconButton appearance="plain" size="sm" className="harmony-sidebar__row-plus" onClick={() => requestHarnessCreate(workspace)} aria-label={t('shell.newChat')} disabled={creating} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 4v16M4 12h16"/></svg>} />
                       </div>
@@ -2001,7 +2034,9 @@ const SessionListPage: React.FC<SessionListPageProps> = ({
                   && (currentWorkspace?.remote_ssh_host ?? undefined) === (workspace.remote_ssh_host ?? undefined);
                 return {
                   className: `session-list__picker-item session-list__picker-item--workspace ${selected ? 'is-selected' : ''}`,
-                  label: workspace.name,
+                  label: workspace.remote_ssh_host
+                    ? `${workspace.name} · ${workspace.remote_ssh_host}`
+                    : workspace.name,
                   leading: <span className="session-list__picker-item-icon"><WorkspaceIcon /></span>,
                   trailing: selected ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> : undefined,
                   value: [workspace.remote_connection_id ?? 'local', workspace.remote_ssh_host ?? '', workspace.path || String(index)].join(':'),
