@@ -101,8 +101,7 @@ const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
 
     const prevWorkspaceIdRef = useRef<string | undefined>(undefined);
 
-    useEffect(() => {
-      const next = workspaceId;
+    const syncAgentCanvasWorkspace = useCallback((next: string | undefined) => {
       const prev = prevWorkspaceIdRef.current;
       if (prev === next) return;
 
@@ -113,7 +112,11 @@ const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
       switchAgentCanvasWorkspace(prev ?? null, next ?? null);
       syncSessionOwnedBrowserTabs(flowChatStore.getState().activeSessionId);
       prevWorkspaceIdRef.current = next;
-    }, [syncSessionOwnedBrowserTabs, workspaceId]);
+    }, [syncSessionOwnedBrowserTabs]);
+
+    useEffect(() => {
+      syncAgentCanvasWorkspace(workspaceId);
+    }, [syncAgentCanvasWorkspace, workspaceId]);
 
     useEffect(() => {
       let previousSessionId: string | null | undefined;
@@ -129,12 +132,21 @@ const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
 
     useEffect(() => {
       const removeListener = workspaceManager.addEventListener((event) => {
+        if (
+          event.type === 'workspace:switched'
+          || event.type === 'workspace:active-changed'
+        ) {
+          // WorkspaceManager emits these events synchronously while activation is
+          // still in progress. Swap the canvas before callers can open the target
+          // session's review tab; the context effect above remains a fallback.
+          syncAgentCanvasWorkspace(event.workspace?.id);
+        }
         if (event.type === 'workspace:closed') {
           removeAgentCanvasSnapshot(event.workspaceId);
         }
       });
       return () => removeListener();
-    }, []);
+    }, [syncAgentCanvasWorkspace]);
 
     const handleInteraction = useCallback(async (itemId: string, userInput: string) => {
       log.debug('Panel interaction', { itemId, userInput });
