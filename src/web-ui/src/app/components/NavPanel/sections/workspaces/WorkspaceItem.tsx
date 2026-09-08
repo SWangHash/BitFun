@@ -945,7 +945,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
                 </MenuItem>
                 <MenuSeparator />
                 <MenuItem
-                  leading={<Icon glyph={ListChecks} />}
+                  leading={<ListChecks size={13} />}
                   onClick={handleOpenSessionBatchModal}
                   data-testid="nav-workspace-menu-manage-sessions"
                 >

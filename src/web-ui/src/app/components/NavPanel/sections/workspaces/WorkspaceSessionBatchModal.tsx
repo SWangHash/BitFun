@@ -419,7 +419,7 @@ const WorkspaceSessionBatchModal: React.FC<WorkspaceSessionBatchModalProps> = ({
                             <span data-openbitfun-component="workspace-session-batch-modal" data-openbitfun-part="rowContent" className="workspace-session-batch-modal__row-content">
                               <span className="workspace-session-batch-modal__row-icon">
                                 {sessionPresentation === 'assistant'
-                                  ? <Icon glyph={Bot} size="sm" />
+                                  ? <Bot size={13} />
                                   : <Icon name="session" size="sm" />}
                               </span>
                               <span className="workspace-session-batch-modal__row-head">

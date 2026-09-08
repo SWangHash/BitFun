@@ -1942,7 +1942,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
                           </MenuItem>
                           <MenuItem
                             type="button"
-                            leading={<Icon glyph={ListChecks} />}
+                            leading={<ListChecks size={13} />}
                             disabled={!workspacePath && !session.workspacePath}
                             onClick={e => {
                               e.stopPropagation();
