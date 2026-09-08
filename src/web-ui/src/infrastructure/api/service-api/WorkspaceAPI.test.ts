@@ -325,17 +325,6 @@ describe('WorkspaceAPI', () => {
       await expect(workspaceAPI.openFileOrDirectoryDialog()).resolves.toBeNull();
     });
 
-    it('rejects loudly in a plain browser runtime instead of invoking a host command', async () => {
-      (globalThis as { window?: unknown }).window = {};
-      stubNavigator('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-
-      await expect(workspaceAPI.openFileOrDirectoryDialog({ directory: true })).rejects.toThrow(
-        /no native file dialog/i,
-      );
-      expect(dialogOpenMock).not.toHaveBeenCalled();
-      expect(invokeMock).not.toHaveBeenCalled();
-    });
-
     it('keeps the legacy oh-named alias routed through the same dispatch', async () => {
       stubTauri();
       stubNavigator('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
@@ -349,6 +338,57 @@ describe('WorkspaceAPI', () => {
       expect(invokeMock.mock.calls.some(([command]) => command === 'open_oh_file_dialog')).toBe(
         false,
       );
+    });
+
+    it('rejects loudly in a plain browser runtime instead of invoking a host command', async () => {
+      (globalThis as { window?: unknown }).window = {};
+      stubNavigator('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+
+      await expect(workspaceAPI.openFileOrDirectoryDialog({ directory: true })).rejects.toThrow(
+        /no native file dialog/i,
+      );
+      expect(dialogOpenMock).not.toHaveBeenCalled();
+      expect(invokeMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('startWindowDragging platform dispatch', () => {
+    type TauriInternals = { invoke?: unknown; metadata?: { currentWindow?: { label?: string } } };
+    const stubTauri = () => {
+      (globalThis as { window?: unknown }).window = {
+        __TAURI_INTERNALS__: {
+          invoke: vi.fn(),
+          metadata: { currentWindow: { label: 'main' } },
+        } satisfies TauriInternals,
+      };
+    };
+    const stubNavigator = (platform: string, userAgent: string) => {
+      vi.stubGlobal('navigator', { platform, userAgent });
+    };
+
+    it('routes the OpenHarmony runtime to window_start_dragging instead of the unsupported tao drag_window', async () => {
+      stubTauri();
+      stubNavigator('OpenHarmony', 'Mozilla/5.0 (OpenHarmony) AppleWebKit/537.36');
+
+      await expect(workspaceAPI.startWindowDragging()).resolves.toBeUndefined();
+
+      expect(invokeMock).toHaveBeenCalledWith('window_start_dragging');
+    });
+
+    it('keeps desktop runtimes on the native Tauri startDragging path', async () => {
+      stubTauri();
+      stubNavigator('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+      const startDragging = vi.fn().mockResolvedValue(undefined);
+      vi.doMock('@tauri-apps/api/window', () => ({
+        getCurrentWindow: () => ({ startDragging }),
+      }));
+      const { workspaceAPI: freshApi } = await import('./WorkspaceAPI');
+
+      await expect(freshApi.startWindowDragging()).resolves.toBeUndefined();
+
+      expect(startDragging).toHaveBeenCalledOnce();
+      expect(invokeMock).not.toHaveBeenCalledWith('window_start_dragging');
+      vi.doUnmock('@tauri-apps/api/window');
     });
   });
 });

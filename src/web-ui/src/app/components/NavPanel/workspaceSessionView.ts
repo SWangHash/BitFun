@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Session } from '@/flow_chat/types/flow-chat';
+import { storage } from '@/shared/utils/storageAdapter';
 
 export type WorkspaceSessionGrouping = 'grouped' | 'all';
 export type WorkspaceSessionOrdering = 'updated' | 'status' | 'created' | 'name';
@@ -93,7 +94,9 @@ export const useWorkspaceSessionViewStore = create<WorkspaceSessionViewState>()(
     {
       name: 'openbitfun.workspace-session-view.v2',
       version: 3,
-      storage: createJSONStorage(() => localStorage),
+      // The storage adapter falls back to memory when the WebView exposes
+      // localStorage as null (HarmonyOS); zustand's default storage would throw.
+      storage: createJSONStorage(() => storage),
       partialize: ({ grouping, ordering, show, filters }) => ({ grouping, ordering, show, filters }),
       migrate: (persistedState: unknown) => {
         const state = persistedState && typeof persistedState === 'object'

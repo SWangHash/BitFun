@@ -58,7 +58,6 @@ import {
 import { useExternalAppAwareness } from '@/infrastructure/config/components/external-sources/useExternalAppAwareness';
 
 import './NavPanel.scss';
-import {workspaceAPI} from "@/infrastructure";
 
 const log = createLogger('MainNav');
 
@@ -164,11 +163,12 @@ const MainNav: React.FC<MainNavProps> = ({
 
   const handleOpenProject = useCallback(async () => {
     try {
+      // 'project.open' owns the whole flow: platform-dispatched directory
+      // picker (native dialog on desktop, OHOS DocumentViewPicker on
+      // HarmonyOS) followed by workspaceManager.openWorkspace. Picking the
+      // directory here as well stacked a second system picker on top —
+      // confirming or cancelling the first one revealed the next one.
       await activateProductAction('project.open', { t });
-      const selected = await workspaceAPI.open_oh_file_dialog({ directory: true });
-      if(selected && typeof selected === 'string'){
-        await workspaceManager.openWorkspace(selected);
-      }
     } catch (err) {
       log.error('Failed to open project', err);
     }

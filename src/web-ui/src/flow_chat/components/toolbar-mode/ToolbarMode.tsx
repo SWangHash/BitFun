@@ -14,13 +14,13 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Menu, MenuItem } from '@openbitfun/ui';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Square, Maximize2, MoreVertical, PanelTopOpen, PanelTopClose } from 'lucide-react';
 import { useToolbarModeContext } from './ToolbarModeContext';
 import { type FlowToolItem } from '../../types/flow-chat';
 import { projectEffectiveToolItem } from '../../utils/toolInvocationIdentity';
 import { createLogger } from '@/shared/utils/logger';
 import { isMacOSDesktopRuntime } from '@/infrastructure/runtime';
+import { workspaceAPI } from '@/infrastructure/api';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
 import { useAnchoredPopoverPosition } from '@/shared/utils/useAnchoredPopoverPosition';
@@ -175,8 +175,7 @@ export const ToolbarMode: React.FC = () => {
       return;
     }
     try {
-      const win = getCurrentWindow();
-      await win.startDragging();
+      await workspaceAPI.startWindowDragging();
     } catch (error) {
       log.error('Failed to start dragging', error);
     }

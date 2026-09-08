@@ -2,6 +2,7 @@ import React, { useCallback, useRef } from 'react';
 import { Toolbar } from '@openbitfun/ui';
 import { WindowControls } from '@/app/components/WindowControls';
 import { supportsNativeWindowDragging, usesHostWindowControls } from '@/infrastructure/runtime';
+import { workspaceAPI } from '@/infrastructure/api';
 import { createLogger } from '@/shared/utils/logger';
 import { useSceneStore } from '../../stores/sceneStore';
 import SceneBar from '../SceneBar/SceneBar';
@@ -55,8 +56,7 @@ const SceneTopBar: React.FC<SceneTopBarProps> = ({
 
     void (async () => {
       try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        await getCurrentWindow().startDragging();
+        await workspaceAPI.startWindowDragging();
       } catch (error) {
         log.debug('startDragging failed', error);
       }
