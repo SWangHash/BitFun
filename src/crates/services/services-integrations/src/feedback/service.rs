@@ -76,6 +76,22 @@ struct StoredCredentials {
 }
 
 impl StoredCredentials {
+    fn apply_shared_auth(&mut self, shared: &StoredCredentials) {
+        self.enroll_key = shared.enroll_key.clone();
+        self.enroll_idempotency_key = shared.enroll_idempotency_key.clone();
+        self.refresh_idempotency_key = shared.refresh_idempotency_key.clone();
+        self.anonymous_id = shared.anonymous_id.clone();
+        self.refresh_token = shared.refresh_token.clone();
+        self.capabilities = shared.capabilities.clone();
+    }
+
+    fn mark_shared_auth_unavailable(&mut self) {
+        self.enroll_idempotency_key = None;
+        self.refresh_idempotency_key = None;
+        self.anonymous_id = None;
+        self.refresh_token = None;
+    }
+
     fn cached_state(&self) -> FeedbackStateCacheData {
         FeedbackStateCacheData {
             enroll_idempotency_key: self.enroll_idempotency_key.clone(),
@@ -1093,23 +1109,15 @@ impl FeedbackService {
     }
 
     async fn ensure_existing_loaded(&self, state: &mut RuntimeState) -> Result<(), FeedbackError> {
+        let shared_credentials = self.load_shared_credentials().await?;
         if state.loaded {
+            match shared_credentials.as_ref() {
+                Some(shared) => state.stored.apply_shared_auth(shared),
+                None => state.stored.mark_shared_auth_unavailable(),
+            }
             return Ok(());
         }
-        let stored = self
-            .anonymous_auth
-            .combined_state()
-            .await
-            .map_err(feedback_auth_error)?;
-        state.stored = match stored {
-            Some(value) => serde_json::from_str(&value).map_err(|_| {
-                credential_error(
-                    "CREDENTIALS_INVALID",
-                    "Saved feedback access data is invalid",
-                )
-            })?,
-            None => StoredCredentials::default(),
-        };
+        state.stored = shared_credentials.clone().unwrap_or_default();
         let had_legacy_cached_state = state.stored.has_legacy_cached_state();
         if let Some(cache) = self.state_cache(&state.stored) {
             match cache.load().await {
@@ -1130,6 +1138,9 @@ impl FeedbackService {
                 }
             }
         }
+        if let Some(shared) = shared_credentials.as_ref() {
+            state.stored.apply_shared_auth(shared);
+        }
         if had_legacy_cached_state {
             if let Err(error) = self.persist_credentials(&state.stored).await {
                 log::warn!(
@@ -1147,6 +1158,22 @@ impl FeedbackService {
         }
         state.loaded = true;
         Ok(())
+    }
+
+    async fn load_shared_credentials(&self) -> Result<Option<StoredCredentials>, FeedbackError> {
+        self.anonymous_auth
+            .combined_state()
+            .await
+            .map_err(feedback_auth_error)?
+            .map(|value| {
+                serde_json::from_str(&value).map_err(|_| {
+                    credential_error(
+                        "CREDENTIALS_INVALID",
+                        "Saved feedback access data is invalid",
+                    )
+                })
+            })
+            .transpose()
     }
 
     async fn persist_credentials(&self, stored: &StoredCredentials) -> Result<(), FeedbackError> {
@@ -1505,7 +1532,10 @@ mod tests {
         user_message_reconciliation_cursor, FeedbackService, StoredCredentials,
         DEBUG_FEEDBACK_API_BASE_URL, RELEASE_FEEDBACK_API_BASE_URL,
     };
-    use crate::anonymous_auth::AnonymousAuthError;
+    use crate::anonymous_auth::{
+        AnonymousAccessTokenProvider, AnonymousAuthError, AnonymousAuthService,
+        AnonymousCredentialStore,
+    };
     use crate::feedback::FeedbackCredentialStore;
     use anyhow::{anyhow, Result};
     use async_trait::async_trait;
@@ -1528,6 +1558,22 @@ mod tests {
 
     #[async_trait]
     impl FeedbackCredentialStore for MemoryStore {
+        async fn load(&self) -> Result<Option<String>> {
+            Ok(self.value.lock().unwrap().clone())
+        }
+
+        async fn store(&self, value: &str) -> Result<()> {
+            let call = self.stores.fetch_add(1, Ordering::SeqCst) + 1;
+            if self.fail_at.load(Ordering::SeqCst) == call {
+                return Err(anyhow!("injected store failure"));
+            }
+            *self.value.lock().unwrap() = Some(value.to_string());
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl AnonymousCredentialStore for MemoryStore {
         async fn load(&self) -> Result<Option<String>> {
             Ok(self.value.lock().unwrap().clone())
         }
@@ -1783,6 +1829,46 @@ mod tests {
             serde_json::from_slice(&tokio::fs::read(identity_path).await.unwrap()).unwrap();
         assert_eq!(value["anonymousId"], "22222222-2222-4222-8222-222222222222");
         let _ = tokio::fs::remove_dir_all(cache_dir).await;
+    }
+
+    #[tokio::test]
+    async fn access_state_tracks_shared_auth_updates_without_restart() {
+        let responses = vec![json_response(
+            201,
+            r#"{"anonymous_id":"anon","access_token":"access","refresh_token":"refresh","expires_in":3600,"refresh_expires_in":2592000,"scope":"otel:write,feedback:write,feedback:read","schema_version":"1"}"#,
+        )];
+        let (base_url, _) = spawn_server(responses).await;
+        let store = Arc::new(MemoryStore {
+            value: StdMutex::new(Some(
+                serde_json::json!({
+                    "enroll_key": "enroll",
+                    "capabilities": { "feedback-1": "capability" }
+                })
+                .to_string(),
+            )),
+            ..MemoryStore::default()
+        });
+        let auth = Arc::new(AnonymousAuthService::new(
+            Some(base_url.clone()),
+            store,
+            Duration::from_secs(2),
+        ));
+        let service = FeedbackService::new_with_auth(
+            Some(base_url),
+            "1.0.0".to_string(),
+            auth.clone(),
+            Duration::from_secs(2),
+        );
+
+        let before = service.access_state().await.unwrap();
+        assert!(before.has_history);
+        assert!(!before.can_reuse_access);
+
+        auth.access_token("otel:write", false).await.unwrap();
+
+        let after = service.access_state().await.unwrap();
+        assert!(after.has_history);
+        assert!(after.can_reuse_access);
     }
 
     #[tokio::test]
