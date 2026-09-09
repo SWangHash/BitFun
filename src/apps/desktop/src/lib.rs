@@ -574,11 +574,18 @@ fn get_startup_native_trace(
     state.snapshot()
 }
 
+// Deep async chains in debug builds can exhaust the 2 MiB std default for
+// worker stacks. The OHOS entry point loads this crate as a NAPI module and
+// never runs `main.rs`, so the `RUST_MIN_STACK` set there is not applied on
+// that platform; set the size on the builder so every entry path gets it.
+const WORKER_THREAD_STACK_SIZE: usize = 8 * 1024 * 1024;
+
 /// Tauri application entry point
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(16)
+        .thread_stack_size(WORKER_THREAD_STACK_SIZE)
         .enable_all()
         .build()
         .expect("multi thread runtime failed");
