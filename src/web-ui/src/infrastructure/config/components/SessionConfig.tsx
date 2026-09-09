@@ -12,10 +12,9 @@ import {
   IconButton,
   ConfigPageLoading,
   Modal,
-  Select,
   confirmDanger,
-  type SelectOption,
 } from '@/component-library';
+import { Select, type SelectOption } from '@openbitfun/ui';
 import { ConfigPageHeader, ConfigPageLayout, ConfigPageContent, ConfigPageSection, ConfigPageRow } from './common';
 import { aiExperienceConfigService, type AIExperienceSettings } from '../services/AIExperienceConfigService';
 import {
@@ -515,7 +514,7 @@ const SessionSettingsPanels: React.FC<SessionSettingsPanelsProps> = ({ variant }
     }
   };
 
-  const companionPetOptions: SelectOption[] = companionPets.map(pet => ({
+  const companionPetOptions = companionPets.map(pet => ({
     value: pet.packagePath,
     label: pet.displayName,
     description: pet.description ?? undefined,
@@ -528,12 +527,10 @@ const SessionSettingsPanels: React.FC<SessionSettingsPanelsProps> = ({ variant }
     {
       value: 'desktop',
       label: t('features.agentCompanion.displayDesktop'),
-      description: t('features.agentCompanion.displayDesktopDesc'),
     },
     {
       value: 'input',
       label: t('features.agentCompanion.displayInput'),
-      description: t('features.agentCompanion.displayInputDesc'),
     },
   ];
 
@@ -541,12 +538,10 @@ const SessionSettingsPanels: React.FC<SessionSettingsPanelsProps> = ({ variant }
     {
       value: 'safe_only',
       label: tTools('config.subagentBatchPolicy.safeOnly'),
-      description: tTools('config.subagentBatchPolicy.safeOnlyDesc'),
     },
     {
       value: 'force_parallel',
       label: tTools('config.subagentBatchPolicy.forceParallel'),
-      description: tTools('config.subagentBatchPolicy.forceParallelDesc'),
     },
   ];
 
@@ -1038,12 +1033,11 @@ const SessionSettingsPanels: React.FC<SessionSettingsPanelsProps> = ({ variant }
           >
             <Select
               className="openbitfun-func-agent-config__pet-select"
-              dropdownClassName="openbitfun-func-agent-config__pet-select-dropdown"
-              size="small"
+              size="sm"
               options={companionDisplayModeOptions}
               value={settings.agent_companion_display_mode}
-              onChange={(value) => {
-                const selectedValue = String(Array.isArray(value) ? value[0] : value);
+              onValueChange={(value) => {
+                const selectedValue = String(value);
                 void updateSetting(
                   'agent_companion_display_mode',
                   selectedValue === 'desktop' ? 'desktop' : 'input',
@@ -1250,7 +1244,7 @@ const SessionSettingsPanels: React.FC<SessionSettingsPanelsProps> = ({ variant }
           >
             <div className="openbitfun-func-agent-config__row-control" data-openbitfun-component="session-config" data-openbitfun-part="control">
               <Select
-                size="small"
+                size="sm"
                 value={resolveToolPermissionMode(toolPermissionConfig)}
                 options={[
                   { value: 'ask', label: t('permissionPolicy.ask') },
@@ -1258,7 +1252,7 @@ const SessionSettingsPanels: React.FC<SessionSettingsPanelsProps> = ({ variant }
                   { value: 'full_access', label: t('permissionPolicy.fullAccess') },
                 ]}
                 disabled={permissionConfigSaving}
-                onChange={handlePermissionModeChange}
+                onValueChange={handlePermissionModeChange}
               />
             </div>
           </ConfigPageRow>
@@ -1335,9 +1329,9 @@ const SessionSettingsPanels: React.FC<SessionSettingsPanelsProps> = ({ variant }
               <Select
                 value={subagentBatchExecutionPolicy}
                 options={subagentBatchExecutionPolicyOptions}
-                size="small"
+                size="sm"
                 disabled={toolExecConfigLoading}
-                onChange={handleSubagentBatchExecutionPolicyChange}
+                onValueChange={handleSubagentBatchExecutionPolicyChange}
               />
             </div>
           </ConfigPageRow>
@@ -1547,11 +1541,9 @@ const SessionSettingsPanels: React.FC<SessionSettingsPanelsProps> = ({ variant }
                   <Select
                     value={preferredBrowser}
                     options={browserSelectOptions}
-                    size="small"
+                    size="sm"
                     disabled={browserControlBusy || browserStatusLoading || browserSelectOptions.length === 0}
-                    onChange={(value) => {
-                      if (!Array.isArray(value)) void handleBrowserControlBrowserChange(value);
-                    }}
+                    onValueChange={handleBrowserControlBrowserChange}
                   />
                 </div>
               </ConfigPageRow>

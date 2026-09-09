@@ -2,7 +2,6 @@ import { lazy } from 'react';
 import type { ConfigTab } from './settingsConfig';
 import { preloadSettingsTabI18n } from './settingsTabI18n';
 
-const loadAIModelConfig = () => import('../../../infrastructure/config/components/AIModelConfig');
 const loadMcpToolsConfig = () => import('../../../infrastructure/config/components/McpToolsConfig');
 const loadAcpAgentsConfig = () => import('../../../infrastructure/config/components/AcpAgentsConfig');
 const loadExternalSourcesConfig = () => import('../../../infrastructure/config/components/ExternalSourcesConfig');
@@ -19,7 +18,6 @@ const loadKeyboardShortcutsTab = () => import('./components/KeyboardShortcutsTab
 const loadSessionConfig = () => import('../../../infrastructure/config/components/SessionConfig');
 const loadUsageStatisticsConfig = () => import('../../../infrastructure/config/components/UsageStatisticsConfig');
 
-export const AIModelConfig = lazy(loadAIModelConfig);
 export const McpToolsConfig = lazy(loadMcpToolsConfig);
 export const AcpAgentsConfig = lazy(loadAcpAgentsConfig);
 export const ExternalSourcesConfig = lazy(loadExternalSourcesConfig);
@@ -48,7 +46,7 @@ export const UsageStatisticsConfig = lazy(loadUsageStatisticsConfig);
 const SETTINGS_CONTENT_LOADERS: Partial<Record<ConfigTab, () => Promise<unknown>>> = {
   basics: loadBasicsConfig,
   appearance: loadAppearanceConfig,
-  models: loadAIModelConfig,
+  models: () => import('../../../infrastructure/config/components/ModelSettingsPage'),
   'usage-statistics': loadUsageStatisticsConfig,
   'archived-sessions': loadArchivedSessionsConfig,
   worktrees: loadWorktreesConfig,

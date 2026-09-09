@@ -2,7 +2,8 @@ import React, { useCallback, useMemo } from 'react';
 import { FontPreferencePanel } from '@/infrastructure/font-preference';
 import { useMouseGlowPreference } from '@/infrastructure/mouse-glow';
 import { useTranslation } from 'react-i18next';
-import { Select, Switch } from '@/component-library';
+import { Switch } from '@/component-library';
+import { Select } from '@openbitfun/ui';
 import {
   SYSTEM_APPEARANCE_ID,
   useAppearance,
@@ -44,20 +45,11 @@ function AppearanceSelectionSection() {
       : appearance.name;
   }, [t]);
 
-  const getAppearanceDisplayDescription = useCallback((appearance: AppearanceCatalogEntry) => {
-    const presetId = appearance.id.replace(/^builtin\./, '');
-    const i18nKey = `appearance.presets.${presetId}`;
-    return appearance.source === 'builtin'
-      ? t(`${i18nKey}.description`, { defaultValue: appearance.description || '' })
-      : appearance.description || '';
-  }, [t]);
-
   const appearanceOptions = useMemo(
     () => [
       {
         value: SYSTEM_APPEARANCE_ID,
         label: t('appearance.systemAppearance'),
-        description: t('appearance.systemAppearanceDescription'),
         testId: 'appearance-palette-option',
         testAttributes: {
           'data-appearance-id': SYSTEM_APPEARANCE_ID,
@@ -66,14 +58,13 @@ function AppearanceSelectionSection() {
       ...appearances.map((appearance) => ({
         value: appearance.id,
         label: getAppearanceDisplayName(appearance),
-        description: getAppearanceDisplayDescription(appearance),
         testId: 'appearance-palette-option',
         testAttributes: {
           'data-appearance-id': appearance.id,
         },
       })),
     ],
-    [appearances, t, getAppearanceDisplayDescription, getAppearanceDisplayName]
+    [appearances, t]
   );
 
   return (
@@ -100,9 +91,10 @@ function AppearanceSelectionSection() {
               data-openbitfun-part="language"
             >
               <Select
+                size="sm"
                 value={currentLanguage}
-                onChange={(value) =>
-                  selectLanguage(String(Array.isArray(value) ? value[0] ?? '' : value) as LocaleId)
+                onValueChange={(value) =>
+                  selectLanguage(String(value) as LocaleId)
                 }
                 options={supportedLocales.map((locale) => ({
                   value: locale.id,
@@ -114,7 +106,7 @@ function AppearanceSelectionSection() {
                 }))}
                 disabled={isChanging}
                 placeholder={t('appearance.language')}
-                triggerTestId="appearance-language-select"
+                data-testid="appearance-language-select"
               />
             </div>
           </ConfigPageRow>
@@ -134,23 +126,12 @@ function AppearanceSelectionSection() {
                 data-openbitfun-part="paletteSelect"
               >
                 <Select
+                  size="sm"
                   value={selectedAppearanceId}
-                  onChange={(value) => handleAppearanceChange(value as string)}
+                  onValueChange={(value) => handleAppearanceChange(String(value))}
                   disabled={!initialized || status === 'applying'}
                   options={appearanceOptions}
-                  triggerTestId="appearance-palette-select"
-                  renderOption={(option) => (
-                    <div
-                      className="appearance-settings__palette-option"
-                      data-openbitfun-component="appearance-config"
-                      data-openbitfun-part="paletteOption"
-                    >
-                      <span className="appearance-settings__palette-option-name">{option.label}</span>
-                      {option.description && (
-                        <span className="appearance-settings__palette-option-desc">{option.description}</span>
-                      )}
-                    </div>
-                  )}
+                  data-testid="appearance-palette-select"
                 />
               </div>
             </div>

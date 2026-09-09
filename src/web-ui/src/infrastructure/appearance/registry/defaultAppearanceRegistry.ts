@@ -10,7 +10,6 @@ import { textareaAppearanceDescriptor } from '@/component-library/components/Tex
 import { numberInputAppearanceDescriptor } from '@/component-library/components/NumberInput/appearance';
 import { searchAppearanceDescriptor } from '@/component-library/components/Search/appearance';
 import { tabsAppearanceDescriptor } from '@/component-library/components/Tabs/appearance';
-import { selectAppearanceDescriptor } from '@/component-library/components/Select/appearance';
 import { alertAppearanceDescriptor } from '@/component-library/components/Alert/appearance';
 import { badgeAppearanceDescriptor } from '@/component-library/components/Badge/appearance';
 import { tagAppearanceDescriptor } from '@/component-library/components/Tag/appearance';
@@ -33,7 +32,6 @@ import { lspAppearanceDescriptor } from '@/tools/lsp/appearance';
 import { referencesPanelAppearanceDescriptor } from '@/tools/lsp/components/ReferencesPanel/ReferencesPanel.appearance';
 import { appearanceConfigAppearanceDescriptor } from '@/infrastructure/config/components/AppearanceConfig.appearance';
 import { lspConfigAppearanceDescriptor } from '@/infrastructure/config/components/LspConfig.appearance';
-import { aiModelConfigAppearanceDescriptor } from '@/infrastructure/config/components/AIModelConfig.appearance';
 import { basicsConfigAppearanceDescriptor } from '@/infrastructure/config/components/BasicsConfig.appearance';
 import { sessionConfigAppearanceDescriptor } from '@/infrastructure/config/components/SessionConfig.appearance';
 import { worktreesConfigAppearanceDescriptor } from '@/infrastructure/config/components/WorktreesConfig.appearance';
@@ -311,7 +309,6 @@ export function createDefaultAppearanceRegistry(): AppearanceRegistry {
     .registerComponent(numberInputAppearanceDescriptor)
     .registerComponent(searchAppearanceDescriptor)
     .registerComponent(tabsAppearanceDescriptor)
-    .registerComponent(selectAppearanceDescriptor)
     .registerComponent(alertAppearanceDescriptor)
     .registerComponent(badgeAppearanceDescriptor)
     .registerComponent(tagAppearanceDescriptor)
@@ -334,7 +331,6 @@ export function createDefaultAppearanceRegistry(): AppearanceRegistry {
     .registerComponent(lspConfigAppearanceDescriptor)
     .registerComponent(appearanceConfigAppearanceDescriptor)
     .registerComponent(referencesPanelAppearanceDescriptor)
-    .registerComponent(aiModelConfigAppearanceDescriptor)
     .registerComponent(basicsConfigAppearanceDescriptor)
     .registerComponent(sessionConfigAppearanceDescriptor)
     .registerComponent(worktreesConfigAppearanceDescriptor)

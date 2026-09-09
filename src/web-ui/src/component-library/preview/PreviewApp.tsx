@@ -6,8 +6,7 @@ import React, { useMemo, useState } from 'react';
 import { componentRegistry } from '../components/registry';
 import type { ComponentCategory } from '../types';
 import { FullPageLayout, LargeCardLayout, GridLayout, DemoLayout, ColumnLayout } from './layouts';
-import { Select } from '@components/Select';
-import type { SelectOption } from '@components/Select';
+import { Select } from '@openbitfun/ui';
 import { useI18n } from '@/infrastructure/i18n';
 import { useAppearance } from '@/infrastructure/appearance';
 import './preview.css';
@@ -37,16 +36,13 @@ export const PreviewApp: React.FC = () => {
   const appearanceModeLabel = appearanceMode === 'light'
     ? t('componentLibrary.previewApp.appearanceModeLight')
     : t('componentLibrary.previewApp.appearanceModeDark');
-  const appearanceOptions = useMemo<SelectOption[]>(
+  const appearanceOptions = useMemo(
     () =>
       appearances.map((entry) => ({
         label: entry.name,
         value: entry.id,
-        description: entry.mode === 'light'
-          ? t('componentLibrary.previewApp.appearanceDescriptionLight')
-          : t('componentLibrary.previewApp.appearanceDescriptionDark'),
       })),
-    [appearances, t]
+    [appearances]
   );
 
   return (
@@ -68,17 +64,13 @@ export const PreviewApp: React.FC = () => {
             <div className="preview-appearance-selector__control">
               <Select
                 className="preview-appearance-selector__select-component"
-                size="small"
+                size="sm"
                 value={selectedAppearanceId}
                 options={appearanceOptions}
-                onChange={(value) => {
-                  if (Array.isArray(value)) {
-                    return;
-                  }
+                onValueChange={(value) => {
                   void select(String(value));
                 }}
                 disabled={!initialized || appearances.length === 0}
-                placement="bottom"
               />
               <span className={`preview-appearance-selector__badge preview-appearance-selector__badge--${appearanceMode}`}>
                 {appearanceModeLabel}
