@@ -125,13 +125,25 @@ fn permission_intent_effect(
             PermissionEffect::Ask => {
                 let remembered = grants.iter().any(|grant| {
                     if intent.action == "bash" {
-                        grant.action == intent.action && grant.resource == *resource
+                        // Core projects the reusable command scope into
+                        // save_resources after checking the effective directory.
+                        // Keep exact rendered grants compatible; an unknown cwd
+                        // has no reusable scope and cannot consume a saved grant.
+                        !intent.save_resources.is_empty()
+                            && grant.action == intent.action
+                            && (grant.resource == *resource
+                                || intent.save_resources.contains(&grant.resource))
                     } else {
                         wildcard_matches(
                             &intent.action,
                             &grant.action,
                             PermissionResourceCaseSensitivity::Sensitive,
-                        ) && wildcard_matches(resource, &grant.resource, case_sensitivity)
+                        ) && grant_covers_resource(
+                            &intent.action,
+                            resource,
+                            &grant.resource,
+                            case_sensitivity,
+                        )
                     }
                 });
                 if !remembered {
@@ -160,6 +172,32 @@ fn permission_intent_effect(
 }
 
 pub type PermissionRequestEventReceiver = broadcast::Receiver<PermissionRequestEvent>;
+
+/// Whether a remembered grant already covers one resource.
+///
+/// `external_directory` names an approved directory and covers its descendants.
+/// Edit grants only cover a subtree when the saved resource explicitly contains
+/// a wildcard; an exact file or directory grant keeps its original scope.
+fn grant_covers_resource(
+    action: &str,
+    resource: &str,
+    grant_resource: &str,
+    case_sensitivity: PermissionResourceCaseSensitivity,
+) -> bool {
+    if wildcard_matches(resource, grant_resource, case_sensitivity) {
+        return true;
+    }
+    if action != "external_directory" {
+        return false;
+    }
+    // A workspace that is a filesystem root already ends with the separator.
+    let subtree = if grant_resource.ends_with('/') {
+        format!("{grant_resource}*")
+    } else {
+        format!("{grant_resource}/*")
+    };
+    wildcard_matches(resource, &subtree, case_sensitivity)
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PermissionWaitOutcome {
@@ -586,7 +624,7 @@ impl PermissionRequestManager {
         } else {
             vec![request.clone()]
         };
-        let resolutions = resolution_requests
+        let mut resolutions = resolution_requests
             .into_iter()
             .map(|request| (request, reply.clone()))
             .collect::<Vec<_>>();
@@ -594,6 +632,47 @@ impl PermissionRequestManager {
             .iter()
             .flat_map(|(request, reply)| grants_for_reply(request, reply, timestamp_ms))
             .collect::<Vec<_>>();
+
+        // A round is planned before any of its prompts are answered. Reuse an
+        // Always grant for already queued requests with the same saved scope,
+        // just as a later tool call would, without approving unrelated prompts.
+        if matches!(reply, PermissionReply::Always) && !grants.is_empty() {
+            let selected = resolutions
+                .iter()
+                .map(|(request, _)| request.request_id.clone())
+                .collect::<HashSet<_>>();
+            let covered = self.ordered_pending_requests(|pending| {
+                let candidate = &pending.request;
+                candidate.session_id == request.session_id
+                    && candidate.round_id == request.round_id
+                    && candidate.project_id == request.project_id
+                    && !selected.contains(&candidate.request_id)
+                    && matches!(
+                        candidate.source.kind,
+                        bitfun_runtime_ports::PermissionRequestSourceKind::ToolCall
+                    )
+                    && matches!(
+                        candidate.action.as_str(),
+                        "edit" | "external_directory" | "bash"
+                    )
+                    && candidate
+                        .display_metadata
+                        .get("requiresFreshApproval")
+                        .and_then(serde_json::Value::as_bool)
+                        != Some(true)
+                    && !candidate.save_resources.is_empty()
+                    && candidate.save_resources.iter().all(|resource| {
+                        grants.iter().any(|grant| {
+                            grant.action == candidate.action && grant.resource == *resource
+                        })
+                    })
+            });
+            resolutions.extend(
+                covered
+                    .into_iter()
+                    .map(|request| (request, PermissionReply::Once)),
+            );
+        }
 
         let audit = resolutions
             .iter()

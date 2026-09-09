@@ -108,6 +108,74 @@ fn bash_allow_rules_and_remembered_grants_require_exact_commands() {
 }
 
 #[test]
+fn bash_grant_remembers_the_command_across_working_directories() {
+    let ask = ResolvedPermissionPolicy::new(
+        vec![PermissionRule::new("bash", "*", PermissionEffect::Ask)],
+        Vec::new(),
+    );
+    let grant = || PermissionGrant {
+        project_id: "project-a".to_string(),
+        action: "bash".to_string(),
+        resource: "cargo test -p bitfun-core".to_string(),
+        created_at_ms: 3,
+    };
+    let intent = |directory: &str, command: &str| {
+        let mut intent =
+            PermissionIntent::new("bash", vec![format!("cd '{directory}' && {command}")]);
+        intent.save_resources = vec![command.to_string()];
+        intent
+    };
+
+    assert_eq!(
+        plan_permission_intents(
+            vec![intent("/workspace", "cargo test -p bitfun-core")],
+            &ask,
+            &[grant()],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::Allowed
+    );
+    assert_eq!(
+        plan_permission_intents(
+            vec![intent("/workspace/tests", "cargo test -p bitfun-core")],
+            &ask,
+            &[grant()],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::Allowed
+    );
+
+    let other_command = intent("/workspace", "cargo publish");
+    assert_eq!(
+        plan_permission_intents(
+            vec![other_command.clone()],
+            &ask,
+            &[grant()],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::RequiresApproval(vec![other_command])
+    );
+
+    // Grants persisted before the command form was remembered still match their
+    // rendered `cd <dir> && ...` resource exactly.
+    let legacy_grant = PermissionGrant {
+        project_id: "project-a".to_string(),
+        action: "bash".to_string(),
+        resource: "cd '/workspace' && cargo test -p bitfun-core".to_string(),
+        created_at_ms: 2,
+    };
+    assert_eq!(
+        plan_permission_intents(
+            vec![intent("/workspace", "cargo test -p bitfun-core")],
+            &ask,
+            &[legacy_grant],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::Allowed
+    );
+}
+
+#[test]
 fn full_access_baseline_allows_bash_commands() {
     let policy = ResolvedPermissionPolicy::new(
         PermissionPolicyPreset::FullAccess.baseline_rules(),
@@ -335,6 +403,190 @@ fn resource_matching_uses_the_host_project_case_sensitivity() {
             PermissionResourceCaseSensitivity::Sensitive,
         ),
         PermissionIntentPlan::RequiresApproval(vec![intent])
+    );
+}
+
+#[test]
+fn external_directory_grant_covers_the_remembered_subtree() {
+    let ask = ResolvedPermissionPolicy::new(
+        vec![PermissionRule::new(
+            "external_directory",
+            "*",
+            PermissionEffect::Ask,
+        )],
+        Vec::new(),
+    );
+    let grant = PermissionGrant {
+        project_id: "project-a".to_string(),
+        action: "external_directory".to_string(),
+        resource: "/storage/Users/currentUser/project".to_string(),
+        created_at_ms: 1,
+    };
+
+    let nested = PermissionIntent::new(
+        "external_directory",
+        vec!["/storage/Users/currentUser/project/src/agentic".to_string()],
+    );
+    assert_eq!(
+        plan_permission_intents(
+            vec![nested],
+            &ask,
+            &[grant.clone()],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::Allowed
+    );
+
+    let sibling = PermissionIntent::new(
+        "external_directory",
+        vec!["/storage/Users/currentUser/other".to_string()],
+    );
+    assert_eq!(
+        plan_permission_intents(
+            vec![sibling.clone()],
+            &ask,
+            &[grant.clone()],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::RequiresApproval(vec![sibling])
+    );
+
+    let parent = PermissionIntent::new(
+        "external_directory",
+        vec!["/storage/Users/currentUser".to_string()],
+    );
+    assert_eq!(
+        plan_permission_intents(
+            vec![parent.clone()],
+            &ask,
+            &[grant],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::RequiresApproval(vec![parent])
+    );
+}
+
+#[test]
+fn edit_grant_covers_every_file_under_the_remembered_workspace() {
+    let ask = ResolvedPermissionPolicy::new(
+        vec![PermissionRule::new("edit", "*", PermissionEffect::Ask)],
+        Vec::new(),
+    );
+    let grant = PermissionGrant {
+        project_id: "project-a".to_string(),
+        action: "edit".to_string(),
+        resource: "/storage/Users/currentUser/project/*".to_string(),
+        created_at_ms: 1,
+    };
+
+    let nested = PermissionIntent::new(
+        "edit",
+        vec!["/storage/Users/currentUser/project/src/agentic/new_file.rs".to_string()],
+    );
+    assert_eq!(
+        plan_permission_intents(
+            vec![nested],
+            &ask,
+            &[grant.clone()],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::Allowed
+    );
+
+    let outside = PermissionIntent::new(
+        "edit",
+        vec!["/storage/Users/currentUser/other/main.rs".to_string()],
+    );
+    assert_eq!(
+        plan_permission_intents(
+            vec![outside.clone()],
+            &ask,
+            &[grant.clone()],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::RequiresApproval(vec![outside])
+    );
+
+    // Host-insensitive resources keep covering the subtree as well.
+    assert_eq!(
+        plan_permission_intents(
+            vec![PermissionIntent::new(
+                "edit",
+                vec!["/storage/Users/CurrentUser/project/src/other.rs".to_string()],
+            )],
+            &ask,
+            &[grant.clone()],
+            PermissionResourceCaseSensitivity::Insensitive,
+        ),
+        PermissionIntentPlan::Allowed
+    );
+
+    let read = PermissionIntent::new(
+        "read",
+        vec!["/storage/Users/currentUser/project/src/main.rs".to_string()],
+    );
+    assert_eq!(
+        plan_permission_intents(
+            vec![read.clone()],
+            &ask,
+            &[grant],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::RequiresApproval(vec![read])
+    );
+}
+
+#[test]
+fn exact_external_edit_grant_does_not_cover_descendants() {
+    let policy = ResolvedPermissionPolicy::new(
+        vec![PermissionRule::new("edit", "*", PermissionEffect::Ask)],
+        vec![],
+    );
+    let grant = PermissionGrant {
+        project_id: "project-a".into(),
+        action: "edit".into(),
+        resource: "/outside/dir".into(),
+        created_at_ms: 1,
+    };
+    for (resource, allowed) in [("/outside/dir", true), ("/outside/dir/secret.txt", false)] {
+        let plan = plan_permission_intents(
+            vec![PermissionIntent::new("edit", vec![resource.into()])],
+            &policy,
+            std::slice::from_ref(&grant),
+            PermissionResourceCaseSensitivity::Sensitive,
+        );
+        assert_eq!(
+            matches!(plan, PermissionIntentPlan::Allowed),
+            allowed,
+            "{resource}"
+        );
+    }
+}
+
+#[test]
+fn root_workspace_wildcard_grant_covers_the_subtree() {
+    let ask = ResolvedPermissionPolicy::new(
+        vec![PermissionRule::new("edit", "*", PermissionEffect::Ask)],
+        Vec::new(),
+    );
+    let grant = PermissionGrant {
+        project_id: "project-a".to_string(),
+        action: "edit".to_string(),
+        resource: "D:/*".to_string(),
+        created_at_ms: 1,
+    };
+
+    assert_eq!(
+        plan_permission_intents(
+            vec![PermissionIntent::new(
+                "edit",
+                vec!["D:/workspace/src/main.rs".to_string()],
+            )],
+            &ask,
+            &[grant],
+            PermissionResourceCaseSensitivity::Sensitive,
+        ),
+        PermissionIntentPlan::Allowed
     );
 }
 
@@ -626,6 +878,80 @@ async fn reject_releases_only_the_selected_request() {
         .cancel_session("session-a", "test cleanup")
         .await
         .expect("cancel sibling request");
+}
+
+#[tokio::test]
+async fn always_resolves_only_matching_queued_scopes_in_the_same_round() {
+    let (manager, store) = manager();
+    let mut requests = Vec::new();
+    for (id, action, scope) in [
+        ("anchor", "edit", "/workspace"),
+        ("covered", "edit", "/workspace"),
+        ("outside", "edit", "/outside/file"),
+        ("other-action", "read", "/workspace"),
+        ("fresh", "edit", "/workspace"),
+        ("other-round", "edit", "/workspace"),
+        ("other-project", "edit", "/workspace"),
+        ("no-scope", "edit", "/workspace"),
+    ] {
+        let mut next = request(id, "session-a");
+        next.round_id = if id == "other-round" {
+            "round-2"
+        } else {
+            "round-1"
+        }
+        .into();
+        next.action = action.into();
+        next.resources = vec![format!("/workspace/{id}.txt")];
+        next.save_resources = vec![scope.into()];
+        if id == "other-project" {
+            next.project_id = "project-b".into();
+        }
+        if id == "no-scope" {
+            next.save_resources.clear();
+        }
+        if id == "fresh" {
+            next.display_metadata
+                .insert("requiresFreshApproval".into(), json!(true));
+        }
+        requests.push(next);
+    }
+    let mut receivers = manager.register_batch(requests).await.unwrap();
+    *store.fail_grants.lock().unwrap() = true;
+    assert!(manager
+        .reply(
+            "anchor",
+            PermissionReply::Always,
+            PermissionReplySource::User
+        )
+        .await
+        .is_err());
+    assert_eq!(manager.pending_requests().len(), 8);
+    assert!(store.grants.lock().unwrap().is_empty());
+    *store.fail_grants.lock().unwrap() = false;
+    let result = manager
+        .reply(
+            "anchor",
+            PermissionReply::Always,
+            PermissionReplySource::User,
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.resolved_request_ids, vec!["anchor", "covered"]);
+    assert_eq!(
+        receivers.remove(0).wait().await,
+        PermissionWaitOutcome::Replied(PermissionReply::Always)
+    );
+    assert_eq!(
+        receivers.remove(0).wait().await,
+        PermissionWaitOutcome::Replied(PermissionReply::Once)
+    );
+    assert_eq!(store.grants.lock().unwrap().len(), 1);
+    assert_eq!(manager.pending_requests().len(), 6);
+    manager
+        .cancel_session("session-a", "cleanup")
+        .await
+        .unwrap();
 }
 
 #[tokio::test]

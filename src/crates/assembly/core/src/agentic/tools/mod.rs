@@ -3,6 +3,7 @@
 pub mod account_login_capability;
 #[cfg(feature = "browser-control")]
 pub mod browser_control;
+pub(crate) mod command_permissions;
 pub mod computer_use_capability;
 pub mod computer_use_host;
 pub mod computer_use_optimizer;

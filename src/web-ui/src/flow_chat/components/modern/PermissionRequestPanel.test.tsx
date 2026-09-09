@@ -24,6 +24,11 @@ const TRANSLATIONS: Record<string, string> = {
   'permission.actions.customTool': 'External tool',
   'permission.actions.externalDirectory': 'Access external directory',
   'permission.actions.other': 'Other action',
+  'permission.saveScopeLabel': 'Always allow:',
+  'permission.saveScopeWorkspace': 'All workspace files and subdirectories',
+  'permission.saveScopeWorkspaceCommand': 'Same command in this workspace',
+  'permission.saveScopeDirectory': 'Directories and all subdirectories',
+  'permission.saveScopeResources': 'Matching resources',
 };
 
 vi.mock('react-i18next', async () => {
@@ -192,6 +197,63 @@ describe('PermissionRequestPanel', () => {
       .toBe(`${longResource}\npnpm run type-check:web`);
     expect(resourceSummary?.parentElement?.getAttribute('data-tooltip-interactive')).toBe('true');
     expect(container.textContent).toContain('Run command');
+  });
+
+  it('shows the saved workspace scope separately from the file being edited', () => {
+    act(() => {
+      root.render(
+        <PermissionRequestPanel
+          requests={[{
+            ...request(false),
+            resources: ['/workspace/BitFun/src/main.rs'],
+            saveResources: ['/workspace/BitFun/*'],
+            displayMetadata: { saveScope: 'workspace' },
+          }]}
+          onRespond={vi.fn()}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('/workspace/BitFun/src/main.rs');
+    expect(container.textContent).toContain('/workspace/BitFun/*');
+    expect(container.textContent).toContain('All workspace files and subdirectories');
+  });
+
+  it('describes command reuse only when the backend marks the workspace scope', () => {
+    const commandRequest = {
+      ...request(false),
+      action: 'bash',
+      resources: ["cd '/workspace/BitFun' && pnpm test"],
+      saveResources: ['pnpm test'],
+      displayMetadata: { saveScope: 'workspace_command' },
+    };
+    act(() => root.render(<PermissionRequestPanel requests={[commandRequest]} onRespond={vi.fn()} />));
+    expect(container.textContent).toContain('Same command in this workspace');
+    act(() => root.render(<PermissionRequestPanel requests={[{
+      ...commandRequest,
+      saveResources: ["cd '/outside' && pnpm test"],
+      displayMetadata: {},
+    }]} onRespond={vi.fn()} />));
+    expect(container.textContent).not.toContain('Same command in this workspace');
+    expect(container.textContent).toContain("Matching resources: cd '/outside' && pnpm test");
+  });
+
+  it('shows every saved command scope before approval', () => {
+    act(() => {
+      root.render(
+        <PermissionRequestPanel
+          requests={[{
+            ...request(false),
+            action: 'bash',
+            resources: ["cd '/workspace/BitFun' && pnpm test"],
+            saveResources: ["cd '/workspace/BitFun' && pnpm test", "cd '/workspace/BitFun/tests' && pnpm test"],
+          }]}
+          onRespond={vi.fn()}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain("cd '/workspace/BitFun/tests' && pnpm test");
   });
 
   it('localizes structured Page risk details and hides persistent approval', () => {
