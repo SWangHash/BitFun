@@ -7,6 +7,9 @@ use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::workspace::WorkspaceServices;
 use crate::agentic::WorkspaceBinding;
 use bitfun_agent_tools::ResolvedToolInvocation;
+use bitfun_observability::domains::{CompletionFacts, ToolFailureSource};
+use bitfun_observability::domains::{ToolKind, ToolSourceClass};
+use bitfun_observability::ObservationContext;
 use bitfun_runtime_ports::{
     DelegationPolicy, PermissionDelegationContext, RemoteExecPort, ResolvedPermissionPolicy,
     TerminalPort,
@@ -88,6 +91,8 @@ pub struct ToolExecutionContext {
     pub round_id: String,
     pub attempt_id: Option<String>,
     pub attempt_index: Option<u32>,
+    /// Explicit Round parent for the Tool span. No business metadata is stored.
+    pub observation_context: Option<ObservationContext>,
     pub agent_type: String,
     pub workspace: Option<WorkspaceBinding>,
     pub primary_model_facts: PrimaryModelFacts,
@@ -117,6 +122,12 @@ pub struct ToolTask {
     /// Position of this call in the model's tool-call array for the current
     /// round. Permission requests inherit this value as their order key.
     pub tool_call_order: u32,
+    /// Whether this invocation is actually scheduled in a concurrent batch.
+    pub(crate) telemetry_parallel: bool,
+    pub(crate) telemetry_background: bool,
+    pub(crate) telemetry_source_class: ToolSourceClass,
+    pub(crate) telemetry_kind: ToolKind,
+    pub(crate) telemetry_terminal_failure: Option<(CompletionFacts, ToolFailureSource)>,
     pub invocation: ResolvedToolInvocation,
     pub invocation_resolution_error: Option<String>,
     pub context: ToolExecutionContext,
@@ -147,9 +158,22 @@ impl ToolTask {
         context: ToolExecutionContext,
         options: ToolExecutionOptions,
     ) -> Self {
+        let telemetry_background = matches!(
+            invocation.effective_tool_name.to_ascii_lowercase().as_str(),
+            "bash" | "task"
+        ) && invocation
+            .effective_arguments
+            .get("run_in_background")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
         Self {
             tool_call,
             tool_call_order: 0,
+            telemetry_parallel: false,
+            telemetry_background,
+            telemetry_source_class: ToolSourceClass::Custom,
+            telemetry_kind: ToolKind::Other,
+            telemetry_terminal_failure: None,
             invocation,
             invocation_resolution_error,
             context,

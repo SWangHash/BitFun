@@ -2,6 +2,9 @@ use crate::agentic::coordination::get_global_coordinator;
 use crate::agentic::core::{Message, MessageContent, MessageRole, ToolCall, ToolResult};
 use crate::agentic::insights::session_paths::collect_effective_session_storage_targets;
 use crate::agentic::insights::types::*;
+use crate::agentic::observability::{
+    programming_language_class_from_path, programming_language_name,
+};
 use crate::agentic::persistence::PersistenceManager;
 use crate::infrastructure::get_path_manager_arc;
 use crate::service::session::{
@@ -233,10 +236,10 @@ impl InsightsCollector {
         base_stats.total_duration_minutes = base_stats.total_duration_millis / 60_000;
         base_stats.total_files_modified = modified_files.len();
         for (_, path) in &modified_files {
-            if let Some(language) = language_name_for_path(path) {
+            if let Some(language) = programming_language_class_from_path(path) {
                 *base_stats
                     .languages_by_files
-                    .entry(language.to_string())
+                    .entry(programming_language_name(language).to_string())
                     .or_insert(0) += 1;
             }
         }
@@ -1012,50 +1015,6 @@ fn accumulate_code_stats_from_turns(
     }
 
     modified_files
-}
-
-/// Infer a language label from a file path (extension or well-known filename).
-fn language_name_for_path(path: &str) -> Option<&'static str> {
-    let p = Path::new(path);
-    if let Some(name) = p.file_name().and_then(|n| n.to_str()) {
-        match name.to_ascii_lowercase().as_str() {
-            "dockerfile" | "containerfile" => return Some("Dockerfile"),
-            "makefile" | "gnumakefile" => return Some("Makefile"),
-            "cargo.toml" | "cargo.lock" => return Some("Rust"),
-            _ => {}
-        }
-    }
-    let ext = p.extension()?.to_str()?.to_ascii_lowercase();
-    Some(match ext.as_str() {
-        "ts" | "tsx" => "TypeScript",
-        "js" | "jsx" | "mjs" | "cjs" => "JavaScript",
-        "py" | "pyi" | "pyw" => "Python",
-        "rs" => "Rust",
-        "go" => "Go",
-        "java" => "Java",
-        "kt" | "kts" => "Kotlin",
-        "swift" => "Swift",
-        "cs" => "C#",
-        "cpp" | "cc" | "cxx" | "hpp" => "C/C++",
-        "c" | "h" => "C/C++",
-        "rb" => "Ruby",
-        "php" => "PHP",
-        "vue" => "Vue",
-        "svelte" => "Svelte",
-        "md" | "mdx" => "Markdown",
-        "json" | "jsonc" => "JSON",
-        "yaml" | "yml" => "YAML",
-        "toml" => "TOML",
-        "xml" => "XML",
-        "html" | "htm" => "HTML",
-        "css" | "scss" | "sass" | "less" => "CSS",
-        "sh" | "bash" | "zsh" | "fish" => "Shell",
-        "ps1" => "PowerShell",
-        "sql" => "SQL",
-        "gradle" => "Gradle",
-        "properties" => "Properties",
-        _ => return None,
-    })
 }
 
 #[cfg(test)]

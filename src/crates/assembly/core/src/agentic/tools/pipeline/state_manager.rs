@@ -6,6 +6,9 @@ use super::types::ToolTask;
 use crate::agentic::core::ToolExecutionState;
 use crate::agentic::events::AgenticEvent;
 use bitfun_agent_stream::StreamEventSink;
+use bitfun_observability::domains::{CompletionFacts, ToolFailureSource};
+use bitfun_observability::domains::{ToolKind, ToolSourceClass};
+use bitfun_observability::ObservationContext;
 use dashmap::DashMap;
 use log::debug;
 use std::sync::Arc;
@@ -27,6 +30,31 @@ pub(crate) fn tool_task_state_kind(state: &ToolExecutionState) -> ToolTaskStateK
     }
 }
 
+fn event_tool_source(source: ToolSourceClass) -> bitfun_events::ToolTelemetrySourceClass {
+    match source {
+        ToolSourceClass::BuiltIn => bitfun_events::ToolTelemetrySourceClass::BuiltIn,
+        ToolSourceClass::Mcp => bitfun_events::ToolTelemetrySourceClass::Mcp,
+        ToolSourceClass::Skill => bitfun_events::ToolTelemetrySourceClass::Skill,
+        ToolSourceClass::Plugin => bitfun_events::ToolTelemetrySourceClass::Plugin,
+        ToolSourceClass::External => bitfun_events::ToolTelemetrySourceClass::External,
+        ToolSourceClass::Custom => bitfun_events::ToolTelemetrySourceClass::Custom,
+    }
+}
+
+fn event_tool_kind(kind: ToolKind) -> bitfun_events::ToolTelemetryKind {
+    match kind {
+        ToolKind::Filesystem => bitfun_events::ToolTelemetryKind::Filesystem,
+        ToolKind::Search => bitfun_events::ToolTelemetryKind::Search,
+        ToolKind::Shell => bitfun_events::ToolTelemetryKind::Shell,
+        ToolKind::Git => bitfun_events::ToolTelemetryKind::Git,
+        ToolKind::Browser => bitfun_events::ToolTelemetryKind::Browser,
+        ToolKind::ComputerUse => bitfun_events::ToolTelemetryKind::ComputerUse,
+        ToolKind::Protocol => bitfun_events::ToolTelemetryKind::Protocol,
+        ToolKind::Task => bitfun_events::ToolTelemetryKind::Task,
+        ToolKind::Other => bitfun_events::ToolTelemetryKind::Other,
+    }
+}
+
 /// Tool state manager
 pub struct ToolStateManager {
     /// Tool task status (by tool ID)
@@ -45,6 +73,10 @@ impl ToolStateManager {
             tasks: Arc::new(DashMap::new()),
             event_sink,
         }
+    }
+
+    pub(crate) async fn emit_internal_event(&self, event: AgenticEvent) {
+        self.event_sink.enqueue(event, None).await;
     }
 
     /// Create task
@@ -89,6 +121,28 @@ impl ToolStateManager {
     /// Get task
     pub fn get_task(&self, tool_id: &str) -> Option<ToolTask> {
         self.tasks.get(tool_id).map(|t| t.clone())
+    }
+
+    /// Store the active Tool span context for child-agent trace propagation.
+    pub fn set_observation_context(
+        &self,
+        tool_id: &str,
+        observation_context: Option<ObservationContext>,
+    ) {
+        if let Some(mut task) = self.tasks.get_mut(tool_id) {
+            task.context.observation_context = observation_context;
+        }
+    }
+
+    pub fn set_telemetry_terminal_failure(
+        &self,
+        tool_id: &str,
+        completion: CompletionFacts,
+        source: ToolFailureSource,
+    ) {
+        if let Some(mut task) = self.tasks.get_mut(tool_id) {
+            task.telemetry_terminal_failure = Some((completion, source));
+        }
     }
 
     /// Replace a task's effective tool arguments before execution.
@@ -227,7 +281,18 @@ impl ToolStateManager {
                 task.tool_call.tool_id.clone(),
                 task.invocation.wire_tool_name.clone(),
                 task.effective_tool_name().to_string(),
-            ),
+            )
+            .with_telemetry(bitfun_events::ToolTelemetryIdentity {
+                source_class: event_tool_source(task.telemetry_source_class),
+                kind: event_tool_kind(task.telemetry_kind),
+                parallel: task.telemetry_parallel,
+                remote: task
+                    .context
+                    .workspace
+                    .as_ref()
+                    .is_some_and(|workspace| workspace.is_remote()),
+                background: task.telemetry_background,
+            }),
             state,
         });
 
@@ -322,6 +387,7 @@ mod tests {
                 round_id: "round-1".to_string(),
                 attempt_id: None,
                 attempt_index: None,
+                observation_context: None,
                 agent_type: "agentic".to_string(),
                 workspace: None,
                 primary_model_facts: tool_runtime::context::PrimaryModelFacts::default(),
@@ -429,6 +495,27 @@ mod tests {
         );
         assert_eq!(identity.effective_name(), "CreatePlan");
         assert_eq!(params, &wire_arguments);
+    }
+
+    #[test]
+    fn tool_task_freezes_supported_background_flag_as_safe_fact() {
+        let base = test_task("tool-background");
+        let task = ToolTask::new(
+            ToolCall {
+                tool_id: "tool-background".to_string(),
+                tool_name: "Bash".to_string(),
+                arguments: serde_json::json!({ "run_in_background": true }),
+                raw_arguments: None,
+                is_error: false,
+                parse_error: None,
+                recovered_from_truncation: false,
+                repair_kind: Default::default(),
+            },
+            base.context,
+            base.options,
+        );
+
+        assert!(task.telemetry_background);
     }
 }
 

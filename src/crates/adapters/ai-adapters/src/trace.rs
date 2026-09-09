@@ -25,6 +25,10 @@ pub struct ModelExchangeRequestAttempt {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelExchangeRequestTraceHandle {
     pub trace_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correlation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attempt_number: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,6 +44,10 @@ pub struct ModelExchangeResponseTrace {
     pub usage: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider_metadata: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finish_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttft_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub partial_recovery_reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
