@@ -543,6 +543,13 @@ fn config_fingerprint(user: &TelemetryUserConfig, deployment: &TelemetryDeployme
 mod tests {
     use super::*;
     use crate::NoTelemetrySecrets;
+    use crate::{TelemetryBatchConfig, TelemetrySamplingConfig, TelemetrySignalTightening};
+    use bitfun_observability::domains::{
+        record_slash_command, SlashCommandClass, SlashCommandFacts, SlashCommandSource,
+    };
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::mpsc;
 
     #[test]
     fn diagnostic_defaults_to_full_sampling() {
@@ -553,6 +560,77 @@ mod tests {
             ),
             (1.0, 1.0)
         );
+    }
+
+    #[tokio::test]
+    async fn periodic_metrics_reader_exports_to_collector() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        let (path_sender, path_receiver) = mpsc::channel();
+        std::thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            let mut buffer = [0u8; 16 * 1024];
+            let bytes = stream.read(&mut buffer).unwrap_or(0);
+            let request = String::from_utf8_lossy(&buffer[..bytes]);
+            let path = request
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .unwrap_or_default()
+                .to_string();
+            let _ = path_sender.send(path);
+            let response = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            let _ = stream.write_all(response);
+        });
+
+        let mut deployment = TelemetryDeploymentConfig {
+            endpoint: Some(endpoint),
+            environment: DeploymentEnvironment::Test,
+            allow_insecure_loopback: true,
+            signals: TelemetrySignalTightening {
+                traces: false,
+                metrics: true,
+                logs: false,
+            },
+            batch: TelemetryBatchConfig {
+                metrics_export_interval_ms: 10,
+                ..TelemetryBatchConfig::default()
+            },
+            ..TelemetryDeploymentConfig::default()
+        };
+        deployment.sampling = TelemetrySamplingConfig::default();
+
+        let temporary = tempfile::tempdir().unwrap();
+        let handle = TelemetryRuntimeHandle::new(
+            TelemetryRuntimeMetadata::new(TelemetryEntrypoint::Cli, temporary.path()),
+            Arc::new(NoTelemetrySecrets),
+        );
+        handle
+            .apply_config(
+                &TelemetryUserConfig::new(TelemetryLevel::Diagnostic),
+                &deployment,
+            )
+            .unwrap();
+        record_slash_command(
+            &handle.telemetry(),
+            SlashCommandFacts {
+                command_class: SlashCommandClass::Workspace,
+                source: SlashCommandSource::BuiltIn,
+                has_arguments: false,
+            },
+        );
+
+        let path = tokio::task::spawn_blocking(move || {
+            path_receiver
+                .recv_timeout(Duration::from_secs(2))
+                .expect("PeriodicReader should export metrics")
+        })
+        .await
+        .unwrap();
+        assert_eq!(path, "/v1/metrics");
+        let _ = handle.shutdown();
     }
 
     #[test]

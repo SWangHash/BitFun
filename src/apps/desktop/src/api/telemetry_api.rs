@@ -2,6 +2,8 @@
 
 use bitfun_observability::{TelemetryLevel, TelemetryUserConfig};
 use bitfun_observability_otel::{TelemetryDeploymentConfig, TelemetryRuntimeHandle};
+use std::sync::{Arc, Weak};
+use std::time::Duration;
 
 const CONSENTED_TELEMETRY_LEVEL: TelemetryLevel = TelemetryLevel::Diagnostic;
 
@@ -41,6 +43,39 @@ impl OhosTelemetryController {
             &self.deployment,
         );
         self.runtime.cancel_and_discard();
+    }
+
+    pub fn spawn_health_summary_logger(self: &Arc<Self>) {
+        let controller: Weak<Self> = Arc::downgrade(self);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60 * 60));
+            loop {
+                interval.tick().await;
+                let Some(controller) = controller.upgrade() else {
+                    break;
+                };
+                let health = controller.runtime.health();
+                let diagnostics = controller.runtime.telemetry().diagnostics();
+                log::info!(
+                    "Telemetry stats: state={:?}, user_level={:?}, effective_level={:?}, generation={}, queued_records={}, queued_bytes={}, in_flight_batches={}, retry_attempts={}, locally_dropped={}, ambiguous={}, acknowledged={}, server_rejected={}, debug_accepted={}, debug_rejected={}, debug_skipped={}",
+                    health.state,
+                    health.user_level,
+                    health.effective_level,
+                    health.generation,
+                    health.queued_records,
+                    health.queued_bytes,
+                    health.in_flight_batches,
+                    health.retry_attempts,
+                    health.locally_dropped,
+                    health.ambiguous,
+                    health.acknowledged,
+                    health.server_rejected,
+                    diagnostics.accepted(),
+                    diagnostics.rejected(),
+                    diagnostics.skipped(),
+                );
+            }
+        });
     }
 }
 

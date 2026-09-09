@@ -1478,9 +1478,14 @@ fn network_error(error: reqwest::Error) -> FeedbackError {
 }
 
 fn feedback_auth_error(error: AnonymousAuthError) -> FeedbackError {
+    let code = match error.code.as_str() {
+        "ANONYMOUS_ACCESS_EXPIRED" => "FEEDBACK_ACCESS_EXPIRED",
+        "ANONYMOUS_ACCESS_UNAVAILABLE" => "FEEDBACK_ACCESS_UNAVAILABLE",
+        _ => error.code.as_str(),
+    };
     FeedbackError {
-        message: safe_error_message(&error.code).to_string(),
-        code: error.code,
+        message: safe_error_message(code).to_string(),
+        code: code.to_string(),
         retryable: error.retryable,
         request_id: error.request_id,
         retry_after_seconds: error.retry_after_seconds,
@@ -1500,6 +1505,7 @@ mod tests {
         user_message_reconciliation_cursor, FeedbackService, StoredCredentials,
         DEBUG_FEEDBACK_API_BASE_URL, RELEASE_FEEDBACK_API_BASE_URL,
     };
+    use crate::anonymous_auth::AnonymousAuthError;
     use crate::feedback::FeedbackCredentialStore;
     use anyhow::{anyhow, Result};
     use async_trait::async_trait;
@@ -1583,6 +1589,25 @@ mod tests {
             "ACCESS_TOKEN_INVALID",
         ] {
             assert!(!is_terminal_capability_error(code), "{code}");
+        }
+    }
+
+    #[test]
+    fn maps_anonymous_auth_codes_to_feedback_codes() {
+        for (anonymous, feedback) in [
+            ("ANONYMOUS_ACCESS_EXPIRED", "FEEDBACK_ACCESS_EXPIRED"),
+            (
+                "ANONYMOUS_ACCESS_UNAVAILABLE",
+                "FEEDBACK_ACCESS_UNAVAILABLE",
+            ),
+        ] {
+            let error = super::feedback_auth_error(AnonymousAuthError {
+                code: anonymous.to_string(),
+                retryable: false,
+                request_id: None,
+                retry_after_seconds: None,
+            });
+            assert_eq!(error.code, feedback);
         }
     }
 

@@ -218,9 +218,7 @@ impl AnonymousAuthService {
             match self.refresh(&mut state).await {
                 Ok(token) => token,
                 Err(error) if allow_enroll && refresh_requires_enroll(&error.code) => {
-                    state.stored.refresh_token = None;
-                    state.stored.refresh_idempotency_key = None;
-                    state.stored.anonymous_id = None;
+                    clear_identity_bound_state(&mut state.stored);
                     state.access_token = None;
                     self.persist(&state.stored).await?;
                     self.enroll(&mut state).await?
@@ -444,6 +442,13 @@ fn refresh_requires_enroll(code: &str) -> bool {
     )
 }
 
+fn clear_identity_bound_state(credentials: &mut StoredAnonymousCredentials) {
+    credentials.refresh_token = None;
+    credentials.refresh_idempotency_key = None;
+    credentials.anonymous_id = None;
+    credentials.extra.clear();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,5 +527,26 @@ mod tests {
         let error = service.access_token("otel:write", false).await.unwrap_err();
         assert_eq!(error.code, "SCOPE_INSUFFICIENT");
         assert!(!error.to_string().contains("access"));
+    }
+
+    #[test]
+    fn re_enrollment_clears_external_identity_state() {
+        let mut credentials = StoredAnonymousCredentials {
+            refresh_token: Some("refresh".to_string()),
+            refresh_idempotency_key: Some("refresh-idempotency".to_string()),
+            anonymous_id: Some("anonymous".to_string()),
+            extra: Map::from_iter([(
+                "capabilities".to_string(),
+                serde_json::json!({"feedback-1": "capability"}),
+            )]),
+            ..StoredAnonymousCredentials::default()
+        };
+
+        clear_identity_bound_state(&mut credentials);
+
+        assert!(credentials.refresh_token.is_none());
+        assert!(credentials.refresh_idempotency_key.is_none());
+        assert!(credentials.anonymous_id.is_none());
+        assert!(credentials.extra.is_empty());
     }
 }

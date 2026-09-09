@@ -796,16 +796,20 @@ pub async fn _run() {
         )
     };
 
-    if DESKTOP_TELEMETRY_RUNTIME
+    let telemetry_runtime_registered = DESKTOP_TELEMETRY_RUNTIME
         .set(telemetry_runtime.clone())
-        .is_err()
-    {
-        log::error!("Failed to register desktop telemetry runtime: already_initialized");
+        .is_ok();
+    if !telemetry_runtime_registered {
+        log::warn!(
+            "Desktop telemetry runtime already initialized; continuing with this instance disabled"
+        );
         telemetry_runtime.cancel_and_discard();
-        return;
-    }
-    if let Err(error) = telemetry_controller.reconcile(initial_privacy_allowed) {
-        log::warn!("Telemetry remains disabled during startup: {error}");
+        telemetry_controller.disable();
+    } else {
+        if let Err(error) = telemetry_controller.reconcile(initial_privacy_allowed) {
+            log::warn!("Telemetry remains disabled during startup: {error}");
+        }
+        telemetry_controller.spawn_health_summary_logger();
     }
     let startup_observation = Arc::new(std::sync::Mutex::new(Some(
         telemetry_runtime.startup_guard(),
