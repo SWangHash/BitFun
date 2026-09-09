@@ -320,7 +320,8 @@ grep -rn "winId\|setMask\|showFullScreen" src/
 ### Step 7：鸿蒙增强功能（可选）
 
 - 深色模式适配：`setColorThemeMode(FollowSystemSetting)`
-- 分享功能：`ShareKit::shareDataWithShareKit()`
+- 分享功能：`ShareKit::shareDataWithShareKit()`（discover 系统面板模式）
+- 碰一碰（knock 模式跨设备分享文本/链接/文件）：加载 `ohos-native-share` skill 获取 knock 监听器 + UTD 类型 + ArkTS bridge 知识
 - 应用接续：`continueRequestReceived` 信号
 - Want 交互：处理外部传入的 URI/参数
 

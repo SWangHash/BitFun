@@ -35,6 +35,7 @@ summary: >
     ├─ "Qt6 相关" ─────────────────────────→ [L] Qt6 状态
     ├─ "三方库/依赖/交叉编译" ────────────→ [M] 三方库
     ├─ "DevEco/MCP/工具链" ──────────────→ [N] 工具链
+    ├─ "碰一碰/一碰传/跨设备分享" ─→ [P] 碰一碰（独立 skill ohos-native-share）
     └─ "写个demo/生成测试工程/渲染demo" ──→ [Q] Demo 生成
 ```
 
@@ -154,6 +155,19 @@ summary: >
 | **按需加载** | [[ohos-common-kb/semantic/harmonyos-development-fundamentals|common：HarmonyOS 开发基础]]（[standalone](https://gitcode.com/OpenHarmonyPCDeveloper/ohos_qt-skills/blob/main/ohos-common-kb-public/semantic/harmonyos-development-fundamentals.md)）、[[qt-harmonyos-build-run-workflow]] |
 | **预期输出** | 安装/配置步骤 |
 
+### [P] 碰一碰（tap-to-share / knockShare）— 独立 skill
+
+**触发词**：碰一碰、一碰传、一碰连、tap-to-share、knockShare、跨设备传文件/链接、harmonyShare
+
+> **注意**：碰一碰知识已抽出到独立 skill `ohos-native-share`（无 app_migration 门禁，可单独加载）。
+> 当用户请求给已迁移的 Qt 工程添加碰一碰能力时，加载 `ohos-native-share` skill。
+
+| 项目 | 内容 |
+|------|------|
+| **Skill** | `ohos-native-share`（独立 skill，无门禁） |
+| **知识页** | `semantic/qt-harmonyos-tap-to-share`（机制 + UTD 速查表）+ `semantic/qt-harmonyos-tap-to-share-code-patterns`（K1-K8 代码模式） |
+| **预期输出** | knock vs discover 选型 + SEND/RECEIVE 两侧 + 按 UTD 类型（TEXT/HYPERLINK/JPEG/PNG/FILE）构造 SharedData + ArkTS bridge 设计 |
+
 ### [Q] Demo 生成
 
 **触发词**：写个 demo、生成 demo、测试工程、渲染 demo、功能 demo、demo 项目
@@ -183,3 +197,4 @@ summary: >
 | "鸿蒙和 Android 有什么区别" | [D] 平台限制 + [G] 生命周期 | 加载 platform-limits + lifecycle |
 | "帮我看看这个代码怎么改" | [B] API 替换 | 加载 api-mapping + code-patterns |
 | "鸿蒙上能用什么数据库" | [C] 模块 + [M] 三方库 | 先查 Qt SQL 模块，再查 SQLite 三方库 |
+| "迁移后想加碰一碰分享文件" | [P] 碰一碰 | 加载独立 skill ohos-native-share（无门禁） |
