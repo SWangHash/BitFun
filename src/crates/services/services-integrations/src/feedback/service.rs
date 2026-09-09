@@ -2,6 +2,10 @@ use super::identity::FeedbackIdentityStore;
 use super::message_cache::{MessageCache, MessageCacheData};
 use super::state_cache::{FeedbackStateCache, FeedbackStateCacheData};
 use super::vault::{FeedbackCredentialStore, FileFeedbackCredentialStore};
+use crate::anonymous_auth::{
+    AnonymousAccessTokenProvider, AnonymousAuthError, AnonymousAuthService,
+    AnonymousCredentialStore,
+};
 use bitfun_product_domains::feedback::{
     validate_content, validate_inbox_page_size, validate_message_page_size,
     AcknowledgeFeedbackRequest, AcknowledgeFeedbackResponse, FeedbackAccessState,
@@ -10,7 +14,7 @@ use bitfun_product_domains::feedback::{
     OpenFeedbackConversationRequest, ReplyFeedbackRequest, ReplyFeedbackResponse,
     SubmitFeedbackRequest, SubmitFeedbackResponse,
 };
-use chrono::{DateTime, Duration as ChronoDuration, Utc};
+use chrono::DateTime;
 use reqwest::{Response, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -21,9 +25,22 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
-const ACCESS_TOKEN_REFRESH_MARGIN_SECONDS: i64 = 600;
+struct FeedbackAnonymousCredentialStore {
+    inner: Arc<dyn FeedbackCredentialStore>,
+}
 
+#[async_trait::async_trait]
+impl AnonymousCredentialStore for FeedbackAnonymousCredentialStore {
+    async fn load(&self) -> anyhow::Result<Option<String>> {
+        self.inner.load().await
+    }
+
+    async fn store(&self, value: &str) -> anyhow::Result<()> {
+        self.inner.store(value).await
+    }
+}
+
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
 const DEBUG_FEEDBACK_API_BASE_URL: &str = "http://api-test.infra-bitfun.com";
 const RELEASE_FEEDBACK_API_BASE_URL: &str = "https://api.infra-bitfun.com";
 
@@ -106,27 +123,10 @@ impl StoredCredentials {
     }
 }
 
-#[derive(Debug, Clone)]
-struct AccessToken {
-    value: String,
-    expires_at: DateTime<Utc>,
-    scopes: Vec<String>,
-}
-
 #[derive(Debug, Default)]
 struct RuntimeState {
     loaded: bool,
     stored: StoredCredentials,
-    access_token: Option<AccessToken>,
-}
-
-#[derive(Debug, Deserialize)]
-struct TokenResponse {
-    anonymous_id: String,
-    access_token: String,
-    refresh_token: String,
-    expires_in: i64,
-    scope: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -218,7 +218,7 @@ pub struct FeedbackService {
     client: reqwest::Client,
     base_url: Option<String>,
     client_version: String,
-    credential_store: Arc<dyn FeedbackCredentialStore>,
+    anonymous_auth: Arc<AnonymousAuthService>,
     cache_dir: Option<PathBuf>,
     identity_store: Option<FeedbackIdentityStore>,
     state: Mutex<RuntimeState>,
@@ -246,10 +246,38 @@ impl FeedbackService {
         )
     }
 
+    pub fn from_environment_with_shared_auth(
+        client_version: impl Into<String>,
+        anonymous_auth: Arc<AnonymousAuthService>,
+    ) -> Self {
+        Self::new_with_auth(
+            configured_base_url(),
+            client_version.into(),
+            anonymous_auth,
+            REQUEST_TIMEOUT,
+        )
+    }
+
     fn new(
         base_url: Option<String>,
         client_version: String,
         credential_store: Arc<dyn FeedbackCredentialStore>,
+        timeout: Duration,
+    ) -> Self {
+        let anonymous_auth = Arc::new(AnonymousAuthService::new(
+            base_url.clone(),
+            Arc::new(FeedbackAnonymousCredentialStore {
+                inner: credential_store.clone(),
+            }),
+            timeout,
+        ));
+        Self::new_with_auth(base_url, client_version, anonymous_auth, timeout)
+    }
+
+    fn new_with_auth(
+        base_url: Option<String>,
+        client_version: String,
+        anonymous_auth: Arc<AnonymousAuthService>,
         timeout: Duration,
     ) -> Self {
         Self {
@@ -259,7 +287,7 @@ impl FeedbackService {
                 .expect("feedback HTTP client must initialize"),
             base_url,
             client_version,
-            credential_store,
+            anonymous_auth,
             cache_dir: None,
             identity_store: None,
             state: Mutex::new(RuntimeState::default()),
@@ -990,7 +1018,11 @@ impl FeedbackService {
     where
         F: Fn(&str) -> Result<reqwest::Request, FeedbackError>,
     {
-        let token = self.existing_access_token(scope, false).await?;
+        let token = self
+            .anonymous_auth
+            .existing_access_token(scope, false)
+            .await
+            .map_err(feedback_auth_error)?;
         let response = self
             .client
             .execute(build_request(&token)?)
@@ -1000,66 +1032,15 @@ impl FeedbackService {
             return Ok(response);
         }
 
-        let token = self.existing_access_token(scope, true).await?;
+        let token = self
+            .anonymous_auth
+            .existing_access_token(scope, true)
+            .await
+            .map_err(feedback_auth_error)?;
         self.client
             .execute(build_request(&token)?)
             .await
             .map_err(network_error)
-    }
-
-    async fn existing_access_token(
-        &self,
-        scope: &str,
-        force_refresh: bool,
-    ) -> Result<String, FeedbackError> {
-        let mut state = self.state.lock().await;
-        self.ensure_existing_loaded(&mut state).await?;
-        if !force_refresh {
-            if let Some(token) = state.access_token.as_ref() {
-                if token.expires_at
-                    > Utc::now() + ChronoDuration::seconds(ACCESS_TOKEN_REFRESH_MARGIN_SECONDS)
-                    && token.scopes.iter().any(|item| item == scope)
-                {
-                    return Ok(token.value.clone());
-                }
-            }
-        }
-        if state.stored.refresh_token.is_none() {
-            return Err(FeedbackError::new(
-                "FEEDBACK_ACCESS_UNAVAILABLE",
-                "Saved feedback access is unavailable",
-                false,
-            ));
-        }
-        let token = match self.refresh(&mut state).await {
-            Ok(token) => token,
-            Err(error) if refresh_requires_enroll(&error.code) => {
-                let mut next = state.stored.clone();
-                next.anonymous_id = None;
-                next.refresh_token = None;
-                next.refresh_idempotency_key = None;
-                self.persist_credentials(&next).await?;
-                state.stored = next;
-                self.persist_cached_state_best_effort(&state.stored).await;
-                state.access_token = None;
-                return Err(FeedbackError::new(
-                    "FEEDBACK_ACCESS_EXPIRED",
-                    "Saved feedback access has expired",
-                    false,
-                ));
-            }
-            Err(error) => return Err(error),
-        };
-        if !token.scopes.iter().any(|item| item == scope) {
-            return Err(FeedbackError::new(
-                "SCOPE_INSUFFICIENT",
-                "The feedback token does not include the required scope",
-                false,
-            ));
-        }
-        let value = token.value.clone();
-        state.access_token = Some(token);
-        Ok(value)
     }
 
     async fn access_token(
@@ -1067,143 +1048,46 @@ impl FeedbackService {
         scope: &str,
         force_refresh: bool,
     ) -> Result<String, FeedbackError> {
-        let mut state = self.state.lock().await;
-        self.ensure_loaded(&mut state).await?;
-        if !force_refresh {
-            if let Some(token) = state.access_token.as_ref() {
-                if token.expires_at
-                    > Utc::now() + ChronoDuration::seconds(ACCESS_TOKEN_REFRESH_MARGIN_SECONDS)
-                    && token.scopes.iter().any(|item| item == scope)
-                {
-                    return Ok(token.value.clone());
-                }
-            }
-        }
-
-        let token = if state.stored.refresh_token.is_some() {
-            match self.refresh(&mut state).await {
-                Ok(token) => token,
-                Err(error) if refresh_requires_enroll(&error.code) => {
-                    let mut next = state.stored.clone();
-                    next.anonymous_id = None;
-                    next.refresh_token = None;
-                    next.refresh_idempotency_key = None;
-                    next.capabilities.clear();
-                    self.persist_credentials(&next).await?;
-                    state.stored = next;
-                    self.persist_cached_state_best_effort(&state.stored).await;
-                    state.access_token = None;
-                    self.enroll(&mut state).await?
-                }
-                Err(error) => return Err(error),
-            }
-        } else {
-            self.enroll(&mut state).await?
-        };
-        if !token.scopes.iter().any(|item| item == scope) {
-            return Err(FeedbackError::new(
-                "SCOPE_INSUFFICIENT",
-                "The feedback token does not include the required scope",
-                false,
-            ));
-        }
-        let value = token.value.clone();
-        state.access_token = Some(token);
-        Ok(value)
-    }
-
-    async fn enroll(&self, state: &mut RuntimeState) -> Result<AccessToken, FeedbackError> {
-        let idempotency_key = match state.stored.enroll_idempotency_key.as_ref() {
-            Some(key) => key.clone(),
-            None => {
-                let mut next = state.stored.clone();
-                let key = Uuid::new_v4().to_string();
-                next.enroll_idempotency_key = Some(key.clone());
-                self.persist_cached_state(&next).await?;
-                state.stored = next;
-                key
-            }
-        };
-        let response = self
-            .client
-            .post(self.url("/auth/v1/anonymous/enroll")?)
-            .header("X-Request-ID", Uuid::new_v4().to_string())
-            .header("Idempotency-Key", idempotency_key)
-            .json(&serde_json::json!({ "key": state.stored.enroll_key }))
-            .send()
+        let token = self
+            .anonymous_auth
+            .access_token(scope, force_refresh)
             .await
-            .map_err(network_error)?;
-        let token: TokenResponse = decode_success(response, StatusCode::CREATED).await?;
-        self.commit_token(state, token, true).await
+            .map_err(feedback_auth_error)?;
+        self.sync_identity_copy().await;
+        Ok(token)
     }
 
-    async fn refresh(&self, state: &mut RuntimeState) -> Result<AccessToken, FeedbackError> {
-        let refresh_token = state.stored.refresh_token.clone().ok_or_else(|| {
-            FeedbackError::new(
-                "REFRESH_TOKEN_MISSING",
-                "Feedback refresh token is unavailable",
-                false,
-            )
-        })?;
-        let idempotency_key = match state.stored.refresh_idempotency_key.as_ref() {
-            Some(key) => key.clone(),
-            None => {
-                let mut next = state.stored.clone();
-                let key = Uuid::new_v4().to_string();
-                next.refresh_idempotency_key = Some(key.clone());
-                self.persist_cached_state(&next).await?;
-                state.stored = next;
-                key
-            }
+    async fn sync_identity_copy(&self) {
+        let Some(identity_store) = &self.identity_store else {
+            return;
         };
-        let response = self
-            .client
-            .post(self.url("/auth/v1/anonymous/token")?)
-            .header("X-Request-ID", Uuid::new_v4().to_string())
-            .header("Idempotency-Key", idempotency_key)
-            .json(&serde_json::json!({ "refresh_token": refresh_token }))
-            .send()
-            .await
-            .map_err(network_error)?;
-        let token: TokenResponse = decode_success(response, StatusCode::OK).await?;
-        self.commit_token(state, token, false).await
-    }
-
-    async fn commit_token(
-        &self,
-        state: &mut RuntimeState,
-        response: TokenResponse,
-        enrolled: bool,
-    ) -> Result<AccessToken, FeedbackError> {
-        let token = AccessToken {
-            value: response.access_token,
-            expires_at: Utc::now() + ChronoDuration::seconds(response.expires_in.max(0)),
-            scopes: parse_scopes(&response.scope),
+        let Ok(Some(value)) = self.anonymous_auth.combined_state().await else {
+            return;
         };
-        let anonymous_id = response.anonymous_id;
-        let mut next = state.stored.clone();
-        next.anonymous_id = Some(anonymous_id.clone());
-        next.refresh_token = Some(response.refresh_token);
-        next.refresh_idempotency_key = None;
-        if enrolled {
-            next.enroll_idempotency_key = None;
-        }
-        self.persist_credentials(&next).await?;
-        if let Some(identity_store) = &self.identity_store {
-            if identity_store.store(&anonymous_id).await.is_err() {
+        let Ok(stored) = serde_json::from_str::<StoredCredentials>(&value) else {
+            return;
+        };
+        if let Some(anonymous_id) = stored.anonymous_id.as_deref() {
+            if identity_store.store(anonymous_id).await.is_err() {
                 log::warn!("Failed to save the local feedback identity copy");
             }
         }
-        state.stored = next;
-        self.persist_cached_state_best_effort(&state.stored).await;
-        Ok(token)
     }
 
     async fn ensure_loaded(&self, state: &mut RuntimeState) -> Result<(), FeedbackError> {
         self.ensure_existing_loaded(state).await?;
         if state.stored.enroll_key.is_empty() {
-            state.stored.enroll_key = Uuid::new_v4().to_string();
-            self.persist_credentials(&state.stored).await?;
+            let value = self
+                .anonymous_auth
+                .initialized_state()
+                .await
+                .map_err(feedback_auth_error)?;
+            state.stored = serde_json::from_str(&value).map_err(|_| {
+                credential_error(
+                    "CREDENTIALS_INVALID",
+                    "Saved feedback access data is invalid",
+                )
+            })?;
         }
         Ok(())
     }
@@ -1212,12 +1096,11 @@ impl FeedbackService {
         if state.loaded {
             return Ok(());
         }
-        let stored = self.credential_store.load().await.map_err(|_| {
-            credential_error(
-                "CREDENTIAL_LOAD_FAILED",
-                "Feedback access could not be loaded",
-            )
-        })?;
+        let stored = self
+            .anonymous_auth
+            .combined_state()
+            .await
+            .map_err(feedback_auth_error)?;
         state.stored = match stored {
             Some(value) => serde_json::from_str(&value).map_err(|_| {
                 credential_error(
@@ -1273,12 +1156,10 @@ impl FeedbackService {
                 "Feedback access could not be encoded",
             )
         })?;
-        self.credential_store.store(&value).await.map_err(|_| {
-            credential_error(
-                "CREDENTIAL_SAVE_FAILED",
-                "Feedback access could not be saved securely",
-            )
-        })
+        self.anonymous_auth
+            .merge_external_state(&value)
+            .await
+            .map_err(feedback_auth_error)
     }
 
     async fn persist_cached_state(&self, stored: &StoredCredentials) -> Result<(), FeedbackError> {
@@ -1527,13 +1408,6 @@ fn parse_scopes(value: &str) -> Vec<String> {
         .collect()
 }
 
-fn refresh_requires_enroll(code: &str) -> bool {
-    matches!(
-        code,
-        "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "TOKEN_FAMILY_REVOKED"
-    )
-}
-
 async fn decode_success<T: DeserializeOwned>(
     response: Response,
     expected: StatusCode,
@@ -1600,6 +1474,16 @@ fn network_error(error: reqwest::Error) -> FeedbackError {
         FeedbackError::new("REQUEST_TIMEOUT", "Feedback request timed out", true)
     } else {
         FeedbackError::new("NETWORK_ERROR", "Feedback service is unavailable", true)
+    }
+}
+
+fn feedback_auth_error(error: AnonymousAuthError) -> FeedbackError {
+    FeedbackError {
+        message: safe_error_message(&error.code).to_string(),
+        code: error.code,
+        retryable: error.retryable,
+        request_id: error.request_id,
+        retry_after_seconds: error.retry_after_seconds,
     }
 }
 

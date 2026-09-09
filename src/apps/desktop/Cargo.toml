@@ -33,6 +33,8 @@ bitfun-events = { path = "../../crates/contracts/events" }
 bitfun-webdriver = { path = "../../crates/adapters/webdriver" }
 bitfun-acp = { path = "../../crates/interfaces/acp", default-features = false, features = ["client"] }
 bitfun-matrix-adapter = { path = "../../crates/adapters/matrix-adapter" }
+bitfun-observability = { path = "../../crates/execution/observability" }
+bitfun-observability-otel = { path = "../../crates/services/observability-otel" }
 
 # Tauri
 tauri = { workspace = true }
@@ -79,7 +81,7 @@ axum = { workspace = true }
 tower-http = { workspace = true, features = ["fs"] }
 sha1 = { workspace = true }
 sha2 = { workspace = true }
-image = { workspace = true }
+image = { workspace = true, default-features = false, features = ["jpeg", "png"] }
 resvg = { workspace = true }
 arboard = "3"
 tempfile = { workspace = true }

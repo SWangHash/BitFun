@@ -3,6 +3,9 @@
 //! Heavy external integrations live here behind feature groups so local checks
 //! can opt into only the integration family they need.
 
+#[cfg(feature = "anonymous-auth")]
+pub mod anonymous_auth;
+
 #[cfg(feature = "announcement")]
 pub mod announcement;
 

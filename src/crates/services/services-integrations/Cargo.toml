@@ -88,6 +88,16 @@ windows = { workspace = true, optional = true, features = [
 
 [features]
 default = []
+anonymous-auth = [
+    "anyhow",
+    "async-trait",
+    "chrono",
+    "reqwest",
+    "reqwest/json",
+    "reqwest/rustls",
+    "tokio/sync",
+    "uuid",
+]
 tauri-support = ["dep:tauri"]
 # Derive `ts_rs::TS` on wire types (git/* today). Types that live behind a
 # feature group (e.g. `git`) only derive `TS` when that group is also enabled;
@@ -130,6 +140,7 @@ privacy = [
     "tokio/fs",
 ]
 feedback = [
+    "anonymous-auth",
     "aes-gcm",
     "anyhow",
     "async-trait",
@@ -138,7 +149,12 @@ feedback = [
     "dep:bitfun-product-domains",
     "rand",
     "reqwest",
+    "reqwest/json",
+    "reqwest/query",
+    "reqwest/rustls",
     "sha2",
+    "tokio/fs",
+    "tokio/sync",
     "uuid",
 ]
 debug-log = ["anyhow", "chrono", "reqwest", "reqwest/json", "reqwest/rustls", "tokio/rt", "uuid"]

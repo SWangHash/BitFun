@@ -46,6 +46,10 @@ use bitfun_core::service::session_projection_store::{
 use bitfun_core::service::workspace::get_global_workspace_service;
 use bitfun_core::util::{elapsed_ms, TimingCollector};
 use bitfun_events::AgenticEvent;
+use bitfun_observability_otel::{
+    NoTelemetrySecrets, OtlpCompression, TelemetryDeploymentConfig, TelemetryEndpointLayout,
+    TelemetryRuntimeHandle, TelemetryRuntimeMetadata,
+};
 use bitfun_transport::{TauriTransportAdapter, TransportAdapter};
 use serde::Deserialize;
 use std::sync::{
@@ -135,6 +139,7 @@ static MAIN_WINDOW_CLOSE_PENDING_ON_MACOS: AtomicBool = AtomicBool::new(false);
 
 const MAIN_WINDOW_CLOSE_REQUESTED_EVENT: &str = "bitfun_main_window_close_requested";
 const BROWSER_WEBVIEW_PAGE_LOAD_EVENT: &str = "browser-webview-page-load";
+static DESKTOP_TELEMETRY_RUNTIME: OnceLock<TelemetryRuntimeHandle> = OnceLock::new();
 
 #[cfg(target_os = "windows")]
 fn show_fatal_startup_error(message: &str) {
@@ -713,17 +718,31 @@ pub async fn _run() {
     #[cfg(not(target_env = "ohos"))]
     let privacy_service_state = api::privacy_api::PrivacyServiceState::disabled();
 
+    if let Err(error) = privacy_service_state
+        .initialize(env!("CARGO_PKG_VERSION"))
+        .await
+    {
+        log::warn!("Failed to restore privacy state during startup: {error:?}");
+    }
+    let initial_privacy_allowed = privacy_service_state.collection_allowed();
+
+    let path_manager = get_path_manager_arc();
+
     #[cfg(target_env = "ohos")]
-    let feedback_service_state = {
+    let (feedback_service_state, telemetry_runtime, telemetry_controller) = {
+        use bitfun_services_integrations::anonymous_auth::{
+            bitfun_ingress_base_url, AnonymousAuthService, AnonymousCredentialStore,
+        };
         use bitfun_services_integrations::feedback::FeedbackService;
-        use std::sync::Arc;
 
         let credential_store =
             Arc::new(api::ohos::feedback_credentials::OhosFeedbackCredentialStore::new());
-        api::feedback_api::FeedbackServiceState::enabled(
-            FeedbackService::from_environment_with_credential_store(
+        let auth_store: Arc<dyn AnonymousCredentialStore> = credential_store;
+        let anonymous_auth = Arc::new(AnonymousAuthService::from_environment(auth_store));
+        let feedback = api::feedback_api::FeedbackServiceState::enabled(
+            FeedbackService::from_environment_with_shared_auth(
                 env!("CARGO_PKG_VERSION"),
-                credential_store,
+                anonymous_auth.clone(),
             )
             .with_cache_dir(PathBuf::from(
                 "/data/storage/el2/base/cache/bitfun/feedback",
@@ -731,11 +750,66 @@ pub async fn _run() {
             .with_identity_path(PathBuf::from(
                 "/data/storage/el2/base/files/bitfun/config/identity.json",
             )),
-        )
+        );
+        let mut deployment = TelemetryDeploymentConfig::from_product_build();
+        deployment.endpoint_layout = TelemetryEndpointLayout::BitFunIngressV1;
+        deployment.compression = OtlpCompression::None;
+        deployment.credential_namespace = "bitfun-ingress".to_string();
+        deployment.endpoint = Some(bitfun_ingress_base_url(cfg!(debug_assertions)).to_string());
+        let runtime = TelemetryRuntimeHandle::new_with_authorizer(
+            TelemetryRuntimeMetadata::new(
+                bitfun_observability::TelemetryEntrypoint::Desktop,
+                path_manager.user_data_dir(),
+            ),
+            Arc::new(NoTelemetrySecrets),
+            Arc::new(
+                api::ohos::telemetry_authorizer::OhosTelemetryRequestAuthorizer::new(
+                    anonymous_auth,
+                ),
+            ),
+        );
+        let controller = Arc::new(api::telemetry_api::OhosTelemetryController::new(
+            runtime.clone(),
+            deployment,
+        ));
+        (feedback, runtime, controller)
     };
 
     #[cfg(not(target_env = "ohos"))]
-    let feedback_service_state = api::feedback_api::FeedbackServiceState::disabled();
+    let (feedback_service_state, telemetry_runtime, telemetry_controller) = {
+        let deployment = TelemetryDeploymentConfig::from_product_build();
+        let runtime = TelemetryRuntimeHandle::new(
+            TelemetryRuntimeMetadata::new(
+                bitfun_observability::TelemetryEntrypoint::Desktop,
+                path_manager.user_data_dir(),
+            ),
+            Arc::new(NoTelemetrySecrets),
+        );
+        let controller = Arc::new(api::telemetry_api::OhosTelemetryController::new(
+            runtime.clone(),
+            deployment,
+        ));
+        (
+            api::feedback_api::FeedbackServiceState::disabled(),
+            runtime,
+            controller,
+        )
+    };
+
+    if DESKTOP_TELEMETRY_RUNTIME
+        .set(telemetry_runtime.clone())
+        .is_err()
+    {
+        log::error!("Failed to register desktop telemetry runtime: already_initialized");
+        telemetry_runtime.cancel_and_discard();
+        return;
+    }
+    if let Err(error) = telemetry_controller.reconcile(initial_privacy_allowed) {
+        log::warn!("Telemetry remains disabled during startup: {error}");
+    }
+    let startup_observation = Arc::new(std::sync::Mutex::new(Some(
+        telemetry_runtime.startup_guard(),
+    )));
 
     // Inject the OHOS AssetStoreKit-backed vault as the unified
     // SecureCredentialVault for subscription auth and the MiniApp/
@@ -782,7 +856,7 @@ pub async fn _run() {
 
     let step_started = Instant::now();
     let (coordinator, scheduler, event_queue, event_router, ai_client_factory, token_usage_service) =
-        match init_agentic_system().await {
+        match init_agentic_system(telemetry_runtime.telemetry()).await {
             Ok(state) => state,
             Err(e) => {
                 log::error!("Failed to initialize agentic system: {}", e);
@@ -873,8 +947,6 @@ pub async fn _run() {
 
     let terminal_state = api::terminal_api::TerminalState::new();
 
-    let path_manager = get_path_manager_arc();
-
     let mut builder = tauri::Builder::default();
 
     let is_e2e_webdriver =
@@ -917,6 +989,8 @@ pub async fn _run() {
         .manage(terminal_state)
         .manage(privacy_service_state)
         .manage(feedback_service_state)
+        .manage(telemetry_runtime.clone())
+        .manage(telemetry_controller)
         .manage(startup_trace.clone())
         .on_page_load(|webview, payload| {
             let label = webview.label();
@@ -1326,6 +1400,13 @@ pub async fn _run() {
                 since_process_start_ms
             );
             log::info!("BitFun Desktop started successfully");
+            if let Some(observation) = startup_observation
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .take()
+            {
+                observation.complete();
+            }
             Ok(())
         })
         .on_window_event({
@@ -2195,7 +2276,9 @@ pub async fn _run() {
     }
 }
 
-async fn init_agentic_system() -> anyhow::Result<(
+async fn init_agentic_system(
+    telemetry: bitfun_observability::Telemetry,
+) -> anyhow::Result<(
     Arc<bitfun_core::agentic::coordination::ConversationCoordinator>,
     Arc<bitfun_core::agentic::coordination::DialogScheduler>,
     Arc<bitfun_core::agentic::events::EventQueue>,
@@ -2241,15 +2324,15 @@ async fn init_agentic_system() -> anyhow::Result<(
 
     let tool_pipeline = Arc::new(
         tools::pipeline::ToolPipeline::new(tool_registry, tool_state_manager, None)
+            .with_telemetry(telemetry.clone())
             .with_permission_request_manager(permission_request_manager),
     );
 
     let stream_processor = Arc::new(execution::StreamProcessor::new(event_queue.clone()));
-    let round_executor = Arc::new(execution::RoundExecutor::new(
-        stream_processor,
-        event_queue.clone(),
-        tool_pipeline.clone(),
-    ));
+    let round_executor = Arc::new(
+        execution::RoundExecutor::new(stream_processor, event_queue.clone(), tool_pipeline.clone())
+            .with_telemetry(telemetry.clone()),
+    );
 
     // Get execution config from global settings
     let exec_config = match bitfun_core::service::config::get_global_config_service().await {
@@ -2268,13 +2351,16 @@ async fn init_agentic_system() -> anyhow::Result<(
         Err(_) => Default::default(),
     };
 
-    let execution_engine = Arc::new(execution::ExecutionEngine::new(
-        round_executor,
-        event_queue.clone(),
-        session_manager.clone(),
-        context_compressor,
-        Default::default(),
-    ));
+    let execution_engine = Arc::new(
+        execution::ExecutionEngine::new(
+            round_executor,
+            event_queue.clone(),
+            session_manager.clone(),
+            context_compressor,
+            exec_config,
+        )
+        .with_telemetry(telemetry.clone()),
+    );
 
     let runtime_ownership = Arc::new(
         bitfun_core::runtime_ownership::CoreRuntimeOwnership::embedded(
@@ -2282,14 +2368,17 @@ async fn init_agentic_system() -> anyhow::Result<(
             "desktop",
         ),
     );
-    let coordinator = Arc::new(coordination::ConversationCoordinator::new(
-        session_manager.clone(),
-        execution_engine,
-        tool_pipeline,
-        event_queue.clone(),
-        event_router.clone(),
-        runtime_ownership,
-    ));
+    let coordinator = Arc::new(
+        coordination::ConversationCoordinator::new(
+            session_manager.clone(),
+            execution_engine,
+            tool_pipeline,
+            event_queue.clone(),
+            event_router.clone(),
+            runtime_ownership,
+        )
+        .with_telemetry(telemetry),
+    );
     coordinator.set_terminal_port(
         bitfun_core::product_runtime::CoreRuntimeServicesProvider::terminal_port(),
     );
@@ -2504,6 +2593,9 @@ pub(crate) async fn perform_process_exit_cleanup() -> bool {
     if let Some(search_service) = get_global_workspace_search_service() {
         search_service.shutdown_blocking();
     }
+    if let Some(telemetry) = DESKTOP_TELEMETRY_RUNTIME.get() {
+        let _ = telemetry.shutdown();
+    }
     bitfun_core::util::process_manager::cleanup_all_processes();
     api::remote_connect_api::cleanup_on_exit();
     PROCESS_EXIT_CLEANUP_COMPLETE.store(true, Ordering::Release);
@@ -2537,6 +2629,9 @@ pub(crate) fn perform_process_exit_cleanup_emergency() -> bool {
     log::warn!("Desktop emergency process cleanup started");
     if let Some(search_service) = get_global_workspace_search_service() {
         search_service.shutdown_blocking();
+    }
+    if let Some(telemetry) = DESKTOP_TELEMETRY_RUNTIME.get() {
+        telemetry.cancel_and_discard();
     }
     bitfun_core::util::process_manager::cleanup_all_processes();
     api::remote_connect_api::cleanup_on_exit();

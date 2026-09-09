@@ -61,7 +61,7 @@ export interface MemoriesConfig {
 export interface AppConfig {
   language: string;
   auto_update: boolean;
-  telemetry: boolean;
+  telemetry: TelemetryUserConfigV1 | TelemetryUserConfigV2;
   startup_behavior: string;
   confirm_on_exit: boolean;
   restore_windows: boolean;
@@ -74,6 +74,19 @@ export interface AppConfig {
   ai_experience: AIExperienceConfig;
   user_tool_groups?: UserToolGroupsConfig;
   user_skill_groups?: UserSkillGroupsConfig;
+}
+
+export type TelemetryLevel = 'off' | 'basic' | 'diagnostic' | 'debug';
+
+export interface TelemetryUserConfigV1 {
+  version: 1;
+  level: TelemetryLevel;
+}
+
+export interface TelemetryUserConfigV2 {
+  version: 2;
+  level: TelemetryLevel;
+  sensitive_content_consent: boolean;
 }
 
 export interface UserToolGroupsConfig {

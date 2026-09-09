@@ -6,5 +6,7 @@ pub mod screen_capture;
 #[cfg(target_env = "ohos")]
 pub mod secure_credentials;
 pub mod ohos_file_system;
+#[cfg(target_env = "ohos")]
+pub mod telemetry_authorizer;
 pub mod update;
 pub mod window;
