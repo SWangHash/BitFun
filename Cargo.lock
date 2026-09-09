@@ -6515,10 +6515,12 @@ dependencies = [
  "openbitfun-ai-adapters",
  "openbitfun-claude-code-adapter",
  "openbitfun-codex-adapter",
+ "openbitfun-config-contracts",
  "openbitfun-core-types",
  "openbitfun-dsh-adapter",
  "openbitfun-events",
  "openbitfun-external-sources",
+ "openbitfun-legacy-migration-adapters",
  "openbitfun-opencode-adapter",
  "openbitfun-opencode-plugin-host",
  "openbitfun-plugin-runtime-client",
@@ -6565,6 +6567,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "openbitfun-data-migrator"
+version = "0.1.0"
+dependencies = [
+ "openbitfun-core-types",
+ "openbitfun-legacy-migration",
+ "openbitfun-legacy-migration-adapters",
+ "openbitfun-product-domains",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tempfile",
+ "uuid",
+]
+
+[[package]]
 name = "openbitfun-dsh-adapter"
 version = "1.0.0"
 dependencies = [
@@ -6603,22 +6621,6 @@ dependencies = [
  "log",
  "openbitfun-product-domains",
  "tokio",
-]
-
-[[package]]
-name = "openbitfun-data-migrator"
-version = "0.1.0"
-dependencies = [
- "openbitfun-core-types",
- "openbitfun-legacy-migration",
- "openbitfun-legacy-migration-adapters",
- "openbitfun-product-domains",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tempfile",
- "uuid",
 ]
 
 [[package]]

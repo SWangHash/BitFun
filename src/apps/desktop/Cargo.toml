@@ -6,7 +6,7 @@ edition.workspace = true
 description = "OpenBitFun Desktop Application (Tauri)"
 
 [lib]
-name = "bitfun_desktop_lib"
+name = "openbitfun_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
@@ -35,7 +35,7 @@ openbitfun-acp = { path = "../../crates/interfaces/acp", default-features = fals
 openbitfun-matrix-adapter = { path = "../../crates/adapters/matrix-adapter" }
 
 # Tauri
-tauri = { workspace = true, features = ["unstable", "macos-private-api", "tray-icon"] }
+tauri = { workspace = true }
 tauri-plugin-opener = { workspace = true }
 tauri-plugin-fs = { workspace = true }
 tauri-plugin-log = { workspace = true }

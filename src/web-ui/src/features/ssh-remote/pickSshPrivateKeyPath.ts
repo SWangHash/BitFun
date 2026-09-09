@@ -3,22 +3,26 @@
  * (via Tauri homeDir + join).
  */
 
-import {workspaceAPI} from "@/infrastructure";
-// import { homeDir, join } from '@tauri-apps/api/path';
+import { open } from '@tauri-apps/plugin-dialog';
+import { homeDir, join } from '@tauri-apps/api/path';
 import { createLogger } from '@/shared/utils/logger';
+
 const log = createLogger('pickSshAuthFilePath');
 
-
 async function pickSshAuthFilePath(
-    kind: 'private key' | 'certificate',
-    _options: { title?: string } = {},
+  kind: 'private key' | 'certificate',
+  options: { title?: string } = {},
 ): Promise<string | null> {
   try {
-    // const home = await homeDir();
-    // const defaultPath = await join(home, '.ssh');
-    const selected = await workspaceAPI.open_oh_file_dialog({ directory: false });
-
-    return typeof selected === 'string' ? selected : null;
+    const home = await homeDir();
+    const defaultPath = await join(home, '.ssh');
+    const selected = await open({
+      multiple: false,
+      directory: false,
+      defaultPath,
+      title: options.title,
+    });
+    return selected ?? null;
   } catch (e) {
     log.error(`SSH ${kind} file picker failed`, e);
     return null;

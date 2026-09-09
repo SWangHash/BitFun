@@ -152,21 +152,6 @@ export function useSkillMarket({
     return entries.map((entry) => entry.skill);
   }, [installedMarketIds, marketSkills]);
 
-  const loadedPages = Math.ceil(displayMarketSkills.length / pageSize);
-  const totalPages = hasMore ? loadedPages + 1 : Math.max(1, loadedPages);
-
-  const paginatedSkills = useMemo(() => displayMarketSkills.slice(
-    currentPage * pageSize,
-    (currentPage + 1) * pageSize,
-  ), [currentPage, displayMarketSkills, pageSize]);
-
-  const goToPrevPage = useCallback(() => {
-    if (currentCapabilityEpoch() === null) {
-      return;
-    }
-    setCurrentPage((page) => Math.max(0, page - 1));
-  }, [currentCapabilityEpoch]);
-
   const goToNextPage = useCallback(async () => {
     const capabilityEpoch = currentCapabilityEpoch();
     if (capabilityEpoch === null) {

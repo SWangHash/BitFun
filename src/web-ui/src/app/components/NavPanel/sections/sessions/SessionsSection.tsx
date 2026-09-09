@@ -62,10 +62,7 @@ import {
 import { exportSessionToMarkdown } from '@/flow_chat/services/sessionMarkdownExport';
 import type { TranscriptExportScope } from '@/flow_chat/utils/dialogTranscriptExport';
 import { confirmDanger } from '@/infrastructure/confirm-dialog';
-import {
-  AssistantAvatar,
-  type AssistantAvatarStatus,
-} from '@/app/components/AssistantAvatar';
+import { AssistantAvatar } from '@/app/components/AssistantAvatar';
 import { notificationService } from '@/shared/notification-system';
 import { copyTextToClipboard } from '@/shared/utils/textSelection';
 import { isOutcomeUnknownError } from '@/infrastructure/api/errors/TauriCommandError';

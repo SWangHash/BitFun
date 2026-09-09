@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -78,7 +78,11 @@ const outputPath = (...segments) => path.join(ROOT_DIR, ...segments);
 
 async function writePng(filePath, buffer) {
   await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, buffer);
+  // Atomic replacement avoids drvfs/9P `EINVAL` when overwriting a file that
+  // Windows still has open (preview, indexer, or a previous build's handle).
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tmpPath, buffer);
+  await rename(tmpPath, filePath);
 }
 
 function createReusableWebMark(svg) {

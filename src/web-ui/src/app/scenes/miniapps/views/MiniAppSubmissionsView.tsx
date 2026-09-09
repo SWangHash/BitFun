@@ -10,6 +10,7 @@ import { OverflowText,
   Textarea,
 } from '@openbitfun/ui';
 import React, { useEffect, useMemo, useState } from 'react';
+import { open } from '@tauri-apps/plugin-dialog';
 import { AlertTriangle, Camera, Github, History, Loader2, PackageOpen, Send } from 'lucide-react';
 import { GalleryEmpty, GalleryLayout, GalleryPageHeader } from '@/app/components';
 import { useI18n } from '@/infrastructure/i18n';
@@ -24,7 +25,6 @@ import {
 } from '@/infrastructure/api/service-api/MiniAppMarketAPI';
 import type { MiniAppMeta } from '@/infrastructure/api/service-api/MiniAppAPI';
 import { miniAppAPI } from '@/infrastructure/api/service-api/MiniAppAPI';
-import { workspaceAPI } from '@/infrastructure/api';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { isRemoteWorkspace } from '@/shared/types';
 import { useNotification } from '@/shared/notification-system';
@@ -140,9 +140,7 @@ const MiniAppSubmissionsView: React.FC<MiniAppSubmissionsViewProps> = ({ tabs })
   }
 
   const chooseScreenshots = async () => {
-    // Platform-dispatched picker: native dialog on desktop, OHOS system
-    // DocumentViewPicker on HarmonyOS.
-    const selected = await workspaceAPI.open_oh_file_dialog({
+    const selected = await open({
       multiple: true,
       directory: false,
       title: t('market.submissions.chooseScreenshots'),
@@ -266,7 +264,7 @@ const MiniAppSubmissionsView: React.FC<MiniAppSubmissionsViewProps> = ({ tabs })
         />
         {tabs}
         <GalleryEmpty
-          icon={<Github size={36} />}
+          icon={{ glyph: Github }}
           message={t('market.submissions.signInRequired')}
           action={<MarketAccountControls />}
         />

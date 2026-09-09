@@ -11,6 +11,7 @@ import {
   StatusPill,
   type SelectOption,
 } from '@openbitfun/ui';
+import { open } from '@tauri-apps/plugin-dialog';
 import {
   AlertTriangle,
   FolderPlus,
@@ -55,7 +56,6 @@ import {
   retryOriginalMarketImage,
 } from '@/infrastructure/api/service-api/MarketImage';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
-import { workspaceAPI } from '@/infrastructure/api';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { useI18n } from '@/infrastructure/i18n';
@@ -322,9 +322,7 @@ const MiniAppLibraryView: React.FC<MiniAppLibraryViewProps> = ({ tabs }) => {
 
   const handleAddFromFolder = async () => {
     try {
-      // Platform-dispatched picker: native dialog on desktop, OHOS system
-      // DocumentViewPicker on HarmonyOS.
-      const selected = await workspaceAPI.open_oh_file_dialog({
+      const selected = await open({
         directory: true,
         multiple: false,
         title: t('selectFolderTitle'),
@@ -356,9 +354,7 @@ const MiniAppLibraryView: React.FC<MiniAppLibraryViewProps> = ({ tabs }) => {
   }, [notification, t]);
 
   const handleAddPackage = async () => {
-    // Platform-dispatched picker: native dialog on desktop, OHOS system
-    // DocumentViewPicker on HarmonyOS.
-    const selected = await workspaceAPI.open_oh_file_dialog({
+    const selected = await open({
       directory: false,
       multiple: false,
       title: t('market.import.choose'),
@@ -635,7 +631,7 @@ const MiniAppLibraryView: React.FC<MiniAppLibraryViewProps> = ({ tabs }) => {
     if (libraryItems.length === 0 && !catalogLoading) {
       return (
         <GalleryEmpty
-          icon={<PackageCheck size={34} strokeWidth={1.35} />}
+          icon={{ glyph: PackageCheck }}
           message={query || category !== 'all'
             ? t('empty.noMatch')
             : t('market.library.empty')}
