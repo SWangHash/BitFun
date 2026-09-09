@@ -1,7 +1,5 @@
 import { WorkspaceKind, type WorkspaceInfo } from '@/shared/types';
 
-export const DEFAULT_CHAT_INPUT_MODE_CONFIG_PATH = 'app.flow_chat.default_mode_id';
-
 const MAIN_AGENT_EXCLUDED_MODE_IDS = new Set([
   'agentic',
   'claw',
@@ -179,7 +177,24 @@ export function normalizeUserDefaultChatInputModeId(value: unknown): string | nu
   }
 
   const trimmed = value.trim();
-  return trimmed ? trimmed : null;
+  if (!trimmed) {
+    return null;
+  }
+
+  switch (trimmed.toLowerCase()) {
+    case 'agentic':
+      return 'agentic';
+    case 'minimal':
+      return 'minimal';
+    case 'ultra':
+      return 'Ultra';
+    case 'creative':
+      return 'Creative';
+    case 'claw':
+      return 'Claw';
+    default:
+      return trimmed;
+  }
 }
 
 export function resolveSessionAssistantWorkspace(params: {
@@ -406,8 +421,8 @@ export function resolveAvailableChatInputMode(params: {
   const normalizedUserDefaultModeId = normalizeUserDefaultChatInputModeId(params.userDefaultModeId);
   const effectiveUserDefaultModeId =
     normalizedUserDefaultModeId
-      // Do not restore retired built-in Agents from older user config.
-      && !['multitask', 'plan'].includes(normalizeModeLookupId(normalizedUserDefaultModeId) ?? '')
+      // Do not restore Assistant-fixed or retired Agents from user config.
+      && !['claw', 'multitask', 'plan'].includes(normalizeModeLookupId(normalizedUserDefaultModeId) ?? '')
       && availableModeIds.has(normalizedUserDefaultModeId)
       ? normalizedUserDefaultModeId
       : null;

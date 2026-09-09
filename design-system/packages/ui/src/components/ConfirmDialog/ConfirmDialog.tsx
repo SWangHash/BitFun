@@ -206,7 +206,7 @@ export const ConfirmDialog = forwardRef<HTMLDivElement, ConfirmDialogProps>(
             onClick={() => void runAction("confirm", onConfirm)}
             ref={confirmButtonRef}
             tone={confirmDanger || type === "error" ? "danger" : "neutral"}
-            variant={confirmDanger || type === "error" ? "primary" : "fill"}
+            variant="primary"
           >
             {resolvedConfirmText}
           </Button>

@@ -1,6 +1,27 @@
 {
   "$description": "OpenBitFun light semantic theme migrated from the built-in light Appearance.",
+  "component": {
+    "button": {
+      "$description": "Button-specific state colors. Keep shared action colors stable for other controls and preserve contrast-mode feedback.",
+      "content": { "$type": "color", "$value": "{color.action.neutral.content}" },
+      "textContent": { "$type": "color", "$value": "{color.accent.default}" },
+      "textContentHover": { "$type": "color", "$value": "{color.accent.hover}" },
+      "textContentDisabled": { "$type": "color", "$value": "{color.accent.disabled}" },
+      "outlineBorder": { "$type": "color", "$value": "{color.action.neutral.surfaceHover}" },
+      "outlineBorderInteractive": { "$type": "color", "$value": "transparent" },
+      "fillBackground": { "$type": "color", "$value": "{color.action.neutral.surfaceHover}" },
+      "fillBackgroundHover": { "$type": "color", "$value": "{color.action.neutral.surfaceHover}" },
+      "fillBackgroundPressed": { "$type": "color", "$value": "{color.action.neutral.surfaceHover}" },
+      "primaryBackground": { "$type": "color", "$value": "rgba(0, 0, 0, 0.80)" },
+      "primaryBackgroundHover": { "$type": "color", "$value": "rgba(0, 0, 0, 0.60)" },
+      "primaryBackgroundPressed": { "$type": "color", "$value": "rgba(0, 0, 0, 0.90)" },
+      "primaryContentDisabled": { "$type": "color", "$value": "rgba(0, 0, 0, 0.20)" }
+    }
+  },
   "color": {
+    "actionCard": {
+      "background": { "$type": "color", "$value": "rgba(0, 0, 0, 0.03)" }
+    },
     "surface": {
       "canvas": { "$type": "color", "$value": "{ref.color.neutral.50}" },
       "panel": { "$type": "color", "$value": "{ref.color.neutral.0}" },
@@ -46,6 +67,7 @@
       "thumbHover": { "$type": "color", "$value": "{color.action.neutral.surfacePressed}" }
     },
     "content": {
+      "caption": { "$description": "Menu and navigation group captions; carries final opacity without attenuating primary text again.", "$type": "color", "$value": "rgba(0, 0, 0, 0.40)" },
       "primary": { "$type": "color", "$value": "rgba(0, 0, 0, 0.80)" },
       "secondary": { "$type": "color", "$value": "rgba(0, 0, 0, 0.60)" },
       "muted": { "$type": "color", "$value": "{ref.color.neutral.650}" },
@@ -157,10 +179,13 @@
       }
     },
     "field": {
+      "groupBackground": { "$description": "Grouped form tint; independent of opaque tertiary containers and transient subtle feedback.", "$type": "color", "$value": "rgba(0, 0, 0, 0.03)" },
+      "borderActive": { "$description": "Input and SearchField editing border, distinct from the stronger generic focus indicator used by other controls.", "$type": "color", "$value": "{color.field.borderHover}" },
+      "placeholder": { "$description": "Empty field hints and decorative adornments; distinct from general secondary prose.", "$type": "color", "$value": "rgba(0, 0, 0, 0.40)" },
       "background": { "$type": "color", "$value": "{ref.color.neutral.0}" },
       "backgroundHover": { "$type": "color", "$value": "{color.field.background}" },
-      "border": { "$type": "color", "$value": "rgba(16, 26, 39, 0.15)" },
-      "borderHover": { "$type": "color", "$value": "rgba(16, 26, 39, 0.24)" },
+"border": { "$type": "color", "$value": "rgba(0, 0, 0, 0.08)" },
+      "borderHover": { "$type": "color", "$value": "rgba(0, 0, 0, 0.20)" },
       "borderFocus": { "$type": "color", "$value": "{ref.color.navy.950}" }
     },
     "control": {
@@ -233,7 +258,7 @@
     "xl": { "$value": "0 12px 24px rgba(16, 26, 39, 0.11)" },
     "raised": { "$value": "{shadow.sm}" },
     "composer": { "$value": "0 2px 6px rgba(0, 0, 0, 0.08)" },
-    "menu": { "$value": "0 4px 10px rgba(0, 0, 0, 0.12)" },
+    "menu": { "$value": "0 4px 20px rgba(0, 0, 0, 0.12)" },
     "overlay": { "$value": "0 4px 20px rgba(0, 0, 0, 0.12)" },
     "accentGlow": {
       "$description": "Layered emphasis glow derived from the active accent.",

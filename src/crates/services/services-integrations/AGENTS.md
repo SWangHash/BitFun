@@ -143,3 +143,9 @@ advertise a small handle limit and are included in the existing CI
 `OPENBITFUN_TEST_SFTP_SERVER` to an installed `sftp-server` executable and run
 the same command with the filter ending in
 `workspace_sftp::openssh_real_files_over_loopback_ssh -- --ignored`.
+
+For the remote Flashgrep distribution gate and retained protocol helpers, use:
+
+```bash
+cargo test --locked -p openbitfun-services-integrations --no-default-features --features remote-ssh,workspace-search --lib remote_ssh::workspace_search::service::tests::
+```

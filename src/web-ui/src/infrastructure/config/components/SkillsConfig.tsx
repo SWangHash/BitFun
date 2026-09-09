@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
-import { Button, Card, CardBody, ConfirmDialog, Field, Icon, IconButton, Input, SearchField, Select, Tooltip } from '@openbitfun/ui';
+import { Button, Card, CardBody, ConfirmDialog, Field, Icon, IconButton, Input, OverflowText, SearchField, Select, Tooltip } from '@openbitfun/ui';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FolderOpen, TrendingUp } from 'lucide-react';
@@ -308,11 +308,11 @@ const SkillsConfig: React.FC = () => {
           )}
         </div>
         <div className="openbitfun-collection-form__footer">
-          <Button variant="outline" size="sm" onClick={resetForm}>
+          <Button variant="fill" size="sm" onClick={resetForm}>
             {t('form.actions.cancel')}
           </Button>
           <Button
-            variant="fill"
+            variant="primary"
             size="sm"
             onClick={handleAdd}
             disabled={!validationResult?.valid || isAdding}
@@ -484,9 +484,9 @@ const SkillsConfig: React.FC = () => {
                       {t('market.item.installs', { count: skill.installs })}
                     </span>
                   </div>
-                  <div className="openbitfun-skills-config__market-item-description">
+                  <OverflowText as="div" lines={3} className="openbitfun-skills-config__market-item-description">
                     {skill.description?.trim() || t('market.item.noDescription')}
-                  </div>
+                  </OverflowText>
                   <div className="openbitfun-skills-config__market-item-meta">
                     {skill.source ? (
                       sourceLabel !== skill.source ? (
@@ -527,7 +527,7 @@ const SkillsConfig: React.FC = () => {
                           <span>
                             <Button
                               className="openbitfun-skills-config__market-action-button"
-                              variant="fill"
+                              variant="primary"
                               size="sm"
                               onClick={() => handleDownload(skill, 'project')}
                               disabled={isDownloading || !hasWorkspace}
@@ -543,7 +543,7 @@ const SkillsConfig: React.FC = () => {
                         <span>
                           <Button
                             className="openbitfun-skills-config__market-action-button"
-                            variant={isRemote ? 'fill' : 'outline'}
+                            variant={isRemote ? 'primary' : 'outline'}
                             size="sm"
                             onClick={() => handleDownload(skill, 'user')}
                             disabled={isDownloading}
@@ -712,7 +712,7 @@ const SkillsConfig: React.FC = () => {
               onClear={marketKeyword ? () => setMarketKeyword('') : undefined}
               size="sm"
             />
-            <Button size="sm" variant="fill" onClick={handleMarketSearch}>
+            <Button size="sm" variant="primary" onClick={handleMarketSearch}>
               {tShared('common:actions.search')}
             </Button>
           </div>

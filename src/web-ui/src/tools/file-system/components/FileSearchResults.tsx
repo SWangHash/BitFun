@@ -251,7 +251,7 @@ const FileGroup = memo<FileGroupProps>(({
           </span>
           <span className="openbitfun-search-results__file-info">
             <span className="openbitfun-search-results__file-name">
-                <OverflowText behavior="marquee" title=""><HighlightedText text={group.name} query={searchQuery} /></OverflowText>
+                <OverflowText behavior="marquee"><HighlightedText text={group.name} query={searchQuery} /></OverflowText>
             </span>
             <OverflowText className="openbitfun-search-results__file-path">
               {group.path}

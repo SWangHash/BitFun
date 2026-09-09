@@ -14,8 +14,9 @@ $fmc-close-duration: 0.16s;
 $miniapp-button-size: 42px;
 $miniapp-button-offset: 20px;
 // Sized for the full session composer (workspace strip, model/permission
-// controls, action row) rather than the single-line input it replaced.
-$panel-width: 440px;
+// controls, action row) rather than the single-line input it replaced. The
+// portrait surface keeps a near-square-root-of-two long-side ratio (680:480).
+$panel-width: 480px;
 $panel-height: 680px;
 
 // ─── Root container ────────────────────────────────────────

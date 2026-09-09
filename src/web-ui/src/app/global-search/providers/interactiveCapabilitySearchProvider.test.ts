@@ -17,6 +17,19 @@ function request(query: string): GlobalSearchRequest {
 }
 
 describe('interactiveCapabilitySearchProvider', () => {
+  it('restores accelerated search in the settings catalog', () => {
+    const capability = INTERACTIVE_CAPABILITY_CATALOG.capabilities.find(
+      ({ id }) => id === 'setting.workspace.session',
+    );
+    expect(capability?.options.some(({ id }) => id === 'workspace-search')).toBe(true);
+    expect(capability?.items.some(({ id }) => id === 'accelerated-search')).toBe(true);
+  });
+  it('hides Flashgrep search entries for remote workspaces', async () => {
+    const query = request('Flashgrep');
+    query.currentWorkspace = { workspaceKind: 'remote' } as typeof query.currentWorkspace;
+    const result = await interactiveCapabilitySearchProvider.search(query, new AbortController().signal);
+    expect(result.items).toEqual([]);
+  });
   it('uses the curated feature-and-settings contract', () => {
     expect(INTERACTIVE_CAPABILITY_CATALOG.capabilities).toHaveLength(
       INTERACTIVE_CAPABILITY_CATALOG.counts.userFacing,

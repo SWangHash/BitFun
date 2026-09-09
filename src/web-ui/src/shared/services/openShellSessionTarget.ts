@@ -1,3 +1,4 @@
+import { isSessionSceneId } from '@/app/components/SceneBar/types';
 import type { SceneTabId } from '@/app/components/SceneBar/types';
 import { useSceneStore } from '@/app/stores/sceneStore';
 import { useTerminalSceneStore } from '@/app/stores/terminalSceneStore';
@@ -27,7 +28,7 @@ export function openShellSessionTarget(options: OpenShellSessionTargetOptions): 
   const { sessionId, sessionName } = options;
   const { activeTabId } = useSceneStore.getState();
 
-  if (activeTabId === 'session') {
+  if (isSessionSceneId(activeTabId)) {
     const targetMode = getCachedTerminalPanelPosition() === 'bottom' ? 'bottom-terminal' : 'agent';
     createTerminalTab(sessionId, sessionName, targetMode);
     return;

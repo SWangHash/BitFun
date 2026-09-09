@@ -2151,43 +2151,6 @@ $_section-header-height: 22px;
   min-width: 0;
 }
 
-.openbitfun-nav-panel__utility-action {
-  flex: 0 0 auto;
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid;
-  @include shell-surfaces.sidebar-hairline-color;
-  border-radius: var(--openbitfun-radius-pill);
-  background: var(--openbitfun-color-surface-scene);
-  color: var(--openbitfun-color-content-secondary);
-  cursor: pointer;
-  transition: background var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard),
-              border-color var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard),
-              color var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard);
-
-  &:hover,
-  &:focus-visible {
-    background: var(--openbitfun-color-content-primary);
-    border-color: var(--openbitfun-color-content-primary);
-    color: var(--openbitfun-color-surface-scene);
-
-    > svg {
-      color: var(--openbitfun-color-surface-scene);
-      stroke: currentColor;
-    }
-  }
-
-  &:focus-visible {
-    outline: 1px solid var(--openbitfun-color-accent-default);
-    outline-offset: 1px;
-  }
-}
-
 .openbitfun-nav-panel__count-badge {
   flex: 0 0 auto;
   min-width: 20px;
@@ -2871,7 +2834,6 @@ $_section-header-height: 22px;
   }
 
   &__search-trigger__icon,
-  &__utility-action,
   &__section-action,
   &__item-action,
   &__footer-btn--icon {

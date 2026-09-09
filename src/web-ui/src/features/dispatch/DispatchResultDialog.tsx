@@ -199,11 +199,11 @@ export const DispatchResultDialog: React.FC<DispatchResultDialogProps> = ({
           data-openbitfun-part="actions"
         >
           <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button variant="fill" size="sm" onClick={onClose}>
             {t('dispatch.syncClose')}
           </Button>
           <Button
-            variant="fill"
+            variant="primary"
             size="sm"
             disabled={syncing || baselineMissing || !jobId}
             onClick={() => void sync()}

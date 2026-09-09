@@ -19,6 +19,8 @@ use tokio::time::{Duration, Instant};
 use uuid::Uuid;
 
 const DEFAULT_YIELD_TIME_MS: u64 = 10_000;
+pub(super) const EXEC_TERMINAL_SIZE: openbitfun_runtime_ports::ExecTerminalSize =
+    openbitfun_runtime_ports::ExecTerminalSize { cols: 80, rows: 24 };
 const MAX_RETAINED_OUTPUT_BYTES: usize = 1024 * 1024;
 const MAX_REMOTE_EXEC_SESSIONS: usize = 64;
 const MAX_COMPLETED_REMOTE_EXEC_SESSIONS: usize = 64;
@@ -719,6 +721,14 @@ async fn spawn_local_container_pty_process(
     request: RemoteExecCommandRequest,
     (executable, args): (String, Vec<String>),
 ) -> anyhow::Result<RemoteExecProcess> {
+    let shell_type = ShellType::Custom(
+        if executable == super::wsl::EXECUTABLE {
+            "WSL"
+        } else {
+            "Docker"
+        }
+        .to_string(),
+    );
     let shell_config = ShellConfig {
         executable,
         args,
@@ -734,11 +744,11 @@ async fn spawn_local_container_pty_process(
     let spawned = spawn_pty(
         process_id,
         &shell_config,
-        ShellType::Custom("Docker".to_string()),
-        80,
-        24,
+        shell_type,
+        EXEC_TERMINAL_SIZE.cols,
+        EXEC_TERMINAL_SIZE.rows,
     )
-    .map_err(|error| anyhow!("Failed to start local Docker PTY: {}", error))?;
+    .map_err(|error| anyhow!("Failed to start local workspace PTY: {}", error))?;
     let output = Arc::new(OutputState::new(request.output_capture_tx.clone()));
     let (command_tx, mut command_rx) = mpsc::channel::<RemoteExecProcessCommand>(64);
     let owner_output = output.clone();
@@ -814,7 +824,12 @@ async fn spawn_remote_pty_process(
 ) -> anyhow::Result<RemoteExecProcess> {
     let channel = request
         .ssh_manager
-        .open_pty_exec_channel(&request.connection_id, &request.command, 80, 24)
+        .open_pty_exec_channel(
+            &request.connection_id,
+            &request.command,
+            EXEC_TERMINAL_SIZE.cols.into(),
+            EXEC_TERMINAL_SIZE.rows.into(),
+        )
         .await?;
     let output = Arc::new(OutputState::new(request.output_capture_tx.clone()));
     let (command_tx, command_rx) = mpsc::channel::<RemoteExecProcessCommand>(64);

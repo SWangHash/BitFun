@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { configAPI,workspaceAPI } from '@/infrastructure/api';
-import type { SkillInfo, SkillLevel, SkillValidationResult } from '@/infrastructure/config/types';
-import { canDeleteSkill } from '@/infrastructure/config/skillSourcePresentation';
+import { configAPI, workspaceAPI } from '@/infrastructure/api';
+import type { SkillInfo, SkillLevel, SkillValidationResult, SkillScanDiagnostic } from '@/infrastructure/config/types';
+import { canDeleteSkill, getSkillSourceId, getSkillSourceLabel } from '@/infrastructure/config/skillSourcePresentation';
 import { useWorkspaceManagerSync } from '@/infrastructure/hooks/useWorkspaceManagerSync';
 import { useNotification } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import type { InstalledFilter } from '../skillsSceneStore';
 
 const log = createLogger('SkillsScene:useInstalledSkills');
+
+function installedSkillGroup(skill: SkillInfo): InstalledFilter {
+  if (skill.isBuiltin) return 'builtin';
+  const sourceId = getSkillSourceId(skill);
+  return sourceId === 'openbitfun' ? skill.level : `source:${sourceId}`;
+}
 
 interface UseInstalledSkillsOptions {
   searchQuery: string;
@@ -26,6 +32,8 @@ export function useInstalledSkills({
   const { workspacePath, hasWorkspace, isRemoteWorkspace, isAssistantWorkspace } = useWorkspaceManagerSync();
 
   const [skills, setSkills] = useState<SkillInfo[]>([]);
+  const [diagnostics, setDiagnostics] = useState<SkillScanDiagnostic[]>([]);
+  const [diagnosticsAvailable, setDiagnosticsAvailable] = useState(true);
   const [globallyDisabledSkillKeys, setGloballyDisabledSkillKeys] = useState<Set<string>>(new Set());
   const [savingGlobalSkillKey, setSavingGlobalSkillKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,7 +78,7 @@ export function useInstalledSkills({
       setLoading(true);
       setError(null);
       const [list, globalSettings] = await Promise.all([
-        configAPI.getSkillConfigs({
+        configAPI.getSkillScanReport({
           forceRefresh,
           workspacePath: workspacePath || undefined,
         }),
@@ -79,7 +87,9 @@ export function useInstalledSkills({
       if (requestId !== loadRequestIdRef.current || !capabilityIsCurrent(capabilityEpoch)) {
         return;
       }
-      setSkills(list);
+      setSkills(list.skills);
+      setDiagnostics(list.diagnostics);
+      setDiagnosticsAvailable(list.diagnosticsAvailable);
       setGloballyDisabledSkillKeys(new Set(globalSettings.globallyDisabledUserSkillKeys));
     } catch (err) {
       if (requestId !== loadRequestIdRef.current || !capabilityIsCurrent(capabilityEpoch)) {
@@ -102,6 +112,8 @@ export function useInstalledSkills({
     setIsAdding(false);
     if (!enabled) {
       setSkills([]);
+      setDiagnostics([]);
+      setDiagnosticsAvailable(true);
       setGloballyDisabledSkillKeys(new Set());
       setSavingGlobalSkillKey(null);
       setError(null);
@@ -330,14 +342,10 @@ export function useInstalledSkills({
   const filteredSkills = useMemo(() => {
     return skills.filter((skill) => {
       let matchesFilter = true;
-      if (activeFilter === 'user') {
-        matchesFilter = skill.level === 'user' && !skill.isBuiltin;
-      } else if (activeFilter === 'project') {
-        matchesFilter = skill.level === 'project' && !skill.isBuiltin;
-      } else if (activeFilter === 'builtin') {
+      if (activeFilter === 'suite') {
         matchesFilter = skill.isBuiltin;
-      } else if (activeFilter === 'suite') {
-        matchesFilter = skill.isBuiltin;
+      } else if (activeFilter !== 'all') {
+        matchesFilter = installedSkillGroup(skill) === activeFilter;
       }
 
       const matchesQuery = !normalizedQuery || [
@@ -349,20 +357,35 @@ export function useInstalledSkills({
     });
   }, [activeFilter, normalizedQuery, skills]);
 
-  const counts = useMemo(() => ({
-    all: skills.length,
-    builtin: skills.filter((skill) => skill.isBuiltin).length,
-    user: skills.filter((skill) => skill.level === 'user' && !skill.isBuiltin).length,
-    project: skills.filter((skill) => skill.level === 'project' && !skill.isBuiltin).length,
-    suite: skills.filter((skill) => skill.isBuiltin).length,
-  }), [skills]);
+  const { counts, sourceGroups } = useMemo(() => {
+    const counts: Record<InstalledFilter, number> = {
+      all: skills.length, builtin: 0, user: 0, project: 0, suite: 0,
+    };
+    const sources = new Map<`source:${string}`, string>();
+    for (const skill of skills) {
+      const group = installedSkillGroup(skill);
+      counts[group] = (counts[group] ?? 0) + 1;
+      if (group.startsWith('source:')) {
+        sources.set(group as `source:${string}`, getSkillSourceLabel(skill, t('list.item.unknownSource')));
+      }
+    }
+    counts.suite = counts.builtin;
+    return {
+      counts,
+      sourceGroups: [...sources].sort(([left], [right]) => left.localeCompare(right))
+        .map(([id, label]) => ({ id, label })),
+    };
+  }, [skills, t]);
 
   return {
     skills,
+    diagnostics,
+    diagnosticsAvailable,
     globallyDisabledSkillKeys,
     savingGlobalSkillKey,
     filteredSkills,
     counts,
+    sourceGroups,
     loading,
     error,
     loadSkills,

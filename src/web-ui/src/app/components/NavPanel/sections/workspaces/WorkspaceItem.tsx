@@ -175,13 +175,12 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
     WORKSPACE_SEARCH_AVAILABLE
     && isActive
     && workspaceSearchEnabled
-    && (
-      workspace.workspaceKind === WorkspaceKind.Normal
-      || workspace.workspaceKind === WorkspaceKind.Remote
-    );
+    && !workspaceIsRemote
+    && workspace.workspaceKind === WorkspaceKind.Normal;
   const workspaceSearchIndex = useWorkspaceSearchIndex({
     workspacePath: canShowSearchIndex ? workspace.rootPath : undefined,
     enabled: canShowSearchIndex,
+    isRemote: workspaceIsRemote,
   });
 
   useEffect(() => {
@@ -723,7 +722,7 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
   ]);
 
   const handleCreateProjectSession = useCallback(() => {
-    void handleCreateSession('agentic');
+    void handleCreateSession();
   }, [handleCreateSession]);
 
   const handleCreateAcpSession = useCallback(async (client: AcpClientInfo) => {
@@ -878,6 +877,20 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
           </Tooltip>
 
           <div className="openbitfun-nav-panel__assistant-item-menu" data-openbitfun-component="workspace-item" data-openbitfun-part="menu" ref={menuRef} onClick={e => e.stopPropagation()}>
+            <Tooltip content={t('nav.workspaces.actions.newSession')} placement="right" followCursor>
+              <button
+                data-openbitfun-component="workspace-item"
+                data-openbitfun-part="action"
+                type="button"
+                className="openbitfun-nav-panel__assistant-item-menu-trigger"
+                onClick={() => { void handleCreateSession(); }}
+                aria-label={t('nav.workspaces.actions.newSession')}
+                data-testid="nav-workspace-new-session-btn"
+                data-workspace-id={workspace.id}
+              >
+                <Icon name="plus" size="xs" />
+              </button>
+            </Tooltip>
             <Tooltip content={t('nav.resources.title')} placement="right" followCursor>
               <button
                 data-openbitfun-component="workspace-item"
@@ -1351,6 +1364,20 @@ const WorkspaceItem: React.FC<WorkspaceItemProps> = ({
 
         <div className="openbitfun-nav-panel__workspace-item-actions" onClick={e => e.stopPropagation()}>
           <div className="openbitfun-nav-panel__workspace-item-menu" data-openbitfun-component="workspace-item" data-openbitfun-part="menu" ref={menuRef}>
+            <Tooltip content={t('nav.sessions.newSession')} placement="right" followCursor>
+              <button
+                data-openbitfun-component="workspace-item"
+                data-openbitfun-part="action"
+                type="button"
+                className="openbitfun-nav-panel__workspace-item-menu-trigger"
+                onClick={handleCreateProjectSession}
+                aria-label={t('nav.sessions.newSession')}
+                data-testid="nav-workspace-new-session-btn"
+                data-workspace-id={workspace.id}
+              >
+                <Icon name="plus" size="xs" />
+              </button>
+            </Tooltip>
             <Tooltip content={t('nav.resources.title')} placement="right" followCursor>
               <button
                 data-openbitfun-component="workspace-item"

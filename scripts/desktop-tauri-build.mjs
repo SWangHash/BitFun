@@ -13,6 +13,7 @@ import {
   statSync,
   writeFileSync,
 } from 'fs';
+import { ensureFlashgrepBinary } from './prepare-flashgrep-resource.mjs';
 import { extractProductConfigArg } from './product-customization/cli.mjs';
 import { productBuildEnvironment } from './product-customization/projections.mjs';
 import { resolveProductDefinition } from './product-customization/resolver.mjs';
@@ -24,12 +25,6 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const LINUX_FLASHGREP_BINARIES = [
-  'flashgrep-x86_64-unknown-linux-musl',
-  'flashgrep-x86_64-unknown-linux-gnu',
-  'flashgrep-aarch64-unknown-linux-musl',
-  'flashgrep-aarch64-unknown-linux-gnu',
-];
 
 function tauriBuildArgsFromArgv() {
   const args = process.argv.slice(2);
@@ -53,8 +48,11 @@ async function main() {
 
   const desktopDir = join(ROOT, 'src', 'apps', 'desktop');
   preparePluginHost();
-  // Flashgrep distribution is temporarily suspended.
-  const flashgrepBinary = null;
+  const flashgrepBinary = prepareMacOSFlashgrepForSigning(
+    ensureFlashgrepBinary({ target: optionValue(forward, '--target') || rustHostTargetTriple() }),
+    desktopDir,
+  );
+  process.env.FLASHGREP_DAEMON_BIN = flashgrepBinary;
   // Tauri CLI reads CI and rejects numeric "1" (common in CI providers).
   process.env.CI = 'true';
   if (process.platform === 'darwin' && requestsDmgBundle(forward)) {
@@ -112,7 +110,7 @@ async function main() {
 
   if (r.status === 0 && forward.includes('--no-bundle')) {
     console.warn(
-      '[tauri-build] No bundle was produced. The raw desktop executable depends on its adjacent frontend, mobile-web, and resources directories and must not be distributed by itself.'
+      '[tauri-build] No bundle was produced. The raw desktop executable depends on its adjacent frontend, flashgrep, mobile-web, and resources directories and must not be distributed by itself.'
     );
   }
 
@@ -280,7 +278,7 @@ export function prepareMacOSFlashgrepForSigning(
       '--timestamp',
       signedBinary,
     ],
-    { encoding: 'utf8', shell: false },
+    { encoding: 'utf8', shell: false, windowsHide: true },
   );
   if (result.error || result.status !== 0) {
     const detail = result.error?.message || result.stderr || `exit status ${result.status}`;
@@ -409,19 +407,7 @@ function injectTargetFlashgrepResource(config, desktopDir, flashgrepBinary) {
 }
 
 function bundledFlashgrepResources(primaryBinary) {
-  if (!primaryBinary) return [];
-  const binaries = [primaryBinary];
-
-  if (process.platform === 'win32') {
-    for (const binaryName of LINUX_FLASHGREP_BINARIES) {
-      const binaryPath = join(ROOT, 'resources', 'flashgrep', binaryName);
-      if (existsSync(binaryPath)) {
-        binaries.push(binaryPath);
-      }
-    }
-  }
-
-  return [...new Set(binaries)];
+  return primaryBinary ? [primaryBinary] : [];
 }
 
 function toTauriPath(value) {

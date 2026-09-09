@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedFrom": "src/shared/interactive-capabilities/catalog.json",
-  "catalogDigest": "d7a7419ddd673eb733ae8bd33dbb3dcd3b4d1ce0acfc953067a3403fe26d6699",
+  "catalogDigest": "409e6dbef7ebceafccc11606e2855227b9a33fa1ed71f5b4608da04e8a23de7d",
   "commandCount": 666,
   "coverage": {
     "commandCount": 666,
@@ -3410,7 +3410,7 @@
       "visibility": "documented",
       "rustPath": "get_mode_skill_configs",
       "sourceFile": "src/apps/desktop/src/api/skill_api.rs",
-      "signature": "fn get_mode_skill_configs( state: State<'_, AppState>, mode_id: String, force_refresh: Option<bool>, workspace_path: Option<String>, ) -> Result<Value, String>",
+      "signature": "fn get_mode_skill_configs( state: State<'_, AppState>, mode_id: String, force_refresh: Option<bool>, include_diagnostics: Option<bool>, workspace_path: Option<String>, ) -> Result<Value, String>",
       "remoteWorkspacePolicy": "LegacyUnaudited"
     },
     {
@@ -3810,7 +3810,7 @@
       "visibility": "documented",
       "rustPath": "get_skill_configs",
       "sourceFile": "src/apps/desktop/src/api/skill_api.rs",
-      "signature": "fn get_skill_configs( state: State<'_, AppState>, force_refresh: Option<bool>, workspace_path: Option<String>, ) -> Result<Value, String>",
+      "signature": "fn get_skill_configs( state: State<'_, AppState>, force_refresh: Option<bool>, include_diagnostics: Option<bool>, workspace_path: Option<String>, ) -> Result<Value, String>",
       "remoteWorkspacePolicy": "LegacyUnaudited"
     },
     {
@@ -8401,7 +8401,7 @@
       "rustPath": "search_build_index",
       "sourceFile": "src/apps/desktop/src/api/search_api.rs",
       "signature": "fn search_build_index( state: State<'_, AppState>, request: SearchRepoIndexRequest, ) -> Result<serde_json::Value, String>",
-      "remoteWorkspacePolicy": "RemoteRouted"
+      "remoteWorkspacePolicy": "RemoteUnsupported"
     },
     {
       "id": "search_file_contents",
@@ -8465,7 +8465,7 @@
       "rustPath": "search_get_repo_status",
       "sourceFile": "src/apps/desktop/src/api/search_api.rs",
       "signature": "fn search_get_repo_status( state: State<'_, AppState>, request: SearchRepoIndexRequest, ) -> Result<serde_json::Value, String>",
-      "remoteWorkspacePolicy": "RemoteRouted"
+      "remoteWorkspacePolicy": "RemoteUnsupported"
     },
     {
       "id": "search_rebuild_index",
@@ -8483,7 +8483,7 @@
       "rustPath": "search_rebuild_index",
       "sourceFile": "src/apps/desktop/src/api/search_api.rs",
       "signature": "fn search_rebuild_index( state: State<'_, AppState>, request: SearchRepoIndexRequest, ) -> Result<serde_json::Value, String>",
-      "remoteWorkspacePolicy": "RemoteRouted"
+      "remoteWorkspacePolicy": "RemoteUnsupported"
     },
     {
       "id": "search_referenceable_sessions",

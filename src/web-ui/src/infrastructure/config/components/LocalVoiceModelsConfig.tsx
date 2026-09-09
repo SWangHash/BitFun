@@ -368,7 +368,7 @@ const LocalVoiceModelsConfig: React.FC<LocalVoiceModelsConfigProps> = ({
               >
                 {isUsable && !isSelected ? (
                   <Button
-                    variant="fill"
+                    variant="primary"
                     size="sm"
                     onClick={() => void updateVoiceInput({
                       provider: 'local',
@@ -382,7 +382,7 @@ const LocalVoiceModelsConfig: React.FC<LocalVoiceModelsConfigProps> = ({
 
                 {isDownloading ? (
                   <Button
-                    variant="outline"
+                    variant="fill"
                     size="sm"
                     onClick={() => void handleCancelDownload(model)}
                     loading={busyKey === 'cancel'}
@@ -392,7 +392,7 @@ const LocalVoiceModelsConfig: React.FC<LocalVoiceModelsConfigProps> = ({
                   </Button>
                 ) : canInstall ? (
                   <Button
-                    variant="fill"
+                    variant="primary"
                     size="sm"
                     onClick={() => handleDownload(model)}
                     disabled={busyAction !== null || anyDownloading}

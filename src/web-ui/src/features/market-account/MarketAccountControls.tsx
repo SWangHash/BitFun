@@ -289,11 +289,11 @@ export function MarketAccountControls({
             data-openbitfun-component="market-account-controls"
             data-openbitfun-part="actions"
           >
-            <Button variant="outline" onClick={closeLogin}>
+            <Button variant="fill" onClick={closeLogin}>
               {t('market.account.cancel')}
             </Button>
             <Button
-              variant="fill"
+              variant="primary"
               disabled={account.status === 'authorizing'}
               onClick={() => void signIn()}
             >

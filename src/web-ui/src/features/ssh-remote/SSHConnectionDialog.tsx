@@ -1456,7 +1456,7 @@ export const SSHConnectionDialog: React.FC<SSHConnectionDialogProps> = ({
               {t('ssh.remote.testConnection')}
             </Button>
             <Button
-              variant="outline"
+              variant="fill"
               size="sm"
               onClick={onClose}
               disabled={isConnecting || status === 'connecting'}
@@ -1464,7 +1464,7 @@ export const SSHConnectionDialog: React.FC<SSHConnectionDialogProps> = ({
               {t('actions.cancel')}
             </Button>
             <Button
-              variant="fill"
+              variant="primary"
               size="sm"
               onClick={handleConnect}
               disabled={

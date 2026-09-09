@@ -103,36 +103,30 @@ test("all Installer validators share the required runtime file contract", () => 
     path.join(installerRoot, "src-tauri", "src", "installer", "commands.rs"),
     "utf8"
   );
-  const installerModRs = fs.readFileSync(
-    path.join(installerRoot, "src-tauri", "src", "installer", "mod.rs"),
-    "utf8"
-  );
+  for (const source of [buildRs, commandsRs]) {
+    const declaration = source.match(/const REQUIRED_PAYLOAD_FILES: \[&str; (\d+)\] = \[([\s\S]*?)\];/);
+    assert.equal(Number(declaration[1]), REQUIRED_PAYLOAD_FILES.length);
+    const files = [...declaration[2].matchAll(/"([^"]+)"|MAIN_APP_EXE/g)]
+      .map((match) => match[1] || "openbitfun-desktop.exe");
+    assert.deepEqual(files, REQUIRED_PAYLOAD_FILES);
+  }
   for (const relativePath of REQUIRED_PAYLOAD_FILES) {
     assert.match(buildRs, new RegExp(escapeRegExp(relativePath)));
     if (relativePath === "openbitfun-desktop.exe") {
       assert.match(commandsRs, /MAIN_APP_EXE/);
-    } else if (relativePath === "openbitfun-data-migrator.exe") {
-      assert.match(installerModRs, new RegExp(escapeRegExp(relativePath)));
-      assert.match(commandsRs, /DATA_MIGRATOR_EXE/);
     } else {
       assert.match(commandsRs, new RegExp(escapeRegExp(relativePath)));
     }
   }
 });
 
-test("Data Migrator launch resolves only the registered installation", () => {
-  const commandsRs = fs.readFileSync(
-    path.join(installerRoot, "src-tauri", "src", "installer", "commands.rs"),
-    "utf8"
-  );
-  const commandStart = commandsRs.indexOf("pub(crate) fn launch_legacy_data_migrator");
-  const commandEnd = commandsRs.indexOf("/// Close the installer window.", commandStart);
-  assert.notEqual(commandStart, -1);
-  assert.notEqual(commandEnd, -1);
-  const commandSource = commandsRs.slice(commandStart, commandEnd);
-  assert.doesNotMatch(commandSource, /request\.install_path/);
-  assert.match(commandSource, /read_existing_install_from_uninstall_registry/);
-  assert.match(commandSource, /read_tauri_install_location/);
+test("standalone Data Migrator is not required by the installer", () => {
+  assert.ok(!REQUIRED_PAYLOAD_FILES.includes("openbitfun-data-migrator.exe"));
+  const commandsRs = fs.readFileSync(path.join(installerRoot, "src-tauri/src/installer/commands.rs"), "utf8");
+  assert.doesNotMatch(commandsRs, /DATA_MIGRATOR_EXE|HandoffStore|launch_trusted_executable/);
+  assert.match(commandsRs, /Data Migrator is distributed separately/);
+  const themeSetup = fs.readFileSync(path.join(installerRoot, "src/pages/ThemeSetup.tsx"), "utf8");
+  assert.doesNotMatch(themeSetup, /migrateLegacyData|onLaunchMigration/);
 });
 
 function minorLine(version) {

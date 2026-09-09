@@ -399,9 +399,7 @@ pub async fn delete_custom_agent(
             "",
             |config: &mut openbitfun_core::service::config::GlobalConfig| {
                 config.ai.agent_profiles.remove(&agent_id);
-                if config.app.flow_chat.default_mode_id.as_deref() == Some(agent_id.as_str()) {
-                    config.app.flow_chat.default_mode_id = None;
-                }
+                config.app.flow_chat.remove_mode_reference(&agent_id);
                 Ok(())
             },
         )

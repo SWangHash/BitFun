@@ -333,10 +333,10 @@ const GroupManagerModal: React.FC<GroupManagerModalProps> = ({
               </ScrollArea>
             </div>
             <div className="tool-group-manager__footer">
-              <Button variant="outline" size="sm" onClick={closeEditor} disabled={saving}>
+              <Button variant="fill" size="sm" onClick={closeEditor} disabled={saving}>
                 {t('agentsOverview.cancel')}
               </Button>
-              <Button variant="fill" size="sm" onClick={() => void saveEditor()} loading={saving}>
+              <Button variant="primary" size="sm" onClick={() => void saveEditor()} loading={saving}>
                 {isEditing && editingGroup
                   ? t('agentsOverview.toolGroups.saveGroup')
                   : t('agentsOverview.toolGroups.createGroup')}

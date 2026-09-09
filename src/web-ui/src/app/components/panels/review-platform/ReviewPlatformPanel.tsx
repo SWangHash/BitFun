@@ -1791,7 +1791,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
           <span>{selectedRemote.platform === 'github' ? 'CLI authorization' : 'Required scopes'}: {authChallengeScopes(authChallenge)}</span>
         </div>
         <div className="review-platform__auth-gate-actions" data-openbitfun-component="review-platform" data-openbitfun-part="authActions">
-          <Button size="sm" variant="fill" onClick={handleOpenAuthModal} disabled={authSaving} leadingIcon={<KeyRound size={13} />}>
+          <Button size="sm" variant="primary" onClick={handleOpenAuthModal} disabled={authSaving} leadingIcon={<KeyRound size={13} />}>
 
             {selectedRemote.platform === 'github' ? 'Authenticate' : authChallenge.state === 'missing' ? 'Add token' : 'Update token'}
           </Button>
@@ -2228,7 +2228,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                     <span>
                       <Button
                         size="sm"
-                        variant="fill"
+                        variant="primary"
                         onClick={handleStartReview}
                         disabled={
                           !parentSession ||
@@ -2689,7 +2689,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="fill"
               disabled={authSaving}
               onClick={() => {
                 setAuthModalOpen(false);
@@ -2714,7 +2714,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                 <Button
                   type="button"
                   size="sm"
-                  variant="fill"
+                  variant="primary"
                   loading={authSaving}
                   onClick={() => void handleOpenGithubAuthTerminal()}
                   leadingIcon={<Icon name="terminal" size="xs" />}
@@ -2727,7 +2727,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
               <Button
                 type="submit"
                 size="sm"
-                variant="fill"
+                variant="primary"
                 loading={authSaving}
                 disabled={!authToken.trim()}
               >

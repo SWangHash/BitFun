@@ -123,7 +123,7 @@ export const BackgroundCommandInputDialog: React.FC<BackgroundCommandInputDialog
         <div data-openbitfun-component="background-command-input-dialog" data-openbitfun-part="actions" className="background-command-input-dialog__actions">
           <Button
             type="button"
-            variant="outline"
+            variant="fill"
             size="sm"
             onClick={onClose}
             disabled={isSending}
@@ -132,7 +132,7 @@ export const BackgroundCommandInputDialog: React.FC<BackgroundCommandInputDialog
           </Button>
           <Button
             type="submit"
-            variant="fill"
+            variant="primary"
             size="sm"
             loading={isSending}
             disabled={!canSend}

@@ -98,9 +98,22 @@
 .splash-screen__message--visible {
   opacity: 1;
   transform: translate(-50%, 0);
+  animation: splash-message-breathe 3.6s ease-in-out var(--openbitfun-motion-duration-base) infinite;
 }
 
 // ── Keyframes ─────────────────────────────────────────────────────────────────
+
+// Breathe as one line after its entrance transition has finished.
+@keyframes splash-message-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.68;
+  }
+}
 
 // Idle logo: keep the requested tone stable and use only a slight breathing scale
 @keyframes splash-logo-idle {
@@ -128,6 +141,7 @@
   }
 
   .splash-screen__message {
+    animation: none;
     transition: none;
   }
 

@@ -82,7 +82,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
           </span>
         </div>
         {description?.trim() && (
-          <p className="skill-card__desc" data-openbitfun-component="skill-card" data-openbitfun-part="description">{description.trim()}</p>
+          <OverflowText as="p" lines={2} className="skill-card__desc" data-openbitfun-component="skill-card" data-openbitfun-part="description">{description.trim()}</OverflowText>
         )}
       </div>
 

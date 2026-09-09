@@ -196,7 +196,7 @@ export const ThumbnailCard: React.FC<ThumbnailCardProps> = ({
         {isFileType ? (
           <pre data-openbitfun-component="canvas-thumbnail" data-openbitfun-part="code" className="canvas-thumbnail-card__code">
             {previewLines.map((line, index) => (
-              <div key={index} className="canvas-thumbnail-card__code-line">
+              <div key={index} className="canvas-thumbnail-card__code-line" title={line}>
                 {line || ' '}
               </div>
             ))}

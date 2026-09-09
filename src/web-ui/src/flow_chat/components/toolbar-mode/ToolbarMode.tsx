@@ -87,7 +87,7 @@ export const ToolbarMode: React.FC = () => {
     }
 
     // Fallback to the user's latest message.
-    return lastTurn.userMessage?.content?.slice(0, 100) || null;
+    return lastTurn.userMessage?.content || null;
   }, [activeSession]);
 
   // Derive current streaming state from session data.
@@ -120,7 +120,7 @@ export const ToolbarMode: React.FC = () => {
         toolName = effectiveItem.toolName;
         if (effectiveItem.toolCall?.input && typeof effectiveItem.toolCall.input === 'object') {
           const input = effectiveItem.toolCall.input;
-          content = input.path || input.command || input.query || input.content?.slice(0, 50) || t('toolCards.toolbar.executing');
+          content = input.path || input.command || input.query || input.content || t('toolCards.toolbar.executing');
         } else {
           content = t('toolCards.toolbar.executing');
         }

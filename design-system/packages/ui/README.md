@@ -18,13 +18,55 @@ export function Example() {
 
 The package owns component anatomy, behavior, accessibility, and stable variants. It does not own theme selection persistence, product state, routes, locale resources, or platform APIs.
 
+## Buttons
+
+Choose variants by action role: use `primary` for the main save, submit, create,
+or confirm action, and `fill` for cancel, dismiss, or discard alongside it.
+Keep `outline` for ordinary toolbar utilities and secondary choices. A neutral
+`fill` button is a low-emphasis surface, not an alias for `primary`. Preserve
+`tone="danger"` for destructive actions. Disabled and loading states belong to
+the same variant; do not switch a primary action to outline when it is disabled.
+
+Button outline and text variants have transparent resting surfaces. Fill and
+primary state colors come from the theme's `component.button.*` contract, with
+variant-specific disabled content. The secondary variant keeps its opaque
+tertiary surface. All variants retain the existing xs/sm/md/lg dimensions;
+text buttons keep those hit targets while omitting the visible pill background
+and radius. Use native hover, pressed, focus, disabled, and loading behavior in
+addition to Design Lab's state specimens.
+
+## Native scrollbars
+
+`styles.css` owns scrollbar presentation inside `ThemeRoot` (or
+`data-openbitfun-design-system-root`) and standalone `ScrollArea` viewports.
+Native file trees, virtualized transcripts, navigation, menus, and dialogs use
+the same policy without wrappers, scroll listeners, or timers.
+
+On mouse/trackpad surfaces, the thumb appears while its own viewport is hovered
+or contains visible keyboard focus. Leaving the viewport hides it; scrolling
+from streaming output does not reveal an unattended panel. Touch surfaces retain
+visible native thumbs, and forced colors retains system accessibility colors.
+Tracks stay transparent. Only color changes, so hover never changes viewport
+width, overflow, or scrollbar gutters.
+
+`ScrollArea` keeps `scrollbarVisibility="auto"` as the default. `always` keeps
+the thumb visible and reserves a scrolling track; `hidden` deliberately hides
+the native scrollbar while preserving scrolling. `Menu`, `Listbox`, and
+`NavigationPanelBody` forward the same contract. Product styles own layout and
+`scrollbar-gutter`, not local scrollbar colors or show/hide handlers. Monaco
+and terminal renderers keep their own scrollbar APIs.
+
 ## Text overflow
+
 
 Use `OverflowText` for single-line, non-editable labels instead of local
 `text-overflow: ellipsis` rules or shortening the underlying string. Plain text
 defaults to **fade-out truncation with an interaction marquee**: a background-independent
 gradient mask at the inline end, followed by scrolling on hover or keyboard focus.
 Both effects apply only when the text actually overflows. Short labels remain untouched.
+Overflowing labels also open a wrapping, selectable tooltip on hover or keyboard
+focus, including when motion is reduced. The tooltip uses the owning
+`data-overflow-trigger` control and groups its clipped text slots into one popup.
 Standard button, menu, navigation, card, selection, and disclosure text slots
 already use this primitive; consumers should not wrap those slots a second time.
 
@@ -55,10 +97,11 @@ Rich children default to fade to preserve the label's existing inline compositio
 Composite containers keep their icons/actions fixed and give each text slot its
 own `OverflowText`. Marquee measures and
 translates one inline text span; keep icons, badges, and action buttons outside
-it. Complete text stays in the accessibility tree. Clipped string/number labels
-get a native title unless the caller supplies one; rich content should use its
-own full-text tooltip or detail view. Do not use marquee as the sole way to
-access information on touch surfaces.
+it. Complete text stays in the accessibility tree. Plain-text arrays and rich
+labels use their complete rendered text in the tooltip. A supplied `title`
+overrides that text; `title=""` opts out when a surrounding native title owns the
+content. An explicit enclosing `Tooltip` suppresses automatic nested tooltips.
+Do not use marquee as the sole way to access information on touch surfaces.
 
 Multi-line descriptions should normally wrap. Editable fields, source code,
 structured paths that need to preserve their suffix, and native controls keep
@@ -66,12 +109,58 @@ their appropriate text treatment instead of receiving a blanket fade rule.
 Mobile sheet/page titles and row descriptions wrap for touch access. Tooltips
 also wrap: a full-text fallback must not truncate its own content.
 
+For a compact multiline preview, use `<OverflowText as="p" lines={2}>` (or `div`
+to preserve the existing semantics). It measures vertical clipping as well as
+horizontal overflow and exposes the same full-text tooltip. Keep existing
+click-to-open details or expansion controls available on touch surfaces.
+
 The Web UI uses this contract in shell/navigation and search, workspace/session
 lists, model and context pickers, file/Git lists, settings, tool-card summaries,
 usage reports, and the Canvas SDK's truncating text/file labels. Remaining local
 ellipsis rules are intentional source-code excerpts, contenteditable reference
 chips/placeholders, and multiline message previews. Diagnostic/payload size caps
 and persisted Appearance `textOverflow` values are data contracts, not layout rules.
+
+## Text replacement motion
+
+`RollingText` provides **vertical slide replacement** (also called rolling text):
+the old line moves up and out while the new line enters from below. The line
+positions and measured width share `motion.duration.contentSwap` (320ms) and
+`motion.easing.smooth`. Initial render is static; the current accessible text
+updates immediately, without a live region. The outgoing visual copy is hidden
+from assistive technology.
+
+```tsx
+import { RollingText, TabGroup } from "@openbitfun/ui";
+
+<RollingText transitionKey={record.id}>{record.title}</RollingText>
+
+// TabGroup already owns its text slot; pass an identity instead of wrapping it.
+<TabGroup
+  aria-label="Views"
+  items={[{ value: slotId, label: record.title, labelTransitionKey: record.id }]}
+/>
+```
+
+Keep `transitionKey` stable for edits to the same resource. Without an explicit
+key, changing the text triggers replacement. Plain strings and numbers are
+supported; interactive elements, icons, and actions stay outside the rolling
+line. The new title's natural width is measured within the existing layout
+constraints before paint, then animated from the displayed width. No text clone
+or frame-by-frame React measurement drives that animation. `OverflowText` still
+owns truncation and the full-text fallback; its marquee resumes after replacement
+instead of moving on two axes at once.
+
+A running transition retains one outgoing snapshot and adopts the latest
+incoming value, retargeting from the actual displayed positions and width.
+There is no animation queue. Returning to the outgoing value reverses the roll.
+`prefers-reduced-motion` disables replacement and cancels an in-flight roll when
+the preference changes. Native animation completion owns cleanup, including
+interruption and unmount; there is no timer duplicating the token duration.
+Hosts without Web Animations render the current text immediately.
+
+The **RollingText** Design Lab entry includes manual standalone and TabGroup
+examples for repeated replacement and long labels.
 
 ## Mobile controls
 
@@ -130,6 +219,20 @@ focus ring. Use it for toolbar, dialog, and row utilities. `fill` and `primary`
 keep an opaque backing surface for persistent emphasis. Disabled quiet actions
 remain transparent and do not show hover or pressed feedback.
 
+Use `size="xs"` for 22px square controls with 14px glyphs and a 4px radius.
+`size="standard" shape="circle" variant="outline"` provides the 30px outlined
+circle with a 16px glyph. Quiet and outline controls use the shared neutral
+hover surface for both hover and pressed states; outline keeps its border when
+disabled. Existing sm/md/lg sizes and the default sm size remain available.
+
+The 62 reviewed single-path, single-tone masks have opaque paths.
+`Icon` and `SessionIcon` retain their original 80% artwork opacity standalone;
+Button, IconButton, ActionItem and TabGroup slots own this opacity in controls
+through the public `--openbitfun-opacity-icon-artwork` contract. Button trailing
+slots use half the content opacity and restore full disabled content opacity.
+The progress-25 and legacy turn assets retain their internal transparency.
+Product callers should not add opacity or dimensions inside these owned slots.
+
 The catalog uses exported vectors, including their view boxes and per-path
 opacity. Theme colors remain caller-owned through `currentColor`. Asset
 fingerprints are reviewed with intentional resource updates so replacing a
@@ -177,6 +280,10 @@ The Web UI's legacy Select implementation is retired. Like retired Button and
 Switch overrides, legacy `components.select` Appearance rules are ignored at
 the existing read-only migration boundary; original packages are not rewritten.
 Selection visuals now come from the public field/menu semantic tokens.
+SearchField sizes its decorative wrapper through Input's icon slot, so default
+catalog icons and native SVGs occupy the same region. Shortcut hints and clear
+actions can coexist; disabled and read-only fields disable the clear action.
+
 Choose `size` explicitly when composing form rows: selectors default to `md`,
 while `Input` defaults to `sm`. The shared `control.height.sm/md/lg` tokens and
 active density own the actual heights; consumers must not replace them with
@@ -193,14 +300,18 @@ Escape or selection restores the trigger, and Tab continues from its position
 in the form. Search, typed values, and multiple selection remain component-owned.
 `SearchField variant="embedded"` removes its standalone pill surface for these
 compositions; its container must supply padding, height, and visible focus
-treatment. The default SearchField appearance is unchanged.
+treatment. Standalone SearchField pills use a subtle neutral border, increasing
+to the default neutral border on hover and focus while preserving validation
+and forced-color states. This search-specific treatment does not change Input.
 
 `SearchField variant="panel"` provides a joined frosted surface with a rounded
 input row and an optional `footer` slot for result status and actions. It reuses
 the same input node when switching from the default pill, preserves input-row
 height, and provides a divider, metadata typography, and a single focus outline.
-The surface uses semantic tint and blur tokens, with an opaque fallback for
-unsupported blur or reduced transparency. Callers own the query, localized
+The whole panel combines the raised semantic surface at 80% opacity with the
+medium backdrop blur and overlay shadow; its input and footer remain transparent.
+The panel uses the same quiet focus border, with an opaque fallback for
+unsupported blur, reduced transparency, or high contrast. Callers own the query, localized
 counts, navigation callbacks, and disabled action states; use `IconButton` for
 the actions. The panel stays in normal flow by default. A toolbar that needs
 downward expansion without reflow should reserve the input height and position
@@ -286,3 +397,27 @@ Tool-specific data shaping, localization, host actions, stores, and heavy
 renderers remain in the consuming product and enter through semantic props,
 callbacks, and slots. Bespoke product workflows remain product-owned rather
 than being forced into a standard package view.
+
+Field labels follow their orientation: horizontal labels use the 13px semibold
+label role, while vertical labels use the 11px regular meta role. Field helpers
+use secondary content with 16px leading at the default 11px font size;
+FormSection descriptions use primary content with 16px leading at 13px. Both
+leading roles scale with user typography. FieldGroup uses the form group tint,
+retaining its existing row padding, dividers, and radius. The Patterns form
+specimen shows both orientations and long values over a tinted container.
+
+Menus keep contiguous 30px rows with no additional list or heading-to-item gap;
+separators own their 8px vertical margins. Their keyboard focus indicator is
+inset so scrolling does not clip it or require extra permanent padding.
+ActionItem hover and pressed surfaces use the semantic neutral hover fill;
+pressed text remains semibold. Menu and navigation captions consume the final
+caption color directly, avoiding a second opacity multiplier. The nested-menu
+Pattern includes a scrolling toggle for keyboard and submenu verification.
+
+Compact tabs use `size="sm"` (30px, 14px icons, 4px icon gap); standard tabs retain 40px and 16px icons. Tabs share the outline-button surface contract and keep selection separate from pointer press. `SegmentedControl size="md"` uses a borderless 36px bar with 30px segments, 3px inset, 4px gaps and 12px segment padding. The default `sm` bar keeps its 28px outer height; separate pills retain their existing heights. Mobile controls own their touch geometry independently.
+
+Dialog titles use 24px bold type with their own 29px line box and normal tracking. `DialogHeader` and `DialogFooter` omit separators by default; pass `separator` for a deliberate divider. A direct `DialogBody` sibling of `DialogFooter appearance="floating"` owns the trailing scroll inset automatically. The floating footer provides the 68px centered action area and a masked blur/gradient using the current theme surface; reduced transparency and forced colors use an opaque fallback. Keep scrollable form content inside `DialogBody` instead of adding a second viewport with independent footer spacing.
+
+Extra-large (`xl`) dialogs have an 800px maximum width and continue shrinking within the viewport gutter. Provider editing uses the floating footer; small workspace creation retains its attached footer and existing button/input sizes. The Lab workspace pattern uses local sample paths and callbacks only.
+
+PageHeader `md` uses the settings title with a primary 15px description; `display` uses the welcome heading and medium 17px introduction with a 12px gap. ActionCard uses 12px padding, section-heading typography (15px semibold), and a primary 13px single-line action description. Its inset outline does not inflate the 62px medium minimum height; longer content keeps the independent sibling actions and OverflowText behavior.

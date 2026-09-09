@@ -470,12 +470,12 @@ const WorkspaceSessionBatchModal: React.FC<WorkspaceSessionBatchModalProps> = ({
           {t('nav.sessions.deleteSelected')}
         </Button>
         <div className="workspace-session-batch-modal__footer-actions">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isBusy}>
+          <Button type="button" variant="fill" onClick={onClose} disabled={isBusy}>
             {t('actions.cancel')}
           </Button>
           <Button
             type="button"
-            variant="fill"
+            variant="primary"
             onClick={() => { void handleArchiveSelected(); }}
             disabled={!canSelectSessions || selectedCount === 0}
             loading={actionKind === 'archive'}

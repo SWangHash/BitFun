@@ -270,7 +270,7 @@ describe('UserMessageItem steering tag', () => {
     expect(container.querySelector('.user-message-item__actions')?.parentElement).toBe(meta);
     expect(time?.parentElement).not.toBe(bubble);
     expect(time?.dateTime).toBe('2026-09-03T06:32:08.000Z');
-    expect(time?.textContent?.trim()).not.toBe('');
+    expect(time?.textContent?.trim()).toMatch(/\d{2}:\d{2}:\d{2}/);
   });
 
   it('does not invent a send time when the persisted timestamp is invalid', () => {

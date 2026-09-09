@@ -632,6 +632,7 @@
     "codeBlock": "Code Block",
     "image": "Image",
     "url": "URL",
+    "dropToAdd": "Drop to add to message",
     "dragHint": "Drop files here to add context"
   },
   "agent": {
@@ -750,6 +751,7 @@
       "profileChangeOutcomeUnknown": "OpenBitFun cannot confirm whether the Harness changed. Refresh the session before trying again.",
       "profileUnavailable": "This Harness is not supported by the current OpenBitFun Host.",
       "profileChangeFailed": "Failed to change Harness. Try again.",
+      "rememberFailed": "The Harness changed, but this selection could not be remembered. New sessions may continue using the previous default.",
       "otherAgentsTitle": "Agents",
       "otherAgentsEmpty": "No main Agents are available",
       "unavailable": "Unavailable",
@@ -978,6 +980,8 @@
     "currentStatus": "Current status: {{status}}"
   },
   "contextPicker": {
+    "skillsIncomplete": "Some skills could not be scanned. Available skills are still listed.",
+    "skillsDiagnosticsUnavailable": "This host does not report skill scan diagnostics.",
     "menuTitle": "Choose context",
     "searchResults": "Search Results",
     "loading": "Loading...",
@@ -1427,9 +1431,10 @@
     "sendInput": "Send input",
     "sendInputUnavailable": "Input can only be sent to a running interactive command.",
     "copy": "Copy output",
+    "copyRaw": "Copy raw output",
+    "replayIncomplete": "Earlier output was discarded. Terminal state cannot be fully restored; the retained output may be incomplete.",
+    "unknownGeometry": "The source terminal size is unknown, so output cannot be accurately replayed. You can still copy the raw output.",
     "copyCommand": "Copy command",
-    "simplifiedView": "Simplified view",
-    "simplifiedViewTooltip": "Hide terminal control characters to make the output easier to read.",
     "loading": "Loading output...",
     "empty": "No output captured yet.",
     "remote": "Remote",
@@ -1504,6 +1509,8 @@
     }
   },
   "exportImage": {
+    "collapsedThinking": "Compact image",
+    "expandedThinking": "Image with thinking",
     "subtitle": "AI Programming Assistant · Chat Record",
     "poweredBy": "Powered by",
     "aiAssistant": "AI Programming Assistant",

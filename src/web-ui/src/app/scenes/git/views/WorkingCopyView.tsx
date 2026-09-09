@@ -459,7 +459,7 @@ const WorkingCopyView: React.FC<WorkingCopyViewProps> = ({
         <div className="openbitfun-git-scene-working-copy__commit-actions" data-openbitfun-component="working-copy-view" data-openbitfun-part="commitActions">
           <Button
             size="sm"
-            variant={quickCommitMessage.trim() && status?.staged?.length ? 'fill' : 'outline'}
+            variant="primary"
             onClick={handleQuickCommit}
             disabled={!status?.staged?.length || !quickCommitMessage.trim() || isOperating || isGeneratingCommit}
           >

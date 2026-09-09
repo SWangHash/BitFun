@@ -333,7 +333,7 @@ describe('composer context track layout', () => {
     expect(chatInput).toContain('!isMultiLine && executionLevelPolicy.userConfigurable ? (');
   });
 
-  it('groups quick skill modes in one second-level menu immediately after Harness', () => {
+  it('groups quick skill modes after Harness while keeping them out of Assistant sessions', () => {
     const chatInput = readLocalFile('ChatInput.tsx');
     const menuHarnessIndex = chatInput.indexOf('presentation="menu-item"');
     const additionalModesIndex = chatInput.indexOf("label={t('chatInput.boostAdditionalModes')}");
@@ -356,6 +356,7 @@ describe('composer context track layout', () => {
     expect(chatInput).toContain(
       'resolveChatInputQuickSkillShortcuts(resolvedModeSkills)',
     );
+    expect(chatInput).toContain("chatInputModePolicy.fixedModeId !== 'Claw'");
     expect(chatInput).toContain('layoutRevision: boostMenuLayoutRevision');
     expect(chatInput).toContain('skillName: shortcut.skill.name');
     expect(chatInput).toContain('selectAdditionalMode(item.skillName)');

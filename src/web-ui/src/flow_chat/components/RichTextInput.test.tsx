@@ -315,7 +315,19 @@ describeWithJsdom('RichTextInput external sync', () => {
     expect(editor.firstChild).not.toBe(originalTextNode);
   });
 
-  it('renders externally inserted skill tokens as inline pills', async () => {
+  it('shows the declared skill name while keeping its exact source token', async () => {
+    await act(async () => root.render(<RichTextInput
+      value="[$project::codex::nested/folder]"
+      skillReferenceNames={{ 'project::codex::nested/folder': 'Declared skill name' }}
+      onChange={() => {}} contexts={emptyContexts} onRemoveContext={() => {}}
+    />));
+    const pill = container.querySelector<HTMLElement>('[data-inline-token-type="skill-ref"]');
+    expect(pill?.dataset.tagFormat).toBe('[$project::codex::nested/folder]');
+    expect(pill?.textContent).toContain('Declared skill name');
+    expect(pill?.title).toBe('');
+  });
+
+  it('renders externally inserted skill tokens as inline pills' , async () => {
     const harnessRef = createRef<HarnessHandle>();
     const editor = await renderHarness(harnessRef);
 

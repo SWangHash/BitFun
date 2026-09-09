@@ -6523,6 +6523,7 @@ dependencies = [
  "openbitfun-legacy-migration-adapters",
  "openbitfun-opencode-adapter",
  "openbitfun-opencode-plugin-host",
+ "openbitfun-pi-adapter",
  "openbitfun-plugin-runtime-client",
  "openbitfun-product-capabilities",
  "openbitfun-product-domains",
@@ -6587,14 +6588,17 @@ name = "openbitfun-dsh-adapter"
 version = "1.0.0"
 dependencies = [
  "async-trait",
+ "dirs 6.0.0",
  "hex",
  "openbitfun-plugin-runtime-client",
  "openbitfun-product-domains",
  "openbitfun-runtime-ports",
+ "openbitfun-static-hook-support",
  "serde",
  "serde_json",
  "serde_yaml",
  "sha2",
+ "tempfile",
  "tokio",
  "urlencoding",
 ]
@@ -6785,6 +6789,18 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.19",
  "tokio",
+]
+
+[[package]]
+name = "openbitfun-pi-adapter"
+version = "1.0.0"
+dependencies = [
+ "dirs 6.0.0",
+ "openbitfun-product-domains",
+ "openbitfun-static-hook-support",
+ "oxc",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

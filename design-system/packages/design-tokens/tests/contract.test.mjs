@@ -68,11 +68,11 @@ test("TabGroup geometry preserves the capsule selected and outline contract", as
 test("SegmentedControl geometry preserves compact, filled, and filter compositions", async () => {
   const systemDocument = await readSource("system.tokens.json");
 
-  assert.equal(tokens["control.segmentedControl.gap"], "2px");
+  assert.equal(tokens["control.segmentedControl.gap"], "4px");
   assert.equal(tokens["control.segmentedControl.padding"], "2px");
   assert.equal(tokens["control.segmentedControl.paddingMd"], "3px");
-  assert.equal(tokens["control.segmentedControl.segmentHeight"], "22px");
-  assert.equal(tokens["control.segmentedControl.segmentHeightMd"], "28px");
+  assert.equal(tokens["control.segmentedControl.segmentHeight"], "24px");
+  assert.equal(tokens["control.segmentedControl.segmentHeightMd"], "30px");
   assert.equal(tokens["control.segmentedControl.pillSegmentHeight"], "24px");
   assert.equal(tokens["control.segmentedControl.segmentPaddingInline"], "8px");
   assert.equal(tokens["control.segmentedControl.segmentGap"], "4px");
@@ -227,7 +227,7 @@ test("NavigationPanel tokens preserve the grouped sidebar composition contract",
   const systemDocument = await readSource("system.tokens.json");
 
   assert.equal(tokens["layout.navigationPanel.inlineSize"], "216px");
-  assert.equal(tokens["layout.navigationPanel.headingHeight"], "22px");
+  assert.equal(tokens["layout.navigationPanel.headingHeight"], "24px");
   assert.equal(tokens["layout.navigationPanel.itemHeight"], "30px");
   assert.equal(tokens["layout.navigationPanel.itemIconSize"], "14px");
   assert.equal(tokens["layout.navigationPanel.footerHeight"], "40px");
@@ -430,6 +430,7 @@ test("shared system scales preserve the migrated Web UI foundation contract", ()
   assert.equal(tokens["radius.3xl"], "24px");
   assert.equal(tokens["motion.duration.instant"], "80ms");
   assert.equal(tokens["motion.duration.slow"], "420ms");
+  assert.equal(tokens["motion.duration.contentSwap"], "320ms");
   assert.equal(tokens["motion.easing.standard"], "cubic-bezier(0.23, 1, 0.32, 1)");
   assert.equal(tokens["layer.modal"], 200);
   assert.equal(tokens["layer.contextMenu"], 500);

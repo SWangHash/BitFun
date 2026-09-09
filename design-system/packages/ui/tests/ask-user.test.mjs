@@ -70,6 +70,7 @@ test("AskUser renders a controlled custom answer with an accessible text field",
   assert.match(markup, /aria-label="Custom version"/);
   assert.match(markup, /value="v0.2.17"/);
   assert.match(markup, /data-openbitfun-part="submit"/);
+  assert.match(markup, /data-openbitfun-component="button"[^>]+data-openbitfun-variant="primary"/);
 });
 
 test("AskUser styles use public semantic and component geometry tokens", async () => {

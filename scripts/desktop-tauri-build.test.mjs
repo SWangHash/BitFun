@@ -325,7 +325,7 @@ test('Desktop Tauri projection consumes only the resolved member identity', () =
   }
 });
 
-test('Desktop packaging works without the suspended Flashgrep resource', () => {
+test('Desktop packaging includes only the selected Flashgrep target', () => {
   const fixture = join(tmpdir(), `openbitfun-without-flashgrep-${process.pid}-${Date.now()}`);
   mkdirSync(fixture, { recursive: true });
   const baseConfig = join(fixture, 'tauri.conf.json');
@@ -333,10 +333,15 @@ test('Desktop packaging works without the suspended Flashgrep resource', () => {
     bundle: { resources: { '../../../resources/flashgrep': 'flashgrep' } },
   }));
   try {
-    const generated = prepareTauriConfig(baseConfig, { desktopDir: fixture });
+    const generated = prepareTauriConfig(baseConfig, {
+      desktopDir: fixture, flashgrepBinary: join(fixture, 'flashgrep-aarch64-apple-darwin'),
+    });
     const config = JSON.parse(readFileSync(generated, 'utf8'));
-    assert.ok(Object.entries(config.bundle.resources).every(([source, target]) =>
-      !source.includes('flashgrep') && !target.includes('flashgrep')));
+    assert.deepEqual(Object.entries(config.bundle.resources).filter(([, target]) =>
+      target.startsWith('flashgrep/')), [
+      ['flashgrep-aarch64-apple-darwin', 'flashgrep/flashgrep-aarch64-apple-darwin'],
+    ]);
+    assert.equal(config.bundle.resources['../../../resources/flashgrep'], undefined);
     assert.equal(config.bundle.resources['../../../dist'], 'frontend/dist');
   } finally {
     rmSync(fixture, { force: true, recursive: true });

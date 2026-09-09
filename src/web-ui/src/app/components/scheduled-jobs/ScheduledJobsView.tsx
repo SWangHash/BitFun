@@ -603,7 +603,7 @@ const ScheduledJobsView: React.FC<ScheduledJobsViewProps> = ({
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="primary"
           className="asv__new-job"
           onClick={handleCreateNew}
           disabled={assistantWorkspaceMode ? !workspaceRef : targetKind === 'session' ? !canSave : !workspaceRef}
@@ -994,7 +994,7 @@ const ScheduledJobsView: React.FC<ScheduledJobsViewProps> = ({
           <Button
             size="sm"
             className="asv__action-btn"
-            variant="outline"
+            variant="fill"
             onClick={handleCloseEditor}
           >
             {t('nav.scheduledJobs.actions.cancel')}
@@ -1002,7 +1002,7 @@ const ScheduledJobsView: React.FC<ScheduledJobsViewProps> = ({
           <Button
             size="sm"
             className="asv__action-btn"
-            variant="fill"
+            variant="primary"
             onClick={() => { void handleSave(); }}
             disabled={!canSave}
             loading={saving}

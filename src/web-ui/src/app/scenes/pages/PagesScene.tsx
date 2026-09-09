@@ -754,7 +754,7 @@ const PagesScene: React.FC<PagesSceneProps> = ({ isActive = true }) => {
             icon={{ glyph: PanelsTopLeft }}
             message={<>{t('signInRequired')}<small>{t('signInHint')}</small></>}
             action={(
-              <Button variant="fill" size="sm" onClick={() => setShowAccountDialog(true)}>
+              <Button variant="primary" size="sm" onClick={() => setShowAccountDialog(true)}>
                 {t('actions.signIn')}
               </Button>
             )}
@@ -833,7 +833,7 @@ const PagesScene: React.FC<PagesSceneProps> = ({ isActive = true }) => {
                 <footer className="pages-scene__actions">
                   {deployed && (
                     <Button
-                      variant="fill"
+                      variant="primary"
                       size="sm"
                       onClick={() => void openPage(page, pageOwnerEpoch)}
                       disabled={pageBusy}
@@ -921,7 +921,7 @@ const PagesScene: React.FC<PagesSceneProps> = ({ isActive = true }) => {
                         />
                         {(titleDirty || titleSaving) && (
                           <Button
-                            variant="outline"
+                            variant="primary"
                             size="sm"
                             disabled={pageBusy || !titleDirty}
                             loading={titleSaving}

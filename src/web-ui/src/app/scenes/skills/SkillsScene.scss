@@ -1083,3 +1083,13 @@ $skills-installed-columns: minmax(200px, 1fr) minmax(90px, 0.24fr) minmax(110px,
 .skills-main > .skills-main__empty {
   margin: var(--openbitfun-space-4) var(--openbitfun-space-6);
 }
+
+.skills-main__diagnostics {
+  padding: 8px 12px;
+  max-height: 160px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  font-size: var(--openbitfun-type-flow-support-font-size);
+
+  summary { cursor: pointer; }
+}

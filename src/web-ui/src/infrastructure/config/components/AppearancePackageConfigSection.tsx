@@ -515,7 +515,7 @@ export function AppearancePackageConfigSection() {
         >
           <AlertTriangle size={16} aria-hidden="true" />
           <span>{t('package.missingSelection', { id: unavailableSelectionId })}</span>
-          <Button variant="fill" size="md" onClick={() => setMarketOpen(true)}>
+          <Button variant="primary" size="md" onClick={() => setMarketOpen(true)}>
             {t('package.market.open')}
           </Button>
         </div>

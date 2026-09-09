@@ -13,19 +13,6 @@ $content-max: 936px;
   &__body {
     flex: 1;
     overflow-x: hidden;
-
-    &::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: var(--openbitfun-color-border-subtle);
-      border-radius: 2px;
-    }
   }
 
   &__body-inner {

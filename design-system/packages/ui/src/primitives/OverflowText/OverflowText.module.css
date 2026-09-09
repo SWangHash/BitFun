@@ -18,6 +18,14 @@
     vertical-align: top;
   }
 
+  .root[data-overflow-lines] {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--_overflow-text-lines);
+    line-clamp: var(--_overflow-text-lines);
+    white-space: normal;
+  }
+
   .root:dir(rtl) {
     --_overflow-text-marquee-offset: var(--_overflow-text-marquee-distance);
   }
@@ -28,7 +36,7 @@
   }
 
   /* Keep resting specificity low so the owning control can reveal the full end. */
-  .root[data-overflow-behavior="fade"][data-overflow="true"],
+  .root[data-overflow-behavior="fade"][data-overflow="true"]:not([data-overflow-lines]),
   .root[data-overflow-behavior="marquee"][data-overflow="true"]:where(:not(:hover):not(:focus-visible):not([data-marquee-active="true"])) {
     -webkit-mask-image: linear-gradient(
       to right,
@@ -46,7 +54,7 @@
     mask-repeat: no-repeat;
   }
 
-  .root:where(:dir(rtl))[data-overflow-behavior="fade"][data-overflow="true"],
+  .root:where(:dir(rtl))[data-overflow-behavior="fade"][data-overflow="true"]:not([data-overflow-lines]),
   .root:where(:dir(rtl))[data-overflow-behavior="marquee"][data-overflow="true"]:where(:not(:hover):not(:focus-visible):not([data-marquee-active="true"])) {
     -webkit-mask-image: linear-gradient(
       to left,

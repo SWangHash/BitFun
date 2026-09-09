@@ -4,7 +4,7 @@
   "title": "OpenBitFun Playbook",
   "origin": "https://playbook.openbitfun.com",
   "source": "src/shared/interactive-capabilities/catalog.json",
-  "digest": "d7a7419ddd673eb733ae8bd33dbb3dcd3b4d1ce0acfc953067a3403fe26d6699",
+  "digest": "409e6dbef7ebceafccc11606e2855227b9a33fa1ed71f5b4608da04e8a23de7d",
   "ownerDigest": "c0e5c187cf62bc6ed06196ce8520b3eb427bf268cf24659b72d2552fb1d99c54",
   "searchAcceptance": [
     {
@@ -138,11 +138,11 @@
     "features": 22,
     "settings": 21,
     "userFacing": 43,
-    "documentedItems": 321,
+    "documentedItems": 322,
     "controlCoverage": {
       "direct": 48,
       "delegated": 61,
-      "interactive": 212,
+      "interactive": 213,
       "unsupported": 0
     }
   },
@@ -14816,6 +14816,7 @@
       "id": "setting.workspace.session:query",
       "capabilityId": "setting.workspace.session",
       "itemIds": [
+        "default-agent-harness",
         "automatic-titles",
         "title-model",
         "accelerated-search",
@@ -14944,6 +14945,52 @@
       "valueSource": {
         "kind": "static"
       },
+      "presentationTarget": {
+        "kind": "settings",
+        "pageId": "workspace.session"
+      }
+    },
+    {
+      "id": "setting.workspace.session:open:default-agent-harness",
+      "capabilityId": "setting.workspace.session",
+      "itemIds": [
+        "default-agent-harness"
+      ],
+      "kind": "open",
+      "risk": "ui",
+      "executionHost": "presentationSurface",
+      "availability": {
+        "desktop": {
+          "available": true
+        },
+        "cli": {
+          "available": false,
+          "reason": "This delivery profile has no live presentation surface"
+        },
+        "peer": {
+          "available": true,
+          "requiredCapabilities": [
+            "product_control_v1",
+            "product_control_presentation_v1"
+          ]
+        },
+        "remoteControl": {
+          "available": true
+        },
+        "detachedDispatch": {
+          "available": false,
+          "reason": "This delivery profile has no live presentation surface"
+        }
+      },
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "openReason": "unstructuredInteraction",
       "presentationTarget": {
         "kind": "settings",
         "pageId": "workspace.session"
@@ -27132,11 +27179,13 @@
       "categoryId": "assistant",
       "titleZh": "会话与工作区设置",
       "titleEn": "Session & workspace settings",
-      "summaryZh": "控制会话标题生成、工作区加速搜索和与项目上下文相关的行为。",
-      "summaryEn": "Control session-title generation, accelerated workspace search, and project-context behavior.",
+      "summaryZh": "控制默认 Agent Harness、会话标题生成、工作区加速搜索和与项目上下文相关的行为。",
+      "summaryEn": "Control the default Agent Harness, session-title generation, accelerated workspace search, and project-context behavior.",
       "keywordsZh": [
         "会话设置",
         "工作区设置",
+        "默认 Harness",
+        "上次选择",
         "标题生成",
         "项目搜索",
         "索引"
@@ -27144,21 +27193,36 @@
       "keywordsEn": [
         "session settings",
         "workspace settings",
+        "default Harness",
+        "last selection",
         "title generation",
         "project search",
         "index"
       ],
       "highlightsZh": [
+        "跟随上次选择或固定默认 Harness",
         "自动生成会话标题",
         "本地工作区加速搜索",
         "会话使用的标题模型"
       ],
       "highlightsEn": [
+        "Follow the last selection or fix a default Harness",
         "Automatic session titles",
         "Accelerated local-workspace search",
         "Model used for session titles"
       ],
       "items": [
+        {
+          "id": "default-agent-harness",
+          "titleZh": "让普通新会话跟随 ChatInput 上次选择，或固定使用指定 Harness",
+          "titleEn": "Make regular new sessions follow the last ChatInput selection or use a fixed Harness",
+          "control": {
+            "kind": "open",
+            "reasonCode": "unstructuredInteraction",
+            "reasonZh": "“让普通新会话跟随 ChatInput 上次选择，或固定使用指定 Harness”由会话设置页中的关联控件共同管理，目前没有一个能确定完成整个流程的单一结构化 Command；Agent 会打开精确入口，并把选择保留在用户可见界面。",
+            "reasonEn": "“Make regular new sessions follow the last ChatInput selection or use a fixed Harness” is managed by related controls on the session settings page and currently has no single structured Command that can deterministically complete the whole workflow; the Agent opens the exact entry and keeps the selection visible to the user."
+          }
+        },
         {
           "id": "automatic-titles",
           "titleZh": "启用或停用根据会话内容自动生成标题",
@@ -27224,18 +27288,22 @@
       "stepsZh": [
         "打开设置",
         "进入“工作区 > 会话与工作区”",
-        "调整标题或搜索选项"
+        "调整默认 Harness、标题或搜索选项"
       ],
       "stepsEn": [
         "Open Settings",
         "Go to Workspace > Session & Workspace",
-        "Tune title or search controls"
+        "Tune the default Harness, title, or search controls"
       ],
       "agentExamplesZh": [
+        "让新会话跟随 ChatInput 上一次选择的 Harness",
+        "把新会话固定为 Ultimate Harness",
         "关闭自动生成会话标题",
         "启用工作区加速搜索"
       ],
       "agentExamplesEn": [
+        "Make new sessions follow the last Harness selected in ChatInput",
+        "Fix Ultimate as the Harness for new sessions",
         "Turn off automatic session titles",
         "Enable accelerated workspace search"
       ],
@@ -27274,20 +27342,28 @@
         "AI & collaboration",
         "会话设置",
         "工作区设置",
+        "默认 Harness",
+        "上次选择",
         "标题生成",
         "项目搜索",
         "索引",
         "session settings",
         "workspace settings",
+        "default Harness",
+        "last selection",
         "title generation",
         "project search",
         "index",
+        "跟随上次选择或固定默认 Harness",
         "自动生成会话标题",
         "本地工作区加速搜索",
         "会话使用的标题模型",
+        "Follow the last selection or fix a default Harness",
         "Automatic session titles",
         "Accelerated local-workspace search",
         "Model used for session titles",
+        "让普通新会话跟随 ChatInput 上次选择，或固定使用指定 Harness",
+        "Make regular new sessions follow the last ChatInput selection or use a fixed Harness",
         "启用或停用根据会话内容自动生成标题",
         "Enable or disable automatic titles generated from session content",
         "让标题模型继承主模型、快速模型或使用指定模型",
@@ -27298,8 +27374,12 @@
         "Inspect index status and rebuild the workspace index when needed",
         "远程工作区明确降级搜索实现，不把远程路径回退到本机",
         "Use an explicit remote-workspace search path without silently falling back to local files",
+        "让新会话跟随 ChatInput 上一次选择的 Harness",
+        "把新会话固定为 Ultimate Harness",
         "关闭自动生成会话标题",
         "启用工作区加速搜索",
+        "Make new sessions follow the last Harness selected in ChatInput",
+        "Fix Ultimate as the Harness for new sessions",
         "Turn off automatic session titles",
         "Enable accelerated workspace search"
       ],

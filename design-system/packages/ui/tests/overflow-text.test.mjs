@@ -60,10 +60,11 @@ test("OverflowText measures real clipping for fade and marquee treatments", asyn
   ]);
 
   assert.match(source, /content\.scrollWidth - element\.clientWidth/);
+  assert.match(source, /lines !== undefined\s*&& element\.clientHeight > 0\s*&& element\.scrollHeight > element\.clientHeight/s);
   assert.match(source, /measurementRef\.current/);
   assert.match(
     source,
-    /useIsomorphicLayoutEffect\(\(\) => \{\s*updateOverflow\(\);\s*\}, \[behavior, children, updateOverflow\]\);/s,
+    /useIsomorphicLayoutEffect\(\(\) => \{\s*updateOverflow\(\);\s*\}, \[behavior, children, lines, updateOverflow\]\);/s,
   );
   assert.match(source, /new ResizeObserver\(updateOverflow\)/);
   assert.match(source, /resizeObserver\?\.observe\(contentRef\.current\)/);

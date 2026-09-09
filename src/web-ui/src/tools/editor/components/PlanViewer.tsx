@@ -828,7 +828,7 @@ Read the plan file before making changes and treat it as the source of truth. Do
 
               <Button
                 type="button"
-                variant="fill"
+                variant="primary"
                 size="sm"
                 leadingIcon={
                   buildStatus === 'building'

@@ -1,5 +1,10 @@
 # Remote SSH, container, and WSL workspaces
 
+Flashgrep accelerated search is currently unavailable for remote workspaces.
+Index controls are hidden; content-search operations that depend on Flashgrep
+return an explicit unsupported error. Remote file-name search remains available.
+OpenBitFun never falls back to searching the controller filesystem for a remote path.
+
 OpenBitFun remote workspaces use one saved target for the file explorer, terminal,
 Agent commands, and workspace tools. The target can be:
 

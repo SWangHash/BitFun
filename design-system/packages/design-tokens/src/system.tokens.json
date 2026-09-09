@@ -1,5 +1,8 @@
 {
   "$description": "Theme-independent system scales.",
+  "opacity": {
+    "iconArtwork": { "$type": "number", "$value": 0.8 }
+  },
   "space": {
     "$type": "dimension",
     "0": { "$value": "0px" },
@@ -166,6 +169,25 @@
         "letterSpacing": { "$value": "{letterSpacing.normal}" }
       }
     },
+    "actionRow": {
+      "$description": "Single-line action leading: 16px at the default 13px type size, scaling with user typography.",
+      "lineHeight": { "$type": "number", "$value": 1.2307692307692308 }
+    },
+    "pageIntro": {
+      "fontFamily": { "$value": "{font.family.control}" },
+      "fontSize": { "$value": "{font.size.xl-plus}" },
+      "fontWeight": { "$value": "{font.weight.medium}" },
+      "lineHeight": { "$value": "{lineHeight.tight}" },
+      "letterSpacing": { "$value": "{letterSpacing.normal}" }
+    },
+    "fieldHelper": {
+      "$description": "Field helper leading: 16px at the default 11px type size, scaling with user typography.",
+      "lineHeight": { "$type": "number", "$value": 1.4545454545454546 }
+    },
+    "formDescription": {
+      "$description": "Form-section description leading: 16px at the default 13px type size, scaling with user typography.",
+      "lineHeight": { "$type": "number", "$value": 1.2307692307692308 }
+    },
     "support": {
       "fontFamily": { "$value": "{font.family.control}" },
       "fontSize": { "$value": "{font.size.meta}" },
@@ -211,6 +233,13 @@
       }
     },
     "heading": {
+      "welcome": {
+        "fontFamily": { "$value": "{font.family.control}" },
+        "fontSize": { "$value": "{font.size.5xl}" },
+        "fontWeight": { "$value": "{font.weight.semibold}" },
+        "lineHeight": { "$value": "{lineHeight.tight}" },
+        "letterSpacing": { "$value": "{letterSpacing.normal}" }
+      },
       "navigation": {
         "fontFamily": { "$value": "{font.family.control}" },
         "fontSize": { "$value": "{font.size.xl-plus}" },
@@ -248,10 +277,10 @@
       },
       "dialog": {
         "fontFamily": { "$value": "{font.family.sans}" },
-        "fontSize": { "$value": "{font.size.3xl}" },
-        "fontWeight": { "$value": "{font.weight.semibold}" },
-        "lineHeight": { "$value": "{lineHeight.tight}" },
-        "letterSpacing": { "$value": "{letterSpacing.tight}" }
+        "fontSize": { "$value": "{font.size.3xl-plus}" },
+        "fontWeight": { "$value": "{font.weight.bold}" },
+        "lineHeight": { "$value": 1.2083333333 },
+        "letterSpacing": { "$value": "{letterSpacing.normal}" }
       },
       "display": {
         "fontFamily": { "$value": "{font.family.sans}" },
@@ -515,9 +544,11 @@
       "$type": "dimension",
       "gap": { "$value": "{space.2}" },
       "itemGap": { "$value": "6px" },
+      "itemGapSm": { "$value": "{space.1}" },
       "itemHeight": { "$value": "{control.height.md}" },
       "itemHeightSm": { "$value": "30px" },
       "itemIconSize": { "$value": "16px" },
+      "itemIconSizeSm": { "$value": "14px" },
       "itemPaddingInline": { "$value": "{space.4}" },
       "itemPaddingBlockSm": { "$value": "7px" },
       "itemPaddingInlineSm": { "$value": "{space.3}" },
@@ -527,14 +558,15 @@
     },
     "segmentedControl": {
       "$type": "dimension",
-      "gap": { "$value": "2px" },
+      "gap": { "$value": "{space.1}" },
       "padding": { "$value": "2px" },
       "paddingMd": { "$value": "3px" },
       "radius": { "$value": "{radius.pill}" },
-      "segmentHeight": { "$value": "22px" },
-      "segmentHeightMd": { "$value": "28px" },
+      "segmentHeight": { "$value": "24px" },
+      "segmentHeightMd": { "$value": "30px" },
       "pillSegmentHeight": { "$value": "24px" },
       "segmentPaddingInline": { "$value": "{space.2}" },
+      "segmentPaddingInlineMd": { "$value": "{space.3}" },
       "segmentGap": { "$value": "{space.1}" },
       "segmentRadius": { "$value": "{radius.pill}" },
       "pillSegmentRadius": { "$value": "{radius.sm}" },
@@ -573,14 +605,14 @@
       "$type": "dimension",
       "smMinBlockSize": { "$value": "54px" },
       "mdMinBlockSize": { "$value": "62px" },
-      "paddingBlock": { "$value": "{space.2}" },
+      "paddingBlock": { "$value": "{space.3}" },
       "paddingInline": { "$value": "{space.3}" },
       "gap": { "$value": "{space.2}" },
       "leadingSize": { "$value": "30px" },
       "iconSize": { "$value": "16px" },
       "contentGap": { "$value": "{space.1}" },
       "actionsGap": { "$value": "0px" },
-      "actionsPaddingInlineEnd": { "$value": "{space.2}" },
+      "actionsPaddingInlineEnd": { "$value": "{space.3}" },
       "radius": { "$value": "{radius.base}" }
     },
     "launcherButton": {
@@ -620,7 +652,9 @@
     "iconButton": {
       "$type": "dimension",
       "xsSize": { "$value": "22px" },
-      "xsIconSize": { "$value": "14px" }
+      "xsIconSize": { "$value": "14px" },
+      "standardSize": { "$value": "30px" },
+      "standardIconSize": { "$value": "16px" }
     },
     "button": {
       "$type": "dimension",
@@ -711,7 +745,7 @@
       "surfacePadding": { "$value": "{space.2}" },
       "contentGap": { "$value": "{space.4}" },
       "sectionGap": { "$value": "{space.1}" },
-      "headingHeight": { "$value": "22px" },
+      "headingHeight": { "$value": "24px" },
       "headingPaddingInline": { "$value": "{space.2}" },
       "headingGap": { "$value": "{space.5}" },
       "headingActionSize": { "$value": "22px" },
@@ -850,7 +884,7 @@
       "maxInlineSizeSmall": { "$value": "420px" },
       "maxInlineSizeMedium": { "$value": "560px" },
       "maxInlineSizeLarge": { "$value": "600px" },
-      "maxInlineSizeXlarge": { "$value": "720px" },
+      "maxInlineSizeXlarge": { "$value": "800px" },
       "maxInlineSizeXxlarge": { "$value": "960px" },
       "maxInlineSizeWide": { "$value": "1200px" }
     }
@@ -886,6 +920,10 @@
       "fast": { "$value": "140ms" },
       "base": { "$value": "220ms" },
       "normal": { "$value": "{motion.duration.base}" },
+      "contentSwap": {
+        "$value": "320ms",
+        "$description": "Coordinated single-line content replacement and intrinsic-width changes."
+      },
       "slow": { "$value": "420ms" },
       "lazy": { "$value": "1s" },
       "loop": { "$value": "720ms" }

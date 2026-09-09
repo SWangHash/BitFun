@@ -113,8 +113,6 @@ $assistant-defaults-row-columns:
     min-width: 0;
     min-height: 0;
     padding: 0 clamp(20px, 3vw, 32px) var(--openbitfun-space-4);
-    scrollbar-width: thin;
-    scrollbar-color: var(--openbitfun-color-border-subtle) transparent;
   }
 
   &__warning {
@@ -755,8 +753,6 @@ $assistant-defaults-row-columns:
     min-height: 0;
     flex: 1;
     padding: 0 clamp(16px, 2vw, 22px) var(--openbitfun-space-5);
-    scrollbar-width: thin;
-    scrollbar-color: var(--openbitfun-color-border-subtle) transparent;
 
     > section {
       padding: var(--openbitfun-space-3) 0;

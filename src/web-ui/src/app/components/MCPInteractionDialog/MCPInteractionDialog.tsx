@@ -190,7 +190,7 @@ export const MCPInteractionDialog: React.FC = () => {
 
           <div className="mcp-interaction-dialog__actions" data-openbitfun-component="mcp-interaction-dialog" data-openbitfun-part="actions">
             <Button
-              variant="outline"
+              variant="fill"
               size="sm"
               onClick={() => void handleReject()}
               disabled={isSubmitting}
@@ -198,7 +198,7 @@ export const MCPInteractionDialog: React.FC = () => {
               Reject
             </Button>
             <Button
-              variant="fill"
+              variant="primary"
               size="sm"
               onClick={() => void handleApprove()}
               loading={isSubmitting}

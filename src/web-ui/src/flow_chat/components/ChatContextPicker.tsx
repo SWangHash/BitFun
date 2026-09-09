@@ -39,6 +39,7 @@ import {
   workspaceReferenceItems,
   type FileItem,
 } from './workspaceReferenceItems';
+import type { SkillScanDiagnostic } from '@/infrastructure/config/types';
 import './ChatContextPicker.scss';
 
 const log = createLogger('ChatContextPicker');
@@ -64,6 +65,8 @@ export interface ChatContextPickerProps {
   skills?: readonly ContextPickerSkill[];
   skillsLoading?: boolean;
   skillsLoadFailed?: boolean;
+  skillDiagnostics?: readonly SkillScanDiagnostic[];
+  skillDiagnosticsAvailable?: boolean;
   onRetrySkills?: () => void;
   onSelectSkill?: (skill: ContextPickerSkill) => void;
   onAddImage?: () => void;
@@ -74,6 +77,8 @@ export interface ContextPickerSkill {
   name: string;
   description?: string;
   argumentHint?: string | null;
+  /** Winner selected by the host registry after source precedence and mode policy. */
+  selectedForRuntime?: boolean;
 }
 
 export type ChatContextPickerEntryView = 'sources' | 'files';
@@ -127,6 +132,8 @@ export const ChatContextPicker: React.FC<ChatContextPickerProps> = ({
   skills = [],
   skillsLoading = false,
   skillsLoadFailed = false,
+  skillDiagnostics = [],
+  skillDiagnosticsAvailable = true,
   onRetrySkills,
   onSelectSkill,
   onAddImage,
@@ -444,8 +451,8 @@ export const ChatContextPicker: React.FC<ChatContextPickerProps> = ({
     return skills
       .filter(skill => {
         const normalizedName = skill.name.trim().toLocaleLowerCase();
-        if (!normalizedName || seenNames.has(normalizedName)) return false;
-        seenNames.add(normalizedName);
+        if (skill.selectedForRuntime === false || !normalizedName || seenNames.has(skill.name)) return false;
+        seenNames.add(skill.name);
         if (!normalizedSearchQuery) return true;
         return [skill.name, skill.description, skill.argumentHint]
           .filter((value): value is string => Boolean(value?.trim()))
@@ -735,7 +742,7 @@ export const ChatContextPicker: React.FC<ChatContextPickerProps> = ({
       ].filter(Boolean).join(' ') || undefined}
       data-openbitfun-placement={isOverlay ? overlayLayout?.placement ?? 'top' : undefined}
       ref={containerRef}
-      className={`chat-context-picker${isOverlay ? ' chat-context-picker--overlay' : ''}`}
+      className={`chat-context-picker${isOverlay ? ' chat-context-picker--overlay' : ''}${displayItems.some(item => item.kind === 'skill') ? ' chat-context-picker--skills' : ''}`}
       style={style}
       onMouseDown={event => event.preventDefault()}
     >
@@ -828,6 +835,7 @@ export const ChatContextPicker: React.FC<ChatContextPickerProps> = ({
                 <ListboxOption data-overflow-trigger
                   active={index === selectedIndex}
                   className={skill ? 'chat-context-picker__skill-option' : undefined}
+                  title={skill ? '' : undefined}
                   key={key}
                   data-index={index}
                   data-openbitfun-context-kind={selection.kind === 'source' || selection.kind === 'action'
@@ -849,7 +857,7 @@ export const ChatContextPicker: React.FC<ChatContextPickerProps> = ({
                           : file?.isDirectory
                             ? <Icon name="folder" size="lg" aria-hidden="true" />
                             : <File aria-hidden="true" />}
-                  metadata={skill && index === selectedIndex && skillDescription
+                  metadata={skill && skillDescription
                     ? (
                         <OverflowText
                           aria-label={skillDescription}
@@ -857,8 +865,7 @@ export const ChatContextPicker: React.FC<ChatContextPickerProps> = ({
                           className="chat-context-picker__skill-description"
                           data-openbitfun-component="chat-context-picker"
                           data-openbitfun-part="skillDescription"
-                          marqueeActive
-                          title={skillDescription}
+                          title=""
                         >
                           {skillDescription}
                         </OverflowText>
@@ -875,7 +882,7 @@ export const ChatContextPicker: React.FC<ChatContextPickerProps> = ({
                   onMouseEnter={() => setSelectedIndex(index)}
                   value={key}
                 >
-                  {label}
+                  {skill ? <span className="chat-context-picker__skill-name">{label}</span> : label}
                 </ListboxOption>
               );
             })}
@@ -896,6 +903,12 @@ export const ChatContextPicker: React.FC<ChatContextPickerProps> = ({
         )}
         </Listbox>
       </div>
+      {(view === 'skills' || isSearchMode) && !skillsLoading && !skillsLoadFailed && (
+        skillDiagnostics.length > 0 ? <details className="chat-context-picker__diagnostics">
+          <summary>{t('contextPicker.skillsIncomplete')}</summary>
+          {skillDiagnostics.map((item, index) => <p key={index}>{item.path}: {item.message}</p>)}
+        </details> : !skillDiagnosticsAvailable && <p role="status">{t('contextPicker.skillsDiagnosticsUnavailable')}</p>
+      )}
       <div data-openbitfun-component="chat-context-picker" data-openbitfun-part="footer" className="chat-context-picker__footer">
         <span><KeyHint>↑</KeyHint><KeyHint>↓</KeyHint> {t('contextPicker.navHint')}</span>
         {!isSearchMode && (view === 'sources' || view === 'files') && (

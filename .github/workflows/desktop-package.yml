@@ -308,6 +308,9 @@ jobs:
       - name: Verify release version metadata
         run: node scripts/verify-release-version-sync.mjs --version "${{ needs.prepare.outputs.version }}"
 
+      - name: Download and verify target Flashgrep binary
+        run: node scripts/prepare-flashgrep-resource.mjs --target "${{ matrix.platform.target }}"
+
       - name: Build desktop app
         run: ${{ matrix.platform.build_command }}
 

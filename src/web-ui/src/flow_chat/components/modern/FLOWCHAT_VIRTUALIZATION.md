@@ -103,6 +103,17 @@ Stable virtual-item keys and projection identity are required. Do not split one
 `ModelRound` into multiple virtual items, and do not reclassify projection from
 a timer.
 
+Search matches retain their concrete text source and occurrence, grouped once
+by virtual-item index. Row containers receive no search background or outline.
+`useFlowChatSearchPresentation` owns mounted text highlights and one passive
+line overlay for the current occurrence: a neutral line tint with a short gutter
+marker. The overlay uses the first painted text fragment in row-local coordinates,
+so it follows outer scrolling without a viewport write. Resize, content changes,
+and nested scrolling refresh its geometry; clipped or unmounted sources produce
+no marker. Each row releases only its own CSS highlight ranges. Search states
+change no row geometry, spacing, or mount animation. Navigation and expansion
+remain in `VirtualMessageList`, separate from presentation.
+
 `getVirtualItemStableKey` keys on type, Turn and content id — never on an index.
 That is what lets a prepend renumber every row without React unmounting any of
 them, and it is what the measurement cache is keyed on underneath.
@@ -110,6 +121,19 @@ them, and it is what the measurement cache is keyed on underneath.
 Tool cards reflow naturally and dispatch only `tool-card-toggle` after an
 expanded-state change, so the virtualizer can remeasure. There is no
 pre-collapse intent event and no per-card compensation.
+
+User-message text and both message-edit inputs use the same `flow-control`
+font-size role as the composer and rendered replies, following the user's font
+preference. User-message text also uses the reply's regular weight. Its
+first-line box must use that same font size when deriving row geometry.
+
+User-message timestamps and actions occupy a normal-flow meta row below the
+bubble. Its full height, including the 28px action targets, belongs to the
+measured message even when no valid timestamp is available. The timestamp and
+actions remain visible at rest, without requiring hover or keyboard focus; the
+timestamp stays at the row's leading edge while the actions stay at its trailing
+edge. The shell's trailing margin remains the item gap; the next Turn may remove
+that gap without removing space occupied by controls.
 
 ## A Row's Mount Is Not an Arrival
 

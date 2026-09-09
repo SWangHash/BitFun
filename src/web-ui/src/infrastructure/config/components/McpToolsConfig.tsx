@@ -1520,12 +1520,12 @@ const McpToolsConfig: React.FC = () => {
                 }
               />
               <div className="openbitfun-mcp-tools__json-actions" data-openbitfun-component="mcp-tools-config" data-openbitfun-part="jsonActions">
-                <Button variant="outline" onClick={requestCloseJsonEditor} disabled={mcpSaving}>
+                <Button variant="fill" onClick={requestCloseJsonEditor} disabled={mcpSaving}>
                   {tMcp('actions.cancel')}
                 </Button>
                 <Button
                   data-testid="mcp-json-save"
-                  variant="fill"
+                  variant="primary"
                   onClick={handleSaveJsonConfig}
                   loading={mcpSaving}
                   disabled={mcpSaving || !jsonDirty || !jsonSyntaxValid || Boolean(jsonLintError)}
@@ -1629,7 +1629,7 @@ const McpToolsConfig: React.FC = () => {
                 )}
                 <div className="openbitfun-mcp-tools__json-actions" data-openbitfun-component="mcp-tools-config" data-openbitfun-part="jsonActions">
                   <Button
-                    variant="fill"
+                    variant="primary"
                     onClick={handleStartRemoteOAuth}
                     loading={oauthStarting}
                     disabled={authSubmitting || oauthCancelling}
@@ -1664,7 +1664,7 @@ const McpToolsConfig: React.FC = () => {
             />
             <div className="openbitfun-mcp-tools__json-actions" data-openbitfun-component="mcp-tools-config" data-openbitfun-part="jsonActions">
               <Button
-                variant="outline"
+                variant="fill"
                 onClick={handleCloseAuthDialog}
                 disabled={authSubmitting || oauthStarting || oauthCancelling}
               >
@@ -1673,7 +1673,7 @@ const McpToolsConfig: React.FC = () => {
                   : tMcp('actions.cancel')}
               </Button>
               <Button
-                variant="fill"
+                variant="primary"
                 onClick={handleSaveRemoteAuth}
                 loading={authSubmitting}
                 disabled={oauthStarting || oauthCancelling}

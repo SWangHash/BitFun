@@ -974,6 +974,7 @@ export const coreClosedFeatureProfileRules = [
       'script-tool-runtime',
       'dep:openbitfun-opencode-adapter',
       'dep:openbitfun-dsh-adapter',
+      'dep:openbitfun-pi-adapter',
       'dep:openbitfun-claude-code-adapter',
       'dep:openbitfun-codex-adapter',
       'dep:openbitfun-external-sources',

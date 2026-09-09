@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type InstalledFilter = 'all' | 'builtin' | 'user' | 'project' | 'suite';
+export type InstalledFilter = 'all' | 'builtin' | 'user' | 'project' | 'suite' | `source:${string}`;
 export type SuiteModeId = 'agentic' | 'Cowork' | 'Claw';
 
 interface SkillsSceneState {

@@ -109,7 +109,7 @@ export const DiffFullscreenViewer: React.FC<DiffFullscreenViewerProps> = ({
           <div className="header-actions" data-openbitfun-component="diff-fullscreen-viewer" data-openbitfun-part="actions">
             <Tooltip content={t('diffFullscreen.acceptFileTooltip')}>
               <Button
-                variant="fill"
+                variant="primary"
                 size="sm"
                 leadingIcon={<Icon name="check-circle" size="lg" />}
                 onClick={onAcceptFile}
@@ -121,7 +121,7 @@ export const DiffFullscreenViewer: React.FC<DiffFullscreenViewerProps> = ({
             
             <Tooltip content={t('diffFullscreen.rejectFileTooltip')}>
               <Button
-                variant="outline"
+                variant="fill"
                 size="sm"
                 leadingIcon={<Icon name="xmark" size="lg" />}
                 onClick={onRejectFile}

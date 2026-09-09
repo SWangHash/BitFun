@@ -338,12 +338,12 @@ export const PeerDirectoryBrowser: React.FC<PeerDirectoryBrowserProps> = ({
             data-openbitfun-component="peer-device"
             data-openbitfun-part="actions"
           >
-            <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+            <Button type="button" variant="fill" size="sm" onClick={onCancel}>
               {t('peerDirectoryPicker.cancel')}
             </Button>
             <Button
               type="button"
-              variant="fill"
+              variant="primary"
               size="sm"
               onClick={handleConfirm}
               disabled={!selectedPath || loading || !!error || pathInputValue.trim() !== currentPath}

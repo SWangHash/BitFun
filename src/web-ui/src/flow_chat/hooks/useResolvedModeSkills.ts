@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { configAPI } from '@/infrastructure/api/service-api/ConfigAPI';
-import type { ModeSkillInfo } from '@/infrastructure/config/types';
+import type { ModeSkillInfo, SkillScanDiagnostic } from '@/infrastructure/config/types';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('useResolvedModeSkills');
@@ -11,6 +11,8 @@ type Snapshot = {
   skills: ModeSkillInfo[] | null;
   loading: boolean;
   failed: boolean;
+  diagnostics?: SkillScanDiagnostic[];
+  diagnosticsAvailable?: boolean;
 };
 
 export function useResolvedModeSkills({
@@ -49,10 +51,15 @@ export function useResolvedModeSkills({
     entry.loading = true;
     entry.failed = false;
     setSnapshot({ ...entry });
-    void configAPI.getModeSkillConfigs({ modeId, workspacePath: workspacePath || undefined })
-      .then(skills => { entry.skills = skills; })
+    void configAPI.getModeSkillScanReport({ modeId, workspacePath: workspacePath || undefined })
+      .then(report => {
+        entry.skills = report.skills;
+        entry.diagnostics = report.diagnostics;
+        entry.diagnosticsAvailable = report.diagnosticsAvailable;
+      })
       .catch(err => {
         entry.skills = null;
+        entry.diagnostics = [];
         entry.failed = true;
         log.error('Failed to load mode-resolved skills for chat input', { err, modeId, workspacePath });
       })
@@ -66,6 +73,8 @@ export function useResolvedModeSkills({
   const current = snapshot?.key === key ? snapshot : null;
   return {
     skills: current?.skills ?? EMPTY_SKILLS,
+    diagnostics: current?.diagnostics ?? [],
+    diagnosticsAvailable: current?.diagnosticsAvailable ?? true,
     loading: current?.loading ?? enabled,
     hasLoaded: current?.skills != null,
     failed: current?.failed ?? false,

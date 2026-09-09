@@ -312,7 +312,7 @@ const MiniAppMarketView: React.FC<MiniAppMarketViewProps> = ({ tabs }) => {
             />
           )}
         >
-          <SegmentedControl
+          <SegmentedControl size="md"
             className="miniapp-market-native__categories"
             options={CATEGORIES.map((value) => ({
               label: categoryLabel(value, t),
@@ -391,7 +391,7 @@ const MiniAppMarketView: React.FC<MiniAppMarketViewProps> = ({ tabs }) => {
                             <span>v{item.latestRelease}</span>
                           </div>
                           <strong><OverflowText>{name}</OverflowText></strong>
-                          <p>{description}</p>
+                          <OverflowText as="p" lines={2}>{description}</OverflowText>
                           <div className="miniapp-market-card__stats">
                             <span><Icon name="star" size="xs" /> {item.ratingAverage.toFixed(1)}</span>
                             <span><Icon name="arrow-down" size="xs" /> {formatNumber(item.downloadCount)}</span>
@@ -458,7 +458,7 @@ const MiniAppMarketView: React.FC<MiniAppMarketViewProps> = ({ tabs }) => {
             {installed ? (
               <Button
                 size="sm"
-                variant={canUpdate ? 'outline' : 'fill'}
+                variant={canUpdate ? 'outline' : 'primary'}
                 disabled={actionBusy || workspaceUnsupported}
                 onClick={() => openInstalledApp(installed.appId)}
                 leadingIcon={<Icon name="arrow-up-right" size="sm" />}
@@ -470,7 +470,7 @@ const MiniAppMarketView: React.FC<MiniAppMarketViewProps> = ({ tabs }) => {
             {!installed || canUpdate ? (
               <Button
                 size="sm"
-                variant="fill"
+                variant="primary"
                 disabled={actionBusy || workspaceUnsupported}
                 onClick={() => setInstallPrompt(true)}
               >

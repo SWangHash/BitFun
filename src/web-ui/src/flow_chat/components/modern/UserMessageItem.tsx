@@ -132,6 +132,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const sentTime = useMemo(() => sentTimestamp === null ? null : formatDate(sentTimestamp, {
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
     }), [formatDate, sentTimestamp]);
     const sentAtLabel = useMemo(() => sentTimestamp === null ? null : t('message.sentAt', {
       time: formatDate(sentTimestamp, {

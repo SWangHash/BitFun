@@ -121,7 +121,7 @@ const MiniAppCard: React.FC<MiniAppCardProps> = ({
           <div className="miniapp-card__body" data-openbitfun-component="mini-app-card" data-openbitfun-part="body">
             {localizedDescription ? (
               <div className="miniapp-card__desc" data-openbitfun-component="mini-app-card" data-openbitfun-part="description">
-                <span className="miniapp-card__desc-inner">{localizedDescription}</span>
+                <OverflowText lines={3} className="miniapp-card__desc-inner">{localizedDescription}</OverflowText>
               </div>
             ) : null}
           </div>

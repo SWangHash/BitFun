@@ -169,7 +169,7 @@ export const SnapshotFullscreenDiffViewer: React.FC<SnapshotFullscreenDiffViewer
             <Tooltip content={t('toolCards.snapshot.acceptAllTooltip')}>
               <Button
                 type="button"
-                variant="fill"
+                variant="primary"
                 size="sm"
                 leadingIcon={<Icon name="check-circle" size="md" />}
                 onClick={() => handleBatchAction('accept')}
@@ -182,7 +182,7 @@ export const SnapshotFullscreenDiffViewer: React.FC<SnapshotFullscreenDiffViewer
             <Tooltip content={t('toolCards.snapshot.rejectAllTooltip')}>
               <Button
                 type="button"
-                variant="outline"
+                variant="fill"
                 size="sm"
                 leadingIcon={<XCircle size={16} />}
                 onClick={() => handleBatchAction('reject')}
@@ -271,7 +271,7 @@ export const SnapshotFullscreenDiffViewer: React.FC<SnapshotFullscreenDiffViewer
             <Tooltip content={t('toolCards.snapshot.acceptFileTooltip')}>
               <Button
                 type="button"
-                variant="fill"
+                variant="primary"
                 size="sm"
                 leadingIcon={<Icon name="check-circle" size="md" />}
                 onClick={() => handleFileAction('accept')}
@@ -284,7 +284,7 @@ export const SnapshotFullscreenDiffViewer: React.FC<SnapshotFullscreenDiffViewer
             <Tooltip content={t('toolCards.snapshot.rejectFileTooltip')}>
               <Button
                 type="button"
-                variant="outline"
+                variant="fill"
                 size="sm"
                 leadingIcon={<XCircle size={16} />}
                 onClick={() => handleFileAction('reject')}

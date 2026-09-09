@@ -530,7 +530,7 @@ describe('openMainSession', () => {
 
     await openMainSession('session-b');
 
-    expect(mocks.switchChatSession).toHaveBeenCalledWith('session-b');
+    expect(mocks.switchChatSession).toHaveBeenCalledWith('session-b', expect.any(Function));
     expect(mocks.syncSessionToModernStore).not.toHaveBeenCalledWith('session-b');
     expect(mocks.openScene).not.toHaveBeenCalledWith('session');
   });
@@ -546,7 +546,7 @@ describe('openMainSession', () => {
 
     await openMainSession('session-b');
 
-    expect(mocks.switchChatSession).toHaveBeenCalledWith('session-b');
+    expect(mocks.switchChatSession).toHaveBeenCalledWith('session-b', expect.any(Function));
     expect(mocks.syncSessionToModernStore).toHaveBeenCalledWith('session-b');
     expect(mocks.openScene).toHaveBeenCalledWith('session');
   });

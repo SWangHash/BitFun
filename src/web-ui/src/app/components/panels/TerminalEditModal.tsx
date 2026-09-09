@@ -157,10 +157,10 @@ export const TerminalEditModal: React.FC<TerminalEditModalProps> = ({
       </div>
 
       <div data-openbitfun-component="terminal-edit-modal" data-openbitfun-part="footer" className="terminal-edit-dialog__footer">
-        <Button variant="outline" onClick={onClose}>
+        <Button variant="fill" onClick={onClose}>
           {t('dialog.editTerminal.cancel')}
         </Button>
-        <Button variant="fill" onClick={handleSave} disabled={!canSave}>
+        <Button variant="primary" onClick={handleSave} disabled={!canSave}>
           {t('dialog.editTerminal.save')}
         </Button>
       </div>

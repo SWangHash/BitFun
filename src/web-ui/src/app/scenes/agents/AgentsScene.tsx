@@ -669,7 +669,7 @@ const AgentsHomeView: React.FC = () => {
               data-testid="agents-search"
             />
             <Button
-              variant="fill"
+              variant="primary"
               size="sm"
               leadingIcon={<Icon name="plus" size="sm" />}
               onClick={openCreateAgent}
@@ -1081,7 +1081,7 @@ const AgentsHomeView: React.FC = () => {
                             />
                           </Tooltip>
                           <Button
-                            variant="outline"
+                            variant="fill"
                             size="sm"
                             onClick={() => {
                               if (currentCapabilityTab === 'tools') {
@@ -1101,7 +1101,7 @@ const AgentsHomeView: React.FC = () => {
                             {t('agentsOverview.cancel')}
                           </Button>
                           <Button
-                            variant="fill"
+                            variant="primary"
                             size="sm"
                             loading={
                               currentCapabilityTab === 'tools'

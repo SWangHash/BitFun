@@ -1511,14 +1511,23 @@
     "tabsLabel": "場景標籤頁",
     "scrollPrevious": "向左捲動標籤頁",
     "scrollNext": "向右捲動標籤頁",
-    "closeTab": "關閉{{label}}"
+    "closeTab": "關閉{{label}}",
+    "workspaceUnavailable": "此工作階段所屬的工作區尚未開啟，請先重新開啟該工作區，再切換至此工作階段。"
   },
   "loading": {
     "app": "正在啟動 OpenBitFun...",
+    "companion": "正在載入助手...",
     "scenes": "正在載入場景",
     "workspace": "正在載入工作區..."
   },
   "welcomeScene": {
+    "space": {
+      "separator": "，",
+      "work": "做點正事",
+      "play": "玩點花樣",
+      "your": "隨你發揮",
+      "suffix": "。"
+    },
     "tabLabel": "歡迎使用",
     "welcomeBack": "歡迎回到",
     "welcomeTabTitle": "歡迎使用",

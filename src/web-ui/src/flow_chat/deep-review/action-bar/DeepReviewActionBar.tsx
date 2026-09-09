@@ -443,9 +443,8 @@ export const ReviewActionBar: React.FC<ReviewActionBarProps> = ({ childSessionId
     store.toggleAllRemediation(childSessionId ?? undefined);
   }, [childSessionId, store]);
 
-  const handleToggleGroup = useCallback((groupId: string) => {
-    if (groupId === 'ungrouped') return;
-    store.toggleGroupRemediation(groupId as RemediationGroupId, childSessionId ?? undefined);
+  const handleToggleGroup = useCallback((groupId: RemediationGroupId | 'ungrouped') => {
+    store.toggleGroupRemediation(groupId, childSessionId ?? undefined);
   }, [childSessionId, store]);
 
   const handleToggleDecisionExpansion = useCallback((id: string) => {

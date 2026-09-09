@@ -249,7 +249,7 @@ const GitDiffView: React.FC<GitDiffViewProps> = ({
           <FileText size={48} />
           <h3>{t('diffView.loadFailedTitle')}</h3>
           <p>{error}</p>
-          <Button onClick={loadDiff} variant="fill" size="sm">
+          <Button onClick={loadDiff} variant="primary" size="sm">
             {t('common.retry')}
           </Button>
         </div>
@@ -314,7 +314,7 @@ const GitDiffView: React.FC<GitDiffViewProps> = ({
             </div>
             <h3>{t('diffView.loadFailedTitle')}</h3>
             <p>{error}</p>
-            <Button onClick={loadDiff} variant="fill" size="sm" leadingIcon={<Icon name="refresh" size="md" />}>
+            <Button onClick={loadDiff} variant="primary" size="sm" leadingIcon={<Icon name="refresh" size="md" />}>
 
               {t('common.retry')}
             </Button>

@@ -59,6 +59,10 @@ import type {
 } from '../types';
 import { GlobalPermissionRulesDialog } from './GlobalPermissionRulesDialog';
 import SessionTitleConfig from './SessionTitleConfig';
+import DefaultHarnessConfig from './DefaultHarnessConfig';
+import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { isRemoteWorkspace } from '@/shared/types/global-state';
+import { WORKSPACE_SEARCH_AVAILABLE } from '@/infrastructure/config/workspaceSearchAvailability';
 import ReviewCapacitySection from './ReviewCapacitySection';
 import ToolJsonRepairSection from './ToolJsonRepairSection';
 import { workspaceAPI } from '@/infrastructure/api';
@@ -946,6 +950,7 @@ const RuntimeSettingsPage: React.FC<RuntimeSettingsPageProps> = ({
   const appearanceView = page;
   const showsExecutionSettings = page === 'execution';
 
+  const { workspace } = useCurrentWorkspace();
   const requiresExperienceSettings = page === 'pet' || page === 'session-workspace';
   if (loadError) {
     return (
@@ -1009,7 +1014,7 @@ const RuntimeSettingsPage: React.FC<RuntimeSettingsPageProps> = ({
             >
               <Button
                 size="md"
-                variant="fill"
+                variant="primary"
                 onClick={() => void handleImportCompanionPet()}
                 disabled={!IS_TAURI_DESKTOP || companionPetImporting}
                 title={t('features.pet.importHint')}
@@ -1119,20 +1124,24 @@ const RuntimeSettingsPage: React.FC<RuntimeSettingsPageProps> = ({
         {page === 'session-workspace' && settings ? (
           <>
 
-        {/* ── Accelerated workspace search ───────────────────────── */}
-        <ConfigPageSection
-          title={t('features.workspaceSearch.title')}
-          description={t('features.workspaceSearch.subtitle')}
-        >
-          <ConfigPageRow label={t('features.workspaceSearch.enable')} align="center">
-            <div className="openbitfun-runtime-settings__row-control" data-openbitfun-component="runtime-settings" data-openbitfun-part="control">
-              <Switch
-                checked={settings.enable_workspace_search}
-                onChange={(e) => updateSetting('enable_workspace_search', e.target.checked)}
-              />
-            </div>
-          </ConfigPageRow>
-        </ConfigPageSection>
+<DefaultHarnessConfig />
+
+        {/* Accelerated search is available for local workspaces only. */}
+        {WORKSPACE_SEARCH_AVAILABLE && !isRemoteWorkspace(workspace) && (
+          <ConfigPageSection
+            title={t('features.workspaceSearch.title')}
+            description={t('features.workspaceSearch.subtitle')}
+          >
+            <ConfigPageRow label={t('features.workspaceSearch.enable')} align="center">
+              <div className="openbitfun-runtime-settings__row-control" data-openbitfun-component="runtime-settings" data-openbitfun-part="control">
+                <Switch
+                  checked={settings.enable_workspace_search}
+                  onChange={(e) => updateSetting('enable_workspace_search', e.target.checked)}
+                />
+              </div>
+            </ConfigPageRow>
+          </ConfigPageSection>
+        )}
 
         <SessionTitleConfig />
 
@@ -1598,7 +1607,7 @@ const RuntimeSettingsPage: React.FC<RuntimeSettingsPageProps> = ({
           </div>
           <div className="openbitfun-debug-config__modal-footer" data-openbitfun-component="runtime-settings" data-openbitfun-part="modalFooter">
             <Button
-              variant="outline"
+              variant="fill"
               size="sm"
               onClick={() => setBrowserRestartPrompt(null)}
               disabled={browserControlBusy}
@@ -1606,7 +1615,7 @@ const RuntimeSettingsPage: React.FC<RuntimeSettingsPageProps> = ({
               {t('browserControl.restartModal.cancel')}
             </Button>
             <Button
-              variant="fill"
+              variant="primary"
               size="sm"
               onClick={() => void handleBrowserControlRestart()}
               disabled={browserControlBusy}

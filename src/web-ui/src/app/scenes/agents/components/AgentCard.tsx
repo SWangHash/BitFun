@@ -87,9 +87,9 @@ const AgentCard: React.FC<AgentCardProps> = ({
         </div>
 
         <div className="agent-card__body" data-openbitfun-component="agent-card" data-openbitfun-part="body">
-          <p className="agent-card__desc" data-openbitfun-component="agent-card" data-openbitfun-part="description" data-testid="agent-list-item-description">
+          <OverflowText as="p" lines={2} className="agent-card__desc" data-openbitfun-component="agent-card" data-openbitfun-part="description" data-testid="agent-list-item-description">
             {getAgentDescription(t, agent)}
-          </p>
+          </OverflowText>
         </div>
 
         <div className="agent-card__footer" data-openbitfun-component="agent-card" data-openbitfun-part="footer">

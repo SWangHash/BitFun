@@ -517,7 +517,7 @@ const TodoEditor: React.FC<TodoEditorProps> = ({
         <Button
           type="button"
           size="md"
-          variant="outline"
+          variant="fill"
           onClick={onCancel}
           disabled={saving}
         >
@@ -526,7 +526,7 @@ const TodoEditor: React.FC<TodoEditorProps> = ({
         <Button
           type="submit"
           size="md"
-          variant="fill"
+          variant="primary"
           loading={saving}
           disabled={workspaceOptions.length === 0 || !selectedWorkspaceId}
           data-testid="todos-editor-save"

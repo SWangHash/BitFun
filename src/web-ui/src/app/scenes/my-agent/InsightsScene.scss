@@ -719,14 +719,6 @@ $ins-r-lg: 12px;
   flex-direction: row;
   min-height: 0;
   overflow-x: hidden;
-
-  &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb {
-    background: var(--openbitfun-color-border-default);
-    border-radius: 3px;
-  }
-  &::-webkit-scrollbar-thumb:hover { background: var(--openbitfun-color-field-border-hover); }
 }
 
 // Report body column

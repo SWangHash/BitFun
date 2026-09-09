@@ -6982,11 +6982,13 @@
       "categoryId": "assistant",
       "titleZh": "会话与工作区设置",
       "titleEn": "Session & workspace settings",
-      "summaryZh": "控制会话标题生成、工作区加速搜索和与项目上下文相关的行为。",
-      "summaryEn": "Control session-title generation, accelerated workspace search, and project-context behavior.",
+      "summaryZh": "控制默认 Agent Harness、会话标题生成、工作区加速搜索和与项目上下文相关的行为。",
+      "summaryEn": "Control the default Agent Harness, session-title generation, accelerated workspace search, and project-context behavior.",
       "keywordsZh": [
         "会话设置",
         "工作区设置",
+        "默认 Harness",
+        "上次选择",
         "标题生成",
         "项目搜索",
         "索引"
@@ -6994,21 +6996,40 @@
       "keywordsEn": [
         "session settings",
         "workspace settings",
+        "default Harness",
+        "last selection",
         "title generation",
         "project search",
         "index"
       ],
       "highlightsZh": [
+        "跟随上次选择或固定默认 Harness",
         "自动生成会话标题",
         "本地工作区加速搜索",
         "会话使用的标题模型"
       ],
       "highlightsEn": [
+        "Follow the last selection or fix a default Harness",
         "Automatic session titles",
         "Accelerated local-workspace search",
         "Model used for session titles"
       ],
       "items": [
+        {
+          "id": "default-agent-harness",
+          "titleZh": "让普通新会话跟随 ChatInput 上次选择，或固定使用指定 Harness",
+          "titleEn": "Make regular new sessions follow the last ChatInput selection or use a fixed Harness",
+          "control": {
+            "kind": "open",
+            "reasonCode": "unstructuredInteraction",
+            "reasonZh": "“让普通新会话跟随 ChatInput 上次选择，或固定使用指定 Harness”由会话设置页中的关联控件共同管理，目前没有一个能确定完成整个流程的单一结构化 Command；Agent 会打开精确入口，并把选择保留在用户可见界面。",
+            "reasonEn": "“Make regular new sessions follow the last ChatInput selection or use a fixed Harness” is managed by related controls on the session settings page and currently has no single structured Command that can deterministically complete the whole workflow; the Agent opens the exact entry and keeps the selection visible to the user."
+          },
+          "evidence": [
+            "source:src/web-ui/src/infrastructure/config/components/DefaultHarnessConfig.tsx#DefaultHarnessConfig",
+            "source:src/web-ui/src/locales/zh-CN/settings/runtime.json#defaultHarness.title"
+          ]
+        },
         {
           "id": "automatic-titles",
           "titleZh": "启用或停用根据会话内容自动生成标题",
@@ -7093,18 +7114,22 @@
       "stepsZh": [
         "打开设置",
         "进入“工作区 > 会话与工作区”",
-        "调整标题或搜索选项"
+        "调整默认 Harness、标题或搜索选项"
       ],
       "stepsEn": [
         "Open Settings",
         "Go to Workspace > Session & Workspace",
-        "Tune title or search controls"
+        "Tune the default Harness, title, or search controls"
       ],
       "agentExamplesZh": [
+        "让新会话跟随 ChatInput 上一次选择的 Harness",
+        "把新会话固定为 Ultimate Harness",
         "关闭自动生成会话标题",
         "启用工作区加速搜索"
       ],
       "agentExamplesEn": [
+        "Make new sessions follow the last Harness selected in ChatInput",
+        "Fix Ultimate as the Harness for new sessions",
         "Turn off automatic session titles",
         "Enable accelerated workspace search"
       ],

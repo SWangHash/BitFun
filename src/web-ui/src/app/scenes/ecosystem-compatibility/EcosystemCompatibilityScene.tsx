@@ -625,7 +625,7 @@ const EcosystemCompatibilityScene: React.FC = () => {
                       <Button
                         className="ecosystem-compatibility__runtime-mode-action"
                         size="sm"
-                        variant="fill"
+                        variant="primary"
                         leadingIcon={<Icon name="side-chat" />}
                         onClick={() => handleStartAcpClient(client)}
                       >
@@ -722,7 +722,7 @@ const EcosystemCompatibilityScene: React.FC = () => {
                         <div>
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="fill"
                             disabled={savingProfile}
                             onClick={() => setEditingSubagentClientId(null)}
                           >
@@ -730,7 +730,7 @@ const EcosystemCompatibilityScene: React.FC = () => {
                           </Button>
                           <Button
                             size="sm"
-                            variant="fill"
+                            variant="primary"
                             loading={savingProfile}
                             onClick={() => void handleSaveSubagent(client)}
                           >

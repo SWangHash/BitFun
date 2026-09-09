@@ -374,7 +374,7 @@ export const GitBranchHistoryView: React.FC<GitBranchHistoryViewProps> = ({
           {canCherryPick && (
             <Button
               size="sm"
-              variant="fill"
+              variant="primary"
               onClick={handleCherryPick}
               disabled={isCherryPicking || selectedCommits.size === 0}
               loading={isCherryPicking}

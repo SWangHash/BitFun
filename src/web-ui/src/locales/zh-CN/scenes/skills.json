@@ -42,6 +42,7 @@
     "subtitleAll": "管理所有已安装的用户级和项目级技能",
     "titleBuiltin": "内置技能",
     "titleUser": "用户级技能",
+    "titleSource": "{{source}} 技能",
     "subtitleUser": "全局安装的用户级技能",
     "titleProject": "项目级技能",
     "subtitleProject": "当前工作区的项目级技能"
@@ -52,6 +53,7 @@
     "hideDuplicates": "隐藏重复项"
   },
   "filters": {
+    "source": "{{source}}",
     "all": "全部",
     "builtin": "内置",
     "user": "用户级",
@@ -61,8 +63,9 @@
   "categories": {
     "all": "查看所有已安装的技能，包含内置、用户和项目级。",
     "builtin": "系统出厂自带的核心技能，不可删除。",
-    "user": "全局安装到当前账户的用户级技能。",
-    "project": "当前工作区下的项目级技能。",
+    "user": "全局安装到当前账户的 OpenBitFun 用户级技能。",
+    "project": "当前工作区下的 OpenBitFun 项目级技能。",
+    "source": "从 {{source}} 扫描到的技能，包含用户级及当前工作区的项目级技能。",
     "suite": "按模式分组的内置技能套件，可一键控制可见性。"
   },
   "section": {
@@ -259,7 +262,9 @@
       "globalEnabled": "智能体可用",
       "globalDisabled": "已全局禁用",
       "globalToggleLabel": "切换 {{name}} 的全局可用状态"
-    }
+    },
+    "scanIncomplete": "部分技能扫描失败，已成功读取的技能仍可使用。",
+    "diagnosticsUnavailable": "当前主机不提供技能扫描诊断。"
   },
   "deleteModal": {
     "title": "确认删除",

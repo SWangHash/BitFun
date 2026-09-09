@@ -501,9 +501,8 @@ const createCanvasStoreHook = () => create<CanvasStore>()(
           const group = getGroup(draft, result.groupId);
           const tab = group.tabs.find(t => t.id === result.tab.id);
           if (tab) {
-            const displayTitle = newName.length > 20 ? `${newName.slice(0, 20)}...` : newName;
-            tab.title = displayTitle;
-            tab.content.title = displayTitle;
+            tab.title = newName;
+            tab.content.title = newName;
             tab.content.data = { ...tab.content.data, sessionName: newName };
           }
         });
