@@ -16,6 +16,7 @@ import {
   feedbackAPI,
   FeedbackApiError,
   FEEDBACK_CONTENT_MAX_CHARS,
+  FEEDBACK_INBOX_PAGE_SIZE,
   feedbackContentLength,
   feedbackInsertText,
   systemAPI,
@@ -58,6 +59,7 @@ export const FeedbackDialog: React.FC<FeedbackDialogProps> = ({ isOpen, onClose 
   const refreshInbox = useFeedbackInboxStore(state => state.refresh);
   const [activeView, setActiveView] = useState<'create' | 'inbox'>('create');
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
+  const [inboxVisibleCount, setInboxVisibleCount] = useState(FEEDBACK_INBOX_PAGE_SIZE);
   const [wideLayout, setWideLayout] = useState(false);
   const [category, setCategory] = useState<FeedbackCategory | ''>('');
   const [content, setContent] = useState('');
@@ -157,6 +159,7 @@ export const FeedbackDialog: React.FC<FeedbackDialogProps> = ({ isOpen, onClose 
     setCompleted(false);
     setActiveView('create');
     setSelectedFeedbackId(null);
+    setInboxVisibleCount(FEEDBACK_INBOX_PAGE_SIZE);
     setReplyState({ hasDraft: false, sending: false });
     setReplyResetVersion(current => current + 1);
     setPendingReplyExit(null);
@@ -578,6 +581,8 @@ export const FeedbackDialog: React.FC<FeedbackDialogProps> = ({ isOpen, onClose 
                 wide={wideLayout}
                 selectedId={selectedFeedbackId}
                 onSelect={selectFeedback}
+                visibleCount={inboxVisibleCount}
+                onVisibleCountChange={setInboxVisibleCount}
                 replySending={replyState.sending}
                 resetDraftVersion={replyResetVersion}
                 onReplyStateChange={updateReplyState}
