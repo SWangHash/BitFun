@@ -353,31 +353,33 @@ impl ModelExchangeTraceSink for WorkspaceModelExchangeTraceSink {
                 )
             })
             .unwrap_or_else(|| Uuid::new_v4().to_string());
-        let correlation = DebugCorrelation {
-            session_id: Some(self.session_id.clone()),
-            turn_id: Some(self.turn_id.clone()),
-            round_id: (self.operation_kind == "model_round").then(|| self.operation_id.clone()),
-            inference_id: Some(correlation_id.clone()),
-            ..Default::default()
-        };
-        let request_parts = debug_request_parts(attempt.request_body.as_ref());
-        self.telemetry.record_debug(
-            DebugTelemetryRecord::InferenceRequest(DebugInferenceRecord {
-                correlation,
-                provider: Some(self.provider.clone()),
-                model: Some(self.model_id.clone()),
-                request_url: Some(attempt.request_url.clone()),
-                request: attempt.request_body.clone().map(DebugContentField::value),
-                response: None,
-                system_prompt: request_parts.system_prompt.map(DebugContentField::text),
-                tool_definitions: request_parts.tool_definitions.map(DebugContentField::value),
-                context: request_parts.context.map(DebugContentField::value),
-                reminders: request_parts.reminders.map(DebugContentField::value),
-                answer: None,
-                reasoning: None,
-                provider_metadata: None,
-                error: None,
-            }),
+        self.telemetry.record_debug_lazy(
+            || {
+                let request_parts = debug_request_parts(attempt.request_body.as_ref());
+                DebugTelemetryRecord::InferenceRequest(DebugInferenceRecord {
+                    correlation: DebugCorrelation {
+                        session_id: Some(self.session_id.clone()),
+                        turn_id: Some(self.turn_id.clone()),
+                        round_id: (self.operation_kind == "model_round")
+                            .then(|| self.operation_id.clone()),
+                        inference_id: Some(correlation_id.clone()),
+                        ..Default::default()
+                    },
+                    provider: Some(self.provider.clone()),
+                    model: Some(self.model_id.clone()),
+                    request_url: Some(attempt.request_url.clone()),
+                    request: attempt.request_body.clone().map(DebugContentField::value),
+                    response: None,
+                    system_prompt: request_parts.system_prompt.map(DebugContentField::text),
+                    tool_definitions: request_parts.tool_definitions.map(DebugContentField::value),
+                    context: request_parts.context.map(DebugContentField::value),
+                    reminders: request_parts.reminders.map(DebugContentField::value),
+                    answer: None,
+                    reasoning: None,
+                    provider_metadata: None,
+                    error: None,
+                })
+            },
             self.observation_context.clone(),
         );
         let trace_id = Uuid::new_v4().to_string();
@@ -443,30 +445,32 @@ impl ModelExchangeTraceSink for WorkspaceModelExchangeTraceSink {
         handle: Option<&ModelExchangeRequestTraceHandle>,
         error: &str,
     ) {
-        self.telemetry.record_debug(
-            DebugTelemetryRecord::InferenceAttempt(DebugInferenceRecord {
-                correlation: DebugCorrelation {
-                    session_id: Some(self.session_id.clone()),
-                    turn_id: Some(self.turn_id.clone()),
-                    round_id: (self.operation_kind == "model_round")
-                        .then(|| self.operation_id.clone()),
-                    inference_id: handle.and_then(|handle| handle.correlation_id.clone()),
-                    ..Default::default()
-                },
-                provider: Some(self.provider.clone()),
-                model: Some(self.model_id.clone()),
-                request_url: None,
-                request: None,
-                response: None,
-                system_prompt: None,
-                tool_definitions: None,
-                context: None,
-                reminders: None,
-                answer: None,
-                reasoning: None,
-                provider_metadata: None,
-                error: Some(DebugContentField::text(error)),
-            }),
+        self.telemetry.record_debug_lazy(
+            || {
+                DebugTelemetryRecord::InferenceAttempt(DebugInferenceRecord {
+                    correlation: DebugCorrelation {
+                        session_id: Some(self.session_id.clone()),
+                        turn_id: Some(self.turn_id.clone()),
+                        round_id: (self.operation_kind == "model_round")
+                            .then(|| self.operation_id.clone()),
+                        inference_id: handle.and_then(|handle| handle.correlation_id.clone()),
+                        ..Default::default()
+                    },
+                    provider: Some(self.provider.clone()),
+                    model: Some(self.model_id.clone()),
+                    request_url: None,
+                    request: None,
+                    response: None,
+                    system_prompt: None,
+                    tool_definitions: None,
+                    context: None,
+                    reminders: None,
+                    answer: None,
+                    reasoning: None,
+                    provider_metadata: None,
+                    error: Some(DebugContentField::text(error)),
+                })
+            },
             self.observation_context.clone(),
         );
         let Some(handle) = handle else {
@@ -503,35 +507,37 @@ impl ModelExchangeTraceSink for WorkspaceModelExchangeTraceSink {
         handle: &ModelExchangeRequestTraceHandle,
         response: &ModelExchangeResponseTrace,
     ) {
-        self.telemetry.record_debug(
-            DebugTelemetryRecord::InferenceResponse(DebugInferenceRecord {
-                correlation: DebugCorrelation {
-                    session_id: Some(self.session_id.clone()),
-                    turn_id: Some(self.turn_id.clone()),
-                    round_id: (self.operation_kind == "model_round")
-                        .then(|| self.operation_id.clone()),
-                    inference_id: handle.correlation_id.clone(),
-                    ..Default::default()
-                },
-                provider: Some(self.provider.clone()),
-                model: Some(self.model_id.clone()),
-                request_url: None,
-                request: None,
-                response: serde_json::to_value(response)
-                    .ok()
-                    .map(DebugContentField::value),
-                system_prompt: None,
-                tool_definitions: None,
-                context: None,
-                reminders: None,
-                answer: response.assistant_text.clone().map(DebugContentField::text),
-                reasoning: response.thinking.clone().map(DebugContentField::text),
-                provider_metadata: response
-                    .provider_metadata
-                    .clone()
-                    .map(DebugContentField::value),
-                error: response.error.clone().map(DebugContentField::text),
-            }),
+        self.telemetry.record_debug_lazy(
+            || {
+                DebugTelemetryRecord::InferenceResponse(DebugInferenceRecord {
+                    correlation: DebugCorrelation {
+                        session_id: Some(self.session_id.clone()),
+                        turn_id: Some(self.turn_id.clone()),
+                        round_id: (self.operation_kind == "model_round")
+                            .then(|| self.operation_id.clone()),
+                        inference_id: handle.correlation_id.clone(),
+                        ..Default::default()
+                    },
+                    provider: Some(self.provider.clone()),
+                    model: Some(self.model_id.clone()),
+                    request_url: None,
+                    request: None,
+                    response: serde_json::to_value(response)
+                        .ok()
+                        .map(DebugContentField::value),
+                    system_prompt: None,
+                    tool_definitions: None,
+                    context: None,
+                    reminders: None,
+                    answer: response.assistant_text.clone().map(DebugContentField::text),
+                    reasoning: response.thinking.clone().map(DebugContentField::text),
+                    provider_metadata: response
+                        .provider_metadata
+                        .clone()
+                        .map(DebugContentField::value),
+                    error: response.error.clone().map(DebugContentField::text),
+                })
+            },
             self.observation_context.clone(),
         );
         if let Err(error) = self.update_response(&handle.trace_id, response).await {

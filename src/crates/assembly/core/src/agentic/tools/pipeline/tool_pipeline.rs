@@ -94,6 +94,20 @@ fn persisted_effective_tool_name(
     (wire_tool_name != effective_tool_name).then(|| effective_tool_name.to_string())
 }
 
+#[derive(Clone)]
+struct ToolDebugState {
+    correlation: DebugCorrelation,
+    part_index: u64,
+    tool_name: String,
+    wire_tool_name: String,
+    workspace_path: Option<String>,
+    command: Option<String>,
+    mcp_server: Option<String>,
+    skill: Option<String>,
+    extension: Option<String>,
+    context: Option<ObservationContext>,
+}
+
 /// Convert framework::ToolResult to core::ToolResult
 ///
 /// Ensure always has result_for_assistant, avoid tool message content being empty
@@ -763,8 +777,11 @@ impl ToolPipeline {
         intents: Vec<PermissionIntent>,
         context: ToolUseContext,
     ) -> BitFunResult<PermissionPlanDraft> {
-        let debug_context = DebugApprovalContext::from_task(&task);
-        let debug_observation_context = task.context.observation_context.clone();
+        let debug_enabled = self.telemetry.is_debug_enabled();
+        let debug_context = debug_enabled.then(|| DebugApprovalContext::from_task(&task));
+        let debug_observation_context = debug_enabled
+            .then(|| task.context.observation_context.clone())
+            .flatten();
         let start_facts = PermissionEvaluateStartFacts {
             intent_count_bucket: count_bucket(intents.len()),
             delegated: task.context.permission_delegation.is_some()
@@ -802,24 +819,30 @@ impl ToolPipeline {
             },
         };
         observation.finish(finish_facts);
-        let feedback = match &result {
-            Ok(PermissionPlanDraft::Rejected { reason }) => Some(reason.clone()),
-            Err(error) => Some(error.to_string()),
-            Ok(PermissionPlanDraft::Allowed | PermissionPlanDraft::Requests(_)) => None,
-        };
         // `Requests` is an intermediate Ask; its authoritative terminal
         // decision is emitted once by the confirmation owner below.
         if !matches!(&result, Ok(PermissionPlanDraft::Requests(_))) {
-            self.telemetry.record_debug(
-                DebugTelemetryRecord::ApprovalDecision(DebugApprovalRecord {
-                    correlation: debug_context.correlation,
-                    phase: DebugApprovalPhase::Evaluation,
-                    approval_id: None,
-                    function_name: Some(debug_context.function_name),
-                    feedback: feedback.map(DebugContentField::text),
-                }),
-                debug_observation_context,
-            );
+            if let Some(debug_context) = debug_context {
+                self.telemetry.record_debug_lazy(
+                    || {
+                        let feedback = match &result {
+                            Ok(PermissionPlanDraft::Rejected { reason }) => Some(reason.clone()),
+                            Err(error) => Some(error.to_string()),
+                            Ok(PermissionPlanDraft::Allowed | PermissionPlanDraft::Requests(_)) => {
+                                None
+                            }
+                        };
+                        DebugTelemetryRecord::ApprovalDecision(DebugApprovalRecord {
+                            correlation: debug_context.correlation,
+                            phase: DebugApprovalPhase::Evaluation,
+                            approval_id: None,
+                            function_name: Some(debug_context.function_name),
+                            feedback: feedback.map(DebugContentField::text),
+                        })
+                    },
+                    debug_observation_context,
+                );
+            }
         }
         if self.telemetry.is_enabled() {
             let (outcome, error_type) = safe_terminal_completion(finish_facts.completion);
@@ -1262,11 +1285,15 @@ impl ToolPipeline {
         cancellation_token: &CancellationToken,
         parent: Option<ObservationContext>,
     ) -> BitFunResult<PermissionAuthorization> {
-        let debug_context = self
-            .state_manager
-            .get_task(task_id)
-            .as_ref()
-            .map(DebugApprovalContext::from_task);
+        let debug_enabled = self.telemetry.is_debug_enabled();
+        let debug_context = debug_enabled
+            .then(|| {
+                self.state_manager
+                    .get_task(task_id)
+                    .as_ref()
+                    .map(DebugApprovalContext::from_task)
+            })
+            .flatten();
         let Some(plan) = self.permission_plans.lock().await.remove(task_id) else {
             return Ok(PermissionAuthorization::Allowed);
         };
@@ -1282,6 +1309,7 @@ impl ToolPipeline {
         parent: Option<ObservationContext>,
         debug_context: Option<DebugApprovalContext>,
     ) -> BitFunResult<PermissionAuthorization> {
+        let debug_enabled = self.telemetry.is_debug_enabled();
         let (receivers, auto_approve) = match plan {
             PermissionExecutionPlan::Allowed => return Ok(PermissionAuthorization::Allowed),
             PermissionExecutionPlan::Rejected { reason } => {
@@ -1292,17 +1320,19 @@ impl ToolPipeline {
                 auto_approve,
             } => (receivers, auto_approve),
         };
-        let approval_ids = receivers
-            .iter()
-            .map(|pending| pending.request_id().to_string())
-            .collect::<Vec<_>>();
+        let approval_ids = debug_enabled.then(|| {
+            receivers
+                .iter()
+                .map(|pending| pending.request_id().to_string())
+                .collect::<Vec<_>>()
+        });
 
         let start_facts = PermissionConfirmationStartFacts {
             request_count_bucket: count_bucket(receivers.len()),
             auto_approve,
             ui_surface: Some(PermissionUiSurface::ToolPermission),
         };
-        let debug_observation_context = parent.clone();
+        let debug_observation_context = debug_enabled.then(|| parent.clone()).flatten();
         let observation = start_permission_confirmation(&self.telemetry, start_facts, parent);
         let started_at = Instant::now();
         let result: BitFunResult<PermissionAuthorization> = async {
@@ -1407,25 +1437,30 @@ impl ToolPipeline {
             },
         };
         observation.finish(finish_facts);
-        let feedback = match &result {
-            Ok(PermissionAuthorization::UserRejected { feedback }) => feedback.clone(),
-            Ok(PermissionAuthorization::PolicyDenied { reason }) => Some(reason.clone()),
-            Err(error) => Some(error.to_string()),
-            Ok(PermissionAuthorization::Allowed) => None,
-        };
-        self.telemetry.record_debug(
-            DebugTelemetryRecord::ApprovalDecision(DebugApprovalRecord {
-                correlation: debug_context
-                    .as_ref()
-                    .map(|context| context.correlation.clone())
-                    .unwrap_or_default(),
-                phase: DebugApprovalPhase::Confirmation,
-                approval_id: (!approval_ids.is_empty()).then(|| approval_ids.join(",")),
-                function_name: debug_context.map(|context| context.function_name),
-                feedback: feedback.map(DebugContentField::text),
-            }),
-            debug_observation_context,
-        );
+        if let Some(debug_context) = debug_context {
+            self.telemetry.record_debug_lazy(
+                || {
+                    let feedback = match &result {
+                        Ok(PermissionAuthorization::UserRejected { feedback }) => feedback.clone(),
+                        Ok(PermissionAuthorization::PolicyDenied { reason }) => {
+                            Some(reason.clone())
+                        }
+                        Err(error) => Some(error.to_string()),
+                        Ok(PermissionAuthorization::Allowed) => None,
+                    };
+                    DebugTelemetryRecord::ApprovalDecision(DebugApprovalRecord {
+                        correlation: debug_context.correlation,
+                        phase: DebugApprovalPhase::Confirmation,
+                        approval_id: approval_ids
+                            .as_ref()
+                            .and_then(|ids| (!ids.is_empty()).then(|| ids.join(","))),
+                        function_name: Some(debug_context.function_name),
+                        feedback: feedback.map(DebugContentField::text),
+                    })
+                },
+                debug_observation_context,
+            );
+        }
         if self.telemetry.is_enabled() {
             let (outcome, error_type) = safe_terminal_completion(finish_facts.completion);
             self.state_manager
@@ -1932,105 +1967,128 @@ impl ToolPipeline {
             task.context.observation_context.clone(),
         );
         let tool_context = observation.context();
-        let debug_correlation = DebugCorrelation {
-            session_id: Some(task.context.session_id.clone()),
-            turn_id: Some(task.context.dialog_turn_id.clone()),
-            round_id: Some(task.context.round_id.clone()),
-            inference_id: task.context.attempt_id.clone(),
-            tool_call_id: Some(tool_id.clone()),
-            parent_session_id: task
+        let telemetry_enabled = self.telemetry.is_enabled();
+        let programming_language_candidate = telemetry_enabled
+            .then(|| {
+                matches!(
+                    task.invocation.effective_tool_name.as_str(),
+                    "Read" | "Write" | "Edit" | "MultiEdit"
+                )
+                .then(|| {
+                    task.invocation
+                        .effective_arguments
+                        .get("file_path")
+                        .or_else(|| task.invocation.effective_arguments.get("path"))
+                        .and_then(serde_json::Value::as_str)
+                        .and_then(programming_language_class_from_path)
+                })
+                .flatten()
+            })
+            .flatten();
+        let debug_state = if self.telemetry.is_debug_enabled() {
+            let debug_correlation = DebugCorrelation {
+                session_id: Some(task.context.session_id.clone()),
+                turn_id: Some(task.context.dialog_turn_id.clone()),
+                round_id: Some(task.context.round_id.clone()),
+                inference_id: task.context.attempt_id.clone(),
+                tool_call_id: Some(tool_id.clone()),
+                parent_session_id: task
+                    .context
+                    .subagent_parent_info
+                    .as_ref()
+                    .map(|parent| parent.session_id.clone()),
+                parent_turn_id: task
+                    .context
+                    .subagent_parent_info
+                    .as_ref()
+                    .map(|parent| parent.dialog_turn_id.clone()),
+                parent_tool_call_id: task
+                    .context
+                    .subagent_parent_info
+                    .as_ref()
+                    .map(|parent| parent.tool_call_id.clone()),
+            };
+            let debug_tool_name = task.invocation.effective_tool_name.clone();
+            let debug_part_index = u64::from(task.tool_call_order);
+            let debug_wire_tool_name = task.tool_call.tool_name.clone();
+            let debug_arguments = task.invocation.effective_arguments.clone();
+            let debug_dynamic_info = self
+                .tool_registry
+                .read()
+                .await
+                .get_dynamic_tool_info(&task.invocation.effective_tool_name);
+            let debug_workspace_path = task
                 .context
-                .subagent_parent_info
+                .workspace
                 .as_ref()
-                .map(|parent| parent.session_id.clone()),
-            parent_turn_id: task
-                .context
-                .subagent_parent_info
-                .as_ref()
-                .map(|parent| parent.dialog_turn_id.clone()),
-            parent_tool_call_id: task
-                .context
-                .subagent_parent_info
-                .as_ref()
-                .map(|parent| parent.tool_call_id.clone()),
-        };
-        let debug_tool_name = task.invocation.effective_tool_name.clone();
-        let debug_part_index = u64::from(task.tool_call_order);
-        let debug_wire_tool_name = task.tool_call.tool_name.clone();
-        let debug_arguments = task.invocation.effective_arguments.clone();
-        let programming_language_candidate = matches!(
-            debug_tool_name.as_str(),
-            "Read" | "Write" | "Edit" | "MultiEdit"
-        )
-        .then(|| {
-            debug_arguments
-                .get("file_path")
-                .or_else(|| debug_arguments.get("path"))
+                .map(|workspace| workspace.root_path_string());
+            let debug_command = debug_arguments
+                .get("command")
+                .or_else(|| debug_arguments.get("cmd"))
                 .and_then(serde_json::Value::as_str)
-                .and_then(programming_language_class_from_path)
-        })
-        .flatten();
-        let debug_dynamic_info = self
-            .tool_registry
-            .read()
-            .await
-            .get_dynamic_tool_info(&task.invocation.effective_tool_name);
-        let debug_workspace_path = task
-            .context
-            .workspace
-            .as_ref()
-            .map(|workspace| workspace.root_path_string());
-        let debug_command = debug_arguments
-            .get("command")
-            .or_else(|| debug_arguments.get("cmd"))
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_string);
-        let debug_mcp_server = debug_dynamic_info
-            .as_ref()
-            .and_then(|info| info.mcp.as_ref())
-            .map(|mcp| mcp.server_name.clone());
-        let debug_skill = (task.telemetry_source_class == ToolSourceClass::Skill)
-            .then(|| debug_tool_name.clone());
-        let debug_extension = matches!(
-            task.telemetry_source_class,
-            ToolSourceClass::Plugin | ToolSourceClass::External
-        )
-        .then(|| {
-            debug_dynamic_info
+                .map(str::to_string);
+            let debug_mcp_server = debug_dynamic_info
                 .as_ref()
-                .map(|info| info.provider_id.clone())
-                .unwrap_or_else(|| debug_tool_name.clone())
-        });
-        self.telemetry.record_debug(
-            DebugTelemetryRecord::ToolRequest(DebugToolRecord {
-                correlation: debug_correlation.clone(),
+                .and_then(|info| info.mcp.as_ref())
+                .map(|mcp| mcp.server_name.clone());
+            let debug_skill = (task.telemetry_source_class == ToolSourceClass::Skill)
+                .then(|| debug_tool_name.clone());
+            let debug_extension = matches!(
+                task.telemetry_source_class,
+                ToolSourceClass::Plugin | ToolSourceClass::External
+            )
+            .then(|| {
+                debug_dynamic_info
+                    .as_ref()
+                    .map(|info| info.provider_id.clone())
+                    .unwrap_or_else(|| debug_tool_name.clone())
+            });
+            self.telemetry.record_debug_lazy(
+                || {
+                    DebugTelemetryRecord::ToolRequest(DebugToolRecord {
+                        correlation: debug_correlation.clone(),
+                        part_index: debug_part_index,
+                        tool_name: debug_tool_name.clone(),
+                        wire_tool_name: Some(debug_wire_tool_name.clone()),
+                        arguments: Some(DebugContentField::value(debug_arguments)),
+                        raw_arguments: task
+                            .tool_call
+                            .raw_arguments
+                            .clone()
+                            .map(DebugContentField::text),
+                        result: None,
+                        error: None,
+                        parse_error: task
+                            .invocation_resolution_error
+                            .clone()
+                            .or_else(|| task.tool_call.parse_error.clone())
+                            .map(DebugContentField::text),
+                        workspace_path: debug_workspace_path.clone(),
+                        command: debug_command.clone().map(DebugContentField::text),
+                        mcp_server: debug_mcp_server.clone(),
+                        skill: debug_skill.clone(),
+                        extension: debug_extension.clone(),
+                    })
+                },
+                tool_context.clone(),
+            );
+            Some(ToolDebugState {
+                correlation: debug_correlation,
                 part_index: debug_part_index,
-                tool_name: debug_tool_name.clone(),
-                wire_tool_name: Some(debug_wire_tool_name.clone()),
-                arguments: Some(DebugContentField::value(debug_arguments)),
-                raw_arguments: task
-                    .tool_call
-                    .raw_arguments
-                    .clone()
-                    .map(DebugContentField::text),
-                result: None,
-                error: None,
-                parse_error: task
-                    .invocation_resolution_error
-                    .clone()
-                    .or_else(|| task.tool_call.parse_error.clone())
-                    .map(DebugContentField::text),
-                workspace_path: debug_workspace_path.clone(),
-                command: debug_command.clone().map(DebugContentField::text),
-                mcp_server: debug_mcp_server.clone(),
-                skill: debug_skill.clone(),
-                extension: debug_extension.clone(),
-            }),
-            tool_context.clone(),
-        );
+                tool_name: debug_tool_name,
+                wire_tool_name: debug_wire_tool_name,
+                workspace_path: debug_workspace_path,
+                command: debug_command,
+                mcp_server: debug_mcp_server,
+                skill: debug_skill,
+                extension: debug_extension,
+                context: tool_context.clone(),
+            })
+        } else {
+            None
+        };
         self.state_manager
             .set_observation_context(&tool_id, tool_context.clone());
-        let debug_tool_context = tool_context.clone();
         let result = self
             .execute_single_tool_impl(tool_id.clone(), tool_context)
             .await;
@@ -2075,54 +2133,70 @@ impl ToolPipeline {
         let programming_language = (result.is_ok() && failure_source.is_none())
             .then_some(programming_language_candidate)
             .flatten();
-        let state_error = match state.as_ref() {
-            Some(ToolExecutionState::Failed { error, .. }) => Some(error.clone()),
-            Some(ToolExecutionState::Rejected { reason, .. })
-            | Some(ToolExecutionState::Cancelled { reason, .. }) => Some(reason.clone()),
-            _ => None,
+        let content_length = if telemetry_enabled {
+            match &result {
+                Ok(result) => serde_json::to_string(&result.result)
+                    .ok()
+                    .map(|content| content.len() as u64),
+                Err(_) => None,
+            }
+        } else {
+            None
         };
-        let (debug_result, debug_error) = match &result {
-            Ok(result) => (serde_json::to_value(&result.result).ok(), state_error),
-            Err(error) => (None, Some(error.to_string())),
+        let content_truncated = if telemetry_enabled {
+            match &result {
+                Ok(result) => result
+                    .result
+                    .result_for_assistant
+                    .as_deref()
+                    .map(bitfun_agent_tools::tool_result_is_persisted_output),
+                Err(_) => None,
+            }
+        } else {
+            None
         };
-        let content_length = match &result {
-            Ok(result) => serde_json::to_string(&result.result)
-                .ok()
-                .map(|content| content.len() as u64),
-            Err(_) => None,
-        };
-        let content_truncated = match &result {
-            Ok(result) => result
-                .result
-                .result_for_assistant
-                .as_deref()
-                .map(bitfun_agent_tools::tool_result_is_persisted_output),
-            Err(_) => None,
-        };
-        let debug_record = DebugToolRecord {
-            correlation: debug_correlation,
-            part_index: debug_part_index,
-            tool_name: debug_tool_name,
-            wire_tool_name: Some(debug_wire_tool_name),
-            arguments: None,
-            raw_arguments: None,
-            result: debug_result.map(DebugContentField::value),
-            error: debug_error.map(DebugContentField::text),
-            parse_error: None,
-            workspace_path: debug_workspace_path,
-            command: debug_command.map(DebugContentField::text),
-            mcp_server: debug_mcp_server,
-            skill: debug_skill,
-            extension: debug_extension,
-        };
-        self.telemetry.record_debug(
-            if result.is_ok() && failure_source.is_none() {
-                DebugTelemetryRecord::ToolResult(debug_record)
-            } else {
-                DebugTelemetryRecord::ToolFailure(debug_record)
-            },
-            debug_tool_context,
-        );
+        if let Some(debug_state) = debug_state {
+            let debug_error = match state.as_ref() {
+                Some(ToolExecutionState::Failed { error, .. }) => Some(error.clone()),
+                Some(ToolExecutionState::Rejected { reason, .. })
+                | Some(ToolExecutionState::Cancelled { reason, .. }) => Some(reason.clone()),
+                _ => None,
+            };
+            self.telemetry.record_debug_lazy(
+                || {
+                    let debug_result = match &result {
+                        Ok(result) => serde_json::to_value(&result.result).ok(),
+                        Err(_) => None,
+                    };
+                    let debug_error = match &result {
+                        Ok(_) => debug_error,
+                        Err(error) => Some(error.to_string()),
+                    };
+                    let debug_record = DebugToolRecord {
+                        correlation: debug_state.correlation,
+                        part_index: debug_state.part_index,
+                        tool_name: debug_state.tool_name,
+                        wire_tool_name: Some(debug_state.wire_tool_name),
+                        arguments: None,
+                        raw_arguments: None,
+                        result: debug_result.map(DebugContentField::value),
+                        error: debug_error.map(DebugContentField::text),
+                        parse_error: None,
+                        workspace_path: debug_state.workspace_path,
+                        command: debug_state.command.map(DebugContentField::text),
+                        mcp_server: debug_state.mcp_server,
+                        skill: debug_state.skill,
+                        extension: debug_state.extension,
+                    };
+                    if result.is_ok() && failure_source.is_none() {
+                        DebugTelemetryRecord::ToolResult(debug_record)
+                    } else {
+                        DebugTelemetryRecord::ToolFailure(debug_record)
+                    }
+                },
+                debug_state.context,
+            );
+        }
         observation.finish(ToolFinishFacts {
             completion,
             queue_ms,

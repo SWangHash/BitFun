@@ -3761,16 +3761,23 @@ impl ExecutionEngine {
                 .as_ref()
                 .map(|workspace| workspace.root_path()),
         );
-        let user_content = initial_messages
-            .iter()
-            .filter(|message| message.is_actual_user_message())
-            .filter_map(|message| match &message.content {
-                MessageContent::Text(text) | MessageContent::Multimodal { text, .. } => {
-                    Some(text.clone())
-                }
-                _ => None,
-            })
-            .last();
+        let debug_enabled = self.telemetry.is_debug_enabled();
+        let (user_content_length, user_content) = {
+            let content = initial_messages
+                .iter()
+                .filter(|message| message.is_actual_user_message())
+                .filter_map(|message| match &message.content {
+                    MessageContent::Text(text) | MessageContent::Multimodal { text, .. } => {
+                        Some(text.as_str())
+                    }
+                    _ => None,
+                })
+                .last();
+            (
+                content.map(|content| content.len() as u64),
+                debug_enabled.then(|| content.map(str::to_owned)).flatten(),
+            )
+        };
         let turn_sequence = context.turn_index as u64;
         let turn_observation = start_turn_with_relation_and_content_facts(
             &self.telemetry,
@@ -3782,58 +3789,67 @@ impl ExecutionEngine {
             },
             context.observation_relation.clone(),
             Some(turn_sequence),
-            user_content.as_ref().map(|content| content.len() as u64),
+            user_content_length,
         );
         let turn_context = turn_observation.context();
         let initial_count = initial_messages.len();
-        let turn_correlation = DebugCorrelation {
-            session_id: Some(context.session_id.clone()),
-            turn_id: Some(dialog_turn_id.clone()),
-            parent_session_id: context
-                .subagent_parent_info
+        let debug_turn = debug_enabled.then(|| {
+            let correlation = DebugCorrelation {
+                session_id: Some(context.session_id.clone()),
+                turn_id: Some(dialog_turn_id.clone()),
+                parent_session_id: context
+                    .subagent_parent_info
+                    .as_ref()
+                    .map(|parent| parent.session_id.clone()),
+                parent_turn_id: context
+                    .subagent_parent_info
+                    .as_ref()
+                    .map(|parent| parent.dialog_turn_id.clone()),
+                parent_tool_call_id: context
+                    .subagent_parent_info
+                    .as_ref()
+                    .map(|parent| parent.tool_call_id.clone()),
+                ..Default::default()
+            };
+            let workspace_path = context
+                .workspace
                 .as_ref()
-                .map(|parent| parent.session_id.clone()),
-            parent_turn_id: context
-                .subagent_parent_info
+                .map(WorkspaceBinding::root_path_string);
+            let repository = context
+                .workspace
                 .as_ref()
-                .map(|parent| parent.dialog_turn_id.clone()),
-            parent_tool_call_id: context
-                .subagent_parent_info
+                .map(WorkspaceBinding::project_root_path_string);
+            let branch = context
+                .workspace
                 .as_ref()
-                .map(|parent| parent.tool_call_id.clone()),
-            ..Default::default()
-        };
-        let workspace_path = context
-            .workspace
-            .as_ref()
-            .map(WorkspaceBinding::root_path_string);
-        let repository = context
-            .workspace
-            .as_ref()
-            .map(WorkspaceBinding::project_root_path_string);
-        let branch = context
-            .workspace
-            .as_ref()
-            .and_then(|workspace| workspace.execution_target.as_ref())
-            .and_then(|target| target.branch.clone());
-        let base_commit = context
-            .workspace
-            .as_ref()
-            .and_then(|workspace| workspace.execution_target.as_ref())
-            .and_then(|target| target.base_commit.clone());
-        self.telemetry.record_debug(
-            DebugTelemetryRecord::TurnInput(DebugTurnRecord {
-                correlation: turn_correlation.clone(),
-                content: user_content.clone().map(DebugContentField::text),
-                modified_file_paths: None,
-                modified_file_paths_original_count: None,
-                workspace_path: workspace_path.clone(),
-                repository: repository.clone(),
-                branch: branch.clone(),
-                base_commit: base_commit.clone(),
-            }),
-            turn_context.clone(),
-        );
+                .and_then(|workspace| workspace.execution_target.as_ref())
+                .and_then(|target| target.branch.clone());
+            let base_commit = context
+                .workspace
+                .as_ref()
+                .and_then(|workspace| workspace.execution_target.as_ref())
+                .and_then(|target| target.base_commit.clone());
+            (correlation, workspace_path, repository, branch, base_commit)
+        });
+        if let Some((correlation, workspace_path, repository, branch, base_commit)) =
+            debug_turn.as_ref()
+        {
+            self.telemetry.record_debug_lazy(
+                || {
+                    DebugTelemetryRecord::TurnInput(DebugTurnRecord {
+                        correlation: correlation.clone(),
+                        content: user_content.clone().map(DebugContentField::text),
+                        modified_file_paths: None,
+                        modified_file_paths_original_count: None,
+                        workspace_path: workspace_path.clone(),
+                        repository: repository.clone(),
+                        branch: branch.clone(),
+                        base_commit: base_commit.clone(),
+                    })
+                },
+                turn_context.clone(),
+            );
+        }
 
         info!("Starting dialog turn: dialog_turn_id={}", dialog_turn_id);
 
@@ -3884,54 +3900,66 @@ impl ExecutionEngine {
                 deleted_lines: None,
             },
         };
-        let result_content =
+        let result_content_length =
             result
                 .as_ref()
                 .ok()
                 .map(|result| match &result.final_message.content {
                     MessageContent::Text(text) | MessageContent::Multimodal { text, .. } => {
-                        text.clone()
+                        text.len() as u64
                     }
-                    MessageContent::Mixed { text, .. } => text.clone(),
-                    MessageContent::ToolResult { result, .. } => result.to_string(),
+                    MessageContent::Mixed { text, .. } => text.len() as u64,
+                    MessageContent::ToolResult { result, .. } => result.to_string().len() as u64,
                 });
-        turn_observation.finish_with_output_length(
-            finish_facts,
-            result_content.as_ref().map(|content| content.len() as u64),
-        );
-        let modified_file_paths_original_count = result
-            .as_ref()
-            .ok()
-            .and_then(|result| result.modified_file_paths.as_ref())
-            .map(|paths| paths.len().min(u64::MAX as usize) as u64);
-        let modified_file_paths = result
-            .as_ref()
-            .ok()
-            .and_then(|result| result.modified_file_paths.clone())
-            .map(|paths| {
-                const MAX_DEBUG_MODIFIED_PATHS: usize = 2048;
-                let mut field = DebugContentField::value(serde_json::json!(paths));
-                if let serde_json::Value::Array(paths) = &mut field.value {
-                    if paths.len() > MAX_DEBUG_MODIFIED_PATHS {
-                        paths.truncate(MAX_DEBUG_MODIFIED_PATHS);
-                        field.truncated = true;
+        turn_observation.finish_with_output_length(finish_facts, result_content_length);
+        if let Some((correlation, workspace_path, repository, branch, base_commit)) = debug_turn {
+            let result_content =
+                result
+                    .as_ref()
+                    .ok()
+                    .map(|result| match &result.final_message.content {
+                        MessageContent::Text(text) | MessageContent::Multimodal { text, .. } => {
+                            text.clone()
+                        }
+                        MessageContent::Mixed { text, .. } => text.clone(),
+                        MessageContent::ToolResult { result, .. } => result.to_string(),
+                    });
+            let modified_file_paths_original_count = result
+                .as_ref()
+                .ok()
+                .and_then(|result| result.modified_file_paths.as_ref())
+                .map(|paths| paths.len().min(u64::MAX as usize) as u64);
+            let modified_file_paths = result
+                .as_ref()
+                .ok()
+                .and_then(|result| result.modified_file_paths.clone())
+                .map(|paths| {
+                    const MAX_DEBUG_MODIFIED_PATHS: usize = 2048;
+                    let mut field = DebugContentField::value(serde_json::json!(paths));
+                    if let serde_json::Value::Array(paths) = &mut field.value {
+                        if paths.len() > MAX_DEBUG_MODIFIED_PATHS {
+                            paths.truncate(MAX_DEBUG_MODIFIED_PATHS);
+                            field.truncated = true;
+                        }
                     }
-                }
-                field
-            });
-        self.telemetry.record_debug(
-            DebugTelemetryRecord::TurnResult(DebugTurnRecord {
-                correlation: turn_correlation,
-                content: result_content.clone().map(DebugContentField::text),
-                modified_file_paths,
-                modified_file_paths_original_count,
-                workspace_path,
-                repository,
-                branch,
-                base_commit,
-            }),
-            turn_context,
-        );
+                    field
+                });
+            self.telemetry.record_debug_lazy(
+                || {
+                    DebugTelemetryRecord::TurnResult(DebugTurnRecord {
+                        correlation,
+                        content: result_content.map(DebugContentField::text),
+                        modified_file_paths,
+                        modified_file_paths_original_count,
+                        workspace_path,
+                        repository,
+                        branch,
+                        base_commit,
+                    })
+                },
+                turn_context,
+            );
+        }
 
         result
     }

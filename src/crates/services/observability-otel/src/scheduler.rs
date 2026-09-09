@@ -333,7 +333,14 @@ mod tests {
             }),
         );
 
-        assert!(scheduler.try_enqueue(1, 10));
+        let enqueue_deadline = Instant::now() + Duration::from_secs(1);
+        while !scheduler.try_enqueue(1, 10) {
+            assert!(
+                Instant::now() < enqueue_deadline,
+                "first record should enqueue after worker startup contention clears"
+            );
+            std::thread::yield_now();
+        }
         assert_eq!(started_rx.recv_timeout(Duration::from_secs(1)).unwrap(), 1);
         let enqueue_deadline = Instant::now() + Duration::from_secs(1);
         while !scheduler.try_enqueue(2, 10) {

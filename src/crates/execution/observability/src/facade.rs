@@ -236,6 +236,24 @@ impl Telemetry {
         self.inner.enabled.load(Ordering::Acquire)
     }
 
+    pub fn is_debug_enabled(&self) -> bool {
+        self.is_enabled() && self.policy_snapshot().level == TelemetryLevel::Debug
+    }
+
+    pub fn record_debug_lazy<F>(&self, build: F, context: Option<ObservationContext>)
+    where
+        F: FnOnce() -> DebugTelemetryRecord,
+    {
+        if !self.is_debug_enabled() {
+            self.inner
+                .diagnostics
+                .skipped
+                .fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+        self.record_debug(build(), context);
+    }
+
     pub(crate) fn start_operation<F>(
         &self,
         kind: OperationKind,
@@ -951,6 +969,37 @@ mod tests {
             telemetry.record_debug(content_record(&format!("argument-{index}")), None);
         }
         assert_eq!(sink.debug_records().len(), 10);
+    }
+
+    #[test]
+    fn lazy_debug_builder_is_not_called_outside_debug() {
+        for level in [TelemetryLevel::Off, TelemetryLevel::Diagnostic] {
+            let sink = Arc::new(InMemorySink::default());
+            let (telemetry, _) = Telemetry::build(PolicySnapshot::new(level), sink);
+            let built = Arc::new(AtomicU64::new(0));
+            let built_clone = built.clone();
+            telemetry.record_debug_lazy(
+                move || {
+                    built_clone.fetch_add(1, Ordering::Relaxed);
+                    content_record("should-not-be-built")
+                },
+                None,
+            );
+            assert_eq!(built.load(Ordering::Relaxed), 0);
+        }
+
+        let sink = Arc::new(InMemorySink::default());
+        let (telemetry, _) = Telemetry::build(PolicySnapshot::new(TelemetryLevel::Debug), sink);
+        let built = Arc::new(AtomicU64::new(0));
+        let built_clone = built.clone();
+        telemetry.record_debug_lazy(
+            move || {
+                built_clone.fetch_add(1, Ordering::Relaxed);
+                content_record("built")
+            },
+            None,
+        );
+        assert_eq!(built.load(Ordering::Relaxed), 1);
     }
 
     #[test]

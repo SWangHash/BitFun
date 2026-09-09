@@ -442,10 +442,16 @@ impl RoundExecutor {
                 Err(_) => Default::default(),
             };
         let allow_normal_tool_json_repair = global_config.ai.allow_tool_json_repair;
-        let tool_definition_tokens_estimate = tool_definitions.as_ref().map(|definitions| {
-            TokenCounter::estimate_tool_definitions_tokens(definitions).min(u64::MAX as usize)
-                as u64
-        });
+        let tool_definition_tokens_estimate = self
+            .telemetry
+            .is_enabled()
+            .then(|| {
+                tool_definitions.as_ref().map(|definitions| {
+                    TokenCounter::estimate_tool_definitions_tokens(definitions)
+                        .min(u64::MAX as usize) as u64
+                })
+            })
+            .flatten();
         let context_window_tokens =
             context_window.map(|tokens| tokens.min(u64::MAX as usize) as u64);
         let (provider_class, model_class, protocol_class) =
