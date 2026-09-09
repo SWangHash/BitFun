@@ -100,7 +100,14 @@ const SceneTopBar: React.FC<SceneTopBarProps> = ({
         data-openbitfun-scene="workbench"
         data-openbitfun-part="sceneActions"
       />
-      {hasWindowControls ? (
+      {showHostWindowChromePlaceholder ? (
+        <div
+          className="openbitfun-scene-top-bar__window-controls openbitfun-scene-top-bar__window-controls--host"
+          data-openbitfun-component="scene-bar"
+          data-openbitfun-part="hostControls"
+          aria-hidden="true"
+        />
+      ) : hasWindowControls ? (
         <div
           className="openbitfun-scene-top-bar__window-controls"
           data-openbitfun-component="scene-bar"
@@ -113,13 +120,6 @@ const SceneTopBar: React.FC<SceneTopBarProps> = ({
             maximized={isMaximized}
           />
         </div>
-      ) : showHostWindowChromePlaceholder ? (
-        <div
-          className="openbitfun-scene-top-bar__window-controls openbitfun-scene-top-bar__window-controls--host"
-          data-openbitfun-component="scene-bar"
-          data-openbitfun-part="hostControls"
-          aria-hidden="true"
-        />
       ) : null}
       </>}
     />
