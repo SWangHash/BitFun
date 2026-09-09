@@ -215,6 +215,17 @@ impl SnapshotManager {
             .await
     }
 
+    pub async fn turn_diff_aggregate(
+        &self,
+        session_id: &str,
+        turn_index: usize,
+    ) -> SnapshotResult<crate::service::snapshot::types::TurnDiffAggregate> {
+        let snapshot_service = self.snapshot_service.read().await;
+        snapshot_service
+            .turn_diff_aggregate(session_id, turn_index)
+            .await
+    }
+
     /// Returns the diff content for a file.
     pub async fn get_file_diff(
         &self,

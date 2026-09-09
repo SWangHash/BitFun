@@ -128,6 +128,7 @@ function isProcMacroPackage(pkg) {
 }
 
 const SERVICES_INTEGRATIONS_TOKIO_FEATURES = new Map([
+  ['anonymous-auth', ['sync']],
   ['announcement', ['fs', 'sync']],
   ['models-dev', ['fs', 'sync', 'time']],
   ['browser-control', ['time']],
@@ -136,6 +137,7 @@ const SERVICES_INTEGRATIONS_TOKIO_FEATURES = new Map([
   ['deep-research', []],
   ['git', ['fs', 'io-util', 'macros', 'rt', 'time']],
   ['file-watch', ['rt', 'sync']],
+  ['feedback', ['fs', 'sync']],
   ['function-agents', ['fs', 'io-util', 'macros', 'rt', 'time']],
   ['mcp', ['fs', 'io-util', 'net', 'process', 'rt', 'sync', 'time']],
   ['miniapp-runtime', ['fs', 'io-util', 'net', 'process', 'rt', 'sync', 'time']],
@@ -317,6 +319,10 @@ const REQWEST_PACKAGE_PROFILES = new Map([
     dependencyFeatures: ['http2', 'json', 'query', 'rustls', 'stream'],
     optional: false,
   }],
+  ['bitfun-observability-otel', {
+    dependencyFeatures: ['rustls'],
+    optional: false,
+  }],
   ['bitfun-miniapp-market-service', {
     dependencyFeatures: ['form', 'http2', 'json', 'rustls'],
     optional: false,
@@ -468,6 +474,7 @@ const THIRD_PARTY_CAPABILITY_PROFILES = new Map([
     label: 'Axum',
     packages: new Map([
       ['bitfun-ai-adapters', dependencyProfile(['json'], { kind: 'dev' })],
+      ['bitfun-observability-otel', dependencyProfile(['json'], { kind: 'dev' })],
       ['bitfun-core', dependencyProfile(['json'], { optional: true })],
       ['bitfun-desktop', dependencyProfile(['json'])],
       ['bitfun-miniapp-market-server', dependencyProfile(['json'])],
@@ -956,9 +963,11 @@ export function findServicesIntegrationsReqwestFeatureViolations(pkg) {
   const featureGraph = pkg.features ?? {};
   const ownerFeatures = new Set(servicesReqwestOwnerFeatures);
   const ownerFeatureReferences = new Map([
+    ['anonymous-auth', ['reqwest/json']],
     ['announcement', ['reqwest/json']],
     ['browser-control', ['reqwest/json']],
     ['debug-log', ['reqwest/json']],
+    ['feedback', ['reqwest/json', 'reqwest/query']],
     ['mcp', ['reqwest/json', 'reqwest/stream']],
     ['miniapp-market', ['reqwest/json', 'reqwest/query', 'reqwest/stream']],
     ['miniapp-runtime', ['reqwest/stream']],

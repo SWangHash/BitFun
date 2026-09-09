@@ -105,6 +105,7 @@ mod tests {
             max_context_tokens: Some(128_000),
             is_subagent: false,
             cached_tokens: None,
+            reasoning_tokens: None,
             token_details: None,
         };
 
@@ -123,6 +124,7 @@ mod tests {
             session_id: "session-1".to_string(),
             turn_id: "turn-1".to_string(),
             compression_id: "compression-1".to_string(),
+            trigger: "threshold".to_string(),
             compression_count: 1,
             tokens_before: 90_000,
             tokens_after: 15_000,
@@ -143,6 +145,7 @@ mod tests {
             session_id: "session-1".to_string(),
             turn_id: "turn-1".to_string(),
             compression_id: "compression-1".to_string(),
+            trigger: "threshold".to_string(),
             compression_count: 1,
             tokens_before: 90_000,
             tokens_after: 15_000,

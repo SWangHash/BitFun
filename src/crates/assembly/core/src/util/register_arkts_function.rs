@@ -7,10 +7,13 @@ use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::OnceLock;
+#[cfg(feature = "agent-runtime")]
+use std::time::Duration;
 lazy_static! {
     pub static ref JS_THREADSAFE_FUNCTION: RwLock<HashMap<String, Arc<ThreadsafeFunction<String, Promise<String>>>>> =
         Default::default();
 }
+static ARKTS_FUNCTION_REGISTERED: OnceLock<tokio::sync::Notify> = OnceLock::new();
 #[napi]
 pub fn register_arkts_function(
     function_name: String,
@@ -19,6 +22,32 @@ pub fn register_arkts_function(
     JS_THREADSAFE_FUNCTION
         .write()
         .insert(function_name, Arc::new(callback));
+    ARKTS_FUNCTION_REGISTERED
+        .get_or_init(tokio::sync::Notify::new)
+        .notify_waiters();
+}
+
+pub fn arkts_function_registered(function_name: &str) -> bool {
+    JS_THREADSAFE_FUNCTION.read().contains_key(function_name)
+}
+
+#[cfg(feature = "agent-runtime")]
+pub async fn wait_for_arkts_function(function_name: &str, timeout: Duration) -> bool {
+    if arkts_function_registered(function_name) {
+        return true;
+    }
+    let notify = ARKTS_FUNCTION_REGISTERED.get_or_init(tokio::sync::Notify::new);
+    tokio::time::timeout(timeout, async {
+        loop {
+            let notified = notify.notified();
+            if arkts_function_registered(function_name) {
+                return;
+            }
+            notified.await;
+        }
+    })
+    .await
+    .is_ok()
 }
 
 /// The OHOS-side event name the web-ui listens for to follow live system color

@@ -36,6 +36,7 @@ pub mod round_preempt;
 pub mod image_analysis;
 pub(crate) mod keyed_lock;
 pub mod memories;
+pub(crate) mod observability;
 pub(crate) mod permission_policy;
 
 // Ephemeral side-question module (used by desktop /btw overlay)
@@ -79,6 +80,7 @@ pub use skill_agent_snapshot::*;
 pub use system::init_agentic_system;
 pub use system::{
     init_agentic_system_for_profile, init_agentic_system_for_profile_with_runtime_ownership,
-    AgenticSystem,
+    init_agentic_system_for_profile_with_runtime_ownership_and_telemetry,
+    init_agentic_system_for_profile_with_telemetry, AgenticSystem,
 };
 pub use workspace::{WorkspaceBackend, WorkspaceBinding};

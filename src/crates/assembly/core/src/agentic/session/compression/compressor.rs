@@ -52,6 +52,7 @@ impl TurnWithTokens {
 pub struct CompressionResult {
     pub messages: Vec<Message>,
     pub has_model_summary: bool,
+    pub model_usage: Option<crate::util::types::ai::GeminiUsage>,
 }
 
 #[derive(Debug, Clone)]
@@ -283,6 +284,7 @@ impl ContextCompressor {
         Ok(CompressionResult {
             messages,
             has_model_summary,
+            model_usage: None,
         })
     }
 
