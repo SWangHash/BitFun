@@ -200,6 +200,13 @@ Mobile Web 直接消费 `@openbitfun/theme-openbitfun`。`ThemeProvider` 与首�
 
 ### Desktop bootstrap 与 Native Mobile 预览
 
+Data Migrator 的独立静态界面直接消费设计系统公开的字体、间距、控件和语义颜色 Token。
+`generate-data-migrator-theme.mjs` 构建设计系统的 Token/主题包，并将公开 CSS 入口及其依赖打包为
+`src/apps/data-migrator/ui/generated/design-system.css`，随迁移程序离线交付。原生控件只使用 canonical
+Token；`theme.js` 在首屏绘制前选择系统浅色/深色和高对比模式，并监听系统设置变化。
+仅独立迁移器打包刷新该资源，开发者也可显式运行生成命令；Desktop 开发和打包不依赖迁移器。
+统一颜色审计同时检查源码和生成物漂移。
+
 Desktop 的更新确认页和启动页只消费 `src/apps/desktop/src/generated/bootstrap_theme.css` 发布的 canonical
 `--openbitfun-*`，不得内联另一套启动色。该 CSS 和两个 Appearance manifest 一起由
 `generate-startup-appearance-bootstrap.mjs` 从正式主题/Appearance 源生成；统一颜色审计执行 `--check`，

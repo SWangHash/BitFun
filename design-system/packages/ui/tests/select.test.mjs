@@ -18,6 +18,7 @@ test("Select preserves native selection and grouped option semantics", () => {
     value: "ask",
   }));
 
+  assert.match(markup, /data-openbitfun-component="select"/);
   assert.match(markup, /<select/);
   assert.match(markup, /aria-label="Mode"/);
   assert.match(markup, /<option[^>]*value="ask"[^>]*selected="">Ask<\/option>/);
@@ -46,14 +47,15 @@ test("Select exposes size, invalid, disabled, and leading regions independently"
   assert.match(markup, /data-openbitfun-part="indicator"/);
 });
 
-test("Select styles theme both the closed field and native option menu", async () => {
-  const styles = await readFile(new URL("../dist/styles.css", import.meta.url), "utf8");
+test("Select styles consume only public field and geometry tokens", async () => {
+  const styles = await readFile(
+    new URL("../src/components/Select/Select.module.css", import.meta.url),
+    "utf8",
+  );
 
   assert.match(styles, /--openbitfun-control-select-padding-inline/);
   assert.match(styles, /--openbitfun-control-select-indicator-size/);
   assert.match(styles, /--openbitfun-color-field-border-focus/);
-  assert.match(styles, /option[^}]*color:\s*var\(--openbitfun-color-content-primary\)/s);
-  assert.match(styles, /option[^}]*background-color:\s*var\(--openbitfun-color-surface-panel\)/s);
-  assert.match(styles, /option:disabled[^}]*color:\s*var\(--openbitfun-color-content-disabled\)/s);
   assert.match(styles, /--openbitfun-color-status-danger-border/);
+  assert.doesNotMatch(styles, /#[0-9a-f]{3,8}/i);
 });

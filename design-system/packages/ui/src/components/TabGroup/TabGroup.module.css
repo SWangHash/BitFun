@@ -40,6 +40,7 @@
     justify-content: center;
     min-inline-size: 0;
     block-size: var(--_tab-group-item-height);
+    max-inline-size: 100%;
     padding-block: var(--_tab-group-item-padding-block);
     padding-inline: var(--_tab-group-item-padding-inline);
     border: var(--openbitfun-border-width-default) solid var(--_tab-border);
@@ -121,7 +122,6 @@
     min-inline-size: 0;
     line-height: var(--openbitfun-type-label-md-line-height);
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .endAction {

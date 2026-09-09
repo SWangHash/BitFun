@@ -38,7 +38,6 @@
       overflow: hidden;
       color: var(--openbitfun-color-content-secondary);
       font-size: var(--openbitfun-type-label-sm-font-size);
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
   }
@@ -724,7 +723,6 @@
     color: var(--openbitfun-color-content-primary);
     margin-bottom: 2px;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -735,7 +733,6 @@
     color: var(--openbitfun-color-content-secondary);
     line-height: var(--openbitfun-type-body-sm-line-height);
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     
     padding: 2px 6px;
@@ -1174,7 +1171,6 @@
     min-width: 0;
     flex: 1;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

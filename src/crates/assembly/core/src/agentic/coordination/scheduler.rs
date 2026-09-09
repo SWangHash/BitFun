@@ -1391,8 +1391,8 @@ impl DialogScheduler {
             || self.queues.has_items(session_id)
             || self
                 .session_manager
-                .get_session(session_id)
-                .is_some_and(|session| matches!(session.state, SessionState::Processing { .. }))
+                .get_session_state(session_id)
+                .is_some_and(|state| matches!(state, SessionState::Processing { .. }))
     }
 
     async fn finish_removed_queued_turn(&self, session_id: &str, removed_turn: QueuedTurn) {

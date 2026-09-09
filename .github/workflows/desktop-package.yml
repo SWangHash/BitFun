@@ -44,6 +44,7 @@ concurrency:
 jobs:
   # ── Resolve version info ───────────────────────────────────────────
   prepare:
+    if: github.event_name != 'release' || !startsWith(github.event.release.tag_name, 'data-migrator-v')
     name: Prepare
     runs-on: ubuntu-latest
     outputs:
@@ -87,11 +88,10 @@ jobs:
             TAG="${INPUT_TAG_NAME}"
             VERSION="${TAG#v}"
             CHANNEL="${INPUT_RELEASE_CHANNEL:-stable}"
-            # A one-off image backfill must use the workflow branch: an older
-            # tag does not contain Dockerfile.release or this publishing job.
-            if [[ "${INPUT_RELAY_IMAGE_ONLY}" == "true" ]]; then
-              CHECKOUT_REF="${GITHUB_SHA}"
-            elif [[ -n "${INPUT_CHECKOUT_REF}" ]]; then
+            # Image-only rebuilds use the same immutable source tag as their
+            # archives. Using the workflow branch breaks the tag/SHA guard and
+            # can combine a new Dockerfile with unrelated release binaries.
+            if [[ -n "${INPUT_CHECKOUT_REF}" ]]; then
               CHECKOUT_REF="${INPUT_CHECKOUT_REF}"
             else
               CHECKOUT_REF="${TAG}"
@@ -750,7 +750,11 @@ jobs:
           jq -e '.digest | test("^sha256:[0-9a-f]{64}$")' relay-image.published.json >/dev/null
           curl -fsSL --retry 5 --retry-delay 3 \
             "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare.outputs.release_tag }}/relay-image.json.sig" \
-            -o /dev/null
+            -o relay-image.published.json.sig
+          # These exact bytes were signed in the image job. Detect a stale or
+          # crossed upload pair before advertising a release as ready.
+          cmp relay-image-assets/relay-image.json relay-image.published.json
+          cmp relay-image-assets/relay-image.json.sig relay-image.published.json.sig
 
       - name: Resolve beta channel promotion
         id: beta-channel

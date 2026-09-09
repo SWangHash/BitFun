@@ -6,7 +6,7 @@
  */
 
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Icon, IconButton, Input, Menu, MenuItem, Tooltip } from '@openbitfun/ui';
+import { Button, Icon, IconButton, Input, Menu, MenuItem, OverflowText, Tooltip } from '@openbitfun/ui';
 import { createPortal } from 'react-dom';
 import { Bot, Loader2, Archive, ListChecks } from 'lucide-react';
 import { RetainedMountBoundary } from '@/shared/presence';
@@ -14,7 +14,6 @@ import { useI18n } from '@/infrastructure/i18n';
 import { flowChatStore } from '../../../../../flow_chat/store/FlowChatStore';
 import { flowChatManager } from '../../../../../flow_chat/services/FlowChatManager';
 import type { FlowChatState, Session } from '../../../../../flow_chat/types/flow-chat';
-import { hasPendingAskUserQuestion, resolveTrackedTurn } from '../../../../../flow_chat/utils/askUserQuestionState';
 import { useSceneStore } from '../../../../stores/sceneStore';
 import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
 import { createLogger } from '@/shared/utils/logger';
@@ -57,13 +56,13 @@ import type {
   BackgroundSubagentActivityItem,
 } from '@/flow_chat/utils/backgroundSubagentActivity';
 import { useSideAnchoredPopoverPosition } from '@/shared/utils/useSideAnchoredPopoverPosition';
+import {
+  computeFixedPopoverPositionInViewport,
+} from '@/shared/utils/fixedPopoverViewport';
 import { exportSessionToMarkdown } from '@/flow_chat/services/sessionMarkdownExport';
 import type { TranscriptExportScope } from '@/flow_chat/utils/dialogTranscriptExport';
 import { confirmDanger } from '@/infrastructure/confirm-dialog';
-import {
-  AssistantAvatar,
-  type AssistantAvatarStatus,
-} from '@/app/components/AssistantAvatar';
+import { AssistantAvatar } from '@/app/components/AssistantAvatar';
 import { notificationService } from '@/shared/notification-system';
 import { copyTextToClipboard } from '@/shared/utils/textSelection';
 import { isOutcomeUnknownError } from '@/infrastructure/api/errors/TauriCommandError';
@@ -91,6 +90,7 @@ import {
   SESSIONS_LEVEL_1,
 } from './sessionNavExpand';
 import { useSessionRowRemovalTransition } from './sessionRowShift';
+import { SessionStatusIndicator } from './SessionStatusIndicator';
 import './SessionsSection.scss';
 
 const log = createLogger('SessionsSection');
@@ -294,13 +294,21 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
   const editInputRef = useRef<HTMLInputElement>(null);
   const sessionMenuPopoverRef = useRef<HTMLDivElement>(null);
   const sessionMenuAnchorRef = useRef<HTMLButtonElement>(null);
-  const sessionMenuPosition = useSideAnchoredPopoverPosition({
-    open: openMenuSessionId !== null,
+  /** How the open session menu was triggered: anchored to the "more" button or to a right-click point. */
+  const sessionMenuAnchorKindRef = useRef<'button' | 'context'>('button');
+  /** Viewport coordinates of the right-click that opened the menu. */
+  const sessionMenuContextPointRef = useRef<{ x: number; y: number } | null>(null);
+  const [contextSessionMenuPosition, setContextSessionMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const anchoredSessionMenuPosition = useSideAnchoredPopoverPosition({
+    open: openMenuSessionId !== null && sessionMenuAnchorKindRef.current === 'button',
     anchorRef: sessionMenuAnchorRef,
     popoverRef: sessionMenuPopoverRef,
     gap: 4,
     layoutRevision: `${openMenuSessionId}:${isExportScopeMenu}`,
   });
+  const sessionMenuPosition = sessionMenuAnchorKindRef.current === 'context'
+    ? contextSessionMenuPosition
+    : anchoredSessionMenuPosition;
   const metadataLoadRequestIdRef = useRef(0);
   /** User-driven metadata loads still running; background loads yield to them. */
   const foregroundLoadCountRef = useRef(0);
@@ -340,8 +348,6 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
       const parts: string[] = [s.activeSessionId ?? ''];
       for (const session of s.sessions.values()) {
         const latestTurn = session.dialogTurns[session.dialogTurns.length - 1];
-        const trackedTurn = resolveTrackedTurn(session);
-        const hasAskUser = hasPendingAskUserQuestion(trackedTurn);
         const dispatchTarget = session.config.dispatchTarget;
         const dispatchTargetSnapshot = dispatchTarget?.kind === 'ssh'
           ? `ssh:${dispatchTarget.connectionId}:${dispatchTarget.workspacePath}:${dispatchTarget.displayName}`
@@ -351,8 +357,8 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
         parts.push(
           `${session.sessionId}|${session.isTransient ? '1':'0'}|${session.sessionKind}|` +
           `${session.parentSessionId ?? ''}|${session.parentToolCallId ?? ''}|${session.subagentType ?? ''}|` +
-          `${session.workspacePath ?? ''}|${session.mode ?? ''}|${session.needsUserAttention ? '1':'0'}|` +
-          `${session.hasUnreadCompletion ? '1':'0'}|${latestTurn?.status ?? ''}|${hasAskUser ? '1':'0'}|${trackedTurn?.id ?? ''}|` +
+          `${session.workspacePath ?? ''}|${session.mode ?? ''}|${session.needsUserAttention ?? ''}|` +
+          `${session.hasUnreadCompletion ?? ''}|${latestTurn?.status ?? ''}|` +
           `${session.title ?? ''}|${dispatchTargetSnapshot}|${session.config.dispatchJobState ?? ''}`
         );
       }
@@ -728,6 +734,9 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
   const closeSessionMenu = useCallback(() => {
     setOpenMenuSessionId(null);
     setIsExportScopeMenu(false);
+    setContextSessionMenuPosition(null);
+    sessionMenuAnchorKindRef.current = 'button';
+    sessionMenuContextPointRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -758,6 +767,43 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
     window.addEventListener('openbitfun:session-switched', handleSessionSwitched);
     return () => window.removeEventListener('openbitfun:session-switched', handleSessionSwitched);
   }, []);
+
+  const updateContextSessionMenuPosition = useCallback(() => {
+    if (!openMenuSessionId || sessionMenuAnchorKindRef.current !== 'context') return;
+    const point = sessionMenuContextPointRef.current;
+    if (!point) return;
+    const viewportPadding = 8;
+    const gap = 4;
+    const fallbackWidth = 160;
+    const fallbackHeight = 96;
+    const menuEl = sessionMenuPopoverRef.current;
+    const width = menuEl?.offsetWidth ?? fallbackWidth;
+    const height = menuEl?.offsetHeight ?? fallbackHeight;
+    setContextSessionMenuPosition(computeFixedPopoverPositionInViewport(
+      { left: point.x, right: point.x, top: point.y, bottom: point.y },
+      width,
+      height,
+      { width: window.innerWidth, height: window.innerHeight },
+      { gap, padding: viewportPadding },
+    ));
+  }, [openMenuSessionId]);
+
+  useEffect(() => {
+    if (!openMenuSessionId || sessionMenuAnchorKindRef.current !== 'context') return;
+
+    updateContextSessionMenuPosition();
+    const frameId = requestAnimationFrame(updateContextSessionMenuPosition);
+
+    const handleViewportChange = () => updateContextSessionMenuPosition();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [isExportScopeMenu, openMenuSessionId, updateContextSessionMenuPosition]);
 
   const sessions = useMemo(
     () =>
@@ -1200,10 +1246,37 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
         closeSessionMenu();
         return;
       }
+      sessionMenuAnchorKindRef.current = 'button';
+      sessionMenuContextPointRef.current = null;
+      setContextSessionMenuPosition(null);
       setIsExportScopeMenu(false);
       setOpenMenuSessionId(sessionId);
     },
     [closeSessionMenu, openMenuSessionId]
+  );
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, sessionId: string) => {
+      if (editingSessionId === sessionId) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      sessionMenuAnchorKindRef.current = 'context';
+      const point = { x: e.clientX, y: e.clientY };
+      sessionMenuContextPointRef.current = point;
+      const { top, left } = computeFixedPopoverPositionInViewport(
+        { left: point.x, right: point.x, top: point.y, bottom: point.y },
+        160,
+        120,
+        { width: window.innerWidth, height: window.innerHeight },
+        { gap: 4, padding: 8 },
+      );
+      setContextSessionMenuPosition({ top, left });
+      setIsExportScopeMenu(false);
+      setOpenMenuSessionId(sessionId);
+    },
+    [editingSessionId]
   );
 
   const handleExportMarkdown = useCallback(
@@ -1410,7 +1483,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
             aria-live="polite"
           >
             <Loader2 size={12} />
-            <span>{t('nav.sessions.loading')}</span>
+            <OverflowText>{t('nav.sessions.loading')}</OverflowText>
           </div>
         )
       : aggregateLoadState.failedScopeCount > 0
@@ -1442,7 +1515,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
         <div data-openbitfun-component="sessions-section" data-openbitfun-part="root" className={sessionListClassName}>
           <div className="openbitfun-nav-panel__inline-loading" data-openbitfun-component="sessions-section" data-openbitfun-part="loading" data-openbitfun-state="loading">
             <Loader2 size={12} />
-            <span>{t('nav.sessions.loading')}</span>
+            <OverflowText>{t('nav.sessions.loading')}</OverflowText>
           </div>
         </div>
       );
@@ -1475,7 +1548,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
               size={26}
             />
             <span className="openbitfun-nav-panel__inline-empty-copy">
-              <span className="openbitfun-nav-panel__inline-empty-name">{presentation.assistant.name}</span>
+              <OverflowText className="openbitfun-nav-panel__inline-empty-name">{presentation.assistant.name}</OverflowText>
               <span>{t('nav.sessions.noSessions')}</span>
             </span>
           </div>
@@ -1534,10 +1607,6 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
             scope.remoteConnectionId,
             scope.remoteSshHost,
           ));
-          const isRunning = runningSessionIds.has(session.sessionId);
-          const isWaitingForUserAnswer = isRunning && hasPendingAskUserQuestion(
-            resolveTrackedTurn(session),
-          );
           const backgroundSubagentActivity = !isChildSession
             ? backgroundSubagentActivityByParent.get(session.sessionId)
             : undefined;
@@ -1653,28 +1722,6 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
               ? visibleSessionIds.has(activeBtwSessionData.childSessionId)
               : false,
           });
-          // Determine the notification state for this session row.
-          // Priority: needsUserAttention > hasUnreadCompletion.
-          const attentionKind = !isRunning && !isRowActive
-            ? (session.needsUserAttention || session.hasUnreadCompletion || undefined)
-            : undefined;
-          const hiddenAttentionLabel =
-            attentionKind === 'error'
-              ? t('nav.sessions.unreadError')
-              : attentionKind === 'interrupted'
-                ? t('nav.sessions.unreadInterrupted')
-                : attentionKind && attentionKind !== 'ask_user' && attentionKind !== 'tool_confirm'
-                  ? t('nav.sessions.unreadCompleted')
-                  : null;
-          const assistantAvatarStatus: AssistantAvatarStatus = isRunning
-            ? isWaitingForUserAnswer ? 'attention' : 'running'
-            : attentionKind === 'error' || attentionKind === 'interrupted'
-              ? 'error'
-              : attentionKind === 'ask_user' || attentionKind === 'tool_confirm'
-                ? 'attention'
-                : attentionKind
-                  ? 'unread'
-                  : 'idle';
           const showAssistantIdentity = Boolean(assistantIdentity && !isChildSession);
           const row = (
             <div
@@ -1691,6 +1738,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
                 .join(' ')}
               data-openbitfun-component="sessions-section"
               data-openbitfun-part="row"
+              data-overflow-trigger
               data-openbitfun-state={[
                 isRowActive && 'active',
                 isEditing && 'editing',
@@ -1703,6 +1751,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
               data-session-active={isRowActive ? 'true' : 'false'}
               onPointerDown={event => handleSessionOpenPointerDown(event, session)}
               onClick={() => handleSwitch(session.sessionId)}
+              onContextMenu={event => handleContextMenu(event, session.sessionId)}
             >
               {showAssistantIdentity && assistantIdentity ? (
                 <span className="openbitfun-nav-panel__inline-item-avatar" data-openbitfun-component="sessions-section" data-openbitfun-part="assistantAvatar">
@@ -1712,17 +1761,9 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
                     stableKey={assistantIdentity.id}
                     name={assistantIdentity.name}
                     size={26}
-                    status={assistantAvatarStatus}
                     active={isRowActive}
                   />
                 </span>
-              ) : null}
-
-              {isWaitingForUserAnswer ? (
-                <span className="sr-only">{t('nav.sessions.needsUserInput')}</span>
-              ) : null}
-              {hiddenAttentionLabel ? (
-                <span className="sr-only">{hiddenAttentionLabel}</span>
               ) : null}
 
               {isEditing ? (
@@ -1761,7 +1802,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
                   <span className="openbitfun-nav-panel__inline-item-main" data-openbitfun-component="sessions-section" data-openbitfun-part="rowMain">
                     <span className="openbitfun-nav-panel__inline-item-copy">
                       <span className="openbitfun-nav-panel__inline-item-primary">
-                        <span className="openbitfun-nav-panel__inline-item-label">{sessionTitle}</span>
+                        <OverflowText behavior="marquee" title="" className="openbitfun-nav-panel__inline-item-label">{sessionTitle}</OverflowText>
                     {isChildSession ? (
                       <span className="openbitfun-nav-panel__inline-item-btw-badge">{childSessionBadge}</span>
                     ) : null}
@@ -1770,16 +1811,9 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
                         className="openbitfun-nav-panel__inline-item-dispatch-badge"
                         data-state={dispatchPresentation?.visualState}
                         title={dispatchPresentation?.summary}
-                      >
+                      ><OverflowText>
                         {dispatchPresentation?.badgeLabel}
-                      </span>
-                    ) : null}
-                    {attentionKind === 'ask_user' || attentionKind === 'tool_confirm' ? (
-                      <span className="openbitfun-nav-panel__inline-item-attention-badge">
-                        {attentionKind === 'ask_user'
-                          ? t('nav.sessions.badgeNeedsInput')
-                          : t('nav.sessions.badgeNeedsConfirm')}
-                      </span>
+                      </OverflowText></span>
                     ) : null}
                     {reviewActivityKind ? (
                       <span className="openbitfun-nav-panel__inline-item-review-badge">
@@ -1807,32 +1841,38 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
                       </span>
                         ) : null}
                         {sessionWorkspaceScope && !isChildSession ? (
-                          <span className="openbitfun-nav-panel__inline-item-workspace-name">
+                          <OverflowText className="openbitfun-nav-panel__inline-item-workspace-name">
                             {sessionWorkspaceScope.workspaceName}
-                          </span>
+                          </OverflowText>
                         ) : null}
                       </span>
                       {showAssistantIdentity ? (
-                        <span className="openbitfun-nav-panel__inline-item-assistant-name">{trimmedAssistant}</span>
+                        <OverflowText className="openbitfun-nav-panel__inline-item-assistant-name">{trimmedAssistant}</OverflowText>
                       ) : null}
                     </span>
                   </span>
-                  <div
-                    className={`openbitfun-nav-panel__inline-item-actions${openMenuSessionId === session.sessionId ? ' is-open' : ''}`}
-                    data-openbitfun-component="sessions-section"
-                    data-openbitfun-part="actions"
-                    data-openbitfun-state={openMenuSessionId === session.sessionId ? 'menuOpen' : undefined}
-                  >
-                    <button
-                      type="button"
-                      ref={openMenuSessionId === session.sessionId ? sessionMenuAnchorRef : undefined}
-                      className={`openbitfun-nav-panel__inline-item-action-btn${openMenuSessionId === session.sessionId ? ' is-open' : ''}`}
-                      onClick={e => handleMenuOpen(e, session.sessionId)}
-                      data-testid="nav-session-menu-btn"
-                      data-session-id={session.sessionId}
+                  <div className="openbitfun-nav-panel__inline-item-trailing">
+                    <SessionStatusIndicator sessionId={session.sessionId} />
+                    <div
+                      className={`openbitfun-nav-panel__inline-item-actions${openMenuSessionId === session.sessionId ? ' is-open' : ''}`}
+                      data-openbitfun-component="sessions-section"
+                      data-openbitfun-part="actions"
+                      data-openbitfun-state={openMenuSessionId === session.sessionId ? 'menuOpen' : undefined}
                     >
-                      <Icon name="more" size="xs" />
-                    </button>
+                      <button
+                        type="button"
+                        ref={openMenuSessionId === session.sessionId ? sessionMenuAnchorRef : undefined}
+                        className={`openbitfun-nav-panel__inline-item-action-btn${openMenuSessionId === session.sessionId ? ' is-open' : ''}`}
+                        onClick={e => handleMenuOpen(e, session.sessionId)}
+                        aria-label={`${sessionTitle} · ${t('actions.more')}`}
+                        aria-haspopup="menu"
+                        aria-expanded={openMenuSessionId === session.sessionId}
+                        data-testid="nav-session-menu-btn"
+                        data-session-id={session.sessionId}
+                      >
+                        <Icon name="more" size="xs" />
+                      </button>
+                    </div>
                   </div>
                   {openMenuSessionId === session.sessionId && createPortal(
                     <Menu
@@ -1942,7 +1982,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
                           </MenuItem>
                           <MenuItem
                             type="button"
-                            leading={<ListChecks size={13} />}
+                            leading={<Icon glyph={ListChecks} />}
                             disabled={!workspacePath && !session.workspacePath}
                             onClick={e => {
                               e.stopPropagation();
@@ -2000,7 +2040,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
       {aggregateLoadStatus}
 
       {!showAllWithoutLimit && expandLevel === 2 && topLevelSessions.length > sessionDisplayLimit && (
-        <button
+        <button data-overflow-trigger
           type="button"
           className="openbitfun-nav-panel__inline-toggle"
           data-testid="nav-session-list-load-more"
@@ -2009,9 +2049,9 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
           })}
           onClick={() => setLevel2DisplayCount(prev => prev + SESSIONS_LEVEL_2_PAGE)}
         >
-          <span className="openbitfun-nav-panel__inline-toggle-label">
+          <OverflowText className="openbitfun-nav-panel__inline-toggle-label">
             {t('nav.sessions.showMoreLabel')}
-          </span>
+          </OverflowText>
           <span className="openbitfun-nav-panel__inline-toggle-count" aria-hidden>
             +{topLevelSessions.length - sessionDisplayLimit}
           </span>
@@ -2020,7 +2060,7 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
       )}
 
       {!showAllWithoutLimit && expandToggleState.shouldRender && (
-        <button
+        <button data-overflow-trigger
           type="button"
           className={`openbitfun-nav-panel__inline-toggle${metadataPageState.isLoading ? ' is-loading' : ''}`}
           data-openbitfun-component="sessions-section"
@@ -2032,9 +2072,9 @@ const SessionsSection: React.FC<SessionsSectionProps> = ({
           disabled={metadataPageState.isLoading}
           onClick={() => { void handleExpandToggle(); }}
         >
-          <span className="openbitfun-nav-panel__inline-toggle-label">
+          <OverflowText className="openbitfun-nav-panel__inline-toggle-label">
             {expandToggleLabels.label}
-          </span>
+          </OverflowText>
           {expandToggleLabels.remainingCount !== null && (
             <span className="openbitfun-nav-panel__inline-toggle-count" aria-hidden>
               +{expandToggleLabels.remainingCount}

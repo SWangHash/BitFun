@@ -565,22 +565,24 @@ impl RemoteMCPTransport {
         .await?;
 
         let result = match result {
-            Ok(result) => result,
-            Err(error) if is_ping_method_not_supported(&error) => {
-                // Some MCP servers (e.g. the Huawei developer-knowledge gateway) do not
-                // implement the `ping` method and answer with a well-formed JSON-RPC
-                // `-32601 Method not found` error. The HTTP transport is still alive and
-                // speaking MCP, so a missing ping method must not mark the server
-                // unhealthy: other requests (tools/list, tools/call) keep working.
-                debug!(
-                    "MCP server does not implement ping ({}) - treating heartbeat as healthy",
-                    self.url
-                );
+            // Some reachable HTTP servers (including Huawei Developer Knowledge)
+            // omit ping. Verify a supported read-only operation instead of
+            // putting an otherwise usable connection into a reconnect loop.
+            Err(rmcp::service::ServiceError::McpError(error))
+                if error.code == rmcp::model::ErrorCode::METHOD_NOT_FOUND
+                    && service
+                        .peer()
+                        .peer_info()
+                        .is_some_and(|info| info.capabilities.tools.is_some()) =>
+            {
+                debug!("MCP server does not implement ping; checking tools/list");
+                self.list_tools(None).await.map_err(|error| {
+                    MCPRuntimeError::mcp(format!("MCP health check tools/list failed: {}", error))
+                })?;
                 return Ok(());
             }
-            Err(error) => {
-                return Err(MCPRuntimeError::mcp(format!("MCP ping failed: {}", error)));
-            }
+            other => other
+                .map_err(|error| MCPRuntimeError::mcp(format!("MCP ping failed: {}", error)))?,
         };
 
         match result {
@@ -749,17 +751,4 @@ impl RemoteMCPTransport {
 
         Ok(map_rmcp_tool_result(result))
     }
-}
-
-/// Returns true when an MCP server answered a request with a well-formed JSON-RPC
-/// `-32601 Method not found` error. That means the server is reachable and speaking
-/// MCP, it simply does not implement the requested method (e.g. some gateways do not
-/// implement the `ping` heartbeat). Such a response must not be treated as a dead
-/// connection.
-fn is_ping_method_not_supported(error: &rmcp::service::ServiceError) -> bool {
-    matches!(
-        error,
-        rmcp::service::ServiceError::McpError(rmcp::model::ErrorData { code, .. })
-        if code.0 == rmcp::model::ErrorCode::METHOD_NOT_FOUND.0
-    )
 }

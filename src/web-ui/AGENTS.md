@@ -37,6 +37,7 @@ Self-Hosted entries must open `RelayDeployWizard`, not an external README.
 
 - Do not call Tauri APIs directly from UI components; go through the adapter / infrastructure layer
 - Reuse `@openbitfun/ui`, design tokens, theme, i18n, and Zustand stores before adding new frontend primitives
+- Prefer the design system's `OverflowText` for single-line labels over local ellipsis rules or sliced strings. Plain text defaults to fade plus hover/focus marquee; set `behavior="marquee"` for text-only highlights and keep icons/actions outside. Put `data-overflow-trigger` on the owning control; standard component label slots already provide overflow handling. Keep multiline, touch-first, and editable content in their appropriate layout.
 - Theme and color-token changes must follow
   `docs/architecture/theme-token-optimization.md`: failing audits should be
   fixed by reusing tokens, merging redundant values, or adding a scoped owner

@@ -209,6 +209,35 @@
         "analytics": "分析"
       }
     },
+    "resources": {
+      "title": "工作区资源",
+      "files": "文件",
+      "terminals": "终端",
+      "local": "本地",
+      "remote": "远程工作区",
+      "peer": "对端设备",
+      "switchWorkspace": "切换工作区",
+      "chooseShell": "选择 Shell",
+      "noTerminals": "在此新建终端，开始工作",
+      "resize": "调整文件与终端分区大小",
+      "revealDirectory": "在文件树中定位工作目录",
+      "openTerminalHere": "在此新建终端",
+      "terminalActions": "终端操作",
+      "removeTerminal": "移除已结束终端",
+      "unavailable": "无法获取终端状态，请重试",
+      "actionFailed": "终端操作失败：{{error}}",
+      "manual": "我的",
+      "agent": "Agent",
+      "status": {
+        "running": "$t(shared:statuses.running)",
+        "saved": "已保存",
+        "exited": "已结束",
+        "unknown": "状态未知",
+        "starting": "正在启动",
+        "stopping": "正在停止",
+        "error": "异常"
+      }
+    },
     "shell": {
       "title": "Shell",
       "views": {
@@ -354,6 +383,16 @@
       "reviewRunning": "审核中",
       "deepReviewRunning": "审核中",
       "unreadCompleted": "已完成 — 未读",
+      "status": {
+        "approval": "待审批",
+        "approvalCount": "待审批 · {{count}} 项",
+        "input": "待回复",
+        "unread": "完成待查看",
+        "stopped": "已停止或中断",
+        "paused": "已暂停，可继续",
+        "queued": "排队中",
+        "syncing": "等待同步状态"
+      },
       "unreadError": "执行失败 — 未读",
       "unreadInterrupted": "输出中断 — 需重试",
       "needsUserInput": "等待你的输入",
@@ -679,11 +718,17 @@
     "errorEnterName": "请输入工作区名称",
     "errorCreateFailed": "创建工作区失败"
   },
+  "peerConnection": {
+    "reconnecting": "正在重新连接「{{name}}」。内容可能暂未更新。"
+  },
   "peerDirectoryPicker": {
     "loading": "正在加载远程目录…",
     "empty": "此目录下没有子文件夹",
     "parent": "上级目录",
-    "home": "起始目录",
+    "home": "用户目录",
+    "path": "目录路径",
+    "pathHint": "输入路径后按 Enter",
+    "homeUnavailable": "此设备未提供用户目录。请手动输入路径，或更新该设备上的 OpenBitFun。",
     "refresh": "刷新",
     "selected": "已选：{{path}}",
     "cancel": "取消",
@@ -903,7 +948,7 @@
     "redeploy": "重新部署",
     "startDeploy": "开始部署",
     "deployingTitle": "正在部署 relay server…",
-    "deployingHint": "一键部署会在需要时安装 Docker，再通过所选线路拉取已签名的 Relay 镜像并启动。若提示 sudo，请在下方终端输入密码；关闭本窗口会停止远端部署。",
+    "deployingHint": "部署会自动安装所需依赖，优先使用已发布的 Relay 镜像；不可用时自动从当前源码构建，耗时会更长。进度会显示在下方终端，若提示 sudo，请输入密码；关闭本窗口会取消部署。",
     "waitingRemoteOutput": "正在等待远端输出…",
     "deploySucceeded": "部署成功",
     "deployFailed": "部署失败",
@@ -1105,7 +1150,7 @@
     "downloadingTitle": "正在下载更新",
     "downloadFailedTitle": "无法完成更新",
     "installedTitle": "更新已准备就绪",
-    "readyVersion": "版本 {{version}} 已下载，可以安装并重启。",
+    "readyVersion": "版本 {{version}} 已下载",
     "installWarning": "安装将重启本设备上的 OpenBitFun，并中断此设备上的活动会话。",
     "installAndRestart": "安装并重启",
     "installing": "正在安装…",

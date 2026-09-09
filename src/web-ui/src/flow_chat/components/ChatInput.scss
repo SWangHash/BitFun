@@ -135,7 +135,6 @@
   color: var(--openbitfun-color-content-secondary);
   font-size: var(--openbitfun-type-flow-support-font-size);
   line-height: var(--openbitfun-type-body-sm-line-height);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -711,7 +710,6 @@
   &__target-tab-name {
     max-width: 110px;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: var(--openbitfun-type-flow-support-font-size);
     font-weight: var(--openbitfun-type-body-sm-font-weight);
@@ -1041,7 +1039,6 @@
     flex: 0 0 112px;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

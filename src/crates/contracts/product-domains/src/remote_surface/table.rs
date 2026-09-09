@@ -628,7 +628,7 @@ pub(super) const OPERATIONS: &[OperationDefinition] = &[
     op("save_mcp_json_config",                                       Unaudited,   Proxied,          CLI_NOT_IMPLEMENTED),
     op("save_merged_diff_content",                                   Unaudited,   Proxied,          CLI_NOT_IMPLEMENTED),
     op("save_project_permission_rules",                              Routed,      Proxied,          CLI_NOT_IMPLEMENTED),
-    op("save_session_metadata",                                      Unaudited,   Proxied,          CLI_NOT_IMPLEMENTED),
+    op("save_session_metadata",                                      Unaudited,   Proxied,          HANDLED),
     op("save_session_turn",                                          Unaudited,   Proxied,          HANDLED),
     op("save_text_file_dialog",                                      LocalOnly,   ControllerLocal,  REFUSED),
     op("save_web_search_credential",                                 Agnostic,    Proxied,          HANDLED),

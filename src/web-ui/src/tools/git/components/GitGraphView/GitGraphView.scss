@@ -279,7 +279,6 @@
     flex: 1;
     font-size: var(--openbitfun-type-label-md-font-size);
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
 
@@ -300,7 +299,6 @@
   &__commit-author {
     max-width: 120px;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

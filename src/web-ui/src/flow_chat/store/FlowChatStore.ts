@@ -38,6 +38,9 @@ import { normalizeRemoteSessionScope } from '@/shared/utils/remoteSessionScope';
 import { isPeerDeviceModeActive } from '@/infrastructure/peer-device/peerModeFlag';
 import { isSurfaceReconcileEnabled } from '@/infrastructure/peer-device/deviceSurfaceReconcile';
 import { persistedMayWriteTurn } from '@/flow_chat/session-stream/SessionStream';
+import { sessionCompletionReceipt } from '../utils/sessionCompletionReceipt';
+import { isTurnAwaitingRecovery } from '../utils/interruptedTurnRecovery';
+import { sessionActivityStore } from './sessionActivityStore';
 import {
   getActiveSurfaceId,
   getActiveSurfaceScope,
@@ -54,6 +57,7 @@ import { i18nService } from '@/infrastructure/i18n/core/I18nService';
 import type {
   DialogTurnData,
   SessionContextUsage,
+  SessionActivitySummary,
   SessionKind,
   SessionTurnCatalog,
 } from '@/shared/types/session-history';
@@ -112,6 +116,7 @@ import {
   isProvisionalUsageReportTurn,
   isProjectedSessionEmpty,
   canonicalSessionTurns,
+  lastUserDialogTurn,
   projectedSessionTurnCount,
   resolveDialogTurnIdentity,
   resolveStorageTurnIndex,
@@ -4753,6 +4758,7 @@ export class FlowChatStore {
       terminalDrained?: boolean;
     },
   ): DispatchSnapshotApplyResult {
+    let unreadCompletion: Session['hasUnreadCompletion'];
     let result: DispatchSnapshotApplyResult = {
       applied: false,
       cursor: this.state.sessions.get(sessionId)?.config.dispatchCursor ?? 0,
@@ -4790,6 +4796,11 @@ export class FlowChatStore {
         : null;
       let dialogTurns = session.dialogTurns;
       const lastTurn = dialogTurns[dialogTurns.length - 1];
+      if (terminalTurnStatus && (session.config.dispatchJobState !== effectiveState
+        || (lastTurn && lastTurn.status !== terminalTurnStatus))) {
+        unreadCompletion = terminalTurnStatus === 'completed' ? 'completed'
+          : terminalTurnStatus === 'error' ? 'error' : 'interrupted';
+      }
       if (terminalTurnStatus && lastTurn) {
         const settledTurn = settleDialogTurnToTerminalStatus(
           lastTurn,
@@ -4817,6 +4828,7 @@ export class FlowChatStore {
         ...session,
         dialogTurns,
         error: terminalError,
+        hasUnreadCompletion: unreadCompletion ?? session.hasUnreadCompletion,
         lastActiveAt: settledAt,
         lastFinishedAt: terminal
           ? session.lastFinishedAt ?? settledAt
@@ -4833,6 +4845,7 @@ export class FlowChatStore {
       return { ...prev, sessions: newSessions };
     });
 
+    if (unreadCompletion) this.onPersistUnreadCompletion?.(sessionId, unreadCompletion);
     return result;
   }
 
@@ -6371,15 +6384,19 @@ export class FlowChatStore {
 
   public markSessionUnreadCompletion(
     sessionId: string,
-    completionKind: 'completed' | 'error' | 'interrupted'
+    completionKind: 'completed' | 'error' | 'interrupted',
+    turnId?: string,
   ): void {
     this.setState(prev => {
       const session = prev.sessions.get(sessionId);
       if (!session) return prev;
 
+      const turn = turnId ? session.dialogTurns.find(candidate => candidate.id === turnId) : lastUserDialogTurn(session);
       const updatedSession: Session = {
         ...session,
         hasUnreadCompletion: completionKind,
+        unreadCompletionTurnId: turnId ?? turn?.id,
+        unreadCompletionGeneration: turn?.recovery?.executionGeneration ?? turn?.recoveryEpoch,
       };
 
       const newSessions = new Map(prev.sessions);
@@ -6390,15 +6407,32 @@ export class FlowChatStore {
     this.onPersistUnreadCompletion?.(sessionId, completionKind);
   }
 
-  public clearSessionUnreadCompletion(sessionId: string): void {
+  public clearSessionUnreadCompletion(
+    sessionId: string,
+    expected?: { surfaceId: DeviceSurfaceId; receipt: string },
+  ): void {
     let didClear = false;
     this.setState(prev => {
       const session = prev.sessions.get(sessionId);
       if (!session || !session.hasUnreadCompletion) return prev;
+      if (expected && (getActiveSurfaceId() !== expected.surfaceId
+        || sessionCompletionReceipt(session) !== expected.receipt)) return prev;
+      if (expected) {
+        const summary = sessionActivityStore.get(sessionId)?.summary;
+        const turn = lastUserDialogTurn(session);
+        if (summary && (summary.execution === 'running' || summary.execution === 'queued'
+          || (summary.unreadCompletion && summary.lastTurn && (summary.lastTurn.turnId !== turn?.id
+            || summary.lastTurn.status !== turn?.status
+            || summary.lastTurn.executionGeneration !== (turn?.recovery?.executionGeneration ?? turn?.recoveryEpoch)
+            || (summary.lastTurn.recoveryPending !== undefined
+              && summary.lastTurn.recoveryPending !== isTurnAwaitingRecovery(turn)))))) return prev;
+      }
 
       const updatedSession: Session = {
         ...session,
         hasUnreadCompletion: undefined,
+        unreadCompletionTurnId: undefined,
+        unreadCompletionGeneration: undefined,
       };
 
       const newSessions = new Map(prev.sessions);
@@ -6408,8 +6442,29 @@ export class FlowChatStore {
       return { ...prev, sessions: newSessions };
     });
     if (didClear) {
+      const turn = lastUserDialogTurn(this.state.sessions.get(sessionId));
+      if (turn) sessionActivityStore.acknowledge(sessionId, turn.id,
+        turn.recovery?.executionGeneration ?? turn.recoveryEpoch, isTurnAwaitingRecovery(turn));
       this.onPersistUnreadCompletion?.(sessionId, undefined);
     }
+  }
+
+  /** Mirror only the summary's read marker, never its state into the Turn model. */
+  public applySessionActivityReceipt(summary: SessionActivitySummary): void {
+    this.setState(prev => {
+      const session = prev.sessions.get(summary.sessionId);
+      if (!session || session.config.dispatchJobId) return prev;
+      const turnId = summary.unreadCompletion ? summary.lastTurn?.turnId : undefined;
+      const generation = summary.unreadCompletion ? summary.lastTurn?.executionGeneration : undefined;
+      if (session.hasUnreadCompletion === summary.unreadCompletion && session.unreadCompletionTurnId === turnId
+        && session.unreadCompletionGeneration === generation) return prev;
+      const sessions = new Map(prev.sessions);
+      sessions.set(summary.sessionId, {
+        ...session, hasUnreadCompletion: summary.unreadCompletion, unreadCompletionTurnId: turnId,
+        unreadCompletionGeneration: generation,
+      });
+      return { ...prev, sessions };
+    });
   }
 
   public setSessionNeedsAttention(
@@ -7091,6 +7146,8 @@ export class FlowChatStore {
     remoteSshHost?: string,
     traceSource = 'unknown'
   ): Promise<SessionMetadataPage> {
+    const activityScope = getActiveSurfaceScope();
+    const activityRead = sessionActivityStore.beginRead(activityScope.surfaceId);
     const traceStartedAt = nowMs();
     const remote = isRemoteTraceContext(remoteConnectionId, remoteSshHost);
     const metadataListTraceId = `metadata-page-${Math.random().toString(36).slice(2, 8)}`;
@@ -7190,6 +7247,9 @@ export class FlowChatStore {
         remoteSshHost,
         modelConfigPromise,
       );
+      if (activityScope.isCurrent() && page.activities) {
+        sessionActivityStore.applyRead(activityRead, page.activities);
+      }
       startupTrace.markPhase('session_metadata_page_end', {
         remote,
         source: traceSource,
@@ -8743,6 +8803,7 @@ export class FlowChatStore {
         ? persistedFinishReason
         : normalizeRecoveredTurnFinishReason(turn.status, persistedFinishReason),
       recovery: turn.recovery,
+      recoveryEpoch: turn.recoveryEpoch,
       hasFinalResponse:
         typeof turn.hasFinalResponse === 'boolean'
           ? turn.hasFinalResponse

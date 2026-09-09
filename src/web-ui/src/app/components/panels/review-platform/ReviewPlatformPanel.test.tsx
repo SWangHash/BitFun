@@ -26,7 +26,7 @@ vi.mock('@openbitfun/ui', async () => {
   return {
     Button: control('button'), IconButton: control('button'), Input: control('input'),
     Combobox: () => null, Icon: () => null, Field: box, ScrollArea: box, TabGroup: () => null,
-    Tooltip: box, Dialog: () => null, DialogBody: box, DialogClose: box, DialogHeader: box,
+    Tooltip: box, OverflowText: box, Dialog: () => null, DialogBody: box, DialogClose: box, DialogHeader: box,
     DialogHeading: box, DialogTitle: box,
   };
 });

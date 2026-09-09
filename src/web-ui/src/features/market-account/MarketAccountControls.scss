@@ -25,7 +25,6 @@
 
     > .market-account-controls__identity-name {
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
@@ -71,9 +70,8 @@
     }
 
     strong,
-    span {
+    span:not([data-overflow-content]) {
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 

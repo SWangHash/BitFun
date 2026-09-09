@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { Button, IconButton } from '@openbitfun/ui';
+import { OverflowText, Button, IconButton } from '@openbitfun/ui';
 import { useTranslation } from 'react-i18next';
 import { ClipboardList, Loader2, PlayCircle, XCircle, ChevronsUpDown, ChevronsDownUp, FolderOpen, Save, AlertCircle } from 'lucide-react';
 import type { ToolCardProps } from '../types/flow-chat';
@@ -435,14 +435,14 @@ Read the plan file before making changes and treat it as the source of truth. Do
     return (
       <div data-openbitfun-component="create-plan-display" data-openbitfun-part="root" className="create-plan-display status-error">
         <div className="create-plan-header" data-openbitfun-component="create-plan-display" data-openbitfun-part="header">
-          <button
+          <button data-overflow-trigger
             type="button"
             className="create-plan-header-main create-plan-header-main--clickable"
             onClick={handleViewPlan}
           >
             <div className="header-left">
               <div className="file-icon-wrapper"><AlertCircle size={14} /></div>
-              <span className="file-name">{planFileName}</span>
+              <OverflowText className="file-name">{planFileName}</OverflowText>
             </div>
           </button>
         </div>
@@ -486,7 +486,7 @@ Read the plan file before making changes and treat it as the source of truth. Do
         data-openbitfun-part="header"
       >
         <Tooltip content={t('toolCards.plan.clickToOpenPlan')}>
-          <button
+          <button data-overflow-trigger
             type="button"
             className="create-plan-header-main create-plan-header-main--clickable"
             data-openbitfun-component="create-plan-display"
@@ -497,7 +497,7 @@ Read the plan file before making changes and treat it as the source of truth. Do
               <div className="file-icon-wrapper">
                 <ClipboardList size={14} />
               </div>
-              <span className="file-name">{planFileName}</span>
+              <OverflowText className="file-name">{planFileName}</OverflowText>
             </div>
           </button>
         </Tooltip>

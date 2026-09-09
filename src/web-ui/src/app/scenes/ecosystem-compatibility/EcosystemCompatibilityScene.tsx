@@ -1,6 +1,25 @@
-import { Button, Icon, ScrollArea, SearchField, Switch, Textarea, type IconName, type IconSize } from '@openbitfun/ui';
+import {
+  Button,
+  Icon,
+  LoadingState,
+  NavigationPanel,
+  NavigationPanelBody,
+  NavigationPanelContent,
+  NavigationPanelFooter,
+  NavigationPanelHeader,
+  NavigationPanelItem,
+  NavigationPanelSection,
+  OverflowText,
+  ScrollArea,
+  SearchField,
+  Select,
+  StatusPill,
+  Switch,
+  Textarea,
+  type IconSource,
+  type StatusPillTone,
+} from '@openbitfun/ui';
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
 import { Bot, CircleUserRound, Network, Package, PawPrint, Server, Webhook, Wrench } from 'lucide-react';
 import { useI18n } from '@/infrastructure/i18n';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
@@ -27,14 +46,6 @@ import {
 } from './ecosystemCompatibilityModel';
 import { useEcosystemCompatibilityStore } from './ecosystemCompatibilityStore';
 import './EcosystemCompatibilityScene.scss';
-
-function catalogLucide(name: IconName): LucideIcon {
-  return function CatalogLucide({ size }: { size?: number | string }) {
-    const n = typeof size === 'number' ? size : 15;
-    const mapped: IconSize = n <= 11 ? '2xs' : n <= 13 ? 'xs' : n <= 15 ? 'sm' : n <= 17 ? 'md' : 'lg';
-    return <Icon name={name} size={mapped} />;
-  } as LucideIcon;
-}
 
 const AcpAgentsConfig = lazy(
   () => import('@/infrastructure/config/components/AcpAgentsConfig'),
@@ -68,21 +79,28 @@ function EcosystemProductIcon({ productId, size }: {
   );
 }
 
-const IMPORT_ITEM_ICONS: Record<EcosystemImportItemKind, LucideIcon> = {
-  account: CircleUserRound,
-  settings: catalogLucide('settings'),
-  command: catalogLucide('command-mac'),
-  tool: Wrench,
-  subagent: Bot,
-  skill: Package,
-  mcp: Server,
-  hook: Webhook,
-  memory: catalogLucide('thinking'),
-  plugin: catalogLucide('extension'),
-  pet: PawPrint,
+const IMPORT_ITEM_ICONS: Record<EcosystemImportItemKind, IconSource> = {
+  account: { glyph: CircleUserRound },
+  settings: { name: 'settings' },
+  command: { name: 'command-mac' },
+  tool: { glyph: Wrench },
+  subagent: { glyph: Bot },
+  skill: { glyph: Package },
+  mcp: { glyph: Server },
+  hook: { glyph: Webhook },
+  memory: { name: 'thinking' },
+  plugin: { name: 'extension' },
+  pet: { glyph: PawPrint },
 };
 
 const GROUP_ORDER = ['connected', 'available', 'other'] as const;
+const PRODUCT_STATUS_TONES: Record<EcosystemProductRuntime['status'], StatusPillTone> = {
+  connected: 'success',
+  detected: 'info',
+  configured: 'success',
+  available: 'neutral',
+  development: 'neutral',
+};
 
 type LoadIssue = 'externalSources' | 'acpClients';
 type ImportItemState =
@@ -97,6 +115,19 @@ type ImportItemState =
   | 'unsupportedContext'
   | 'unavailable';
 
+const IMPORT_STATE_TONES: Record<ImportItemState, StatusPillTone> = {
+  ready: 'success',
+  readyRename: 'success',
+  checking: 'info',
+  imported: 'success',
+  reusable: 'success',
+  adapted: 'success',
+  notDetected: 'neutral',
+  notAdapted: 'neutral',
+  unsupportedContext: 'warning',
+  unavailable: 'warning',
+};
+
 interface AcpSubagentDraft {
   enabled: boolean;
   description: string;
@@ -107,10 +138,9 @@ const ACP_SUBAGENT_PROFILE_MAX_LENGTH = 320;
 
 function OwnerSurfaceLoading({ label }: { label: string }) {
   return (
-    <div className="ecosystem-compatibility__owner-loading" role="status">
-      <Icon name="refresh" size="lg" aria-hidden="true" style={{ width: 15, height: 15 }} />
-      <span>{label}</span>
-    </div>
+    <LoadingState className="ecosystem-compatibility__owner-loading" role="status" size="sm">
+      {label}
+    </LoadingState>
   );
 }
 
@@ -126,6 +156,7 @@ const EcosystemCompatibilityScene: React.FC = () => {
   const requestSequence = useRef(0);
   const importPlanSequence = useRef(0);
   const importActionSequence = useRef(0);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [snapshot, setSnapshot] = useState<ExternalSourceCatalogSnapshot | null>(null);
   const [acpClients, setAcpClients] = useState<AcpClientInfo[]>([]);
   const [loadIssues, setLoadIssues] = useState<LoadIssue[]>([]);
@@ -234,6 +265,7 @@ const EcosystemCompatibilityScene: React.FC = () => {
   useEffect(() => {
     setEditingSubagentClientId(null);
     setSavingSubagentClientId(null);
+    if (contentRef.current) contentRef.current.scrollTop = 0;
   }, [selectedProductId]);
 
   useEffect(() => {
@@ -434,17 +466,16 @@ const EcosystemCompatibilityScene: React.FC = () => {
             <p>{t('import.description', { name: selectedRuntime.spec.name })}</p>
           </div>
         </div>
-        <div className="ecosystem-compatibility__import-table" role="table">
+        <div className="ecosystem-compatibility__import-table" role="table" aria-label={t('import.title')}>
           <div className="ecosystem-compatibility__import-row ecosystem-compatibility__import-row--header" role="row">
             <span role="columnheader">{t('import.columns.item')}</span>
-            <span role="columnheader">{t('import.columns.type')}</span>
             <span role="columnheader">{t('import.columns.source')}</span>
             <span role="columnheader">{t('import.columns.state')}</span>
             <span role="columnheader">{t('import.columns.action')}</span>
           </div>
           {importItems.map((item) => {
             const state = importItemState(item);
-            const ItemIcon = IMPORT_ITEM_ICONS[item.kind];
+            const itemIcon = IMPORT_ITEM_ICONS[item.kind];
             const ready = state === 'ready' || state === 'readyRename';
             const dimmed = [
               'notDetected',
@@ -454,21 +485,17 @@ const EcosystemCompatibilityScene: React.FC = () => {
             ].includes(state);
             const importing = item.candidateId === importingCandidateId;
             const capabilityName = t(`capabilities.${item.kind}`);
-            const itemName = state === 'notDetected'
-              ? t('import.undetectedItem', { type: capabilityName })
-              : item.discovered
-                ? item.name
-                : capabilityName;
+            const itemName = item.discovered ? item.name : capabilityName;
             const itemDescription = item.discovered
               ? item.description
               : state === 'notAdapted'
-                  ? t('import.notAdaptedDescription', {
-                      name: selectedRuntime.spec.name,
-                      type: capabilityName,
-                    })
-                  : state === 'adapted'
-                    ? t('import.ownerAdaptedDescription', { type: capabilityName })
-                    : t('import.undetectedDescription');
+                ? t('import.notAdaptedDescription', {
+                  name: selectedRuntime.spec.name,
+                  type: capabilityName,
+                })
+                : state === 'adapted'
+                  ? t('import.ownerAdaptedDescription', { type: capabilityName })
+                  : t('import.undetectedDescription');
             return (
               <div
                 className={`ecosystem-compatibility__import-row${dimmed ? ' is-disabled' : ''}`}
@@ -481,23 +508,28 @@ const EcosystemCompatibilityScene: React.FC = () => {
               >
                 <span className="ecosystem-compatibility__import-item" role="cell">
                   <span className="ecosystem-compatibility__import-item-icon" aria-hidden="true">
-                    <ItemIcon size={15} />
+                    <Icon {...itemIcon} size="sm" />
                   </span>
                   <span className="ecosystem-compatibility__import-item-copy">
-                    <strong title={itemName}>{itemName}</strong>
-                    {itemDescription ? <small title={itemDescription}>{itemDescription}</small> : null}
+                    <strong><OverflowText>{itemName}</OverflowText></strong>
+                    <small>
+                      {item.discovered ? <span className="ecosystem-compatibility__import-kind">{capabilityName}</span> : null}
+                      {itemDescription}
+                    </small>
                   </span>
                 </span>
-                <span role="cell">{capabilityName}</span>
                 <span className="ecosystem-compatibility__import-source" role="cell">
-                  <strong title={item.sourceName}>{item.sourceName}</strong>
+                  <span className="ecosystem-compatibility__import-mobile-label" aria-hidden="true">{t('import.columns.source')}</span>
+                  <strong><OverflowText>{item.sourceName}</OverflowText></strong>
                   {item.sourceLocation ? <small title={item.sourceLocation}>{item.sourceLocation}</small> : null}
                 </span>
-                <span role="cell" className={`ecosystem-compatibility__import-state is-${state}`}>
-                  {t(`import.states.${state}`)}
+                <span role="cell" className="ecosystem-compatibility__import-state">
+                  <StatusPill tone={IMPORT_STATE_TONES[state]} title={t(`import.states.${state}`)}>
+                    {t(`import.states.${state}`)}
+                  </StatusPill>
                 </span>
                 <span className="ecosystem-compatibility__import-action" role="cell">
-                  {state === 'notAdapted' ? (
+                  {!ready && !importing ? (
                     <span className="ecosystem-compatibility__import-action-placeholder" aria-hidden="true">
                       -
                     </span>
@@ -507,14 +539,13 @@ const EcosystemCompatibilityScene: React.FC = () => {
                       size="sm"
                       variant="outline"
                       disabled={!ready || importing}
-                      title={t(`import.states.${state}`)}
+                      loading={importing}
+                      aria-label={`${t('import.importAction')} ${itemName}`}
                       onClick={() => void handleImportItem(item)}
                     >
                       {t(importing
                         ? 'import.importingAction'
-                        : ready
-                          ? 'import.importAction'
-                          : `import.states.${state}`)}
+                        : 'import.importAction')}
                     </Button>
                   )}
                 </span>
@@ -538,6 +569,9 @@ const EcosystemCompatibilityScene: React.FC = () => {
             className="ecosystem-compatibility__section-action"
             size="sm"
             variant="outline"
+            leadingIcon={<Icon name="settings" />}
+            aria-expanded={ownerSurface === 'acp'}
+            aria-controls="ecosystem-acp-manager"
             onClick={() => setOwnerSurface(ownerSurface === 'acp' ? null : 'acp')}
           >
             {t(ownerSurface === 'acp' ? 'run.hideManager' : 'run.openManager')}
@@ -571,10 +605,12 @@ const EcosystemCompatibilityScene: React.FC = () => {
                       <Icon name="terminal" size="md" />
                     </span>
                     <div className="ecosystem-compatibility__runtime-copy">
-                      <strong>{displayName}</strong>
-                      <span>{t(`run.clientStatus.${client.status}`)}</span>
+                      <strong><OverflowText>{displayName}</OverflowText></strong>
+                      <StatusPill tone={client.status === 'failed' ? 'danger' : client.status === 'running' ? 'success' : 'neutral'}>
+                        {t(`run.clientStatus.${client.status}`)}
+                      </StatusPill>
                     </div>
-                    <code>{client.toolName}</code>
+                    <code><OverflowText>{client.toolName}</OverflowText></code>
                   </div>
 
                   <div className="ecosystem-compatibility__runtime-mode-grid">
@@ -590,6 +626,7 @@ const EcosystemCompatibilityScene: React.FC = () => {
                         className="ecosystem-compatibility__runtime-mode-action"
                         size="sm"
                         variant="fill"
+                        leadingIcon={<Icon name="side-chat" />}
                         onClick={() => handleStartAcpClient(client)}
                       >
                         {t('run.startSession')}
@@ -598,14 +635,14 @@ const EcosystemCompatibilityScene: React.FC = () => {
 
                     <div className="ecosystem-compatibility__runtime-mode">
                       <span className="ecosystem-compatibility__runtime-mode-icon" aria-hidden="true">
-                        <Bot size={16} />
+                        <Icon glyph={Bot} size="md" />
                       </span>
                       <div className="ecosystem-compatibility__runtime-mode-copy">
                         <div className="ecosystem-compatibility__runtime-mode-title">
                           <strong>{t('run.subagent.title')}</strong>
-                          <span className={`is-${profileState}`}>
+                          <StatusPill tone={profileState === 'configured' || profileState === 'defaultProfile' ? 'success' : profileState === 'unsupportedHost' ? 'warning' : 'neutral'}>
                             {t(`run.subagent.states.${profileState}`)}
-                          </span>
+                          </StatusPill>
                         </div>
                         <p>{profile?.description || t('run.subagent.responsibilityFallback')}</p>
                         <small>{profile?.bestFor
@@ -651,34 +688,30 @@ const EcosystemCompatibilityScene: React.FC = () => {
                       </div>
 
                       <div className="ecosystem-compatibility__subagent-fields">
-                        <label>
-                          <span>{t('run.subagent.responsibilityLabel')}</span>
-                          <Textarea
-                            rows={3}
-                            maxLength={ACP_SUBAGENT_PROFILE_MAX_LENGTH}
-                            value={subagentDraft.description}
-                            disabled={savingProfile}
-                            placeholder={t('run.subagent.responsibilityPlaceholder')}
-                            onChange={(event) => setSubagentDraft((current) => ({
-                              ...current,
-                              description: event.target.value,
-                            }))}
-                          />
-                        </label>
-                        <label>
-                          <span>{t('run.subagent.bestForLabel')}</span>
-                          <Textarea
-                            rows={3}
-                            maxLength={ACP_SUBAGENT_PROFILE_MAX_LENGTH}
-                            value={subagentDraft.bestFor}
-                            disabled={savingProfile}
-                            placeholder={t('run.subagent.bestForPlaceholder')}
-                            onChange={(event) => setSubagentDraft((current) => ({
-                              ...current,
-                              bestFor: event.target.value,
-                            }))}
-                          />
-                        </label>
+                        <Textarea
+                          label={t('run.subagent.responsibilityLabel')}
+                          rows={3}
+                          maxLength={ACP_SUBAGENT_PROFILE_MAX_LENGTH}
+                          value={subagentDraft.description}
+                          disabled={savingProfile}
+                          placeholder={t('run.subagent.responsibilityPlaceholder')}
+                          onChange={(event) => setSubagentDraft((current) => ({
+                            ...current,
+                            description: event.target.value,
+                          }))}
+                        />
+                        <Textarea
+                          label={t('run.subagent.bestForLabel')}
+                          rows={3}
+                          maxLength={ACP_SUBAGENT_PROFILE_MAX_LENGTH}
+                          value={subagentDraft.bestFor}
+                          disabled={savingProfile}
+                          placeholder={t('run.subagent.bestForPlaceholder')}
+                          onChange={(event) => setSubagentDraft((current) => ({
+                            ...current,
+                            bestFor: event.target.value,
+                          }))}
+                        />
                       </div>
 
                       <div className="ecosystem-compatibility__subagent-editor-footer">
@@ -715,7 +748,7 @@ const EcosystemCompatibilityScene: React.FC = () => {
           </div>
         ) : (
           <div className="ecosystem-compatibility__empty-card">
-            <Network size={18} aria-hidden="true" />
+            <Icon glyph={Network} size="md" />
             <div>
               <strong>{t('run.notConfiguredTitle', { name: selectedRuntime.spec.name })}</strong>
               <p>{t('run.notConfiguredDescription', { name: selectedRuntime.spec.name })}</p>
@@ -724,7 +757,7 @@ const EcosystemCompatibilityScene: React.FC = () => {
         )}
       </section>
       {ownerSurface === 'acp' ? (
-        <section className="ecosystem-compatibility__owner-surface" aria-label={t('run.managerLabel')}>
+        <section id="ecosystem-acp-manager" className="ecosystem-compatibility__owner-surface" aria-label={t('run.managerLabel')}>
           <div className="ecosystem-compatibility__owner-note">
             <Icon name="info" size="sm" aria-hidden="true" />
             <span>{t('run.managerScope')}</span>
@@ -744,200 +777,221 @@ const EcosystemCompatibilityScene: React.FC = () => {
       data-openbitfun-scene="ecosystem-compatibility"
       data-openbitfun-part="root"
     >
-      <aside
+      <NavigationPanel
         className="ecosystem-compatibility__sidebar"
         aria-label={t('sidebar.label')}
         data-openbitfun-scene="ecosystem-compatibility"
         data-openbitfun-part="sidebar"
       >
-        <div className="ecosystem-compatibility__sidebar-header">
-          <SearchField
-            leadingIcon={<Icon name="search" size="lg" aria-hidden />}
-            size="sm"
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            placeholder={t('search.placeholder')}
-            aria-label={t('search.label')}
-          />
-          <button
-            type="button"
+        <NavigationPanelHeader className="ecosystem-compatibility__sidebar-header">
+          <div className="ecosystem-compatibility__sidebar-title">{t('sidebar.label')}</div>
+          <div className="ecosystem-compatibility__search">
+            <SearchField
+              leadingIcon={<Icon name="search" aria-hidden />}
+              size="sm"
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+              placeholder={t('search.placeholder')}
+              aria-label={t('search.label')}
+            />
+          </div>
+          <div className="ecosystem-compatibility__compact-picker">
+            <Select
+              size="sm"
+              value={selectedRuntime.spec.id}
+              options={productRuntimes.map((runtime) => ({
+                value: runtime.spec.id,
+                label: runtime.spec.name,
+                group: t(`groups.${runtime.group}`),
+              }))}
+              aria-label={t('sidebar.label')}
+              onValueChange={(productId) => {
+                const runtime = productRuntimes.find((candidate) => candidate.spec.id === productId);
+                if (runtime) handleSelectProduct(runtime);
+              }}
+            />
+          </div>
+          <Button
             className="ecosystem-compatibility__host-card"
-            aria-label={t('host.switchLabel')}
+            size="sm"
+            variant="text"
+            leadingIcon={<Icon glyph={Server} />}
+            trailingIcon={<Icon name="chevron-down" />}
+            aria-label={`${t('host.switchLabel')} · ${currentHost}`}
+            title={`${t('host.label')} · ${currentHost}`}
             onClick={() => showDevelopmentNotice(t('host.switchAction'))}
           >
-            <span>{t('host.label')}</span>
-            <strong title={currentHost}>{currentHost}</strong>
-            <Icon name="chevron-down" size="sm" aria-hidden="true" />
-          </button>
-        </div>
+            {currentHost}
+          </Button>
+        </NavigationPanelHeader>
 
-        <ScrollArea
-          className="ecosystem-compatibility__product-groups"
-          data-openbitfun-scene="ecosystem-compatibility"
-          data-openbitfun-part="productList"
-        >
-          {GROUP_ORDER.map((group) => {
-            const runtimes = filteredRuntimes.filter((runtime) => runtime.group === group);
-            if (runtimes.length === 0) return null;
-            return (
-              <section className="ecosystem-compatibility__product-group" key={group}>
-                <h2>{t(`groups.${group}`)}</h2>
-                <div className="ecosystem-compatibility__product-list">
-                  {runtimes.map((runtime) => {
-                    const selected = runtime.spec.id === selectedRuntime.spec.id;
-                    return (
-                      <button
-                        key={runtime.spec.id}
-                        type="button"
-                        className={`ecosystem-compatibility__product${selected ? ' is-selected' : ''}`}
-                        onClick={() => handleSelectProduct(runtime)}
-                        aria-pressed={selected}
-                        data-product-id={runtime.spec.id}
+        <NavigationPanelBody>
+          <div
+            className="ecosystem-compatibility__product-groups"
+            data-openbitfun-scene="ecosystem-compatibility"
+            data-openbitfun-part="productList"
+          >
+            <NavigationPanelContent>
+              {GROUP_ORDER.map((group) => {
+                const runtimes = filteredRuntimes.filter((runtime) => runtime.group === group);
+                if (runtimes.length === 0) return null;
+                return (
+                  <NavigationPanelSection key={group} title={t(`groups.${group}`)}>
+                    {runtimes.map((runtime) => {
+                      const selected = runtime.spec.id === selectedRuntime.spec.id;
+                      return (
+                        <NavigationPanelItem
+                          key={runtime.spec.id}
+                          selected={selected}
+                          onClick={() => handleSelectProduct(runtime)}
+                          data-product-id={runtime.spec.id}
+                          title={`${runtime.spec.name} · ${renderProductSummary(runtime)}`}
+                          leading={<EcosystemProductIcon productId={runtime.spec.id} size={22} />}
+                          metadata={
+                            <StatusPill tone={PRODUCT_STATUS_TONES[runtime.status]}>
+                              {t(`status.${runtime.status}`)}
+                            </StatusPill>
+                          }
                         >
-                          <span className="ecosystem-compatibility__product-icon" aria-hidden="true">
-                            <EcosystemProductIcon productId={runtime.spec.id} size={22} />
-                          </span>
-                        <span className="ecosystem-compatibility__product-copy">
-                          <strong>{runtime.spec.name}</strong>
-                          <small>{renderProductSummary(runtime)}</small>
-                        </span>
-                        <span className={`ecosystem-compatibility__product-status is-${runtime.status}`}>
-                          <span className="ecosystem-compatibility__status-dot" aria-hidden="true" />
-                          {t(`status.${runtime.status}`)}
-                        </span>
-                        <Icon name="chevron-right" size="sm" aria-hidden="true" />
-                      </button>
-                    );
-                  })}
+                          {runtime.spec.name}
+                        </NavigationPanelItem>
+                      );
+                    })}
+                  </NavigationPanelSection>
+                );
+              })}
+              {filteredRuntimes.length === 0 ? (
+                <div className="ecosystem-compatibility__sidebar-empty">
+                  {t('search.empty')}
                 </div>
-              </section>
-            );
-          })}
-          {filteredRuntimes.length === 0 ? (
-            <div className="ecosystem-compatibility__sidebar-empty">
-              {t('search.empty')}
-            </div>
-          ) : null}
-        </ScrollArea>
+              ) : null}
+            </NavigationPanelContent>
+          </div>
+        </NavigationPanelBody>
 
-        <div className="ecosystem-compatibility__sidebar-footer">
+        <NavigationPanelFooter className="ecosystem-compatibility__sidebar-footer">
           <Icon name="info" size="sm" aria-hidden="true" />
           <span>{t('sidebar.hint')}</span>
-        </div>
-      </aside>
+        </NavigationPanelFooter>
+      </NavigationPanel>
 
       <main
         className="ecosystem-compatibility__main"
         data-openbitfun-scene="ecosystem-compatibility"
         data-openbitfun-part="main"
       >
-        <header
-          className="ecosystem-compatibility__product-header"
-          data-openbitfun-scene="ecosystem-compatibility"
-          data-openbitfun-part="header"
-        >
-          <div className="ecosystem-compatibility__product-identity">
-            <span className="ecosystem-compatibility__product-logo" aria-hidden="true">
-              <EcosystemProductIcon productId={selectedRuntime.spec.id} size={38} />
-            </span>
-            <div>
-              <div className="ecosystem-compatibility__product-title-row">
-                <h1>{selectedRuntime.spec.name}</h1>
-                <span>{adapterLabel}</span>
-              </div>
-              <dl className="ecosystem-compatibility__product-meta">
-                <div>
-                  <dt>{t('header.sourceLocation')}</dt>
-                  <dd title={selectedRuntime.sourceLocation}>
-                    {selectedRuntime.sourceLocation ?? t('header.notDetected')}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{t('header.executionHost')}</dt>
-                  <dd title={currentHost}>{currentHost}</dd>
-                </div>
-                <div>
-                  <dt>{t('header.currentState')}</dt>
-                  <dd className={`is-${selectedRuntime.status}`}>
-                    <span className="ecosystem-compatibility__status-dot" aria-hidden="true" />
-                    {t(`status.${selectedRuntime.status}`)}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          </div>
-          <div className="ecosystem-compatibility__header-checks">
-            <span>{t('header.checksLabel')}</span>
-            <strong title={headerCheckSummary}>{headerCheckSummary}</strong>
-            <Button
-              className="ecosystem-compatibility__header-action"
-              size="sm"
-              variant="outline"
-              onClick={() => setOwnerSurface(
-                ownerSurface === 'external-sources' ? null : 'external-sources',
-              )}
-            >
-              {ownerSurface === 'external-sources'
-                ? t('governance.closeAction')
-                : t('governance.openAction')}
-            </Button>
-          </div>
-        </header>
-
         <ScrollArea
+          ref={contentRef}
           className="ecosystem-compatibility__content"
           data-openbitfun-scene="ecosystem-compatibility"
           data-openbitfun-part="content"
         >
-          {loading ? (
-            <div className="ecosystem-compatibility__loading" role="status">
-              <Icon name="refresh" size="md" aria-hidden="true" />
-              {t('loading')}
-            </div>
-          ) : null}
-          {loadIssues.length > 0 ? (
-            <div className="ecosystem-compatibility__load-notice" role="status">
-              <Icon name="info" size="sm" aria-hidden="true" />
-              <span>{t('partialLoad', {
-                sources: loadIssues.includes('externalSources') ? t('loadAreas.externalSources') : '',
-                acp: loadIssues.includes('acpClients') ? t('loadAreas.acpClients') : '',
-              })}</span>
-              <Button className="ecosystem-compatibility__load-retry" variant="outline" size="sm" onClick={() => void loadCompatibility(true)}>
-                {t('retry')}
+          <header
+            className="ecosystem-compatibility__product-header"
+            data-openbitfun-scene="ecosystem-compatibility"
+            data-openbitfun-part="header"
+          >
+            <div className="ecosystem-compatibility__header-top">
+              <div className="ecosystem-compatibility__product-identity">
+                <span className="ecosystem-compatibility__product-logo" aria-hidden="true">
+                  <EcosystemProductIcon productId={selectedRuntime.spec.id} size={38} />
+                </span>
+                <div>
+                  <div className="ecosystem-compatibility__product-title-row">
+                    <h1><OverflowText>{selectedRuntime.spec.name}</OverflowText></h1>
+                    <StatusPill tone={PRODUCT_STATUS_TONES[selectedRuntime.status]} aria-label={`${t('header.currentState')} · ${t(`status.${selectedRuntime.status}`)}`}>
+                      {t(`status.${selectedRuntime.status}`)}
+                    </StatusPill>
+                  </div>
+                  <span className="ecosystem-compatibility__adapter-label">{adapterLabel}</span>
+                </div>
+              </div>
+              <Button
+                className="ecosystem-compatibility__header-action"
+                size="sm"
+                variant="outline"
+                leadingIcon={<Icon name={ownerSurface === 'external-sources' ? 'chevron-left' : 'settings'} />}
+                aria-expanded={ownerSurface === 'external-sources'}
+                aria-controls="ecosystem-source-manager"
+                onClick={() => setOwnerSurface(
+                  ownerSurface === 'external-sources' ? null : 'external-sources',
+                )}
+              >
+                {ownerSurface === 'external-sources'
+                  ? t('governance.closeAction')
+                  : t('governance.openAction')}
               </Button>
             </div>
-          ) : null}
-          {ownerSurface === 'external-sources' ? (
-            <section
-              className="ecosystem-compatibility__owner-surface"
-              aria-label={t('governance.managerLabel')}
-            >
-              <div className="ecosystem-compatibility__owner-note">
-                <Icon name="info" size="sm" aria-hidden="true" />
-                <span>{t('governance.managerScope')}</span>
+            <dl className="ecosystem-compatibility__product-meta">
+              <div>
+                <dt>{t('header.sourceLocation')}</dt>
+                <dd title={selectedRuntime.sourceLocation}>
+                  {selectedRuntime.sourceLocation ?? t('header.notDetected')}
+                </dd>
               </div>
-              <Suspense fallback={<OwnerSurfaceLoading label={t('governance.loadingManager')} />}>
-                <ExternalSourcesConfig
-                  presentation="governance"
-                  onSnapshotChange={setSnapshot}
-                />
-              </Suspense>
-            </section>
-          ) : (
-            <div className="ecosystem-compatibility__unified-stack">
-              {selectedRuntime.spec.development ? (
-                <div className="ecosystem-compatibility__development-card" role="status">
-                  <Bot size={20} aria-hidden="true" />
-                  <div>
-                    <strong>{t('comingSoon.title')}</strong>
-                    <p>{t('comingSoon.notice', { name: selectedRuntime.spec.name })}</p>
-                  </div>
-                </div>
-              ) : null}
-              {renderRun()}
-              {renderImport()}
+              <div>
+                <dt>{t('header.executionHost')}</dt>
+                <dd>{currentHost}</dd>
+              </div>
+            </dl>
+            <div className="ecosystem-compatibility__header-checks">
+              <Icon name="info" size="sm" aria-hidden="true" />
+              <span>{t('header.checksLabel')}</span>
+              <strong>{headerCheckSummary}</strong>
             </div>
-          )}
+          </header>
+
+          <div className="ecosystem-compatibility__body">
+            {loading ? (
+              <LoadingState className="ecosystem-compatibility__loading" role="status" size="sm">
+                {t('loading')}
+              </LoadingState>
+            ) : null}
+            {loadIssues.length > 0 ? (
+              <div className="ecosystem-compatibility__load-notice" role="status">
+                <Icon name="info" size="sm" aria-hidden="true" />
+                <span>{t('partialLoad', {
+                  sources: loadIssues.includes('externalSources') ? t('loadAreas.externalSources') : '',
+                  acp: loadIssues.includes('acpClients') ? t('loadAreas.acpClients') : '',
+                })}</span>
+                <Button className="ecosystem-compatibility__load-retry" variant="outline" size="sm" onClick={() => void loadCompatibility(true)}>
+                  {t('retry')}
+                </Button>
+              </div>
+            ) : null}
+            {ownerSurface === 'external-sources' ? (
+              <section
+                id="ecosystem-source-manager"
+                className="ecosystem-compatibility__owner-surface"
+                aria-label={t('governance.managerLabel')}
+              >
+                <div className="ecosystem-compatibility__owner-note">
+                  <Icon name="info" size="sm" aria-hidden="true" />
+                  <span>{t('governance.managerScope')}</span>
+                </div>
+                <Suspense fallback={<OwnerSurfaceLoading label={t('governance.loadingManager')} />}>
+                  <ExternalSourcesConfig
+                    presentation="governance"
+                    onSnapshotChange={setSnapshot}
+                  />
+                </Suspense>
+              </section>
+            ) : (
+              <div className="ecosystem-compatibility__unified-stack">
+                {selectedRuntime.spec.development ? (
+                  <div className="ecosystem-compatibility__development-card" role="status">
+                    <Icon glyph={Bot} size="lg" />
+                    <div>
+                      <strong>{t('comingSoon.title')}</strong>
+                      <p>{t('comingSoon.notice', { name: selectedRuntime.spec.name })}</p>
+                    </div>
+                  </div>
+                ) : null}
+                {renderRun()}
+                {renderImport()}
+              </div>
+            )}
+          </div>
         </ScrollArea>
       </main>
     </div>

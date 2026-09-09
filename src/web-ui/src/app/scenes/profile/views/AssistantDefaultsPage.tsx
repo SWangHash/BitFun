@@ -1,4 +1,4 @@
-import { Button, Icon, IconButton, SearchField, Switch, Tooltip, ScrollArea } from '@openbitfun/ui';
+import { OverflowText, Button, Icon, IconButton, SearchField, Switch, Tooltip, ScrollArea } from '@openbitfun/ui';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleAlert, Plug2, RotateCcw, Wrench } from 'lucide-react';
 
@@ -589,7 +589,7 @@ const AssistantDefaultsPage: React.FC = () => {
     ].filter(Boolean).join(' ') || undefined;
     const rowContent = (
       <>
-        <button
+        <button data-overflow-trigger
           type="button"
           role="cell"
           className="assistant-defaults-row__identity"
@@ -598,12 +598,12 @@ const AssistantDefaultsPage: React.FC = () => {
         >
           <span className={`assistant-defaults-row__icon assistant-defaults-row__icon--${row.kind}`}>{icon}</span>
           <span className="assistant-defaults-row__copy">
-            <strong title={row.name}>{row.name}</strong>
-            <span title={row.description}>{row.description}</span>
-            {row.statusNote ? <small title={row.statusNote}>{row.statusNote}</small> : null}
+            <strong title={row.name}><OverflowText>{row.name}</OverflowText></strong>
+            <OverflowText title={row.description}>{row.description}</OverflowText>
+            {row.statusNote ? <small title={row.statusNote}><OverflowText>{row.statusNote}</OverflowText></small> : null}
           </span>
         </button>
-        <div role="cell" className="assistant-defaults-row__cell assistant-defaults-row__source" title={row.source}>{row.source}</div>
+        <div role="cell" className="assistant-defaults-row__cell assistant-defaults-row__source" title={row.source}><OverflowText>{row.source}</OverflowText></div>
         <div role="cell" className="assistant-defaults-row__cell">
           <span className={`assistant-defaults-state assistant-defaults-state--${row.available ? 'available' : 'unavailable'}`}>
             <span className="assistant-defaults-state__dot" aria-hidden />
@@ -617,10 +617,10 @@ const AssistantDefaultsPage: React.FC = () => {
             {row.enabled ? t('nursery.template.state.enabled') : t('nursery.template.state.disabled')}
           </span>
         </div>
-        <div role="cell" className="assistant-defaults-row__cell assistant-defaults-row__difference">
+        <div role="cell" className="assistant-defaults-row__cell assistant-defaults-row__difference"><OverflowText>
           {changed ? t('nursery.template.valueYes') : t('nursery.template.valueNo')}
-        </div>
-        <div role="cell" className="assistant-defaults-row__cell assistant-defaults-row__access" title={row.accessHint}>{row.accessLabel}</div>
+        </OverflowText></div>
+        <div role="cell" className="assistant-defaults-row__cell assistant-defaults-row__access" title={row.accessHint}><OverflowText>{row.accessLabel}</OverflowText></div>
         <div role="cell" className="assistant-defaults-row__actions">
           <Switch
             checked={row.enabled}
@@ -747,8 +747,8 @@ const AssistantDefaultsPage: React.FC = () => {
                 </button>
                 <span className="assistant-defaults-group__icon"><Plug2 size={14} /></span>
                 <div className="assistant-defaults-group__identity">
-                  <strong>{serverName}</strong>
-                  <span>{getMcpStatusLabel(group.server?.status)}</span>
+                  <strong><OverflowText>{serverName}</OverflowText></strong>
+                  <OverflowText>{getMcpStatusLabel(group.server?.status)}</OverflowText>
                 </div>
                 <span className={`assistant-defaults-state assistant-defaults-state--${available ? 'available' : 'unavailable'}`}>
                   <span className="assistant-defaults-state__dot" aria-hidden />

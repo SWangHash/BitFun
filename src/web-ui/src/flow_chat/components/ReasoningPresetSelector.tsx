@@ -5,7 +5,7 @@ import {
   CircleOff,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Menu, MenuItem } from '@openbitfun/ui';
+import { OverflowText, Menu, MenuItem } from '@openbitfun/ui';
 import { Tooltip } from '@openbitfun/ui';
 import { RetainedMountBoundary } from '@/shared/presence';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
@@ -303,7 +303,7 @@ export const ReasoningPresetSelector: React.FC<ReasoningPresetSelectorProps> = (
       data-openbitfun-presentation={triggerPresentation}
     >
       <Tooltip content={tooltip} disabled={open}>
-        <button
+        <button data-overflow-trigger
           ref={triggerRef}
           type="button"
           className={[
@@ -340,9 +340,9 @@ export const ReasoningPresetSelector: React.FC<ReasoningPresetSelectorProps> = (
           }}
         >
           {triggerPresentation === 'label' ? (
-            <span className="openbitfun-reasoning-preset-selector__trigger-label">
+            <OverflowText className="openbitfun-reasoning-preset-selector__trigger-label">
               {statusLabel}
-            </span>
+            </OverflowText>
           ) : (
             <ReasoningIntensityMark level={intensityLevel} compact />
           )}
@@ -398,7 +398,7 @@ export const ReasoningPresetSelector: React.FC<ReasoningPresetSelectorProps> = (
               const isSelected = selected?.id === preset.id;
               const label = presetLabels[index] ?? presetLabel(preset, t);
               return (
-                <MenuItem
+                <MenuItem data-overflow-trigger
                   key={preset.id}
                   type="button"
                   role="menuitemradio"
@@ -410,9 +410,9 @@ export const ReasoningPresetSelector: React.FC<ReasoningPresetSelectorProps> = (
                   data-openbitfun-state={isSelected ? 'selected' : undefined}
                   onClick={() => select(preset.id)}
                 >
-                  <span className="openbitfun-reasoning-preset-selector__option-label">
+                  <OverflowText className="openbitfun-reasoning-preset-selector__option-label">
                     {label}
-                  </span>
+                  </OverflowText>
                 </MenuItem>
               );
             })}

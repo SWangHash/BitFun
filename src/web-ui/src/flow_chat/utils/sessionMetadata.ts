@@ -7,7 +7,8 @@ import type {
 } from '@/shared/types/session-history';
 import type { Session } from '../types/flow-chat';
 import { resolveSessionTitle } from './sessionTitle';
-import { canonicalSessionTurns, projectedSessionTurnCount } from './flowChatTurnIdentity';
+import { canonicalSessionTurns, lastUserDialogTurn, projectedSessionTurnCount } from './flowChatTurnIdentity';
+import { isTurnAwaitingRecovery } from './interruptedTurnRecovery';
 
 const CHILD_SESSION_KIND_TAGS = new Set<SessionKind>(['btw', 'review', 'deep_review', 'miniapp', 'subagent']);
 const RELATIONSHIP_METADATA_KEYS = new Set([
@@ -368,6 +369,7 @@ export function buildSessionMetadata(
   const stats = calculateSessionStats(session);
   const sessionKind = normalizeSessionKind(session.sessionKind);
   const persistedSessionKind = sessionKind === 'subagent' ? 'subagent' : 'standard';
+  const visibleLastTurn = lastUserDialogTurn(session);
 
   return {
     ...existingMetadata,
@@ -385,6 +387,17 @@ export function buildSessionMetadata(
     createdAt: existingMetadata?.createdAt ?? session.createdAt,
     lastActiveAt: Date.now(),
     lastFinishedAt: session.lastFinishedAt ?? null,
+    // The acknowledgement belongs to the rendered result, not a newer metadata
+    // record that happened to arrive while its persistence request was waiting.
+    lastTurn: visibleLastTurn ? {
+      turnId: visibleLastTurn.id,
+      turnIndex: visibleLastTurn.storageTurnIndex ?? visibleLastTurn.backendTurnIndex ?? 0,
+      status: visibleLastTurn.status === 'completed' ? 'completed'
+        : visibleLastTurn.status === 'error' ? 'error' : visibleLastTurn.status === 'cancelled' ? 'cancelled' : 'inprogress',
+      endTime: visibleLastTurn.endTime,
+      executionGeneration: visibleLastTurn.recovery?.executionGeneration ?? visibleLastTurn.recoveryEpoch,
+      recoveryPending: isTurnAwaitingRecovery(visibleLastTurn),
+    } : undefined,
     turnCount: Math.max(stats.turnCount, existingMetadata?.turnCount ?? 0),
     messageCount: Math.max(
       stats.messageCount,

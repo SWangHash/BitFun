@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button, IconButton } from '@openbitfun/ui';
+import { OverflowText, Button, IconButton } from '@openbitfun/ui';
 import { createPortal } from 'react-dom';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
 import { XCircle, FileText } from 'lucide-react';
@@ -148,7 +148,7 @@ export const SnapshotFullscreenDiffViewer: React.FC<SnapshotFullscreenDiffViewer
   };
 
   const fullscreenContent = (
-    <div data-openbitfun-component="snapshot-fullscreen-diff-viewer" data-openbitfun-part="overlay" className="snapshot-fullscreen-overlay" onClick={handleBackdropClick}>
+    <div data-overflow-trigger data-openbitfun-component="snapshot-fullscreen-diff-viewer" data-openbitfun-part="overlay" className="snapshot-fullscreen-overlay" onClick={handleBackdropClick}>
       <div data-openbitfun-component="snapshot-fullscreen-diff-viewer" data-openbitfun-part="root" className="snapshot-fullscreen-container">
         <div data-openbitfun-component="snapshot-fullscreen-diff-viewer" data-openbitfun-part="header" className="snapshot-fullscreen-header">
           <div data-openbitfun-component="snapshot-fullscreen-diff-viewer" data-openbitfun-part="sessionInfo" className="session-info">
@@ -223,13 +223,13 @@ export const SnapshotFullscreenDiffViewer: React.FC<SnapshotFullscreenDiffViewer
               {files.map((file, index) => {
                 const name = file.filePath.split(/[/\\]/).pop() || '';
                 return (
-                  <button data-openbitfun-component="snapshot-fullscreen-diff-viewer" data-openbitfun-part="tab" data-openbitfun-state={index === selectedFileIndex ? 'active' : undefined}
+                  <button data-overflow-trigger data-openbitfun-component="snapshot-fullscreen-diff-viewer" data-openbitfun-part="tab" data-openbitfun-state={index === selectedFileIndex ? 'active' : undefined}
                     key={index}
                     className={`file-tab ${index === selectedFileIndex ? 'active' : ''}`}
                     onClick={() => setSelectedFileIndex(index)}
                     title={file.filePath}
                   >
-                    <span className="file-name">{name}</span>
+                    <OverflowText className="file-name">{name}</OverflowText>
                     <span className="file-status" data-status={file.fileStatus}>
                       {file.fileStatus === 'pending' ? '●' : 
                        file.fileStatus === 'accepted' ? '✓' : 
@@ -262,8 +262,8 @@ export const SnapshotFullscreenDiffViewer: React.FC<SnapshotFullscreenDiffViewer
               </svg>
             </div>
             <div className="file-details">
-              <div className="file-name">{fileName}</div>
-              <div className="file-path-full">{currentFile.filePath}</div>
+              <div className="file-name"><OverflowText>{fileName}</OverflowText></div>
+              <div className="file-path-full"><OverflowText>{currentFile.filePath}</OverflowText></div>
             </div>
           </div>
 

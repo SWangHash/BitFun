@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   Icon,
   ScrollArea,
@@ -263,7 +263,7 @@ const MiniAppDetailModal: React.FC<MiniAppDetailModalProps> = ({
                     {capabilityIcon(capability)}
                   </span>
                   <span className="miniapp-detail-modal__highlight-copy">
-                    <strong>{copy.title}</strong>
+                    <strong><OverflowText>{copy.title}</OverflowText></strong>
                     <span>{copy.description}</span>
                   </span>
                 </div>

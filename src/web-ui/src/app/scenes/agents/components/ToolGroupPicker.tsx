@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   Icon,
   IconButton,
@@ -314,7 +314,7 @@ const GroupManagerModal: React.FC<GroupManagerModalProps> = ({
                       titleMonospace
                       placement="top"
                     >
-                      <button
+                      <button data-overflow-trigger
                         type="button"
                         className={`tool-group-manager__token${selected ? ' is-on' : ''}`}
                         data-openbitfun-component="tool-group-picker"
@@ -324,9 +324,9 @@ const GroupManagerModal: React.FC<GroupManagerModalProps> = ({
                         disabled={saving}
                         aria-label={capabilityTooltipAriaLabel(tool.name, tool.description, tooltipFields)}
                         aria-pressed={selected}
-                      >
+                      ><OverflowText>
                         {tool.name}
-                      </button>
+                      </OverflowText></button>
                     </AgentCapabilityTooltip>
                   );
                 })}
@@ -477,7 +477,7 @@ export const ToolGroupPicker: React.FC<ToolGroupPickerProps> = ({
                 <div data-openbitfun-component="tool-group-picker" data-openbitfun-part="group" key={group.id} className="tool-group-picker__group">
                   <div className="tool-group-picker__group-head" data-openbitfun-component="tool-group-picker" data-openbitfun-part="groupHeader">
                     <div className="tool-group-picker__group-title-wrap">
-                      <span className="tool-group-picker__group-name">{group.label}</span>
+                      <OverflowText className="tool-group-picker__group-name">{group.label}</OverflowText>
                       <span className="tool-group-picker__group-count">
                         {selectedInGroup}/{group.tools.length}
                       </span>
@@ -524,7 +524,7 @@ export const ToolGroupPicker: React.FC<ToolGroupPickerProps> = ({
                           titleMonospace
                           placement="top"
                         >
-                          <button
+                          <button data-overflow-trigger
                             type="button"
                             className={`tool-group-picker__token${selected ? ' is-on' : ''}`}
                             data-openbitfun-component="tool-group-picker"
@@ -535,9 +535,9 @@ export const ToolGroupPicker: React.FC<ToolGroupPickerProps> = ({
                             )}
                             disabled={disabled}
                             aria-label={capabilityTooltipAriaLabel(tool.name, tool.description, tooltipFields)}
-                          >
+                          ><OverflowText>
                             {tool.name}
-                          </button>
+                          </OverflowText></button>
                         </AgentCapabilityTooltip>
                       );
                     })}
@@ -590,9 +590,9 @@ export const ToolGroupSummary: React.FC<ToolGroupSummaryProps> = ({
                   fields={tooltipFields}
                   titleMonospace
                 >
-                  <span className="agent-card__chip">
+                  <span className="agent-card__chip"><OverflowText>
                     {tool.name.replace(/_/g, ' ')}
-                  </span>
+                  </OverflowText></span>
                 </AgentCapabilityTooltip>
               );
             })}

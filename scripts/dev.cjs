@@ -124,6 +124,7 @@ function spawnCommand(cmd, args, cwd = ROOT_DIR, envOverrides = {}, shell = fals
     const child = spawn(cmd, args, {
       cwd,
       stdio: 'inherit',
+      windowsHide: true,
       shell,
       env: {
         ...process.env,
@@ -153,6 +154,7 @@ function runCommandPrefixed(prefix, cmd, args, cwd = ROOT_DIR, envOverrides = {}
     const child = spawn(cmd, args, {
       cwd,
       shell: process.platform === 'win32',
+      windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
@@ -191,6 +193,7 @@ function spawnBackgroundCommand(cmd, args, cwd = ROOT_DIR, env = process.env) {
   return spawn(cmd, args, {
     cwd,
     stdio: 'inherit',
+    windowsHide: true,
     env,
   });
 }
@@ -207,6 +210,7 @@ function spawnWindowsCommandArgs(command, args, cwd = ROOT_DIR, env = process.en
   return spawn(process.env.ComSpec || 'C:\\Windows\\System32\\cmd.exe', ['/d', '/s', '/c', command, ...args], {
     cwd,
     stdio: 'inherit',
+    windowsHide: true,
     env,
   });
 }

@@ -6,6 +6,7 @@ mod types;
 
 /// Windows main binary file name — must match `src/apps/desktop` `[[bin]]` and Tauri NSIS output.
 const MAIN_APP_EXE: &str = "openbitfun-desktop.exe";
+const DATA_MIGRATOR_EXE: &str = "openbitfun-data-migrator.exe";
 
 #[cfg(target_os = "windows")]
 mod registry;

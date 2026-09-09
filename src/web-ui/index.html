@@ -166,30 +166,33 @@
       }
 
       .splash-screen__logo-wrap {
+        position: relative;
+        width: 120px;
+        height: 120px;
         animation: splash-logo-idle 3.2s ease-in-out infinite;
         -webkit-animation: splash-logo-idle 3.2s ease-in-out infinite;
-        will-change: filter, opacity, transform;
+        will-change: transform;
       }
 
       .splash-screen__logo,
       .openbitfun-preload__logo {
         display: block;
-        width: 96px;
-        height: 96px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 120px;
+        height: 120px;
+        background-color: var(--openbitfun-color-content-on-light);
+        transform: translate(-50%, -50%);
+        -webkit-mask: url('/brand/openbitfun-mark.svg') center / contain no-repeat;
+        mask: url('/brand/openbitfun-mark.svg') center / contain no-repeat;
         user-select: none;
         -webkit-user-select: none;
       }
 
-      .openbitfun-preload__logo--light {
-        display: none;
-      }
-
-      [data-color-scheme="dark"] .openbitfun-preload__logo--dark {
-        display: none;
-      }
-
-      [data-color-scheme="dark"] .openbitfun-preload__logo--light {
-        display: block;
+      [data-color-scheme="dark"] .splash-screen__logo,
+      [data-color-scheme="dark"] .openbitfun-preload__logo {
+        background-color: var(--openbitfun-color-content-on-dark);
       }
 
       .splash-screen__message {
@@ -198,28 +201,35 @@
         left: 50%;
         min-width: 220px;
         max-width: min(360px, calc(100vw - 48px));
-        color: var(--openbitfun-color-content-muted);
-        font-size: 12px;
-        line-height: 1.4;
+        color: var(--openbitfun-color-content-secondary);
+        font-family: var(--openbitfun-type-label-md-font-family);
+        font-size: var(--openbitfun-type-label-md-font-size);
+        font-weight: var(--openbitfun-type-label-md-font-weight);
+        line-height: var(--openbitfun-type-label-md-line-height);
+        letter-spacing: var(--openbitfun-type-label-md-letter-spacing);
         text-align: center;
         opacity: 0;
         transform: translate(-50%, -2px);
-        transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+        transition:
+          opacity var(--openbitfun-motion-duration-base) var(--openbitfun-motion-easing-decelerate),
+          transform var(--openbitfun-motion-duration-base) var(--openbitfun-motion-easing-decelerate);
         pointer-events: none;
       }
 
+      [data-color-scheme="dark"][data-contrast="standard"] .splash-screen__message {
+        color: color-mix(in srgb, var(--openbitfun-color-content-on-dark) 60%, transparent);
+      }
+
       .splash-screen__message--visible {
-        opacity: 0.62;
+        opacity: 1;
         transform: translate(-50%, 0);
       }
 
       @keyframes splash-logo-idle {
         0%, 100% {
-          opacity: 0.42;
-          transform: scale(0.985);
+          transform: scale(0.99);
         }
         50% {
-          opacity: 1;
           transform: scale(1);
         }
       }
@@ -236,10 +246,6 @@
       @media (prefers-reduced-motion: reduce) {
         .splash-screen__logo-wrap {
           animation: none;
-        }
-
-        .splash-screen__logo {
-          filter: none;
         }
 
         .splash-screen__message {
@@ -339,22 +345,7 @@
         </div>
         <div class="splash-screen__center">
           <div class="splash-screen__logo-wrap">
-            <img
-              src="/brand/openbitfun-mark-dark-128.png"
-              class="openbitfun-preload__logo openbitfun-preload__logo--dark"
-              alt=""
-              draggable="false"
-              decoding="async"
-              fetchpriority="low"
-            />
-            <img
-              class="openbitfun-preload__logo openbitfun-preload__logo--light"
-              src="/brand/openbitfun-mark-light-128.png"
-              alt=""
-              draggable="false"
-              decoding="async"
-              fetchpriority="low"
-            />
+            <span class="openbitfun-preload__logo" aria-hidden="true"></span>
           </div>
           <div class="splash-screen__message">Starting OpenBitFun...</div>
         </div>

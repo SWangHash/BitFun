@@ -103,14 +103,36 @@ test("all Installer validators share the required runtime file contract", () => 
     path.join(installerRoot, "src-tauri", "src", "installer", "commands.rs"),
     "utf8"
   );
+  const installerModRs = fs.readFileSync(
+    path.join(installerRoot, "src-tauri", "src", "installer", "mod.rs"),
+    "utf8"
+  );
   for (const relativePath of REQUIRED_PAYLOAD_FILES) {
     assert.match(buildRs, new RegExp(escapeRegExp(relativePath)));
     if (relativePath === "openbitfun-desktop.exe") {
       assert.match(commandsRs, /MAIN_APP_EXE/);
+    } else if (relativePath === "openbitfun-data-migrator.exe") {
+      assert.match(installerModRs, new RegExp(escapeRegExp(relativePath)));
+      assert.match(commandsRs, /DATA_MIGRATOR_EXE/);
     } else {
       assert.match(commandsRs, new RegExp(escapeRegExp(relativePath)));
     }
   }
+});
+
+test("Data Migrator launch resolves only the registered installation", () => {
+  const commandsRs = fs.readFileSync(
+    path.join(installerRoot, "src-tauri", "src", "installer", "commands.rs"),
+    "utf8"
+  );
+  const commandStart = commandsRs.indexOf("pub(crate) fn launch_legacy_data_migrator");
+  const commandEnd = commandsRs.indexOf("/// Close the installer window.", commandStart);
+  assert.notEqual(commandStart, -1);
+  assert.notEqual(commandEnd, -1);
+  const commandSource = commandsRs.slice(commandStart, commandEnd);
+  assert.doesNotMatch(commandSource, /request\.install_path/);
+  assert.match(commandSource, /read_existing_install_from_uninstall_registry/);
+  assert.match(commandSource, /read_tauri_install_location/);
 });
 
 function minorLine(version) {

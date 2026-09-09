@@ -11,6 +11,7 @@ test("StatusPill exposes semantic tone and independent label anatomy", () => {
   assert.match(markup, /data-openbitfun-component="status-pill"/);
   assert.match(markup, /data-tone="warning"/);
   assert.match(markup, /data-openbitfun-part="label"/);
+  assert.match(markup, /data-overflow-behavior="marquee"/);
   assert.match(markup, />Review</);
 });
 
@@ -40,5 +41,5 @@ test("StatusPill styles consume public semantic and geometry tokens", async () =
   assert.match(styles, /--openbitfun-control-status-pill-icon-size/);
   assert.match(styles, /--openbitfun-color-status-success-surface/);
   assert.match(styles, /--openbitfun-color-status-danger-content/);
-  assert.match(styles, /text-overflow:\s*ellipsis/);
+  assert.match(styles, /--openbitfun-layout-overflow-text-fade-extent/);
 });

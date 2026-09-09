@@ -218,7 +218,6 @@
     color: var(--openbitfun-color-content-muted);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
     max-width: 120px;
   }
   
@@ -321,7 +320,6 @@
     color: var(--openbitfun-color-content-primary);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
   
   &__override-selector {

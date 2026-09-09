@@ -435,11 +435,18 @@ impl DesktopSessionApplication {
         request: DesktopSessionScopeRequest,
         cursor: Option<&str>,
         limit: usize,
+        session_ids: Option<&[String]>,
     ) -> DesktopSessionApplicationResult<SessionMetadataPage> {
         let scope = self.resolved_scope(request).await;
         let storage_path = self.storage_path(&scope);
         self.compatibility
-            .list_persisted_sessions_page(&storage_path, cursor, limit)
+            .list_persisted_sessions_page_with_activity(
+                &self.agent_runtime,
+                &storage_path,
+                cursor,
+                limit,
+                session_ids,
+            )
             .await
             .map_err(|error| DesktopSessionApplicationError::Core(error.to_string()))
     }
@@ -956,7 +963,7 @@ fn merge_ui_owned_session_metadata(
         current.review_action_state = incoming.review_action_state.clone();
     }
     if fields.contains(&UiSessionMetadataField::UnreadCompletion) {
-        current.unread_completion = incoming.unread_completion.clone();
+        openbitfun_core::service::session::apply_session_unread_completion(current, incoming);
     }
     if fields.contains(&UiSessionMetadataField::NeedsUserAttention) {
         current.needs_user_attention = incoming.needs_user_attention.clone();

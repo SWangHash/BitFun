@@ -90,6 +90,7 @@ function App() {
             options={installer.options}
             setOptions={installer.setOptions}
             onLaunch={installer.launchApp}
+            onLaunchMigration={installer.launchLegacyDataMigrator}
             onClose={installer.closeInstaller}
           />
         );

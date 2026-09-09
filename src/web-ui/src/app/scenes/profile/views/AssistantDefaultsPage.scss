@@ -405,10 +405,9 @@ $assistant-defaults-row-columns:
     gap: 3px;
 
     strong,
-    span,
+    span:not([data-overflow-content]),
     small {
       overflow: hidden;
-      text-overflow: ellipsis;
     }
 
     strong {
@@ -441,7 +440,6 @@ $assistant-defaults-row-columns:
     overflow: hidden;
     color: var(--openbitfun-color-content-secondary);
     font-size: var(--openbitfun-type-meta-font-size);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -610,9 +608,8 @@ $assistant-defaults-row-columns:
     gap: 2px;
 
     strong,
-    span {
+    span:not([data-overflow-content]) {
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 

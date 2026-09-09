@@ -6,12 +6,23 @@ use super::types::{
     ConnectionTestResult, DiskSpaceInfo, InstallOptions, InstallProgress, ModelConfig,
     RemoteModelInfo,
 };
-use super::MAIN_APP_EXE;
+use super::{DATA_MIGRATOR_EXE, MAIN_APP_EXE};
 use openbitfun_core_types::{
     installer_config_handoff::{
         InstallerConfigHandoff, InstallerModelHandoff, INSTALLER_CONFIG_HANDOFF_FILE_NAME,
     },
-    product_identity::{data_namespace, hidden_data_directory},
+    product_identity::{data_namespace, hidden_data_directory, product_id},
+};
+#[cfg(target_os = "windows")]
+use openbitfun_legacy_migration::{
+    launch_trusted_executable, probe_legacy_source, HandoffStore, MigrationOnboardingStore,
+    MigrationRoots, ProbeLimits, TrustedInstallationResolver,
+};
+#[cfg(target_os = "windows")]
+use openbitfun_product_domains::legacy_migration::{
+    MigrationPromptChoice, MigrationSelection, MigratorHandoffRequest,
+    MigratorProtocolCapabilities, MigratorRequestMode, MigratorRequestOrigin,
+    CURRENT_MIGRATION_FORMAT_VERSION,
 };
 use openbitfun_services_core::json_store::JsonFileStore;
 use serde::{Deserialize, Serialize};
@@ -22,6 +33,8 @@ use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
+#[cfg(target_os = "windows")]
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager, Window};
 
 #[cfg(target_os = "windows")]
@@ -35,8 +48,9 @@ struct WindowsInstallState {
 
 const MIN_WINDOWS_APP_EXE_BYTES: u64 = 5 * 1024 * 1024;
 const PAYLOAD_MANIFEST_FILE: &str = "payload-manifest.json";
-const REQUIRED_PAYLOAD_FILES: [&str; 6] = [
+const REQUIRED_PAYLOAD_FILES: [&str; 7] = [
     MAIN_APP_EXE,
+    DATA_MIGRATOR_EXE,
     "frontend/dist/index.html",
     "mobile-web/dist/index.html",
     "resources/ext-host/extension-host.js",
@@ -44,6 +58,13 @@ const REQUIRED_PAYLOAD_FILES: [&str; 6] = [
     "flashgrep/flashgrep-x86_64-pc-windows-msvc.exe",
 ];
 const INSTALLER_STATE_FILE: &str = "installer-state.json";
+#[cfg(target_os = "windows")]
+const MIGRATOR_HANDOFF_LIFETIME_MS: i64 = 10 * 60 * 1000;
+#[cfg(target_os = "windows")]
+const RELEASE_CHANNEL: &str = match option_env!("OPENBITFUN_RELEASE_CHANNEL") {
+    Some(value) => value,
+    None => "stable",
+};
 const EMBEDDED_PAYLOAD_ZIP: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/embedded_payload.zip"));
 
@@ -835,6 +856,111 @@ pub(crate) fn launch_application(install_path: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to launch OpenBitFun: {}", e))?;
 
     Ok(())
+}
+
+/// Create an Installer-origin onboarding handoff and launch the installed
+/// standalone Data Migrator. The Installer never reads or writes migrated
+/// product data itself.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+pub(crate) struct LaunchLegacyDataMigratorRequest {}
+
+#[tauri::command]
+pub(crate) fn launch_legacy_data_migrator(
+    request: LaunchLegacyDataMigratorRequest,
+) -> Result<bool, String> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = request;
+        return Err(
+            "Legacy data migration is not supported by this Installer platform.".to_string(),
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let _ = request;
+        let roots = MigrationRoots::resolve_current_user()
+            .map_err(|_| "Could not resolve the current-user migration storage.".to_string())?;
+        let Some(source) = probe_legacy_source(&roots, ProbeLimits::default())
+            .map_err(|_| "Could not safely inspect older data.".to_string())?
+        else {
+            return Ok(false);
+        };
+        if !source.supported {
+            return Err(
+                "The discovered legacy data format is not supported by this Data Migrator."
+                    .to_string(),
+            );
+        }
+
+        let now_ms = migration_now_ms();
+        let capabilities = MigratorProtocolCapabilities::current();
+        let handoff = MigratorHandoffRequest {
+            protocol_version: capabilities.protocol_version,
+            mode: MigratorRequestMode::Onboarding,
+            origin: MigratorRequestOrigin::Installer,
+            run_id: uuid::Uuid::new_v4().to_string(),
+            nonce: uuid::Uuid::new_v4().to_string(),
+            source_id: Some(source.source_id.clone()),
+            source_fingerprint: Some(source.source_fingerprint.clone()),
+            selection: MigrationSelection::all(),
+            caller_process_id: std::process::id(),
+            product_id: product_id().to_string(),
+            release_channel: RELEASE_CHANNEL.to_string(),
+            created_at_ms: now_ms,
+            expires_at_ms: now_ms.saturating_add(MIGRATOR_HANDOFF_LIFETIME_MS),
+            required_capabilities: capabilities.capabilities,
+        };
+        HandoffStore::new(roots.clone(), product_id(), RELEASE_CHANNEL)
+            .write_request(&handoff, now_ms)
+            .map_err(|_| "Could not create a safe Data Migrator handoff.".to_string())?;
+        MigrationOnboardingStore::new(roots)
+            .update(|state| {
+                state.format_version = CURRENT_MIGRATION_FORMAT_VERSION;
+                state.source_fingerprint = source.source_fingerprint.clone();
+                state.detected_at_ms.get_or_insert(now_ms);
+                state.choice = MigrationPromptChoice::Unset;
+                state.last_prompted_version = Some(env!("CARGO_PKG_VERSION").to_string());
+                state.run_id = Some(handoff.run_id.clone());
+                state.handled_run_id = None;
+            })
+            .map_err(|_| "Could not persist the Data Migrator handoff state.".to_string())?;
+
+        let registered_install_path = super::registry::read_existing_install_from_uninstall_registry()
+            .map(|registration| registration.install_location)
+            .or_else(super::registry::read_tauri_install_location)
+            .ok_or_else(|| {
+                "The registered OpenBitFun installation could not be found. Repair the installation before starting Data Migrator."
+                    .to_string()
+            })?;
+        let desktop = PathBuf::from(registered_install_path).join(MAIN_APP_EXE);
+        let executable = TrustedInstallationResolver::resolve_sibling(
+            &desktop,
+            MAIN_APP_EXE,
+            DATA_MIGRATOR_EXE,
+        )
+        .map_err(|_| {
+            "The installed Data Migrator is missing or failed installation layout checks. Repair the OpenBitFun installation."
+                .to_string()
+        })?;
+        launch_trusted_executable(
+            &executable,
+            &[std::ffi::OsStr::new(handoff.run_id.as_str())],
+        )
+        .map_err(|_| "Could not launch the installed Data Migrator.".to_string())?;
+        Ok(true)
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn migration_now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .try_into()
+        .unwrap_or(i64::MAX)
 }
 
 /// Close the installer window.

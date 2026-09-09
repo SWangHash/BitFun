@@ -831,6 +831,7 @@ mod tests {
                 name: "PTY A".to_string(),
                 shell_type: ShellType::Bash,
                 cwd: "/workspace".to_string(),
+                initial_cwd: None,
                 pid: Some(42),
                 status: status.to_string(),
                 cols: 80,

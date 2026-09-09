@@ -98,7 +98,7 @@ const SceneBar: React.FC<SceneBarProps> = ({
 
     items.push({
       value: tab.id,
-      label: <span className="openbitfun-scene-bar__tab-title">{displayLabel}</span>,
+      label: displayLabel,
       // Keep the close hit target stationary between pointer down and up;
       // shrinking it can retarget the click at the button edge (issue #2210).
       endAction: closable ? (

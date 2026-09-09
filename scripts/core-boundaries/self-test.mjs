@@ -434,6 +434,7 @@ export function runManifestParserSelfTest({
       ],
     ],
     [servicesCoreManifest, 'product-identity', ['dep:openbitfun-core-types']],
+    [servicesCoreManifest, 'memory-store', ['dep:rusqlite']],
     [
       servicesCoreManifest,
       'local-storage',
@@ -471,6 +472,7 @@ export function runManifestParserSelfTest({
         'tokio/time',
         'windows/Win32_Foundation',
         'windows/Win32_System_Diagnostics_ToolHelp',
+        'windows/Win32_System_JobObjects',
         'windows/Win32_System_Threading',
       ],
     ],
@@ -542,6 +544,7 @@ export function runManifestParserSelfTest({
         'openbitfun-services-core/workspace-identity',
         'openbitfun-services-core/workspace-instructions',
         'openbitfun-services-core/workspace-runtime',
+        'openbitfun-services-core/workspace-persistence',
       ],
     ],
     [coreManifest, 'workspace-watch', ['workspace-runtime', 'dep:notify']],
@@ -1160,7 +1163,7 @@ export function runManifestParserSelfTest({
       'regex',
       ['diagnostics', 'filesystem', 'local-storage', 'markdown', 'workspace-instructions'],
     ],
-    ['rusqlite', ['permission']],
+    ['rusqlite', ['memory-store', 'permission']],
     ['serde_yaml', ['markdown', 'workspace-instructions']],
     ['similar', ['diff', 'local-storage']],
     [
@@ -1257,6 +1260,14 @@ export function runManifestParserSelfTest({
     );
     if (!owner?.ownerFeatures.includes('plugin-source')) {
       throw new Error(`services-integrations plugin-source must own optional dependency ${dep}`);
+    }
+  }
+  for (const dep of ['aes-gcm', 'anyhow', 'base64', 'hostname', 'openbitfun-services-core', 'rand', 'sha2', 'windows']) {
+    const owner = servicesOptionalOwnerRule?.dependencies.find(
+      (dependency) => dependency.depName === dep,
+    );
+    if (!owner?.ownerFeatures.includes('remote-persistence')) {
+      throw new Error(`services-integrations remote-persistence must own optional dependency ${dep}`);
     }
   }
   for (const dep of ['openbitfun-product-domains', 'image']) {
@@ -2358,12 +2369,17 @@ export function runManifestParserSelfTest({
   ) {
     throw new Error('agentic system boundary rule must forbid terminal provider construction');
   }
-  const coreFileReadStateRuleText = forbiddenRuleTextForPath(
-    'src/crates/assembly/core/src/agentic/session/file_read_state.rs',
+  const coreReviewReadReceiptRuleText = forbiddenRuleTextForPath(
+    'src/crates/assembly/core/src/agentic/session/review_read_receipt.rs',
   );
-  for (const contract of ['FileReadState', 'FileReadStateStore', 'DashMap']) {
-    if (!coreFileReadStateRuleText.includes(contract)) {
-      throw new Error(`core file_read_state boundary rule must forbid ${contract}`);
+  for (const contract of [
+    'FileRevision',
+    'ReviewReadCoverage',
+    'ReviewReadReceiptStore',
+    'DashMap',
+  ]) {
+    if (!coreReviewReadReceiptRuleText.includes(contract)) {
+      throw new Error(`core review_read_receipt boundary rule must forbid ${contract}`);
     }
   }
   const coreEvidenceLedgerRuleText = forbiddenRuleTextForPath(
@@ -3170,13 +3186,13 @@ export function runManifestParserSelfTest({
       ],
     },
     {
-      path: 'src/crates/execution/agent-runtime/src/file_read_state.rs',
+      path: 'src/crates/execution/agent-runtime/src/review_read_receipt.rs',
       contracts: [
-        'FileReadState',
-        'is_full_file_read',
-        'FileReadStateStore',
-        'file_read_state_accepts_nonempty_whole_file',
-        'file_read_state_store_scopes_entries_by_session',
+        'FileRevision',
+        'ReviewReadCoverage',
+        'ReviewReadReceiptStore',
+        'review_read_receipt_store_scopes_entries_by_session',
+        'review_read_receipt_covers_only_previously_returned_lines',
       ],
     },
     {
@@ -3631,15 +3647,6 @@ export function runManifestParserSelfTest({
         'FILE_TOOL_GUIDANCE_PREFIX',
         'file_tool_guidance_message',
         'is_file_tool_guidance_message',
-      ],
-    },
-    {
-      path: 'src/crates/execution/tool-contracts/src/file_read_freshness.rs',
-      contracts: [
-        'FileReadFreshnessFacts',
-        'normalize_tool_file_content',
-        'file_read_facts_content_matches',
-        'file_read_facts_are_fresh',
       ],
     },
     {

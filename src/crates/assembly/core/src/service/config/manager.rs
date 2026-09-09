@@ -33,134 +33,16 @@ fn invalid_config_error(context: &str, result: &ConfigValidationResult) -> OpenB
 }
 
 pub(crate) fn validate_openbitfun_product_identity(
-    persisted_product_id: &str,
+    value: &str,
     context: &str,
 ) -> OpenBitFunResult<()> {
-    let expected_product_id = product_identity::product_id();
-    if persisted_product_id != expected_product_id {
-        return Err(OpenBitFunError::validation(format!(
-            "{context} product_id must be '{expected_product_id}', found '{persisted_product_id}'"
-        )));
-    }
-
-    Ok(())
+    openbitfun_config_contracts::validate_openbitfun_product_identity(value, context)
+        .map_err(OpenBitFunError::validation)
 }
 
 pub(crate) fn validate_current_config_value(value: &Value, context: &str) -> OpenBitFunResult<()> {
-    let root = value
-        .as_object()
-        .ok_or_else(|| OpenBitFunError::validation(format!("{context} must be a JSON object")))?;
-    let product_id = root
-        .get("product_id")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            OpenBitFunError::validation(format!(
-                "{context} is missing required string field 'product_id'"
-            ))
-        })?;
-    let schema_version = root
-        .get("schema_version")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| {
-            OpenBitFunError::validation(format!(
-                "{context} is missing required integer field 'schema_version'"
-            ))
-        })?;
-    if schema_version != u64::from(CURRENT_CONFIG_SCHEMA_VERSION) {
-        return Err(OpenBitFunError::validation(format!(
-            "{context} schema_version must be {CURRENT_CONFIG_SCHEMA_VERSION}, found {schema_version}"
-        )));
-    }
-    root.get("version").and_then(Value::as_str).ok_or_else(|| {
-        OpenBitFunError::validation(format!(
-            "{context} is missing required string field 'version'"
-        ))
-    })?;
-    if !root.contains_key("last_modified") {
-        return Err(OpenBitFunError::validation(format!(
-            "{context} is missing required field 'last_modified'"
-        )));
-    }
-    validate_openbitfun_product_identity(product_id, context)?;
-    reject_retired_config_fields(root, context)
-}
-
-fn retired_config_field(context: &str, path: &str) -> OpenBitFunError {
-    OpenBitFunError::validation(format!(
-        "{context} contains retired pre-OpenBitFun field '{path}'; use the explicit data migration tool instead"
-    ))
-}
-
-fn reject_retired_config_fields(
-    root: &serde_json::Map<String, Value>,
-    context: &str,
-) -> OpenBitFunResult<()> {
-    if let Some(app) = root.get("app").and_then(Value::as_object) {
-        for field in ["session", "session_config"] {
-            if app.contains_key(field) {
-                return Err(retired_config_field(context, &format!("app.{field}")));
-            }
-        }
-        if app
-            .get("ai_experience")
-            .and_then(Value::as_object)
-            .is_some_and(|ai_experience| ai_experience.contains_key("agent_companion_display_mode"))
-        {
-            return Err(retired_config_field(
-                context,
-                "app.ai_experience.agent_companion_display_mode",
-            ));
-        }
-    }
-    if root
-        .get("font")
-        .and_then(Value::as_object)
-        .is_some_and(|font| font.contains_key("flowChat"))
-    {
-        return Err(retired_config_field(context, "font.flowChat"));
-    }
-
-    let Some(ai) = root.get("ai").and_then(Value::as_object) else {
-        return Ok(());
-    };
-    for field in ["agent_models", "skip_tool_confirmation"] {
-        if ai.contains_key(field) {
-            return Err(retired_config_field(context, &format!("ai.{field}")));
-        }
-    }
-    if ai
-        .get("review_teams")
-        .and_then(Value::as_object)
-        .is_some_and(|review_teams| review_teams.contains_key("rate_limit_status"))
-    {
-        return Err(retired_config_field(
-            context,
-            "ai.review_teams.rate_limit_status",
-        ));
-    }
-
-    if let Some(models) = ai.get("models").and_then(Value::as_array) {
-        for (index, model) in models.iter().enumerate() {
-            let Some(model) = model.as_object() else {
-                continue;
-            };
-            for field in [
-                "enable_thinking_process",
-                "reasoning_mode",
-                "reasoning_effort",
-                "thinking_budget_tokens",
-            ] {
-                if model.contains_key(field) {
-                    return Err(retired_config_field(
-                        context,
-                        &format!("ai.models[{index}].{field}"),
-                    ));
-                }
-            }
-        }
-    }
-
-    Ok(())
+    openbitfun_config_contracts::validate_current_config_value(value, context)
+        .map_err(OpenBitFunError::validation)
 }
 
 const INSTALLER_MODEL_ID: &str = "installer:default";

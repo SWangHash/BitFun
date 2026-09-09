@@ -18,7 +18,7 @@ test("ActionItem exposes native trigger semantics and independent content areas"
   assert.match(markup, /data-openbitfun-component="action-item"/);
   assert.match(markup, /<button[^>]+role="menuitem"/);
   assert.match(markup, /data-openbitfun-part="leading"/);
-  assert.match(markup, /data-openbitfun-part="label">AI Assistant<\/span>/);
+  assert.match(markup, /data-openbitfun-part="label"[^>]*data-overflow-behavior="marquee"[^>]*><span[^>]*>AI Assistant<\/span><\/span>/);
   assert.match(markup, /data-openbitfun-part="shortcut"/);
   assert.match(markup, /<kbd/);
 });

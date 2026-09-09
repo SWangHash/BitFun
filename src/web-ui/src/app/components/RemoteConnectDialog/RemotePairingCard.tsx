@@ -1,4 +1,4 @@
-import { Icon, IconButton, StatusPill } from '@openbitfun/ui';
+import { OverflowText, Icon, IconButton, StatusPill } from '@openbitfun/ui';
 import { QRCodeSVG } from 'qrcode.react';
 import { useI18n } from '@/infrastructure/i18n';
 
@@ -65,7 +65,7 @@ export function RemotePairingCard({ qrUrl, pairingCode, owner, connected = false
               {t('remoteConnect.workspaceAddress')}
             </span>
             <div className="openbitfun-remote-connect__pairing-url-row">
-              <span title={qrUrl}>{qrUrl}</span>
+              <OverflowText title={qrUrl}>{qrUrl}</OverflowText>
               <IconButton
                 aria-label={t('remoteConnect.copyUrl')}
                 title={t('remoteConnect.copyUrl')}

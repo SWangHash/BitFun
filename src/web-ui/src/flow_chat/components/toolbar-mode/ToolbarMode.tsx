@@ -13,14 +13,14 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Menu, MenuItem } from '@openbitfun/ui';
+import { OverflowText, Menu, MenuItem } from '@openbitfun/ui';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Square, Maximize2, MoreVertical, PanelTopOpen, PanelTopClose } from 'lucide-react';
 import { useToolbarModeContext } from './ToolbarModeContext';
 import { type FlowToolItem } from '../../types/flow-chat';
 import { projectEffectiveToolItem } from '../../utils/toolInvocationIdentity';
 import { createLogger } from '@/shared/utils/logger';
 import { isMacOSDesktopRuntime } from '@/infrastructure/runtime';
-import { workspaceAPI } from '@/infrastructure/api';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
 import { getAppearanceOverlayHost } from '@/infrastructure/appearance/runtime/AppearanceOverlayHost';
 import { useAnchoredPopoverPosition } from '@/shared/utils/useAnchoredPopoverPosition';
@@ -175,7 +175,8 @@ export const ToolbarMode: React.FC = () => {
       return;
     }
     try {
-      await workspaceAPI.startWindowDragging();
+      const win = getCurrentWindow();
+      await win.startDragging();
     } catch (error) {
       log.error('Failed to start dragging', error);
     }
@@ -251,7 +252,7 @@ export const ToolbarMode: React.FC = () => {
 
         <div className="openbitfun-toolbar-mode__title-wrapper" data-openbitfun-component="toolbar-mode" data-openbitfun-part="title">
           <div className="openbitfun-toolbar-mode__title-display" title={surfaceTitle}>
-            <span className="openbitfun-toolbar-mode__title-text">{surfaceTitle}</span>
+            <OverflowText className="openbitfun-toolbar-mode__title-text">{surfaceTitle}</OverflowText>
           </div>
         </div>
 
@@ -366,25 +367,25 @@ export const ToolbarMode: React.FC = () => {
         </div>
       ) : (
         <div className="openbitfun-toolbar-mode__content-row" data-openbitfun-component="toolbar-mode" data-openbitfun-part="content">
-          <div className="openbitfun-toolbar-mode__stream-content" onClick={() => void handleToggleExpanded()} data-openbitfun-component="toolbar-mode" data-openbitfun-part="stream" data-openbitfun-content-kind={currentStreamState.toolName ? 'tool' : toolbarState.todoProgress && toolbarState.todoProgress.total > 0 ? 'todo' : 'text'} data-openbitfun-state={currentStreamState.isStreaming ? 'streaming' : undefined}>
+          <div data-overflow-trigger className="openbitfun-toolbar-mode__stream-content" onClick={() => void handleToggleExpanded()} data-openbitfun-component="toolbar-mode" data-openbitfun-part="stream" data-openbitfun-content-kind={currentStreamState.toolName ? 'tool' : toolbarState.todoProgress && toolbarState.todoProgress.total > 0 ? 'todo' : 'text'} data-openbitfun-state={currentStreamState.isStreaming ? 'streaming' : undefined}>
             {currentStreamState.toolName ? (
               <div className="openbitfun-toolbar-mode__tool" data-openbitfun-component="toolbar-mode" data-openbitfun-part="tool">
                 <span className="openbitfun-toolbar-mode__tool-name" data-openbitfun-component="toolbar-mode" data-openbitfun-part="toolName">{currentStreamState.toolName}</span>
-                <span className="openbitfun-toolbar-mode__tool-summary" data-openbitfun-component="toolbar-mode" data-openbitfun-part="toolSummary">{currentStreamState.content || t('toolCards.toolbar.executing')}</span>
+                <OverflowText className="openbitfun-toolbar-mode__tool-summary" data-openbitfun-component="toolbar-mode" data-openbitfun-part="toolSummary">{currentStreamState.content || t('toolCards.toolbar.executing')}</OverflowText>
               </div>
             ) : toolbarState.todoProgress && toolbarState.todoProgress.total > 0 ? (
               <div className="openbitfun-toolbar-mode__todo" data-openbitfun-component="toolbar-mode" data-openbitfun-part="todo">
                 <span className="openbitfun-toolbar-mode__todo-progress" data-openbitfun-component="toolbar-mode" data-openbitfun-part="todoProgress">
                   {toolbarState.todoProgress.completed}/{toolbarState.todoProgress.total}
                 </span>
-                <span className="openbitfun-toolbar-mode__todo-current" data-openbitfun-component="toolbar-mode" data-openbitfun-part="todoCurrent">
+                <OverflowText className="openbitfun-toolbar-mode__todo-current" data-openbitfun-component="toolbar-mode" data-openbitfun-part="todoCurrent">
                   {toolbarState.todoProgress.current || currentStreamState.content}
-                </span>
+                </OverflowText>
               </div>
             ) : (
-              <span className={`openbitfun-toolbar-mode__text ${currentStreamState.isStreaming ? 'openbitfun-toolbar-mode__text--streaming' : ''}`} data-openbitfun-component="toolbar-mode" data-openbitfun-part="streamText">
+              <OverflowText className={`openbitfun-toolbar-mode__text ${currentStreamState.isStreaming ? 'openbitfun-toolbar-mode__text--streaming' : ''}`} data-openbitfun-component="toolbar-mode" data-openbitfun-part="streamText">
                 {currentStreamState.content || (currentStreamState.isStreaming ? t('toolCards.toolbar.processing') : (lastMessageContent || t('toolCards.toolbar.startNewChat')))}
-              </span>
+              </OverflowText>
             )}
           </div>
 

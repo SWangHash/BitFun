@@ -306,6 +306,7 @@ export const useSceneStore = create<SceneState>((set, get) => ({
 
   resetForPeerSwitch: () => {
     abandonSettingsDraftsForContextSwitch();
+    useNavSceneStore.getState().closeNavScene();
     const state = get();
     const tabs = buildDefaultTabs();
     const activeTabId = tabs[0]?.id ?? null;
@@ -358,7 +359,10 @@ if (typeof window !== 'undefined') {
       const navStore = useNavSceneStore.getState();
       if (navSceneId) {
         navStore.openNavScene(navSceneId);
-      } else {
+      } else if (!(navStore.navSceneId === 'file-viewer'
+        && (state.activeTabId === 'session' || state.activeTabId === 'terminal'
+          || state.activeTabId === 'shell' || state.activeTabId === 'git'
+          || state.activeTabId === null))) {
         navStore.closeNavScene();
       }
     }

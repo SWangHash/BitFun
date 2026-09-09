@@ -1,3 +1,4 @@
+import { OverflowText } from '@openbitfun/ui';
 /**
  * Main application layout.
  *
@@ -39,6 +40,7 @@ import { openMainSession } from '@/flow_chat/services/sessionActivation';
 import { notificationService } from '@/shared/notification-system';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { AppearanceBackgroundMediaLayer, appearanceRuntime, useAppearance } from '@/infrastructure/appearance';
+import { PeerConnectionStatus } from '@/infrastructure/peer-device/PeerConnectionStatus';
 import './AppLayout.scss';
 
 type TransitionDirection = 'entering' | 'returning' | null;
@@ -162,9 +164,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
       try {
         const raw = await configManager.getOptionalConfig('app.keybindings');
         const overrides = parseStoredKeybindings(raw);
-        if (Object.keys(overrides).length > 0) {
-          shortcutManager.loadUserOverrides(overrides);
-        }
+        shortcutManager.loadUserOverrides(overrides);
       } catch {
         // No overrides stored yet — that's fine
       }
@@ -172,9 +172,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
 
     void load();
 
-    const unsubscribe = configManager.onConfigChange((path) => {
-      if (path === 'app.keybindings') void load();
-    });
+    const unsubscribe = configManager.watch('app.keybindings', () => { void load(); });
 
     return () => unsubscribe();
   }, []);
@@ -719,6 +717,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           <Suspense fallback={null}>
             <ToolbarMode />
           </Suspense>
+          <PeerConnectionStatus />
         </div>
       </>
     );
@@ -750,7 +749,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
             aria-live="polite"
           >
             <span className="openbitfun-window-mode-hint__title" data-openbitfun-component="app-layout" data-openbitfun-part="windowModeTitle">{windowModeHint.title}</span>
-            <span className="openbitfun-window-mode-hint__detail" data-openbitfun-component="app-layout" data-openbitfun-part="windowModeDetail">{windowModeHint.detail}</span>
+            <OverflowText className="openbitfun-window-mode-hint__detail" data-openbitfun-component="app-layout" data-openbitfun-part="windowModeDetail">{windowModeHint.detail}</OverflowText>
           </div>
         )}
 
@@ -765,6 +764,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
             isExiting={transitionDir === 'returning'}
           />
         </main>
+        <PeerConnectionStatus />
 
         {/* Hello stays available across every client scene, including Welcome. */}
         <Suspense fallback={null}>

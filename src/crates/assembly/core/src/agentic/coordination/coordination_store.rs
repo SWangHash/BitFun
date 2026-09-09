@@ -1,3 +1,6 @@
+use crate::service::coordination_persistence::{
+    initialize_coordination_schema, validate_coordination_agent_id,
+};
 use crate::util::errors::{OpenBitFunError, OpenBitFunResult};
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use std::path::PathBuf;
@@ -7,7 +10,6 @@ use tokio::sync::OnceCell;
 use tokio::task;
 use uuid::Uuid;
 
-const SCHEMA_VERSION: i64 = 2;
 const SWARM_MAX_NODES: i64 = 128;
 const SWARM_MAX_DEPTH: i64 = 4;
 
@@ -1092,23 +1094,7 @@ fn get_or_create_agent(
 }
 
 pub(crate) fn validate_agent_id(agent_id: &str) -> OpenBitFunResult<()> {
-    let valid = !agent_id.is_empty()
-        && agent_id.len() <= 32
-        && agent_id
-            .bytes()
-            .enumerate()
-            .all(|(index, byte)| match byte {
-                b'a'..=b'z' => true,
-                b'0'..=b'9' | b'_' | b'-' => index > 0,
-                _ => false,
-            });
-    if valid {
-        Ok(())
-    } else {
-        Err(OpenBitFunError::tool(
-            "agent_id must match [a-z][a-z0-9_-]{0,31}".to_string(),
-        ))
-    }
+    validate_coordination_agent_id(agent_id)
 }
 
 fn open_connection(db_path: PathBuf) -> OpenBitFunResult<Arc<Mutex<Connection>>> {
@@ -1138,105 +1124,8 @@ PRAGMA synchronous = NORMAL;
             "#,
         )
         .map_err(db_error)?;
-    initialize_schema(&connection)?;
+    initialize_coordination_schema(&connection)?;
     Ok(Arc::new(Mutex::new(connection)))
-}
-
-fn initialize_schema(connection: &Connection) -> OpenBitFunResult<()> {
-    let version = connection
-        .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
-        .map_err(db_error)?;
-    if version > SCHEMA_VERSION {
-        return Err(OpenBitFunError::service(format!(
-            "Agent coordination database schema {version} is newer than supported schema {SCHEMA_VERSION}"
-        )));
-    }
-    if version == SCHEMA_VERSION {
-        return Ok(());
-    }
-    if version == 0 {
-        connection
-            .execute_batch(
-                r#"
-CREATE TABLE coordination_sessions (
-    parent_session_id TEXT PRIMARY KEY,
-    next_auto_agent_seq INTEGER NOT NULL DEFAULT 1,
-    updated_at_ms INTEGER NOT NULL
-);
-
-CREATE TABLE agents (
-    agent_pk INTEGER PRIMARY KEY AUTOINCREMENT,
-    parent_session_id TEXT NOT NULL,
-    agent_id TEXT NOT NULL,
-    child_session_id TEXT,
-    next_bg_seq INTEGER NOT NULL DEFAULT 1,
-    state TEXT NOT NULL CHECK (state IN ('active', 'historical')),
-    created_at_ms INTEGER NOT NULL,
-    UNIQUE(parent_session_id, agent_id),
-    UNIQUE(parent_session_id, child_session_id)
-);
-
-CREATE TABLE background_tasks (
-    task_pk INTEGER PRIMARY KEY AUTOINCREMENT,
-    parent_session_id TEXT NOT NULL,
-    agent_pk INTEGER NOT NULL,
-    bg_task_id TEXT NOT NULL,
-    bg_ordinal INTEGER NOT NULL,
-    parent_dialog_turn_id TEXT NOT NULL,
-    parent_tool_call_id TEXT NOT NULL,
-    child_dialog_turn_id TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (
-        status IN ('running', 'completed', 'partial_timeout', 'failed', 'cancelled', 'interrupted')
-    ),
-    error_code TEXT,
-    error_message TEXT,
-    execution_owner_token TEXT NOT NULL,
-    created_at_ms INTEGER NOT NULL,
-    terminal_at_ms INTEGER,
-    delivered_at_ms INTEGER,
-    delivered_parent_dialog_turn_id TEXT,
-    UNIQUE(parent_session_id, bg_task_id),
-    UNIQUE(agent_pk, bg_ordinal),
-    FOREIGN KEY(agent_pk) REFERENCES agents(agent_pk) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_background_tasks_wait
-    ON background_tasks(parent_session_id, delivered_at_ms, status, task_pk);
-CREATE INDEX idx_background_tasks_parent_turn
-    ON background_tasks(parent_session_id, parent_dialog_turn_id);
-
-PRAGMA user_version = 1;
-            "#,
-            )
-            .map_err(db_error)?;
-    }
-    if version < 2 {
-        connection
-            .execute_batch(
-                r#"
-CREATE TABLE swarm_trees (
-    root_session_id TEXT PRIMARY KEY,
-    created_at_ms INTEGER NOT NULL
-);
-
-CREATE TABLE swarm_nodes (
-    session_id TEXT PRIMARY KEY,
-    root_session_id TEXT NOT NULL,
-    parent_session_id TEXT,
-    agent_type TEXT NOT NULL,
-    depth INTEGER NOT NULL,
-    created_at_ms INTEGER NOT NULL,
-    FOREIGN KEY(root_session_id) REFERENCES swarm_trees(root_session_id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_swarm_nodes_root ON swarm_nodes(root_session_id);
-CREATE INDEX idx_swarm_nodes_parent ON swarm_nodes(parent_session_id);
-PRAGMA user_version = 2;
-                "#,
-            )
-            .map_err(db_error)?;
-    }
-    Ok(())
 }
 
 fn db_error(error: rusqlite::Error) -> OpenBitFunError {
@@ -1253,9 +1142,23 @@ fn unix_time_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::service::coordination_persistence::initialize_coordination_schema;
+    use openbitfun_services_core::coordination_persistence::coordination_table_has_column;
+
+    fn test_tempdir() -> tempfile::TempDir {
+        if let Some(root) = std::env::var_os("OPENBITFUN_TEST_TMPDIR") {
+            let root = PathBuf::from(root);
+            std::fs::create_dir_all(&root).expect("create coordination test temp root");
+            return tempfile::Builder::new()
+                .prefix("coordination-store-")
+                .tempdir_in(root)
+                .expect("coordination store temp directory");
+        }
+        tempfile::tempdir().expect("coordination store temp directory")
+    }
 
     fn test_store() -> (tempfile::TempDir, CoordinationStore) {
-        let root = tempfile::tempdir().expect("coordination store temp directory");
+        let root = test_tempdir();
         let store = CoordinationStore::new(root.path().join("coordination.sqlite"));
         (root, store)
     }
@@ -1274,6 +1177,92 @@ mod tests {
             parent_tool_call_id: format!("tool-{parent_dialog_turn_id}"),
             child_dialog_turn_id: format!("turn-{child_session_id}-{parent_dialog_turn_id}"),
         }
+    }
+
+    #[tokio::test]
+    async fn schema_v2_repairs_missing_delivery_columns_idempotently() {
+        let root = test_tempdir();
+        let db_path = root.path().join("coordination.sqlite");
+        let connection = Connection::open(&db_path).expect("open historical database");
+        connection
+            .execute_batch(
+                r#"
+CREATE TABLE coordination_sessions (
+    parent_session_id TEXT PRIMARY KEY,
+    next_auto_agent_seq INTEGER NOT NULL DEFAULT 1,
+    updated_at_ms INTEGER NOT NULL
+);
+CREATE TABLE agents (
+    agent_pk INTEGER PRIMARY KEY AUTOINCREMENT,
+    parent_session_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    child_session_id TEXT,
+    next_bg_seq INTEGER NOT NULL DEFAULT 1,
+    state TEXT NOT NULL,
+    created_at_ms INTEGER NOT NULL
+);
+CREATE TABLE background_tasks (
+    task_pk INTEGER PRIMARY KEY AUTOINCREMENT,
+    parent_session_id TEXT NOT NULL,
+    agent_pk INTEGER NOT NULL,
+    bg_task_id TEXT NOT NULL,
+    bg_ordinal INTEGER NOT NULL,
+    parent_dialog_turn_id TEXT NOT NULL,
+    parent_tool_call_id TEXT NOT NULL,
+    child_dialog_turn_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    error_code TEXT,
+    error_message TEXT,
+    execution_owner_token TEXT NOT NULL,
+    created_at_ms INTEGER NOT NULL,
+    terminal_at_ms INTEGER
+);
+CREATE TABLE swarm_trees (
+    root_session_id TEXT PRIMARY KEY,
+    created_at_ms INTEGER NOT NULL
+);
+CREATE TABLE swarm_nodes (
+    session_id TEXT PRIMARY KEY,
+    root_session_id TEXT NOT NULL,
+    parent_session_id TEXT,
+    agent_type TEXT NOT NULL,
+    depth INTEGER NOT NULL,
+    created_at_ms INTEGER NOT NULL
+);
+INSERT INTO coordination_sessions VALUES ('parent', 2, 1);
+INSERT INTO agents VALUES (1, 'parent', 'helper', 'child', 2, 'historical', 1);
+INSERT INTO background_tasks VALUES (
+    1, 'parent', 1, 'helper_bg1', 1, 'parent-turn', 'tool-call',
+    'child-turn', 'completed', NULL, NULL, 'historical-owner', 1, 2
+);
+PRAGMA user_version = 2;
+                "#,
+            )
+            .expect("seed historical schema v2");
+        drop(connection);
+
+        let store = CoordinationStore::new(db_path.clone());
+        let candidates = store
+            .wait_candidates("parent", &[])
+            .await
+            .expect("repaired database should support current reads");
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].bg_task_id, "helper_bg1");
+        assert!(candidates[0].delivered_at_ms.is_none());
+        drop(store);
+
+        let connection = Connection::open(&db_path).expect("reopen repaired database");
+        initialize_coordination_schema(&connection).expect("repeated repair should be idempotent");
+        assert!(
+            coordination_table_has_column(&connection, "background_tasks", "delivered_at_ms")
+                .expect("inspect delivered_at_ms")
+        );
+        assert!(coordination_table_has_column(
+            &connection,
+            "background_tasks",
+            "delivered_parent_dialog_turn_id"
+        )
+        .expect("inspect delivered_parent_dialog_turn_id"));
     }
 
     #[tokio::test]

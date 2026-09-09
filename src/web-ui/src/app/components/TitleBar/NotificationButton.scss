@@ -98,8 +98,8 @@
     color: var(--openbitfun-color-content-primary);
     box-shadow: var(--openbitfun-shadow-base);
     max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 

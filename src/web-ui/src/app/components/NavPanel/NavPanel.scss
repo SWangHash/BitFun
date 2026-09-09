@@ -397,9 +397,8 @@ $_section-header-height: 22px;
                 color var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard),
                 transform var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard);
 
-    span {
+    span:not([data-overflow-content]) {
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
@@ -555,7 +554,6 @@ $_section-header-height: 22px;
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
     transition: color var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard);
   }
 
@@ -595,9 +593,8 @@ $_section-header-height: 22px;
       flex-shrink: 0;
     }
 
-    span {
+    span:not([data-overflow-content]) {
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
@@ -665,7 +662,6 @@ $_section-header-height: 22px;
   &__assistant-entry-label {
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: var(--openbitfun-type-label-md-font-size);
     font-weight: var(--openbitfun-type-label-sm-font-weight);
@@ -765,7 +761,6 @@ $_section-header-height: 22px;
   &__miniapp-entry-title {
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: var(--openbitfun-type-label-md-font-size);
     font-weight: var(--openbitfun-type-label-sm-font-weight);
@@ -937,7 +932,6 @@ $_section-header-height: 22px;
     flex: 1;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -1003,7 +997,6 @@ $_section-header-height: 22px;
     gap: 0.3em;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -1012,7 +1005,6 @@ $_section-header-height: 22px;
     flex: 0 0 auto;
     max-width: min(26ch, 52%);
     overflow: hidden;
-    text-overflow: ellipsis;
     color: var(--openbitfun-color-content-muted);
     font-size: var(--openbitfun-type-label-md-font-size);
   }
@@ -1028,7 +1020,6 @@ $_section-header-height: 22px;
     flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   &__workspace-menu-empty {
@@ -1210,7 +1201,6 @@ $_section-header-height: 22px;
   &__item-label {
     flex: 1;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     line-height: var(--openbitfun-type-modifier-leading-none-line-height);
   }
@@ -1226,7 +1216,6 @@ $_section-header-height: 22px;
     margin-left: auto;
     max-width: 80px;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     line-height: var(--openbitfun-type-label-md-line-height);
 
@@ -1467,7 +1456,6 @@ $_section-header-height: 22px;
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--openbitfun-color-content-primary);
   font-size: var(--openbitfun-type-label-sm-font-size);
@@ -1645,7 +1633,6 @@ $_section-header-height: 22px;
   display: block;
   max-width: 82px;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1724,7 +1711,6 @@ $_section-header-height: 22px;
     flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-size: var(--openbitfun-type-body-md-font-size);
     font-weight: var(--openbitfun-type-label-selected-font-weight);
@@ -1749,7 +1735,6 @@ $_section-header-height: 22px;
   font-size: var(--openbitfun-type-micro-font-size);
   font-weight: var(--openbitfun-type-label-selected-font-weight);
   line-height: var(--openbitfun-type-meta-line-height);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1790,7 +1775,6 @@ $_section-header-height: 22px;
   font-size: var(--openbitfun-type-label-md-font-size);
   font-weight: var(--openbitfun-type-label-sm-font-weight);
   line-height: var(--openbitfun-type-modifier-leading-snug-line-height);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1965,7 +1949,6 @@ $_section-header-height: 22px;
     color: var(--openbitfun-color-content-primary);
     font-size: var(--openbitfun-type-label-md-font-size);
     font-weight: var(--openbitfun-type-label-selected-font-weight);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -2295,12 +2278,11 @@ $_section-header-height: 22px;
   transition: background var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard),
               color var(--openbitfun-motion-duration-fast) var(--openbitfun-motion-easing-standard);
 
-  // Only the label span should grow; icon / chevron wrappers must NOT get flex: 1
-  > span:not(.openbitfun-nav-panel__top-action-icon-circle):not(.openbitfun-nav-panel__top-action-icon-slot):not(.openbitfun-nav-panel__top-action-expand-icons):not(.openbitfun-nav-panel__count-badge):not(.openbitfun-nav-panel__top-action-unseen) {
+  // Only the label span:not([data-overflow-content]) should grow; icon / chevron wrappers must NOT get flex: 1
+  > span:not([data-overflow-content]):not(.openbitfun-nav-panel__top-action-icon-circle):not(.openbitfun-nav-panel__top-action-icon-slot):not(.openbitfun-nav-panel__top-action-expand-icons):not(.openbitfun-nav-panel__count-badge):not(.openbitfun-nav-panel__top-action-unseen) {
     flex: 1;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -2476,11 +2458,10 @@ $_section-header-height: 22px;
     font-size: var(--openbitfun-type-meta-font-size);
     font-weight: var(--openbitfun-type-label-sm-font-weight);
 
-    > span:first-child {
+    > span:not([data-overflow-content]):first-child {
       flex: 1;
       min-width: 0;
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
   }
@@ -2886,7 +2867,6 @@ $_section-header-height: 22px;
     flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

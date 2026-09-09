@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   Icon,
   ScrollArea,
@@ -333,8 +333,8 @@ export function AppearanceMarketDialog({ isOpen, onClose }: AppearanceMarketDial
           </div>
           <p>{detail.description}</p>
           <dl className="appearance-market__facts">
-            <div><dt>{t('package.market.minimumVersion')}</dt><dd>{detail.minOpenBitFunVersion}</dd></div>
-            <div><dt>{t('package.market.license')}</dt><dd>{detail.license.spdxExpression || t('package.market.customLicense')}</dd></div>
+            <div><dt><OverflowText>{t('package.market.minimumVersion')}</OverflowText></dt><dd><OverflowText>{detail.minOpenBitFunVersion}</OverflowText></dd></div>
+            <div><dt><OverflowText>{t('package.market.license')}</OverflowText></dt><dd><OverflowText>{detail.license.spdxExpression || t('package.market.customLicense')}</OverflowText></dd></div>
           </dl>
           {detail.requiredCapabilities.length > 0 && (
             <div className="appearance-market__capabilities">
@@ -601,7 +601,7 @@ export function AppearanceMarketDialog({ isOpen, onClose }: AppearanceMarketDial
                       && item.latestRelease > local.marketOrigin.releaseNumber,
                     );
                     return (
-                      <button
+                      <button data-overflow-trigger
                         key={item.listingId}
                         type="button"
                         className="appearance-market__card"
@@ -634,9 +634,9 @@ export function AppearanceMarketDialog({ isOpen, onClose }: AppearanceMarketDial
                           data-openbitfun-component="appearance-settings"
                           data-openbitfun-part="marketCardBody"
                         >
-                          <strong>{item.name}</strong>
-                          <span>{item.author || item.owner.login} · v{item.packageVersion}</span>
-                          <p>{item.description}</p>
+                          <strong><OverflowText>{item.name}</OverflowText></strong>
+                          <OverflowText>{item.author || item.owner.login} · v{item.packageVersion}</OverflowText>
+                          <p><OverflowText>{item.description}</OverflowText></p>
                         </div>
                         {local && (
                           <span

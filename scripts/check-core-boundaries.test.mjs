@@ -194,10 +194,12 @@ test('Agent Runtime leaf capabilities have one managed feature and source contra
   assert.deepEqual(Object.keys(rule.featureProfiles).sort(), [
     'agent-runtime',
     'default',
+    'definition-contracts',
     'native-hook-runtime',
     'native-hook-settings',
   ]);
-  assert.equal(rule.consumers.size, 10);
+  assert.equal(rule.consumers.size, 11);
+  assert.ok(rule.consumers.has('openbitfun-legacy-migration-adapters'));
   assert.ok(
     guardedEmptyInternalDefaultManifestPaths.includes(
       'src/crates/execution/agent-runtime/Cargo.toml',
@@ -919,6 +921,11 @@ test('contract and AI adapter tests keep reviewed feature and failure-domain top
       name: 'miniapp_contracts',
       path: 'tests/miniapp_contracts.rs',
       requiredFeatures: ['miniapp'],
+    },
+    {
+      name: 'legacy_migration_contracts',
+      path: 'tests/legacy_migration_contracts.rs',
+      requiredFeatures: ['legacy-migration'],
     },
     {
       name: 'plugin_source_contracts',
@@ -3894,6 +3901,7 @@ test('services-core capability profiles keep heavy owners out of the empty profi
     'tokio/time',
     'windows/Win32_Foundation',
     'windows/Win32_System_Diagnostics_ToolHelp',
+    'windows/Win32_System_JobObjects',
     'windows/Win32_System_Threading',
   ]);
   assert.deepEqual(profiles.get('workspace-instructions'), [
@@ -4149,6 +4157,7 @@ test('Core Tokio capabilities cannot hide behind an unreviewed owner feature', (
     ],
     features: {
       'agent-runtime': ['tokio/io-util', 'tokio/macros', 'tokio/rt', 'tokio/time'],
+      'legacy-migration': [],
       'mcp-runtime': ['agent-runtime', 'tokio/rt-multi-thread'],
       'browser-control': ['tokio/net', 'tokio/rt', 'tokio/time'],
       sneaky: ['agent-runtime', 'browser-control'],
@@ -4170,6 +4179,7 @@ test('reviewed Tokio aggregates cannot declare runtime capabilities directly', (
     dependencies: [{ name: 'tokio', kind: null, optional: false, features: ['fs', 'sync'] }],
     features: {
       'agent-runtime': ['tokio/io-util', 'tokio/macros', 'tokio/rt', 'tokio/time'],
+      'legacy-migration': [],
       'mcp-runtime': ['agent-runtime', 'tokio/rt-multi-thread'],
       'browser-control': ['tokio/net', 'tokio/rt', 'tokio/time'],
       'product-full': ['agent-runtime', 'tokio/net'],

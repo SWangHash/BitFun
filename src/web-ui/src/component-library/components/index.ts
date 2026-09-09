@@ -18,7 +18,6 @@ export * from './Alert';
 export * from './Input';
 export * from './NumberInput';
 export * from './Search';
-export * from './Select';
 export * from './Checkbox';
 export * from './Switch';
 export * from './Textarea';

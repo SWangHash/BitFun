@@ -118,6 +118,87 @@ This is frontend view reconciliation. It does not delete persisted sessions,
 create replacement sessions, or change the runtime state machine and remote
 wire contracts.
 
+## Navigation activity and result receipts
+
+The sidebar consumes an application-lifetime summary projection, independent of
+opening a Session scene. `sessionNavStatusService` owns one set of lifecycle,
+permission, state-machine and dispatch subscriptions; rows subscribe only to
+their cached `(kind, pendingCount)` value. Token streaming does not trigger
+network reconciliation, and repeated `processing` phase events do not invalidate
+an already running summary. Permission changes reconcile only their Session owners
+and delegated parents, rather than every row in the sidebar.
+
+`list_persisted_sessions_page` has an additive `activities` response extension.
+The normal page includes the activity of its rows. An optional `session_ids`
+request selects at most 128 compact summaries without returning metadata rows.
+Both Desktop and CLI Peer Host use `CoreAgentRuntimeCompatibility` to join the
+metadata index with the existing Session manager, scheduler and interaction
+mailboxes. Initial pages do not restore Sessions, read Turn/state sidecars, clone
+full runtime Sessions or acquire transcript-attachment fences. Metadata index reads
+still scale with the index size; the bounded batch limits transfer and runtime
+projection work, not the storage index's deserialization cost.
+
+The latest user-Turn identity, generation and outcome are maintained in optional
+`SessionMetadata.lastTurn` alongside existing metadata writes. The existing
+`recoveryEpoch` preserves the generation after recovery settles. Headless terminal
+writes also mark the existing unread field. Re-saving a terminal checkpoint does
+not revive an acknowledged result. The optional `lastTurn.recoveryPending` fact
+distinguishes a resumable interruption from an ordinary cancelled Turn; older
+summaries omit it. Runtime execution, persisted outcome/recovery and read receipt
+are separate facts. Running, queued, permission/question waits and resumable
+pauses remain visible regardless of reading. Completed, failed and cancelled
+results are notifications and disappear after acknowledgement, without changing
+their persisted outcome. Even a runtime `error` state is not itself an unread
+notification. A stale transcript cannot override a supplied host outcome or a
+known absence of recovery; a missing old recovery fact may use the matching
+hydrated Turn.
+
+Legacy rows lacking a latest-Turn fact (or the recovery fact for cancellation)
+remain immediately listable. Their activities are omitted from the initial page
+so the existing application synchronizer schedules a targeted batch. Only that
+batch lazily reads backward to the latest user-Turn file, skipping maintenance
+Turns. It decodes identity/outcome fields without materializing message/tool
+payloads, never loads runtime state and has two process-wide repair slots. The
+existing per-Session writer locks fence metadata re-reading and repair, so a
+concurrent result, acknowledgement, rename or deletion wins. Repair writes only
+the missing summary and preserves unread state and timestamps; subsequent reads
+use the index. It never recreates unread notifications for old results. Staged
+revert projections are not persisted over the physical history. Unreadable
+entries keep their Session data and are omitted individually, using the existing
+missing-activity retry/backoff path instead of claiming an idle outcome.
+
+The frontend coalesces invalidations for 100 ms, groups by owning workspace and
+remote identity, and permits two concurrent batches. A single liveness timer
+reconciles subscribed busy rows after 15 seconds and settled rows after 60 seconds;
+hidden windows skip those probes. Focus, visibility, online and surface activation
+trigger a new read. Failed requests back off to 60 seconds. In-flight reads are
+fenced by surface activation, per-Session event version and request sequence;
+switching devices also cancels queued old-host batches. An older host omitting
+`activities` retains the event/metadata path, with unknown status shown explicitly
+and no repeated unsupported batch requests. There is no local transport fallback.
+
+Completion unread state belongs to a specific result. Main and Btw viewports
+acknowledge only after the final projected item of that result is actually visible
+in a focused, foreground, settled viewport; selection and overscan are not read
+receipts. A Turn stopped before producing any output uses its visible input
+boundary; an existing result or error notice must itself be visible. Maintenance
+and local-command Turns do not replace the latest user result or its receipt.
+A newer summary cannot be acknowledged by an older transcript still on
+screen. Local acknowledgements survive overlapping summary reads, and persisted
+acknowledgements compare Turn, generation, outcome and the known recovery fact
+(with a finish-time compatibility guard for older clients). Notification saves send only their two owned metadata fields,
+without loading the metadata record first. CLI Peer Host accepts these notification
+fields through the existing `save_session_metadata` command; other metadata edits
+still return an explicit unsupported response.
+
+Remote workspace scope stays with the existing host storage resolver. Remote
+Connect/bot-started native Turns feed the same runtime events and persisted
+summary. Peer surfaces remain isolated even when session IDs coincide. Detached
+Dispatch rows use the existing target observer and permission source and are
+excluded from native summary/persistence requests. Automated contract tests cover
+these routing and race boundaries; they are not end-to-end evidence for live
+remote hosts or native visual acceptance.
+
 ## Sources are not writers
 
 Every source above becomes a way of **obtaining positioned events**, applied

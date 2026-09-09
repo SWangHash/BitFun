@@ -200,7 +200,6 @@ $transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
 }
@@ -312,7 +311,6 @@ $transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   transition: background 0.1s ease;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 
   &:hover {
@@ -357,7 +355,6 @@ $transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 0;
   flex: 1;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -408,7 +405,6 @@ $transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
   display: block;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--openbitfun-color-content-secondary);
 
   &--streaming {
@@ -444,7 +440,6 @@ $transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
     flex: 1;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--openbitfun-color-content-muted);
   }
@@ -470,7 +465,6 @@ $transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
     flex: 1;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--openbitfun-color-content-secondary);
   }

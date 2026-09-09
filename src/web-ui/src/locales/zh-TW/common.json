@@ -209,6 +209,35 @@
         "analytics": "分析"
       }
     },
+    "resources": {
+      "title": "工作區資源",
+      "files": "檔案",
+      "terminals": "終端機",
+      "local": "本機",
+      "remote": "遠端工作區",
+      "peer": "對端裝置",
+      "switchWorkspace": "切換工作區",
+      "chooseShell": "選擇 Shell",
+      "noTerminals": "在此新增終端機，開始工作",
+      "resize": "調整檔案與終端機分區大小",
+      "revealDirectory": "在檔案樹中定位工作目錄",
+      "openTerminalHere": "在此新增終端機",
+      "terminalActions": "終端機操作",
+      "removeTerminal": "移除已結束終端機",
+      "unavailable": "無法取得終端機狀態，請重試",
+      "actionFailed": "終端機操作失敗：{{error}}",
+      "manual": "我的",
+      "agent": "Agent",
+      "status": {
+        "running": "$t(shared:statuses.running)",
+        "saved": "已儲存",
+        "exited": "已結束",
+        "unknown": "狀態未知",
+        "starting": "正在啟動",
+        "stopping": "正在停止",
+        "error": "異常"
+      }
+    },
     "shell": {
       "title": "Shell",
       "views": {
@@ -354,6 +383,16 @@
       "reviewRunning": "審核中",
       "deepReviewRunning": "審核中",
       "unreadCompleted": "已完成 — 未讀",
+      "status": {
+        "approval": "待核准",
+        "approvalCount": "待核准 · {{count}} 項",
+        "input": "待回覆",
+        "unread": "完成待查看",
+        "stopped": "已停止或中斷",
+        "paused": "已暫停，可繼續",
+        "queued": "排隊中",
+        "syncing": "等待同步狀態"
+      },
       "unreadError": "執行失敗 — 未讀",
       "unreadInterrupted": "輸出中斷 — 需重試",
       "needsUserInput": "等待你的輸入",
@@ -679,11 +718,17 @@
     "errorEnterName": "請輸入工作區名稱",
     "errorCreateFailed": "建立工作區失敗"
   },
+  "peerConnection": {
+    "reconnecting": "正在重新連線至「{{name}}」。內容可能尚未更新。"
+  },
   "peerDirectoryPicker": {
     "loading": "正在載入遠端目錄…",
     "empty": "此目錄下沒有子資料夾",
     "parent": "上層目錄",
-    "home": "起始目錄",
+    "home": "使用者目錄",
+    "path": "目錄路徑",
+    "pathHint": "輸入路徑後按 Enter",
+    "homeUnavailable": "此裝置未提供使用者目錄。請手動輸入路徑，或更新該裝置上的 OpenBitFun。",
     "refresh": "重新整理",
     "selected": "已選：{{path}}",
     "cancel": "取消",
@@ -903,7 +948,7 @@
     "redeploy": "重新部署",
     "startDeploy": "開始部署",
     "deployingTitle": "正在部署 relay server…",
-    "deployingHint": "一鍵部署會在需要時安裝 Docker，再透過所選線路拉取已簽署的 Relay 映像並啟動。若提示 sudo，請在下方終端機輸入密碼；關閉本視窗會停止遠端部署。",
+    "deployingHint": "部署會自動安裝所需依賴，優先使用已發佈的 Relay 映像；無法使用時自動從目前原始碼建置，耗時會更長。進度會顯示在下方終端機，若提示 sudo，請輸入密碼；關閉本視窗會取消部署。",
     "waitingRemoteOutput": "正在等待遠端輸出…",
     "deploySucceeded": "部署成功",
     "deployFailed": "部署失敗",
@@ -1105,7 +1150,7 @@
     "downloadingTitle": "正在下載更新",
     "downloadFailedTitle": "無法完成更新",
     "installedTitle": "更新已準備就緒",
-    "readyVersion": "版本 {{version}} 已下載，可以安裝並重啟。",
+    "readyVersion": "版本 {{version}} 已下載",
     "installWarning": "安裝將重啟本裝置上的 OpenBitFun，並中斷此裝置上的活動會話。",
     "installAndRestart": "安裝並重啟",
     "installing": "正在安裝…",

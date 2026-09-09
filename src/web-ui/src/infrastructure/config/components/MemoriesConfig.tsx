@@ -6,10 +6,9 @@ import {
   ConfirmDialog,
   IconButton,
   NumberInput,
-  Select,
   Switch,
-  type SelectOption,
 } from '@/component-library';
+import { Select, type SelectOption } from '@openbitfun/ui';
 import { useNotification } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
@@ -319,14 +318,14 @@ const MemoriesConfig: React.FC = () => {
           >
             <Select
               value={config.external_context_policy}
-              onChange={(value) => {
+              onValueChange={(value) => {
                 void updateConfig(
                   'external_context_policy',
                   normalizeSelectValue(value) as MemoriesConfigShape['external_context_policy'],
                 );
               }}
               options={externalContextPolicyOptions}
-              size="small"
+              size="sm"
               disabled={savingKey === 'external_context_policy' || memoryWorkDisabled}
             />
           </ConfigPageRow>
@@ -422,9 +421,9 @@ const MemoriesConfig: React.FC = () => {
           >
             <Select
               value={config.extract_model ?? ''}
-              onChange={(value) => updateModelSelector('extract_model', value)}
+              onValueChange={(value) => updateModelSelector('extract_model', value)}
               options={buildModelOptions(t('models.followPrimary'))}
-              size="small"
+              size="sm"
               disabled={savingKey === 'extract_model' || memoryWorkDisabled}
             />
           </ConfigPageRow>
@@ -471,9 +470,9 @@ const MemoriesConfig: React.FC = () => {
           >
             <Select
               value={config.consolidation_model ?? ''}
-              onChange={(value) => updateModelSelector('consolidation_model', value)}
+              onValueChange={(value) => updateModelSelector('consolidation_model', value)}
               options={buildModelOptions(t('models.followExtraction'))}
-              size="small"
+              size="sm"
               disabled={savingKey === 'consolidation_model' || memoryWorkDisabled}
             />
           </ConfigPageRow>

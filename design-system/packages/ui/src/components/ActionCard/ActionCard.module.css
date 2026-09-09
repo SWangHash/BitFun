@@ -110,7 +110,6 @@
   .description {
     overflow: hidden;
     min-inline-size: 0;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

@@ -81,7 +81,11 @@ describe('WorkspaceListSection layout styles', () => {
     expect(workspaceTitle).toContain('flex: 1 1 0;');
     expect(workspaceTitle).toContain('max-width: 100%;');
     expect(workspaceLabel).toContain('flex: 1 1 0;');
-    expect(workspaceLabel).toContain('text-overflow: ellipsis;');
+    expect(workspaceLabel).toContain('overflow: hidden;');
+    expect(workspaceLabel).not.toContain('text-overflow: ellipsis;');
+    expect(readWorkspaceItemSource()).toMatch(
+      /<OverflowText\s+behavior="marquee"\s+className="openbitfun-nav-panel__workspace-item-label"/,
+    );
     expect(workspaceActions).toContain('position: absolute;');
     expect(workspaceActions).toContain('right: 4px;');
     expect(workspaceActions).toContain('gap: 4px;');
@@ -111,7 +115,7 @@ describe('WorkspaceListSection layout styles', () => {
     expect(stylesheet).toContain('&__assistant-item.is-menu-open &__assistant-item-name-btn');
     expect(stylesheet).not.toContain('&__assistant-item.is-active &__assistant-item-name-btn');
     expect(assistantLabel).toContain('flex: 1 1 0;');
-    expect(assistantLabel).toContain('text-overflow: ellipsis;');
+    expect(assistantLabel).not.toContain('text-overflow: ellipsis;');
     expect(assistantMenu).toContain('position: absolute;');
     expect(assistantMenu).toContain('right: 4px;');
     expect(assistantMenu).toContain('gap: 4px;');

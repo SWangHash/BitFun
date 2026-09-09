@@ -209,6 +209,35 @@
         "analytics": "Analytics"
       }
     },
+    "resources": {
+      "title": "Workspace resources",
+      "files": "Files",
+      "terminals": "Terminals",
+      "local": "Local",
+      "remote": "Remote workspace",
+      "peer": "Peer device",
+      "switchWorkspace": "Switch workspace",
+      "chooseShell": "Choose a shell",
+      "noTerminals": "Create a terminal to get started",
+      "resize": "Resize files and terminals",
+      "revealDirectory": "Reveal working directory in files",
+      "openTerminalHere": "New terminal here",
+      "terminalActions": "Terminal actions",
+      "removeTerminal": "Remove ended terminal",
+      "unavailable": "Terminal status is unavailable. Try again.",
+      "actionFailed": "Terminal action failed: {{error}}",
+      "manual": "Mine",
+      "agent": "Agent",
+      "status": {
+        "running": "$t(shared:statuses.running)",
+        "saved": "Saved",
+        "exited": "Ended",
+        "unknown": "Unknown",
+        "starting": "Starting",
+        "stopping": "Stopping",
+        "error": "Error"
+      }
+    },
     "shell": {
       "title": "Shell",
       "views": {
@@ -354,6 +383,16 @@
       "reviewRunning": "Reviewing",
       "deepReviewRunning": "Reviewing",
       "unreadCompleted": "Completed — unread",
+      "status": {
+        "approval": "Awaiting approval",
+        "approvalCount": "Awaiting approval · {{count}} requests",
+        "input": "Awaiting your reply",
+        "unread": "Completed · not yet viewed",
+        "stopped": "Stopped or interrupted",
+        "paused": "Paused, ready to resume",
+        "queued": "Queued",
+        "syncing": "Awaiting status synchronization"
+      },
       "unreadError": "Failed — unread",
       "unreadInterrupted": "Interrupted — retry needed",
       "needsUserInput": "Needs your input",
@@ -679,11 +718,17 @@
     "errorEnterName": "Please enter a project name",
     "errorCreateFailed": "Failed to create project"
   },
+  "peerConnection": {
+    "reconnecting": "Reconnecting to {{name}}. Content may be out of date."
+  },
   "peerDirectoryPicker": {
     "loading": "Loading remote directories…",
     "empty": "No subfolders in this directory",
     "parent": "Parent directory",
-    "home": "Start directory",
+    "home": "Home directory",
+    "path": "Directory path",
+    "pathHint": "Enter a path and press Enter",
+    "homeUnavailable": "This device did not provide a home directory. Enter a path manually or update OpenBitFun on that device.",
     "refresh": "Refresh",
     "selected": "Selected: {{path}}",
     "cancel": "Cancel",
@@ -903,7 +948,7 @@
     "redeploy": "Redeploy",
     "startDeploy": "Start Deployment",
     "deployingTitle": "Deploying relay server…",
-    "deployingHint": "One-click deploy installs Docker when needed, pulls the signed Relay image through the selected route, and starts it. Use the terminal for sudo prompts. Closing this window stops the remote deploy.",
+    "deployingHint": "Deployment installs missing dependencies and tries the published Relay image first. If unavailable, it automatically builds from current source, which takes longer. Follow progress and enter sudo passwords in the terminal. Closing this window cancels deployment.",
     "waitingRemoteOutput": "Waiting for remote output…",
     "deploySucceeded": "Deployment succeeded",
     "deployFailed": "Deployment failed",
@@ -1105,7 +1150,7 @@
     "downloadingTitle": "Downloading update",
     "downloadFailedTitle": "Update could not be installed",
     "installedTitle": "Update ready",
-    "readyVersion": "Version {{version}} is downloaded and ready to install.",
+    "readyVersion": "Version {{version}} is downloaded",
     "installWarning": "Installing will restart OpenBitFun on this device and interrupt its active sessions.",
     "installAndRestart": "Install and restart",
     "installing": "Installing…",

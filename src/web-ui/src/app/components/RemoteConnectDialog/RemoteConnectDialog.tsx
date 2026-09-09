@@ -11,7 +11,7 @@
  * remote clients can use the primary assistant workspace.
  */
 
-import {
+import { OverflowText,
   Button,
   Field,
   Icon,
@@ -1535,7 +1535,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
     state?: 'authenticated' | 'connected';
     disabled?: boolean;
   }) => (
-    <button
+    <button data-overflow-trigger
       type="button"
       className="openbitfun-remote-connect__overview-action"
       data-openbitfun-component="remote-connect-dialog"
@@ -1557,9 +1557,9 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
       </span>
       <span className="openbitfun-remote-connect__overview-action-status">
         {statusDetail && (
-          <span className="openbitfun-remote-connect__overview-action-status-detail" title={statusDetail}>
+          <OverflowText className="openbitfun-remote-connect__overview-action-status-detail" title={statusDetail}>
             {statusDetail}
-          </span>
+          </OverflowText>
         )}
         <StatusPill tone={statusPositive ? 'success' : 'neutral'}>{statusLabel}</StatusPill>
       </span>

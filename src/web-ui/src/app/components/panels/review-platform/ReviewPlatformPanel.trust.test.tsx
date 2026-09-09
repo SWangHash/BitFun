@@ -46,7 +46,7 @@ vi.mock('@openbitfun/ui', () => {
   }) => <button onClick={onClick} disabled={disabled} aria-label={label}>{children}</button>;
   return {
     Button, IconButton: Button, Icon: () => null, Input: () => null, Combobox: () => null,
-    Field: Box, ScrollArea: Box, TabGroup: () => null, Tooltip: Box,
+    Field: Box, ScrollArea: Box, TabGroup: () => null, Tooltip: Box, OverflowText: Box,
     Dialog: () => null, DialogBody: Box, DialogClose: Box, DialogHeader: Box,
     DialogHeading: Box, DialogTitle: Box,
   };

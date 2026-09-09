@@ -80,7 +80,7 @@ describe('AgentCompanionDesktopPet styles', () => {
     const overlay = extractBlock(stylesheet, '&__overlay');
     const menuItem = extractBlock(stylesheet, '&__menu-item');
 
-    expect(source).toContain('import { Menu, MenuItem, ScrollArea } from \'@openbitfun/ui\'');
+    expect(source).toContain('import { OverflowText, Menu, MenuItem, ScrollArea } from \'@openbitfun/ui\'');
     expect(source).not.toContain('triggerClassName');
     expect(overlay).not.toMatch(/\b(?:color|background|border|box-shadow|backdrop-filter)\s*:/);
     expect(menuItem).toBe('');

@@ -35,7 +35,6 @@
     color: var(--openbitfun-color-content-primary);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
     display: block;
 
     &--loading {
@@ -279,7 +278,7 @@
       letter-spacing: var(--openbitfun-type-heading-section-letter-spacing);
     }
 
-    span {
+    span:not([data-overflow-content]) {
       display: block;
       margin-top: 2px;
       color: var(--openbitfun-color-content-muted);
@@ -289,7 +288,6 @@
       line-height: var(--openbitfun-type-support-line-height);
       letter-spacing: var(--openbitfun-type-support-letter-spacing);
       overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
       max-width: 360px;
     }

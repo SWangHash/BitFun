@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bot } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Icon } from '@openbitfun/ui';
 import { Badge } from '@/component-library';
 import type { AgentWithCapabilities } from '../agentsStore';
 import { AGENT_ICON_MAP } from '../agentsIcons';
@@ -25,7 +26,7 @@ const IndustryAgentCard: React.FC<IndustryAgentCardProps> = ({
   onOpenDetails,
 }) => {
   const { t } = useTranslation('scenes/agents');
-  const Icon = AGENT_ICON_MAP[(agent.iconKey ?? 'bot') as keyof typeof AGENT_ICON_MAP] ?? Bot;
+  const iconSource = AGENT_ICON_MAP[(agent.iconKey ?? 'bot') as keyof typeof AGENT_ICON_MAP] ?? { glyph: Bot };
   const openDetails = () => onOpenDetails?.(agent);
 
   return (
@@ -49,7 +50,7 @@ const IndustryAgentCard: React.FC<IndustryAgentCardProps> = ({
       <div className="agent-card__header" data-openbitfun-component="industry-agent-card" data-openbitfun-part="header">
         <div className="agent-card__icon-area" data-openbitfun-component="industry-agent-card" data-openbitfun-part="iconArea">
           <div className="agent-card__icon" data-openbitfun-component="industry-agent-card" data-openbitfun-part="icon">
-            <Icon size={20} strokeWidth={1.6} />
+            <Icon {...iconSource} size="lg" />
           </div>
         </div>
         <div className="agent-card__header-info" data-openbitfun-component="industry-agent-card" data-openbitfun-part="headerInfo">
@@ -73,7 +74,7 @@ const IndustryAgentCard: React.FC<IndustryAgentCardProps> = ({
       <div className="agent-card__footer" data-openbitfun-component="industry-agent-card" data-openbitfun-part="footer">
         <div className="agent-card__meta" data-openbitfun-component="industry-agent-card" data-openbitfun-part="meta">
           <span className="agent-card__meta-item">
-            <Icon size={12} />
+            <Icon {...iconSource} size="xs" />
             {t('industryAgentsZone.workflowLabel')}
           </span>
         </div>

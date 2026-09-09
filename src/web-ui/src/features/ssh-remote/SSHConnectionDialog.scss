@@ -127,7 +127,6 @@
     color: var(--openbitfun-color-content-primary);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
     line-height: var(--openbitfun-type-modifier-leading-snug-line-height);
   }
 
@@ -138,7 +137,6 @@
     color: var(--openbitfun-color-content-muted);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
     line-height: var(--openbitfun-type-modifier-leading-snug-line-height);
     font-variant-numeric: tabular-nums;
   }
@@ -359,10 +357,9 @@
     font-size: var(--openbitfun-type-meta-font-size);
     color: var(--openbitfun-color-content-secondary);
 
-    > span:last-child:not(:nth-child(2)) {
+    > span:not([data-overflow-content]):last-child:not(:nth-child(2)) {
       overflow: hidden;
       color: var(--openbitfun-color-content-muted);
-      text-overflow: ellipsis;
       white-space: nowrap;
     }
   }

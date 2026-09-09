@@ -14,6 +14,7 @@ import {
 } from "react";
 import { Icon } from "../Icon";
 import { classNames } from "../../internal/classNames";
+import { OverflowText } from "../../primitives/OverflowText";
 import { Portal, resolvePortalTarget } from "../../overlay/Portal";
 import { useDesignSystem } from "../../overlay/useDesignSystem";
 import { useDismissibleLayer } from "../../overlay/useDismissibleLayer";
@@ -221,9 +222,13 @@ export const DialogHeading = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEl
 );
 
 export const DialogTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
-  function DialogTitle({ className, id, ...props }, ref) {
+  function DialogTitle({ children, className, id, ...props }, ref) {
     const context = useDialogContext("DialogTitle");
-    return <h2 {...props} className={classNames(styles.title, className)} data-openbitfun-part="title" id={id ?? context.titleId} ref={ref} />;
+    return (
+      <h2 {...props} className={classNames(styles.title, className)} data-openbitfun-part="title" id={id ?? context.titleId} ref={ref}>
+        <OverflowText>{children}</OverflowText>
+      </h2>
+    );
   },
 );
 

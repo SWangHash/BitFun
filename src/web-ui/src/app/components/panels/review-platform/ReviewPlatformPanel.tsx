@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   Combobox,
   Field,
@@ -446,9 +446,6 @@ function reviewSessionLifecycle(session: Session): LinkedReviewSession['lifecycl
 }
 
 function getSessionTitle(session?: Session, fallback = 'Review session'): string {
-  if (session?.titleSource === 'i18n' && session.titleI18nKey) {
-    return i18nService.t(session.titleI18nKey, session.titleI18nParams ?? {}) || fallback;
-  }
   return session?.title?.trim() || fallback;
 }
 
@@ -1906,9 +1903,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
       workspacePath: linked.childSession.workspacePath,
       expand: true,
       sessionKind: linked.kind,
-      sessionTitle: linked.childSession.titleSource === 'i18n' && linked.childSession.titleI18nKey
-        ? (i18nService.t(linked.childSession.titleI18nKey, linked.childSession.titleI18nParams ?? {}) || linked.title)
-        : linked.title,
+      sessionTitle: linked.title,
       agentType: linked.childSession.config.agentType ?? (linked.kind === 'deep_review' ? 'DeepReview' : 'CodeReview'),
     });
   };
@@ -1940,7 +1935,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
               <Tooltip content={`${account.label} · ${authSourceLabel(account.authSource)}`}>
                 <span className={`review-platform__account review-platform__account--${account.authState}`}>
                   <ShieldCheck size={13} />
-                  <span>{authLabel(account)}</span>
+                  <OverflowText>{authLabel(account)}</OverflowText>
                 </span>
               </Tooltip>
             )}
@@ -2070,7 +2065,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                 const statistics = resolvedPullRequestStatistics(pr, cachedDetail?.detail);
                 const lineStats = resolvedLineStats(statistics);
                 return (
-                  <button data-openbitfun-component="review-platform" data-openbitfun-part="listItem"
+                  <button data-overflow-trigger data-openbitfun-component="review-platform" data-openbitfun-part="listItem"
                     data-testid="review-platform-pr-row"
                     data-pr-number={pr.number}
                     data-pr-state={pr.state}
@@ -2088,7 +2083,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                   >
                     <span className="review-platform__pr-icon">{getPrIcon(pr)}</span>
                     <span className="review-platform__pr-main" data-openbitfun-component="review-platform" data-openbitfun-part="listItemMain">
-                      <span className="review-platform__pr-title" data-openbitfun-component="review-platform" data-openbitfun-part="listItemTitle">{pr.title}</span>
+                      <OverflowText className="review-platform__pr-title" data-openbitfun-component="review-platform" data-openbitfun-part="listItemTitle">{pr.title}</OverflowText>
                       <span className="review-platform__pr-meta" data-openbitfun-component="review-platform" data-openbitfun-part="listItemMeta">
                         {pullRequestRemote?.projectPath ? `${pullRequestRemote.projectPath} · ` : ''}#{pr.number} · {pr.sourceBranch} → {pr.targetBranch}
                       </span>
@@ -2218,7 +2213,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                 <div className="review-platform__detail-title-block" data-openbitfun-component="review-platform" data-openbitfun-part="detailTitle">
                   <div className="review-platform__detail-title-row">
                     {getPrIcon(selectedPr)}
-                    <h3>{selectedPr.title}</h3>
+                    <h3><OverflowText>{selectedPr.title}</OverflowText></h3>
                     <span data-testid="review-platform-detail-state" className={`review-platform__detail-state review-platform__detail-state--${displayPr?.state ?? selectedPr.state}`} data-openbitfun-component="review-platform" data-openbitfun-part="detailState">
                       {stateLabel(displayPr?.state ?? selectedPr.state)}
                     </span>
@@ -2285,9 +2280,9 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                 <div className="review-platform__fact-row">
                   <span className="review-platform__fact-label"><Code2 size={14} /> Branches</span>
                   <div className="review-platform__fact-value review-platform__fact-value--branch">
-                    <strong>{displayPr?.sourceBranch ?? selectedPr.sourceBranch}</strong>
+                    <strong><OverflowText>{displayPr?.sourceBranch ?? selectedPr.sourceBranch}</OverflowText></strong>
                     <Icon name="chevron-right" size="xs" />
-                    <strong>{displayPr?.targetBranch ?? selectedPr.targetBranch}</strong>
+                    <strong><OverflowText>{displayPr?.targetBranch ?? selectedPr.targetBranch}</OverflowText></strong>
                     <span data-testid="review-platform-detail-files">{resolvedChangedFileCount(displayStatistics) ?? '—'} files</span>
                     <span data-testid="review-platform-detail-additions" className="review-platform__additions">{displayLineStats ? `+${displayLineStats.additions}` : '—'}</span>
                     <span data-testid="review-platform-detail-deletions" className="review-platform__deletions">{displayLineStats ? `-${displayLineStats.deletions}` : '—'}</span>
@@ -2313,7 +2308,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                 <div className="review-platform__fact-row">
                   <span className="review-platform__fact-label"><Icon name="spark" size="sm" /> OpenBitFun Review</span>
                   <div className="review-platform__fact-value review-platform__fact-value--review">
-                    <span>{reviewStatusText}</span>
+                    <OverflowText>{reviewStatusText}</OverflowText>
                     {(latestCurrentReview || latestStaleReview || latestUnknownReview) && (
                       <Button size="sm" variant="outline" onClick={handleOpenLatestReview}>
                         Open Review
@@ -2404,8 +2399,8 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                           <article data-openbitfun-component="review-platform" data-openbitfun-part="ciItem" key={item.id} className={`review-platform__ci-item review-platform__ci-item--${tone}`}>
                             <div className="review-platform__ci-head" data-openbitfun-component="review-platform" data-openbitfun-part="ciHead">
                               <div className="review-platform__ci-main">
-                                <strong>{item.name}</strong>
-                                <span>{[item.detail, item.stage].filter(Boolean).join(' · ')}</span>
+                                <strong><OverflowText>{item.name}</OverflowText></strong>
+                                <OverflowText>{[item.detail, item.stage].filter(Boolean).join(' · ')}</OverflowText>
                               </div>
                               <div className="review-platform__ci-actions">
                                 <span className={`review-platform__ci-status review-platform__ci-status--${tone}`} data-openbitfun-component="review-platform" data-openbitfun-part="ciStatus">
@@ -2521,7 +2516,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                               </div>
                             )}
                             <div className="review-platform__thread-body" data-openbitfun-component="review-platform" data-openbitfun-part="threadBody"><MarkdownRenderer content={thread.body} basePath={workspacePath} /></div>
-                            {thread.filePath && <span className="review-platform__thread-anchor">{thread.filePath}{thread.line ? `:${thread.line}` : ''}</span>}
+                            {thread.filePath && <OverflowText className="review-platform__thread-anchor">{thread.filePath}{thread.line ? `:${thread.line}` : ''}</OverflowText>}
                           </article>
                         );
                       })}
@@ -2549,7 +2544,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                       return (
                         <article data-openbitfun-component="review-platform" data-openbitfun-part="fileCard" key={key} className="review-platform__file-card">
                           <div className="review-platform__file-row" data-openbitfun-component="review-platform" data-openbitfun-part="fileRow">
-                            <button
+                            <button data-overflow-trigger
                               type="button"
                               className="review-platform__file-main"
                               data-openbitfun-component="review-platform"
@@ -2563,7 +2558,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                               <span className={`review-platform__file-status review-platform__file-status--${file.status}`} data-openbitfun-component="review-platform" data-openbitfun-part="fileStatus">
                                 {file.status}
                               </span>
-                              <span className="review-platform__file-path" data-openbitfun-component="review-platform" data-openbitfun-part="filePath">{file.path}</span>
+                              <OverflowText className="review-platform__file-path" data-openbitfun-component="review-platform" data-openbitfun-part="filePath">{file.path}</OverflowText>
                               <span className="review-platform__file-delta" data-openbitfun-component="review-platform" data-openbitfun-part="fileDelta">
                                 <span className="review-platform__additions">+{file.additions}</span>
                                 <span className="review-platform__deletions">-{file.deletions}</span>
@@ -2624,7 +2619,7 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
                       <div key={commit.hash} className="review-platform__timeline-item">
                         <Icon name="commit" size="sm" />
                         <span className="review-platform__timeline-main">
-                          <strong>{commit.title}</strong>
+                          <strong><OverflowText>{commit.title}</OverflowText></strong>
                           <span>{commit.author} · {formatRelativeTime(commit.committedAt)}</span>
                         </span>
                         <code>{commit.shortHash}</code>
@@ -2666,8 +2661,8 @@ export const ReviewPlatformPanel: React.FC<ReviewPlatformPanelProps> = ({
           }}
         >
           <div className="review-platform__auth-target">
-            <span>{selectedRemote?.host ?? 'No remote'}</span>
-            <strong>{selectedRemote?.projectPath ?? ''}</strong>
+            <OverflowText>{selectedRemote?.host ?? 'No remote'}</OverflowText>
+            <strong><OverflowText>{selectedRemote?.projectPath ?? ''}</OverflowText></strong>
           </div>
           {selectedRemote?.platform === 'github' ? (
             <div className="review-platform__gh-auth">

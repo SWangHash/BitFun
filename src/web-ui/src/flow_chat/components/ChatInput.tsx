@@ -13,11 +13,11 @@ import { useActiveSessionState } from '@/flow_chat/hooks';
 import {
   RichTextInput,
   type ClipboardFilePaste,
+  type ContextTriggerState,
   type InlineTriggerState,
-  type MentionState,
   type RichTextInputElement,
 } from './RichTextInput';
-import { FileMentionPicker } from './FileMentionPicker';
+import { ChatContextPicker, type ContextPickerSkill } from './ChatContextPicker';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import {
   useSessionDerivedState,
@@ -114,7 +114,7 @@ import { chatInputSessionSubscriptionKey } from '../utils/chatInputSessionSubscr
 import { isRemoteWorkspaceSession, sessionProjectWorkspacePath } from '../utils/sessionWorkspace';
 import { findWorkspaceForSession } from '../utils/workspaceScope';
 import { isTauriRuntime, isWindowsDesktopRuntime } from '@/infrastructure/runtime';
-import { Tooltip } from '@openbitfun/ui';
+import { OverflowText, Tooltip } from '@openbitfun/ui';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
 import { confirmDanger, confirmWarning } from '@/infrastructure/confirm-dialog';
 import { PendingQueuePanel } from './PendingQueuePanel';
@@ -169,6 +169,7 @@ import {
 } from './HarnessProfileSelector';
 import { ChatInputApprovalBand } from './ChatInputApprovalBand';
 import { ChatInputBoostSubmenu } from './ChatInputBoostSubmenu';
+import { scrollSelectedSlashCommandIntoView } from './slashCommandSelectionVisibility';
 import { usePermissionRequests } from './modern/usePermissionRequests';
 import type { DispatchSelection, DispatchTarget } from '@/features/dispatch/types';
 import { isNonLocalDispatchTarget } from '@/features/dispatch/types';
@@ -502,7 +503,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const richTextInputRef = useRef<RichTextInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const externalFileDropTargetRef = useRef<HTMLDivElement>(null);
-  const mentionAnchorRef = useRef<HTMLDivElement>(null);
+  const inputAreaAnchorRef = useRef<HTMLDivElement>(null);
   const agentBoostRef = useRef<HTMLDivElement>(null);
   const boostTriggerRef = useRef<HTMLSpanElement>(null);
   const boostMenuRef = useRef<HTMLDivElement>(null);
@@ -1062,7 +1063,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const workspacePathRef = useRef(sessionBoundWorkspacePath);
   workspacePathRef.current = sessionBoundWorkspacePath;
   const { openedWorkspaces } = useWorkspaceContext();
-  const mentionWorkspace = useMemo(() => (
+  const contextWorkspace = useMemo(() => (
     effectiveTargetSession
       ? findWorkspaceForSession(effectiveTargetSession, openedWorkspaces.values())
       : workspace ?? undefined
@@ -1073,7 +1074,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       : (
           effectiveTargetSession?.remoteConnectionId
           || effectiveTargetSession?.config?.remoteConnectionId
-          || mentionWorkspace?.connectionId
+          || contextWorkspace?.connectionId
         )
   )?.trim() || undefined;
 
@@ -1471,6 +1472,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     query: '',
     selectedIndex: 0,
   });
+  const [contextTriggerState, setContextTriggerState] = useState<ContextTriggerState>({
+    isActive: false,
+    query: '',
+    startOffset: 0,
+  });
   const {
     skills: resolvedModeSkills,
     loading: resolvedModeSkillsLoading,
@@ -1480,6 +1486,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   } = useResolvedModeSkills({
     enabled: isSceneActive && canUseSkillsForTarget && (
       isModeDropdownOpen ||
+      contextTriggerState.isActive ||
       (slashCommandState.isActive && (slashCommandState.kind === 'all' || slashCommandState.kind === 'skills'))
     ),
     surfaceEpoch: deviceSurfaceScope.epoch,
@@ -1694,11 +1701,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     modifiedFiles?: string[];
   } | null>(null);
   
-  const [mentionState, setMentionState] = useState<MentionState>({
-    isActive: false,
-    query: '',
-    startOffset: 0,
-  });
   const [inlineTriggerState, setInlineTriggerState] = useState<InlineTriggerState>({
     isActive: false,
     trigger: null,
@@ -1708,7 +1710,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   
   const slashCommandPickerLayout = useAnchoredPopoverPosition({
     open: slashCommandState.isActive,
-    anchorRef: mentionAnchorRef,
+    anchorRef: inputAreaAnchorRef,
     popoverRef: slashCommandPickerRef,
     preferredPlacement: 'top',
     alignment: 'start',
@@ -1731,14 +1733,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     isChatPopupActive,
   );
   const chatPopupActive =
-    slashCommandState.isActive || mentionState.isActive || reportedChatPopupActive;
+    slashCommandState.isActive || contextTriggerState.isActive || reportedChatPopupActive;
 
   // Keep the module-level flag in sync for other Escape owners such as modal
   // surfaces. The local state is included above so this composer does not wait
   // for the effect before giving the key to its popup.
   useEffect(() => {
-    setChatPopupActive(slashCommandState.isActive || mentionState.isActive);
-  }, [slashCommandState.isActive, mentionState.isActive]);
+    setChatPopupActive(slashCommandState.isActive || contextTriggerState.isActive);
+  }, [contextTriggerState.isActive, slashCommandState.isActive]);
 
   useEffect(() => {
     if (!slashCommandState.isActive) {
@@ -1746,10 +1748,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
 
     const frameId = requestAnimationFrame(() => {
-      const selectedItem = containerRef.current?.querySelector(
-        '.openbitfun-chat-input__slash-command-list .openbitfun-chat-input__slash-command-item--selected'
-      ) as HTMLElement | null;
-      selectedItem?.scrollIntoView({ block: 'nearest' });
+      scrollSelectedSlashCommandIntoView(slashCommandPickerRef.current);
     });
 
     return () => cancelAnimationFrame(frameId);
@@ -1825,7 +1824,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
     setHistoryIndex(-1);
     setSavedDraft('');
-    setMentionState({ isActive: false, query: '', startOffset: 0 });
+    setContextTriggerState({ isActive: false, query: '', startOffset: 0 });
     setInlineTriggerState({
       isActive: false,
       trigger: null,
@@ -4490,7 +4489,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const externalFileAvailability = resolveExternalFileIntakeAvailability({
     desktopRuntime: isTauriRuntime(),
     remoteWorkspace: Boolean(sessionBoundRemoteConnectionId)
-      || isRemoteWorkspaceSession(effectiveTargetSession, mentionWorkspace),
+      || isRemoteWorkspaceSession(effectiveTargetSession, contextWorkspace),
     peerDevice: isPeerDeviceModeActive(),
     detachedDispatch: Boolean(effectiveTargetSession?.config.dispatchJobId)
       || isNonLocalDispatchTarget(effectiveTargetSession?.config.dispatchTarget),
@@ -5173,12 +5172,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     window.setTimeout(() => richTextInputRef.current?.focus(), 0);
   }, [dispatchInput, inlineTriggerState, setQueuedInput]);
 
-  const getRichTextInlineTriggerController = useCallback(() => {
-    return richTextInputRef.current as (HTMLDivElement & {
-      replaceActiveInlineTrigger?: (replacementText: string) => void;
-      appendInlineTokenAtEnd?: (token: string) => void;
-      closeInlineTrigger?: () => void;
-    }) | null;
+  const getRichTextTriggerController = useCallback(() => {
+    return richTextInputRef.current;
   }, []);
 
   const selectSlashSkill = useCallback((item: SlashSkillItem) => {
@@ -5187,7 +5182,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setSelectedNonExternalSlashCandidateId(
       nativePromptCommandCandidateId(item.kind, item.id),
     );
-    const replaceInlineTrigger = getRichTextInlineTriggerController()?.replaceActiveInlineTrigger;
+    const replaceInlineTrigger = getRichTextTriggerController()?.replaceActiveInlineTrigger;
 
     if (inlineTriggerState.isActive) {
       replaceInlineTrigger?.(`[$${item.skillName}]`);
@@ -5203,7 +5198,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setQueuedInput(null);
     setSlashCommandState({ isActive: false, kind: 'all', query: '', selectedIndex: 0 });
     window.setTimeout(() => richTextInputRef.current?.focus(), 0);
-  }, [dispatchInput, getRichTextInlineTriggerController, inlineTriggerState.isActive, inputState.value, setQueuedInput]);
+  }, [dispatchInput, getRichTextTriggerController, inlineTriggerState.isActive, inputState.value, setQueuedInput]);
 
   const handleBoostStartBtw = useCallback(
     (e: React.SyntheticEvent) => {
@@ -5346,7 +5341,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           e.preventDefault();
           const kind = slashCommandState.kind;
           if (kind === 'skills') {
-            getRichTextInlineTriggerController()?.closeInlineTrigger?.();
+            getRichTextTriggerController()?.closeInlineTrigger?.();
           }
           setSlashCommandState({ isActive: false, kind: 'all', query: '', selectedIndex: 0 });
           return;
@@ -5485,7 +5480,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       handleSendOrCancel();
     }
     
-  }, [canUseThreadGoal, handleSendOrCancel, submitBtwFromInput, submitGoalFromInput, derivedState, dispatchInput, slashCommandState, getActiveSlashPickerItems, selectSlashCommandAction, selectSlashExternalPromptCommand, selectSlashPromptCommand, selectSlashAcpCommand, selectSlashSkill, getRichTextInlineTriggerController, historyIndex, inputHistory, savedDraft, inputState.value, currentSessionId, isBtwSession, showTargetSwitcher, setInputTarget, removeContext, t]);
+  }, [canUseThreadGoal, handleSendOrCancel, submitBtwFromInput, submitGoalFromInput, derivedState, dispatchInput, slashCommandState, getActiveSlashPickerItems, selectSlashCommandAction, selectSlashExternalPromptCommand, selectSlashPromptCommand, selectSlashAcpCommand, selectSlashSkill, getRichTextTriggerController, historyIndex, inputHistory, savedDraft, inputState.value, currentSessionId, isBtwSession, showTargetSwitcher, setInputTarget, removeContext, t]);
 
   const handleImeCompositionStart = useCallback(() => {
     isImeComposingRef.current = true;
@@ -5542,7 +5537,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const insertInlineReferenceIntoInput = useCallback(
     (token: string) => {
-      const appendInlineTokenAtEnd = getRichTextInlineTriggerController()?.appendInlineTokenAtEnd;
+      const appendInlineTokenAtEnd = getRichTextTriggerController()?.appendInlineTokenAtEnd;
       if (appendInlineTokenAtEnd) {
         appendInlineTokenAtEnd(token);
       } else {
@@ -5554,12 +5549,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       dispatchMode({ type: 'CLOSE_DROPDOWN' });
       focusRichTextInputSoon();
     },
-    [dispatchInput, focusRichTextInputSoon, getRichTextInlineTriggerController, inputState.value]
+    [dispatchInput, focusRichTextInputSoon, getRichTextTriggerController, inputState.value]
   );
 
   const insertSkillIntoInput = useCallback((skillName: string) => {
     insertInlineReferenceIntoInput(createSkillPromptReferenceToken(skillName));
   }, [insertInlineReferenceIntoInput]);
+
+  const selectContextSkill = useCallback((skill: ContextPickerSkill) => {
+    getRichTextTriggerController()?.replaceActiveContextTrigger?.(
+      createSkillPromptReferenceToken(skill.name),
+    );
+    setQueuedInput(null);
+    focusRichTextInputSoon();
+  }, [focusRichTextInputSoon, getRichTextTriggerController, setQueuedInput]);
+
+  const handleContextPickerAddImage = useCallback(() => {
+    getRichTextTriggerController()?.replaceActiveContextTrigger?.('');
+    handleImageInput();
+  }, [getRichTextTriggerController, handleImageInput]);
 
   const additionalModeItems = useMemo<ChatInputAdditionalModeItem[]>(() => [
     ...quickSkillShortcuts.map(shortcut => ({
@@ -5589,9 +5597,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         const el = richTextInputRef.current;
-        if (el && typeof (el as unknown as { openMention?: () => void }).openMention === 'function') {
-          (el as unknown as { openMention: () => void }).openMention();
-        }
+        el?.openContextPicker?.();
       });
     });
   }, []);
@@ -5911,7 +5917,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             {showTargetSwitcher && (
               <div className="openbitfun-chat-input__target-switcher" data-openbitfun-component="chat-input" data-openbitfun-part="targetSwitcher" data-testid="chat-input-target-switcher">
                 <span className="openbitfun-chat-input__target-switcher-label" data-openbitfun-component="chat-input" data-openbitfun-part="targetLabel">{t('chatInput.conversationTarget')}</span>
-                <button
+                <button data-overflow-trigger
                   type="button"
                   tabIndex={-1}
                   className={`openbitfun-chat-input__target-tab ${inputTarget === 'main' ? 'openbitfun-chat-input__target-tab--active' : ''}`}
@@ -5923,10 +5929,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 >
                   {t('chatInput.targetMain')}
                   {inputTarget === 'main' && currentSessionTitle && (
-                    <span className="openbitfun-chat-input__target-tab-name" data-openbitfun-component="chat-input" data-openbitfun-part="targetName">{currentSessionTitle}</span>
+                    <OverflowText className="openbitfun-chat-input__target-tab-name" data-openbitfun-component="chat-input" data-openbitfun-part="targetName">{currentSessionTitle}</OverflowText>
                   )}
                 </button>
-                <button
+                <button data-overflow-trigger
                   type="button"
                   tabIndex={-1}
                   className={`openbitfun-chat-input__target-tab ${inputTarget === 'btw' ? 'openbitfun-chat-input__target-tab--active' : ''}`}
@@ -5938,12 +5944,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 >
                   {activeBtwTargetLabel}
                   {inputTarget === 'btw' && activeBtwSessionTitle && (
-                    <span className="openbitfun-chat-input__target-tab-name" data-openbitfun-component="chat-input" data-openbitfun-part="targetName">{activeBtwSessionTitle}</span>
+                    <OverflowText className="openbitfun-chat-input__target-tab-name" data-openbitfun-component="chat-input" data-openbitfun-part="targetName">{activeBtwSessionTitle}</OverflowText>
                   )}
                 </button>
               </div>
             )}
-            <div ref={mentionAnchorRef} className="openbitfun-chat-input__input-area" data-openbitfun-component="chat-input" data-openbitfun-part="area">
+            <div ref={inputAreaAnchorRef} className="openbitfun-chat-input__input-area" data-openbitfun-component="chat-input" data-openbitfun-part="area">
               {imageContexts.length > 0 && (
                 <div
                   className="openbitfun-chat-input__image-strip"
@@ -6011,34 +6017,36 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 disabled={caps.transferInFlight || isInterruptedTurnRecoveryInFlight}
                 contexts={contexts}
                 onRemoveContext={removeContext}
-                onMentionStateChange={setMentionState}
+                onContextTriggerStateChange={setContextTriggerState}
                 onInlineTriggerStateChange={setInlineTriggerState}
                 data-testid="chat-input-textarea"
               />
 
               
-              <FileMentionPicker
-                isOpen={mentionState.isActive}
-                searchQuery={mentionState.query}
+              <ChatContextPicker
+                isOpen={contextTriggerState.isActive}
+                searchQuery={contextTriggerState.query}
                 workspacePath={sessionBoundWorkspacePath}
                 remoteConnectionId={sessionBoundRemoteConnectionId}
                 workspaceId={hasRegisteredWorkspace
                   ? undefined
-                  : effectiveTargetSession?.workspaceId || mentionWorkspace?.id}
+                  : effectiveTargetSession?.workspaceId || contextWorkspace?.id}
                 excludeSessionId={effectiveTargetSessionId || undefined}
-                anchorRef={mentionAnchorRef}
-                onSelect={(context: FileContext | DirectoryContext | SessionReferenceContext) => {
+                anchorRef={inputAreaAnchorRef}
+                entryView={isAcpTargetSession ? 'files' : 'sources'}
+                skills={canUseSkillsForTarget ? userInvocableSkills : []}
+                skillsLoading={resolvedModeSkillsLoading}
+                skillsLoadFailed={resolvedModeSkillsLoadFailed}
+                onRetrySkills={retryResolvedModeSkills}
+                onSelectSkill={canUseSkillsForTarget ? selectContextSkill : undefined}
+                onAddImage={!isAcpTargetSession ? handleContextPickerAddImage : undefined}
+                onSelectContext={(context: FileContext | DirectoryContext | SessionReferenceContext) => {
                   addContext(context);
-                  
-                  if (richTextInputRef.current && (richTextInputRef.current as any).insertTagReplacingMention) {
-                    (richTextInputRef.current as any).insertTagReplacingMention(context);
-                  }
+                  richTextInputRef.current?.insertContextTagReplacingTrigger?.(context);
                 }}
                 onClose={() => {
-                  if (richTextInputRef.current && (richTextInputRef.current as any).closeMention) {
-                    (richTextInputRef.current as any).closeMention();
-                  }
-                  setMentionState({ isActive: false, query: '', startOffset: 0 });
+                  richTextInputRef.current?.closeContextPicker?.();
+                  setContextTriggerState({ isActive: false, query: '', startOffset: 0 });
                 }}
               />
               
@@ -6067,7 +6075,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                       <div className="openbitfun-chat-input__slash-command-list" data-openbitfun-component="chat-input" data-openbitfun-part="commandList">
                         {actions.length > 0 ? (
                           actions.map((action, index) => (
-                            <div
+                            <div data-overflow-trigger
                               data-openbitfun-component="chat-input"
                               data-openbitfun-part="commandItem"
                               data-openbitfun-command-item-kind="action"
@@ -6077,7 +6085,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                               onClick={() => selectSlashCommandAction(action.id)}
                               onMouseEnter={() => setSlashCommandState(prev => ({ ...prev, selectedIndex: index }))}
                             >
-                              <span className="openbitfun-chat-input__slash-command-name" data-openbitfun-component="chat-input" data-openbitfun-part="commandName">{action.command}</span>
+                              <OverflowText className="openbitfun-chat-input__slash-command-name" data-openbitfun-component="chat-input" data-openbitfun-part="commandName">{action.command}</OverflowText>
                               <span className="openbitfun-chat-input__slash-command-label" data-openbitfun-component="chat-input" data-openbitfun-part="commandLabel">{action.label}</span>
                             </div>
                           ))
@@ -6150,7 +6158,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                     <span className="openbitfun-chat-input__slash-command-section-line" aria-hidden />
                                   </div>
                                 )}
-                                <div
+                                <div data-overflow-trigger
                                   data-openbitfun-component="chat-input"
                                   data-openbitfun-part="commandItem"
                                   data-openbitfun-command-item-kind={item.kind === 'mcpPrompt' ? 'mcp' : item.kind === 'externalCommand' || item.kind === 'acpCommand' ? 'action' : item.kind}
@@ -6172,9 +6180,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                   }}
                                   onMouseEnter={() => setSlashCommandState(prev => ({ ...prev, selectedIndex: index }))}
                                 >
-                                  <span className="openbitfun-chat-input__slash-command-name" data-openbitfun-component="chat-input" data-openbitfun-part="commandName">
+                                  <OverflowText className="openbitfun-chat-input__slash-command-name" data-openbitfun-component="chat-input" data-openbitfun-part="commandName">
                                     {commandText}
-                                  </span>
+                                  </OverflowText>
                                   <span
                                     className={`openbitfun-chat-input__slash-command-label ${item.kind === 'skill' ? 'openbitfun-chat-input__slash-command-label--single-line' : ''}`}
                                     data-openbitfun-component="chat-input"
@@ -6259,7 +6267,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                   : item.label;
 
                             return (
-                              <div data-openbitfun-component="chat-input" data-openbitfun-part="commandItem"
+                              <div data-overflow-trigger data-openbitfun-component="chat-input" data-openbitfun-part="commandItem"
                                 data-openbitfun-command-item-kind={item.kind === 'mcpPrompt' ? 'mcp' : item.kind === 'externalCommand' || item.kind === 'acpCommand' ? 'action' : item.kind}
                                 data-openbitfun-state={index === slashCommandState.selectedIndex ? 'selected' : undefined}
                                 key={`${item.kind}-${item.id}`}
@@ -6280,9 +6288,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                 }}
                                 onMouseEnter={() => setSlashCommandState(prev => ({ ...prev, selectedIndex: index }))}
                               >
-                                <span className="openbitfun-chat-input__slash-command-name" data-openbitfun-component="chat-input" data-openbitfun-part="commandName">
+                                <OverflowText className="openbitfun-chat-input__slash-command-name" data-openbitfun-component="chat-input" data-openbitfun-part="commandName">
                                   {commandText}
-                                </span>
+                                </OverflowText>
                                 <span
                                   className={`openbitfun-chat-input__slash-command-label ${item.kind === 'skill' ? 'openbitfun-chat-input__slash-command-label--single-line' : ''}`}
                                   data-openbitfun-component="chat-input"

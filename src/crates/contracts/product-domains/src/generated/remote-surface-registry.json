@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "digest": "fnv1a64:7e986a20e97fbf71",
+  "digest": "fnv1a64:4cdcd7ff4dcd85a9",
   "retiredCommandPrefixes": [
     {
       "prefix": "lsp_",
@@ -13,6 +13,7 @@
       "targeted_session_rollback",
       "token_usage_statistics",
       "miniapp_agent_context_files_v1",
+      "wsl_workspaces_v1",
       "product_control_v1",
       "product_control_native_v1",
       "product_control_presentation_v1",
@@ -25,6 +26,7 @@
       "targeted_session_rollback",
       "token_usage_statistics",
       "miniapp_agent_context_files_v1",
+      "wsl_workspaces_v1",
       "product_control_v1",
       "product_control_native_v1",
       "product_control_presentation_v1",
@@ -949,18 +951,6 @@
       "cliPeer": {
         "kind": "unsupported",
         "reason": "the CLI peer host has no handler for this command"
-      }
-    },
-    {
-      "id": "check_matrix_skill_checksum",
-      "surface": "tauri_command",
-      "remoteWorkspace": "LocalOnly",
-      "peer": {
-        "kind": "controller_local"
-      },
-      "cliPeer": {
-        "kind": "unsupported",
-        "reason": "the controller keeps this command; peer hosts refuse it before dispatch"
       }
     },
     {
@@ -3784,18 +3774,6 @@
       }
     },
     {
-      "id": "install_matrix_skill",
-      "surface": "tauri_command",
-      "remoteWorkspace": "LocalOnly",
-      "peer": {
-        "kind": "controller_local"
-      },
-      "cliPeer": {
-        "kind": "unsupported",
-        "reason": "the controller keeps this command; peer hosts refuse it before dispatch"
-      }
-    },
-    {
       "id": "install_pending_update",
       "surface": "tauri_command",
       "remoteWorkspace": "WorkspaceAgnostic",
@@ -3936,54 +3914,6 @@
       "cliPeer": {
         "kind": "unsupported",
         "reason": "the CLI peer host has no handler for this command"
-      }
-    },
-    {
-      "id": "list_matrix_categories",
-      "surface": "tauri_command",
-      "remoteWorkspace": "WorkspaceAgnostic",
-      "peer": {
-        "kind": "controller_local"
-      },
-      "cliPeer": {
-        "kind": "unsupported",
-        "reason": "the controller keeps this command; peer hosts refuse it before dispatch"
-      }
-    },
-    {
-      "id": "list_matrix_organizations",
-      "surface": "tauri_command",
-      "remoteWorkspace": "WorkspaceAgnostic",
-      "peer": {
-        "kind": "controller_local"
-      },
-      "cliPeer": {
-        "kind": "unsupported",
-        "reason": "the controller keeps this command; peer hosts refuse it before dispatch"
-      }
-    },
-    {
-      "id": "list_matrix_skills",
-      "surface": "tauri_command",
-      "remoteWorkspace": "WorkspaceAgnostic",
-      "peer": {
-        "kind": "controller_local"
-      },
-      "cliPeer": {
-        "kind": "unsupported",
-        "reason": "the controller keeps this command; peer hosts refuse it before dispatch"
-      }
-    },
-    {
-      "id": "list_matrix_tags",
-      "surface": "tauri_command",
-      "remoteWorkspace": "WorkspaceAgnostic",
-      "peer": {
-        "kind": "controller_local"
-      },
-      "cliPeer": {
-        "kind": "unsupported",
-        "reason": "the controller keeps this command; peer hosts refuse it before dispatch"
       }
     },
     {
@@ -6502,8 +6432,7 @@
         "kind": "proxied"
       },
       "cliPeer": {
-        "kind": "unsupported",
-        "reason": "the CLI peer host has no handler for this command"
+        "kind": "handled"
       }
     },
     {
@@ -6515,18 +6444,6 @@
       },
       "cliPeer": {
         "kind": "handled"
-      }
-    },
-    {
-      "id": "save_text_file_dialog",
-      "surface": "tauri_command",
-      "remoteWorkspace": "LocalOnly",
-      "peer": {
-        "kind": "controller_local"
-      },
-      "cliPeer": {
-        "kind": "unsupported",
-        "reason": "the controller keeps this command; peer hosts refuse it before dispatch"
       }
     },
     {
@@ -7394,6 +7311,18 @@
     },
     {
       "id": "ssh_list_saved_connections",
+      "surface": "tauri_command",
+      "remoteWorkspace": "WorkspaceAgnostic",
+      "peer": {
+        "kind": "proxied"
+      },
+      "cliPeer": {
+        "kind": "unsupported",
+        "reason": "the CLI peer host does not run this desktop IDE surface"
+      }
+    },
+    {
+      "id": "ssh_list_wsl_distributions",
       "surface": "tauri_command",
       "remoteWorkspace": "WorkspaceAgnostic",
       "peer": {

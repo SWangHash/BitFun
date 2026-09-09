@@ -1,4 +1,5 @@
-import {
+import { OverflowText,
+  Alert,
   Button,
   ConfirmDialog,
   Icon,
@@ -210,7 +211,10 @@ function defaultConfigForPreset(preset: AcpClientPreset): AcpClientConfig {
   };
 }
 
-function normalizeConfigValue(value: unknown): AcpClientConfigFile {
+function normalizeConfigValue(value: unknown): {
+  config: AcpClientConfigFile;
+  hasLegacyPermissionModes: boolean;
+} {
   const candidate = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   const rawClients = (
     candidate.acpClients && typeof candidate.acpClients === 'object' && !Array.isArray(candidate.acpClients)
@@ -219,6 +223,7 @@ function normalizeConfigValue(value: unknown): AcpClientConfigFile {
     : candidate;
 
   const acpClients: Record<string, AcpClientConfig> = {};
+  let hasLegacyPermissionModes = false;
   for (const [id, rawConfig] of Object.entries(rawClients)) {
     if (!rawConfig || typeof rawConfig !== 'object' || Array.isArray(rawConfig)) {
       continue;
@@ -230,6 +235,7 @@ function normalizeConfigValue(value: unknown): AcpClientConfigFile {
       continue;
     }
 
+    hasLegacyPermissionModes ||= item.permissionMode === 'reject_once';
     acpClients[id] = {
       name: typeof item.name === 'string' ? item.name : undefined,
       command,
@@ -242,7 +248,7 @@ function normalizeConfigValue(value: unknown): AcpClientConfigFile {
     };
   }
 
-  return { acpClients };
+  return { config: { acpClients }, hasLegacyPermissionModes };
 }
 
 function normalizeEnvObject(value: unknown): Record<string, string> {
@@ -253,7 +259,7 @@ function normalizeEnvObject(value: unknown): Record<string, string> {
 }
 
 function normalizePermissionMode(value: unknown): AcpClientPermissionMode {
-  return value === 'allow_once' || value === 'reject_once' ? value : 'ask';
+  return value === 'allow_once' ? value : 'ask';
 }
 
 function normalizeSubagentConfig(value: unknown): AcpClientSubagentConfig {
@@ -485,6 +491,7 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [pendingPermissionMigration, setPendingPermissionMigration] = useState(false);
   const [jsonConfig, setJsonConfig] = useState('');
   const [jsonBaseline, setJsonBaseline] = useState(formatConfig({ acpClients: {} }));
   const [jsonDirty, setJsonDirty] = useState(false);
@@ -715,8 +722,9 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
         log.warn('Failed to load saved SSH connections for ACP remote overrides', error);
         return [] as SavedConnection[];
       });
-      const parsed = normalizeConfigValue(JSON.parse(rawConfig || '{}'));
+      const { config: parsed, hasLegacyPermissionModes } = normalizeConfigValue(JSON.parse(rawConfig || '{}'));
       setConfig(parsed);
+      setPendingPermissionMigration(hasLegacyPermissionModes);
       const formattedConfig = formatConfig(parsed);
       setJsonConfig(formattedConfig);
       setJsonBaseline(formattedConfig);
@@ -961,6 +969,7 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
       setJsonBaseline(formattedConfig);
       setDirty(false);
       setJsonDirty(false);
+      setPendingPermissionMigration(false);
       await refreshRequirementProbes({ force: true, notifyOnError: false });
       loadedRemoteProbeIdsRef.current.clear();
       setRemoteProbeRefreshNonce(prev => prev + 1);
@@ -1012,7 +1021,7 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
 
   const saveJsonConfig = async (): Promise<boolean> => {
     try {
-      const parsed = normalizeConfigValue(JSON.parse(jsonConfig));
+      const { config: parsed } = normalizeConfigValue(JSON.parse(jsonConfig));
       const saved = await saveConfig(parsed, { mergeEnvDrafts: false });
       if (!saved) return false;
       setConfig(parsed);
@@ -1058,7 +1067,6 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
   const permissionOptions = useMemo(() => [
     { value: 'ask', label: t('permissionMode.ask') },
     { value: 'allow_once', label: t('permissionMode.allowOnce') },
-    { value: 'reject_once', label: t('permissionMode.rejectOnce') },
   ], [t]);
 
   const registryFilterOptions = useMemo(() => [
@@ -1353,6 +1361,23 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
           onValueChange={handleViewChange}
           value={activeView}
         />
+        {pendingPermissionMigration && (
+          <Alert
+            tone="warning"
+            message={t('permissionMode.legacyRejectWarning')}
+            description={(
+              <Button
+                variant="fill"
+                size="sm"
+                disabled={saving}
+                loading={saving}
+                onClick={() => { void (activeView === 'json' ? saveJsonConfig() : saveConfig()); }}
+              >
+                {t('permissionMode.saveAndApply')}
+              </Button>
+            )}
+          />
+        )}
         {activeView === 'json' && (
           <ConfigMessage message={{ type: 'warning', text: t('security.secretWarning') }} />
         )}
@@ -1545,7 +1570,7 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
                         <Bot size={16} />
                       </span>
                       <div className="openbitfun-acp-agents__registry-copy">
-                        <span className="openbitfun-acp-agents__registry-name">{preset.name}</span>
+                        <OverflowText className="openbitfun-acp-agents__registry-name">{preset.name}</OverflowText>
                         <p className="openbitfun-acp-agents__registry-description">
                           {formatStandaloneUiText(getPresetDescription(preset.id))}
                         </p>
@@ -1687,7 +1712,7 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
                         <Bot size={16} />
                       </span>
                       <div className="openbitfun-acp-agents__registry-copy">
-                        <span className="openbitfun-acp-agents__registry-name">{displayName}</span>
+                        <OverflowText className="openbitfun-acp-agents__registry-name">{displayName}</OverflowText>
                         <p className="openbitfun-acp-agents__registry-description openbitfun-acp-agents__registry-command">
                           {[clientConfig.command, ...clientConfig.args].join(' ')}
                         </p>
@@ -1857,9 +1882,9 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
                             <Server size={16} />
                           </span>
                           <div className="openbitfun-acp-agents__registry-copy">
-                            <span className="openbitfun-acp-agents__registry-name">
+                            <OverflowText className="openbitfun-acp-agents__registry-name">
                               {connection.name || connection.id}
-                            </span>
+                            </OverflowText>
                             <p className="openbitfun-acp-agents__registry-description">
                               {hostLabel || connection.id}
                             </p>
@@ -1954,7 +1979,7 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
                                   <Bot size={16} />
                                 </span>
                                 <div className="openbitfun-acp-agents__registry-copy">
-                                  <span className="openbitfun-acp-agents__registry-name">{row.displayName}</span>
+                                  <OverflowText className="openbitfun-acp-agents__registry-name">{row.displayName}</OverflowText>
                                   <p className="openbitfun-acp-agents__registry-description">{row.preset ? formatStandaloneUiText(row.description) : row.description}</p>
                                 </div>
                               </div>
@@ -2090,9 +2115,9 @@ const AcpAgentsConfig: React.FC<AcpAgentsConfigProps> = ({
                           <Server size={16} />
                         </span>
                         <div className="openbitfun-acp-agents__registry-copy">
-                          <span className="openbitfun-acp-agents__registry-name">
+                          <OverflowText className="openbitfun-acp-agents__registry-name">
                             {connection.name || connection.id}
-                          </span>
+                          </OverflowText>
                           <p className="openbitfun-acp-agents__registry-description">
                             {hostLabel || connection.id}
                           </p>

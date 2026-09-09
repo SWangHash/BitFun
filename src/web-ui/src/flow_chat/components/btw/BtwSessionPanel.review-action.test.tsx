@@ -185,6 +185,7 @@ vi.mock('../../store/FlowChatStore', () => ({
   flowChatStore: {
     getState: () => flowChatState,
     subscribe: () => () => {},
+    subscribeSelector: () => () => {},
   },
 }));
 

@@ -119,6 +119,22 @@ async function main() {
   process.exit(r.status ?? 1);
 }
 
+function rustHostTargetTriple() {
+  const result = spawnSync('rustc', ['-vV'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    shell: false,
+    windowsHide: true,
+  });
+  if (result.error || result.status !== 0) {
+    const detail = result.error?.message || result.stderr || `exit status ${result.status}`;
+    throw new Error(`Could not determine the Rust host target: ${detail}`);
+  }
+  const host = String(result.stdout).match(/^host:\s*(\S+)$/m)?.[1];
+  if (!host) throw new Error('rustc -vV did not report a host target triple.');
+  return host;
+}
+
 function preparePluginHost() {
   const result = spawnSync('pnpm', ['run', 'plugin-host:prepare'], {
     cwd: ROOT,

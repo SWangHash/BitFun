@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   Card,
   CardBody,
@@ -332,7 +332,7 @@ const MiniAppMarketView: React.FC<MiniAppMarketViewProps> = ({ tabs }) => {
           ) : null}
           {!loading && error ? (
             <GalleryEmpty
-              icon={<AlertTriangle size={34} />}
+              icon={{ glyph: AlertTriangle }}
               isError
               message={t('market.messages.catalogFailed', { error })}
               action={(
@@ -344,7 +344,7 @@ const MiniAppMarketView: React.FC<MiniAppMarketViewProps> = ({ tabs }) => {
             />
           ) : null}
           {!loading && !error && items.length === 0 ? (
-            <GalleryEmpty icon={<PackageCheck size={34} />} message={t('market.empty')} />
+            <GalleryEmpty icon={{ glyph: PackageCheck }} message={t('market.empty')} />
           ) : null}
           {!loading && items.length > 0 ? (
             <>
@@ -360,7 +360,7 @@ const MiniAppMarketView: React.FC<MiniAppMarketViewProps> = ({ tabs }) => {
                       clip
                       radius="lg"
                     >
-                      <button
+                      <button data-overflow-trigger
                         type="button"
                         className="miniapp-market-card__trigger"
                         data-openbitfun-component="miniapp-market-view"
@@ -390,7 +390,7 @@ const MiniAppMarketView: React.FC<MiniAppMarketViewProps> = ({ tabs }) => {
                             <span>{categoryLabel(item.category, t)}</span>
                             <span>v{item.latestRelease}</span>
                           </div>
-                          <strong>{name}</strong>
+                          <strong><OverflowText>{name}</OverflowText></strong>
                           <p>{description}</p>
                           <div className="miniapp-market-card__stats">
                             <span><Icon name="star" size="xs" /> {item.ratingAverage.toFixed(1)}</span>

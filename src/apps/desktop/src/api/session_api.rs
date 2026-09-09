@@ -52,6 +52,9 @@ pub struct ListPersistedSessionsRequest {
 pub struct ListPersistedSessionsPageRequest {
     pub workspace_path: String,
     pub limit: usize,
+    /// Optional compact status batch; omitted by older clients.
+    #[serde(default, alias = "sessionIds")]
+    pub session_ids: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -388,6 +391,7 @@ pub async fn list_persisted_sessions_page(
             ),
             request.cursor.as_deref(),
             request.limit,
+            request.session_ids.as_deref(),
         )
         .await
         .map_err(|error| {

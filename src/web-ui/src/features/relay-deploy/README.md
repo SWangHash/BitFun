@@ -1,8 +1,8 @@
 # One-click Relay Deploy
 
 Desktop wizard that SSHes to a user-owned Linux host, installs Docker when it
-is missing, pulls the signed OpenBitFun Relay image, and starts it. Account import
-remains optional.
+is missing, tries the signed OpenBitFun Relay image, and builds current source
+when no usable image is available. Account import remains optional.
 
 Entry points:
 
@@ -16,14 +16,20 @@ Desktop Tauri surface: `src/apps/desktop/src/api/relay_deploy_api.rs`
 
 ## Invariants (do not regress)
 
-1. **One click means install-if-needed, pull, start.** The deploy action must
+1. **One click means install-if-needed, pull-or-build, start.** The deploy action must
    continue through Docker Engine installation in the same interactive task.
-   Docker Compose, git, tar, Cargo, and a source checkout are not prerequisites.
+   Prepare Git and Docker Buildx while the PTY can answer sudo prompts. A failure
+   to prepare source dependencies must not block an available published image.
+   Docker Compose and host Cargo are not prerequisites.
 
-2. **Customer servers never build Relay.** The normal Desktop path contains no
-   archive extraction, `docker build`, repository sync, or source compilation,
-   and it never silently falls back to those operations. Manual
-   `deploy.sh --build-from-source` remains an explicit maintenance escape hatch.
+2. **Unavailable images fall back to current source.** Missing/unreachable
+   metadata, a verified descriptor for another image repository, exhausted pull
+   routes, or a failed image start trigger a source build with a visible terminal
+   message. Do not accept or rewrite another repository's image. Invalid signatures
+   or malformed signed metadata still fail after trying the other metadata origin.
+   Fetch current `main` into a fresh task-owned directory below
+   `~/.openbitfun/relay-src/`, record its commit, build natively with one Cargo job
+   by default, and clean only that temporary checkout. Never reset a user's checkout.
 
 3. **Authenticate the latest image before touching the server.** Desktop reads
    the latest `relay-image.json` and `relay-image.json.sig`, verifies the
@@ -33,9 +39,9 @@ Desktop Tauri surface: `src/apps/desktop/src/api/relay_deploy_api.rs`
    remote script. The Desktop package version does not pin Relay deployment.
 
 4. **Always start by digest.** Tags are discovery metadata, not an execution
-   identity. One-click deploy sets `OPENBITFUN_REQUIRE_IMAGE_DIGEST=1`; Docker pulls
+   identity. Image deployment sets `OPENBITFUN_REQUIRE_IMAGE_DIGEST=1`; Docker pulls
    and runs `<repository>@sha256:...`, so every manifest and layer remains
-   content-addressed.
+   content-addressed. Source builds start by the immutable local image ID.
 
 5. **Registry prefixes are transport, not trust roots.** Automatic mode keeps
    official GHCR first when a 10-second GitHub byte probe reaches 512 KiB/s; a
@@ -54,12 +60,14 @@ Desktop Tauri surface: `src/apps/desktop/src/api/relay_deploy_api.rs`
    `src/apps/relay-server/release-download.sh`; `deploy.sh` sources it and
    `relay_deploy.rs` embeds it with `include_str!`. Do not fork that behavior
    back into a Rust string template.
+   `source-build.sh` adds the wizard's source fallback and calls that same
+   container lifecycle code; it must not fork volumes, health checks, or rollback.
 
 8. **Preserve the container contract.** Keep container name `openbitfun-relay`,
    volumes `relay-server_relay-db` and `relay-server_room-web`, selected port,
    `/app/data`, `/app/room-web`, and `/app/relay-admin` stable across upgrades.
 
-9. **Never stop a healthy Relay before the image is pulled.** Pull first, then
+9. **Never stop a healthy Relay before the image is ready.** Pull or build first, then
    rename the existing container, start the replacement, and remove the backup
    only after `/health` succeeds. Start, cancellation, or health failure must
    restore the previous container. Keep container stderr in failure diagnostics.
@@ -83,6 +91,9 @@ Desktop Tauri surface: `src/apps/desktop/src/api/relay_deploy_api.rs`
     unconditionally. Detect root / passwordless sudo / interactive sudo. A
     missing Docker engine elevates once, installs through the selected regional
     route, repairs ownership, and continues without requiring a new login.
+    Long deployments refresh an already-authorized noninteractive Docker
+    command while the body is alive, so sudo does not expire during compilation;
+    the refresh process stops when the task exits.
 
 15. **`DOCKER_CONFIG` must remain usable by the SSH user.** Root installation
     keeps the user's HOME, so hand `~/.openbitfun` back before continuing. Repair or
@@ -114,6 +125,16 @@ Desktop Tauri surface: `src/apps/desktop/src/api/relay_deploy_api.rs`
     verify them.
 
 ## Related docs
+
+Focused checks:
+
+```bash
+cargo test --locked -p openbitfun-services-integrations --no-default-features --features remote-ssh-concrete --lib remote_ssh::relay_deploy::tests::
+node --test scripts/relay/*.test.mjs
+```
+
+These use local HTTP, Git and Docker-command fixtures. They do not replace a
+real Linux SSH deployment with sudo, cancellation and a running prior container.
 
 - Relay runtime / admin: [`src/apps/relay-server/README.md`](../../../apps/relay-server/README.md)
 - Account login + sync choice: comments on `account_login` /

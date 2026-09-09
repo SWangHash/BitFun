@@ -7,7 +7,6 @@ pub mod computer_use_capability;
 pub mod computer_use_host;
 pub mod computer_use_optimizer;
 pub(crate) mod file_permissions;
-pub mod file_read_state_runtime;
 pub mod file_tool_guidance;
 pub mod framework;
 #[cfg(feature = "tools-creation")]
@@ -36,6 +35,7 @@ pub(crate) mod qt_migration_candidates;
 pub(crate) mod qt_migration_gate;
 pub mod registry;
 pub mod restrictions;
+pub mod review_read_receipt_runtime;
 pub(crate) mod tool_adapter;
 pub(crate) mod tool_context_runtime;
 pub(crate) mod tool_result_storage;

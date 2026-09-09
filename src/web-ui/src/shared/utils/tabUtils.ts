@@ -461,6 +461,7 @@ export function createTerminalTab(
       isTerminal: true,
       sessionId,
       duplicateCheckKey: `terminal-${sessionId}`,
+      terminalCloseBehavior: 'detach',
     },
     checkDuplicate: true,
     duplicateCheckKey: `terminal-${sessionId}`,

@@ -8,6 +8,7 @@ import {
   Lightbulb,
   PackagePlus,
 } from 'lucide-react';
+import { open } from '@tauri-apps/plugin-dialog';
 import { useSceneManager } from '@/app/hooks/useSceneManager';
 import { openMainSession } from '@/flow_chat/services/sessionActivation';
 import { flowChatSessionConfigForCurrentWorkspace } from '@/app/utils/projectSessionWorkspace';
@@ -54,7 +55,6 @@ import { useAnchoredPopoverPosition } from '@/shared/utils/useAnchoredPopoverPos
 import { getMiniAppSceneId, stopMiniAppActivity } from '../miniAppActivity';
 import { useMiniAppActivity } from '../hooks/useMiniAppActivity';
 import './MiniAppGalleryView.scss';
-import {workspaceAPI} from "@/infrastructure";
 
 
 const log = createLogger('MiniAppGalleryView');
@@ -255,8 +255,13 @@ const MiniAppGalleryView: React.FC<MiniAppGalleryViewProps> = ({ tabs }) => {
 
   const handleAddFromFolder = async () => {
     try {
-      const path = await workspaceAPI.open_oh_file_dialog({ directory: true });
-      if (typeof path !== 'string') return;
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: t('selectFolderTitle'),
+      });
+      const path = Array.isArray(selected) ? selected[0] : selected;
+      if (!path) return;
 
       setLoading(true);
       const app = await miniAppAPI.importFromPath(path, workspacePath || undefined);
@@ -281,9 +286,7 @@ const MiniAppGalleryView: React.FC<MiniAppGalleryViewProps> = ({ tabs }) => {
   }, [notification, t]);
 
   const handleAddPackage = async () => {
-    // Platform-dispatched picker: native dialog on desktop, OHOS system
-    // DocumentViewPicker on HarmonyOS.
-    const selected = await workspaceAPI.open_oh_file_dialog({
+    const selected = await open({
       directory: false,
       multiple: false,
       title: t('market.import.choose'),
@@ -387,8 +390,8 @@ const MiniAppGalleryView: React.FC<MiniAppGalleryViewProps> = ({ tabs }) => {
         <GalleryEmpty
           icon={
             apps.length === 0
-              ? <Icon name="spark" size="lg" />
-              : <LayoutGrid size={36} strokeWidth={1.2} />
+              ? { name: 'spark' }
+              : { glyph: LayoutGrid }
           }
           message={apps.length === 0
             ? t('empty.generate')

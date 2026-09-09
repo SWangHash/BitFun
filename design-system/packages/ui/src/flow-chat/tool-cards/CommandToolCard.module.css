@@ -13,7 +13,6 @@
     border-radius: 0;
     color: var(--openbitfun-color-content-secondary);
     background: transparent;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -173,7 +172,6 @@
   .footerValue {
     overflow: hidden;
     color: var(--openbitfun-color-content-secondary);
-    text-overflow: ellipsis;
   }
 
   .footerItem[data-tone="success"] .footerValue {

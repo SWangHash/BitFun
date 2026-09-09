@@ -2,6 +2,7 @@
 // owns where workspace crates live under src/crates.
 
 export const crateLayoutRules = [
+  { crateName: 'config-contracts', layer: 'contracts', path: 'src/crates/contracts/config-contracts' },
   { crateName: 'core-types', layer: 'contracts', path: 'src/crates/contracts/core-types' },
   { crateName: 'events', layer: 'contracts', path: 'src/crates/contracts/events' },
   { crateName: 'product-domains', layer: 'contracts', path: 'src/crates/contracts/product-domains' },
@@ -23,6 +24,8 @@ export const crateLayoutRules = [
 
   { crateName: 'services-core', layer: 'services', path: 'src/crates/services/services-core' },
   { crateName: 'services-integrations', layer: 'services', path: 'src/crates/services/services-integrations' },
+  { crateName: 'legacy-migration-adapters', layer: 'services', path: 'src/crates/services/legacy-migration-adapters' },
+  { crateName: 'legacy-migration', layer: 'services', path: 'src/crates/services/legacy-migration' },
   { crateName: 'miniapp-market-service', layer: 'services', path: 'src/crates/services/miniapp-market-service' },
   { crateName: 'skin-market-service', layer: 'services', path: 'src/crates/services/skin-market-service' },
   { crateName: 'relay-service', layer: 'services', path: 'src/crates/services/relay-service' },

@@ -301,6 +301,8 @@ export interface DialogTurn {
   /** Why the turn finished. */
   finishReason?: string;
   /** Additive recovery metadata for an intentionally interrupted turn. */
+  /** Runtime generation retained after recovery has settled. */
+  recoveryEpoch?: number;
   recovery?: {
     status: 'interrupted' | 'recovering';
     executionGeneration: number;
@@ -563,6 +565,9 @@ export interface Session {
    * 'completed' → green dot, 'error' → red dot, 'interrupted' → red dot (partial stream recovery).
    */
   hasUnreadCompletion?: 'completed' | 'error' | 'interrupted';
+  /** Result identity from a lightweight summary that may precede transcript hydration. */
+  unreadCompletionTurnId?: string;
+  unreadCompletionGeneration?: number;
 
   /**
    * Set when a session requires user attention while not the active session.

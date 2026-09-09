@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { classNames } from "../../internal/classNames";
+import { OverflowText } from "../../primitives/OverflowText";
 import styles from "./TabGroup.module.css";
 
 export interface TabGroupItem {
@@ -128,6 +129,7 @@ export const TabGroup = forwardRef<HTMLDivElement, TabGroupProps>(function TabGr
           <div
             className={styles.item}
             data-openbitfun-part="item"
+            data-overflow-trigger
             data-has-end-action={hasEndAction ? "true" : "false"}
             data-has-icon={hasIcon ? "true" : "false"}
             key={item.value}
@@ -155,7 +157,9 @@ export const TabGroup = forwardRef<HTMLDivElement, TabGroupProps>(function TabGr
                   {item.icon}
                 </span>
               )}
-              <span className={styles.label} data-openbitfun-part="label">{item.label}</span>
+              <OverflowText behavior="marquee" className={styles.label} data-openbitfun-part="label">
+                {item.label}
+              </OverflowText>
             </button>
             {hasEndAction && (
               <span className={styles.endAction} data-openbitfun-part="endAction">

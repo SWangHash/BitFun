@@ -5,13 +5,12 @@ import {
   Alert,
   Button,
   Input,
-  Select,
   Switch,
   Tooltip,
-  type SelectOption,
   ConfigPageLoading,
   ConfigPageMessage,
 } from '@/component-library';
+import { Select } from '@openbitfun/ui';
 import { configAPI, workspaceAPI } from '@/infrastructure/api';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
 import type { CloseBehavior } from '@/infrastructure/api/service-api/SystemAPI';
@@ -39,10 +38,6 @@ import type {
 import './BasicsConfig.scss';
 
 const log = createLogger('BasicsConfig');
-
-type TerminalShellOption = SelectOption & {
-  shell?: ShellInfo;
-};
 
 const formatShellLabel = (shell: ShellInfo): string =>
   `${shell.name}${shell.version ? ` (${shell.version})` : ''}`;
@@ -409,8 +404,9 @@ function BasicsLoggingSection() {
             align="center"
           >
             <Select
+              size="sm"
               value={configLevel}
-              onChange={(v) => handleLevelChange(v as string)}
+              onValueChange={(v) => handleLevelChange(String(v))}
               options={levelOptions}
               disabled={saving}
             />
@@ -556,13 +552,12 @@ function BasicsTerminalSection() {
     [showMessage, t],
   );
 
-  const shellOptions = useMemo<TerminalShellOption[]>(
+  const shellOptions = useMemo(
     () => [
       { value: '', label: t('terminal.controls.autoDetect') },
       ...availableShells.map((shell) => ({
         value: shell.path,
         label: formatShellLabel(shell),
-        shell,
       })),
     ],
     [availableShells, t],
@@ -575,47 +570,6 @@ function BasicsTerminalSection() {
     [availableShells, defaultShell],
   );
   const selectedShellValue = selectedShell?.path ?? defaultShell;
-
-  const renderShellDetails = useCallback((shell: ShellInfo) => (
-    <div className="openbitfun-terminal-config__shell-tooltip">
-      <div className="openbitfun-terminal-config__shell-tooltip-name">{formatShellLabel(shell)}</div>
-      <div className="openbitfun-terminal-config__shell-tooltip-path">{shell.path}</div>
-    </div>
-  ), []);
-
-  const renderShellOption = useCallback((option: SelectOption) => {
-    const shellOption = option as TerminalShellOption;
-    if (!shellOption.shell) {
-      return <div className="openbitfun-terminal-config__shell-option-name" data-openbitfun-component="basics-config" data-openbitfun-part="shellOption">{option.label}</div>;
-    }
-
-    const { shell } = shellOption;
-    const content = (
-      <div className="openbitfun-terminal-config__shell-option" data-openbitfun-component="basics-config" data-openbitfun-part="shellOption">
-        <div className="openbitfun-terminal-config__shell-option-name">{formatShellLabel(shell)}</div>
-      </div>
-    );
-
-    return (
-      <Tooltip content={renderShellDetails(shell)} placement="right">
-        {content}
-      </Tooltip>
-    );
-  }, [renderShellDetails]);
-
-  const renderShellValue = useCallback((option?: SelectOption | SelectOption[]) => {
-    const selectedOption = Array.isArray(option) ? option[0] : option;
-    const shell = (selectedOption as TerminalShellOption | undefined)?.shell;
-    if (!shell) return null;
-
-    return (
-      <Tooltip content={renderShellDetails(shell)} placement="top">
-        <span className="select__value openbitfun-terminal-config__shell-value">
-          <span className="openbitfun-terminal-config__shell-value-name">{formatShellLabel(shell)}</span>
-        </span>
-      </Tooltip>
-    );
-  }, [renderShellDetails]);
 
   const terminalPanelPositionOptions = useMemo(
     () => [
@@ -652,11 +606,10 @@ function BasicsTerminalSection() {
           >
             {availableShells.length > 0 ? (
               <Select
+                size="sm"
                 value={selectedShellValue}
-                onChange={(v) => handleShellChange(v as string)}
+                onValueChange={(v) => handleShellChange(String(v))}
                 options={shellOptions}
-                renderOption={renderShellOption}
-                renderValue={renderShellValue}
                 placeholder={t('terminal.controls.placeholder')}
                 disabled={saving}
               />
@@ -671,8 +624,9 @@ function BasicsTerminalSection() {
             align="center"
           >
             <Select
+              size="sm"
               value={terminalPanelPosition}
-              onChange={(v) => handleTerminalPanelPositionChange(v as TerminalPanelPosition)}
+              onValueChange={(v) => handleTerminalPanelPositionChange(v as TerminalPanelPosition)}
               options={terminalPanelPositionOptions}
               placeholder={t('terminal.panelPosition.placeholder')}
               disabled={saving}
@@ -768,8 +722,9 @@ function BasicsWindowBehaviorSection() {
             align="center"
           >
             <Select
+              size="sm"
               value={behavior}
-              onChange={(v) => { void handleChange(v as string); }}
+              onValueChange={(v) => { void handleChange(String(v)); }}
               options={behaviorOptions}
               disabled={saving}
             />

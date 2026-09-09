@@ -372,7 +372,7 @@ $panel-height: 680px;
   }
   50% {
     box-shadow: 0 4px 12px color-mix(in srgb, var(--openbitfun-color-content-on-light) 30%, transparent),
-      0 0 0 2px var(--openbitfun-color-status-warning-content);
+      0 0 0 2px var(--openbitfun-color-status-warning-emphasis);
   }
 }
 
@@ -438,7 +438,6 @@ $panel-height: 680px;
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   text-align: left;
 }
@@ -573,10 +572,9 @@ $panel-height: 680px;
   color: var(--openbitfun-color-content-muted);
   font-size: var(--openbitfun-type-flow-support-font-size);
 
-  span {
+  span:not([data-overflow-content]) {
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 }

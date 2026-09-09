@@ -97,7 +97,6 @@
     font-weight: var(--openbitfun-type-heading-dialog-font-weight);
     line-height: var(--openbitfun-type-body-sm-line-height);
     letter-spacing: var(--openbitfun-type-heading-dialog-letter-spacing);
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 

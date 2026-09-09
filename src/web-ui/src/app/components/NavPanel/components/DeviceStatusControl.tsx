@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, CardBody, CardFooter, CardHeader, Icon, ScrollArea } from '@openbitfun/ui';
+import { OverflowText, Button, Card, CardBody, CardFooter, CardHeader, Icon, ScrollArea } from '@openbitfun/ui';
 import { createPortal } from 'react-dom';
 import { Monitor, Server, Smartphone, Undo2 } from 'lucide-react';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
@@ -182,7 +182,7 @@ const DeviceStatusControl: React.FC<DeviceStatusControlProps> = ({
 
   return (
     <>
-      <button
+      <button data-overflow-trigger
         ref={triggerRef}
         type="button"
         className={`openbitfun-nav-panel__footer-device-status${open ? ' is-open' : ''}`}
@@ -196,9 +196,9 @@ const DeviceStatusControl: React.FC<DeviceStatusControlProps> = ({
         data-openbitfun-state={overview.mode}
       >
         <DeviceIcon kind={overview.primaryDevice.kind} size={15} />
-        <span className="openbitfun-nav-panel__footer-device-status-label">
+        <OverflowText className="openbitfun-nav-panel__footer-device-status-label">
           {overview.currentWorkDeviceName}
-        </span>
+        </OverflowText>
         {attachedGroups.length > 0 && (
           <span
             className="openbitfun-nav-panel__footer-device-status-attached"
@@ -293,7 +293,7 @@ const DeviceStatusControl: React.FC<DeviceStatusControlProps> = ({
                               size={16}
                             />
                           </span>
-                          <strong>{deviceDisplayName(device)}</strong>
+                          <strong><OverflowText>{deviceDisplayName(device)}</OverflowText></strong>
                           <span>{deviceActivity(device)}</span>
                         </div>
                       ))}

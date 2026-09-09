@@ -24,7 +24,7 @@ import AssistantAvatarPicker from './AssistantAvatarPicker';
 import AssistantQuickInput from './AssistantQuickInput';
 import { useNurseryStore } from '../nurseryStore';
 import './NurseryView.scss';
-import { Icon, IconButton, Input, ScrollArea, Textarea, Tooltip } from '@openbitfun/ui';
+import { OverflowText, Icon, IconButton, Input, ScrollArea, Textarea, Tooltip } from '@openbitfun/ui';
 
 const log = createLogger('AssistantConfigPage');
 
@@ -338,7 +338,7 @@ const AssistantConfigPage: React.FC = () => {
               const selected = personaDoc?.fileName === fileName && rightView === 'personaDoc';
               const labelKey = fileName.replace(/\.md$/i, '') as 'SOUL' | 'USER' | 'IDENTITY';
               return (
-                <button
+                <button data-overflow-trigger
                   key={fileName}
                   type="button"
                   className={`acp-persona-doc-row${selected ? ' acp-persona-doc-row--selected' : ''}`}
@@ -349,7 +349,7 @@ const AssistantConfigPage: React.FC = () => {
                   onClick={() => openPersonaDoc(fileName)}
                 >
                   <span className="acp-persona-doc-row__icon"><FileText size={12} /></span>
-                  <span className="acp-persona-doc-row__label">{t(`nursery.assistant.personaDocs.${labelKey}`)}</span>
+                  <OverflowText className="acp-persona-doc-row__label">{t(`nursery.assistant.personaDocs.${labelKey}`)}</OverflowText>
                   <span className="acp-persona-doc-row__file">{fileName}</span>
                 </button>
               );
@@ -412,7 +412,7 @@ const AssistantConfigPage: React.FC = () => {
                   icon={<Icon name="arrow-left" size="xs" />}
                 />
               </Tooltip>
-              <span className="acp-persona-editor__title">{t(`nursery.assistant.personaDocs.${docLabelKey}`)}</span>
+              <OverflowText className="acp-persona-editor__title">{t(`nursery.assistant.personaDocs.${docLabelKey}`)}</OverflowText>
               <Tooltip content={t('nursery.template.closeDetail')}>
                 <IconButton
                   type="button"

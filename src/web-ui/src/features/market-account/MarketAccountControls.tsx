@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Avatar,
   Button,
   Icon,
@@ -176,7 +176,7 @@ export function MarketAccountControls({
     >
       {account.me ? (
         <div className="market-account-controls__menu-root" ref={menuRef}>
-          <button
+          <button data-overflow-trigger
             ref={menuTriggerRef}
             type="button"
             className="market-account-controls__identity-trigger"
@@ -188,7 +188,7 @@ export function MarketAccountControls({
             onClick={() => setMenuOpen(open => !open)}
           >
             <Avatar size="sm" src={account.me.user.avatarUrl} alt={account.me.user.login} />
-            <span className="market-account-controls__identity-name">@{account.me.user.login}</span>
+            <OverflowText className="market-account-controls__identity-name">@{account.me.user.login}</OverflowText>
             <Icon name="chevron-down" size="xs" aria-hidden="true" />
           </button>
           {menuOpen && createPortal(
@@ -209,8 +209,8 @@ export function MarketAccountControls({
               >
                 <Avatar size="md" src={account.me.user.avatarUrl} alt={account.me.user.login} />
                 <div>
-                  <strong>@{account.me.user.login}</strong>
-                  <span>{t('market.account.githubAccount')}</span>
+                  <strong><OverflowText>@{account.me.user.login}</OverflowText></strong>
+                  <OverflowText>{t('market.account.githubAccount')}</OverflowText>
                 </div>
               </div>
               <MenuItem

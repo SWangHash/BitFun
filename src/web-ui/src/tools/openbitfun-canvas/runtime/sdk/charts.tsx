@@ -1,3 +1,4 @@
+import { OverflowText } from '@openbitfun/ui';
 import type { CanvasChartDatum, CanvasChartProps, CanvasChartSeries } from './types';
 
 interface NormalizedSeries {
@@ -130,7 +131,7 @@ function ChartShell({
     <div {...props} className={['openbitfun-chart', props.className].filter(Boolean).join(' ')} style={style}>
       {title || legend.length > 1 ? (
         <div className="openbitfun-chart__header">
-          {title ? <div className="openbitfun-chart__title">{title}</div> : <span />}
+          {title ? <div className="openbitfun-chart__title"><OverflowText>{title}</OverflowText></div> : <span />}
           {legend.length > 1 ? (
             <div className="openbitfun-chart__legend">
               {legend.map((item, index) => (

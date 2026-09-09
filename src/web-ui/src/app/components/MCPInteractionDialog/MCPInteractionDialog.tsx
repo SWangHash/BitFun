@@ -1,4 +1,4 @@
-import {
+import { OverflowText,
   Button,
   ScrollArea,
   Textarea,
@@ -158,9 +158,9 @@ export const MCPInteractionDialog: React.FC = () => {
           data-openbitfun-part="root"
         >
           <div className="mcp-interaction-dialog__meta" data-openbitfun-component="mcp-interaction-dialog" data-openbitfun-part="meta">
-            <span className="mcp-interaction-dialog__server">
+            <OverflowText className="mcp-interaction-dialog__server">
               Server: {currentRequest.serverName || currentRequest.serverId}
-            </span>
+            </OverflowText>
             {queueCount > 1 && (
               <span className="mcp-interaction-dialog__queue">Queue: {queueCount}</span>
             )}

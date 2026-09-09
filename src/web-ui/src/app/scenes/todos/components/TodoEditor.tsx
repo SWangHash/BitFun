@@ -6,7 +6,7 @@
  * scheduled without knowing which workspace it runs in.
  */
 
-import { Button, Combobox, Icon, Input, Select, Switch, ScrollArea, Textarea } from '@openbitfun/ui';
+import { OverflowText, Button, Combobox, Icon, Input, Select, Switch, ScrollArea, Textarea } from '@openbitfun/ui';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bot, CalendarClock, ClipboardList } from 'lucide-react';
 import { agentAPI, type ModeInfo } from '@/infrastructure/api/service-api/AgentAPI';
@@ -252,9 +252,9 @@ const TodoEditor: React.FC<TodoEditorProps> = ({
                   <Bot size={16} aria-hidden="true" />
                   {t('editor.fields.runsIn')}
                 </span>
-                <span className="openbitfun-todos__field-static" title={boundSessionId}>
+                <span className="openbitfun-todos__field-static" title={boundSessionId}><OverflowText>
                   {t('target.existingSession')}
-                </span>
+                </OverflowText></span>
               </div>
             ) : (
               <div className="openbitfun-todos__field-card" data-openbitfun-scene="todos" data-openbitfun-part="field">

@@ -10,7 +10,7 @@
  * Closing the wizard cancels any in-progress remote task.
  */
 
-import {
+import { OverflowText,
   Alert,
   Button,
   Field,
@@ -175,6 +175,7 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
   const connectionIdRef = useRef<string | null>(null);
   const activeTaskRef = useRef<RelayDeployTask | null>(null);
   const taskStatusRef = useRef<RelayTaskStatus | null>(null);
+  const launchGenerationRef = useRef(0);
 
   // ── register ─────────────────────────────────────────────────────────────
   const [regUsername, setRegUsername] = useState('');
@@ -261,6 +262,7 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
   // the image script's rollback trap). Never leave a detached pull running after dismiss.
   useEffect(() => {
     if (!isOpen) {
+      launchGenerationRef.current += 1;
       stopPolling();
       // Capture before any state reset so cancel still has connection/task ids.
       const cancelSnapshot = {
@@ -306,6 +308,7 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
   // Stop polling / cancel remote task / close PTY on unmount.
   useEffect(() => {
     return () => {
+      launchGenerationRef.current += 1;
       stopPolling();
       const cancelSnapshot = {
         connectionId: connectionIdRef.current,
@@ -517,17 +520,17 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
   }, [t]);
 
   // ── status polling (PTY shows live output; poll only drives wizard state) ─
-  const startTaskPolling = useCallback((task: RelayDeployTask, connId: string) => {
+  const startTaskPolling = useCallback((task: RelayDeployTask, connId: string, generation: number) => {
     stopPolling();
     cursorRef.current = 0;
     pollFailuresRef.current = 0;
     pollActiveRef.current = true;
 
     const pollOnce = async (): Promise<boolean> => {
-      if (!pollActiveRef.current) return false;
+      if (!pollActiveRef.current || launchGenerationRef.current !== generation) return false;
       try {
         const res = await relayDeployApi.poll(connId, task, cursorRef.current);
-        if (!pollActiveRef.current) return false;
+        if (!pollActiveRef.current || launchGenerationRef.current !== generation) return false;
         cursorRef.current = res.cursor;
         pollFailuresRef.current = 0;
         if (res.status !== 'running') {
@@ -539,13 +542,15 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
               void closeDeployTerminal();
               void runPreflight(connId);
             } else {
-              window.setTimeout(() => setStep('register'), 800);
+              window.setTimeout(() => {
+                if (launchGenerationRef.current === generation) setStep('register');
+              }, 800);
             }
           }
           return false;
         }
       } catch (e) {
-        if (!pollActiveRef.current) return false;
+        if (!pollActiveRef.current || launchGenerationRef.current !== generation) return false;
         pollFailuresRef.current += 1;
         log.warn('task poll failed', e);
         if (pollFailuresRef.current >= MAX_POLL_FAILURES) {
@@ -576,8 +581,10 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
     task: RelayDeployTask,
     connId: string,
     scriptPath: string,
+    generation: number,
   ) => {
     await closeDeployTerminal();
+    if (launchGenerationRef.current !== generation) return;
     const session = await getTerminalService().createSession({
       connectionId: connId,
       name: task === 'deploy' ? 'Relay Deploy' : 'Relay Docker Install',
@@ -585,13 +592,22 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
       rows: 28,
       source: 'manual',
     });
+    if (launchGenerationRef.current !== generation) {
+      await getTerminalService().closeSession(session.id, true);
+      return;
+    }
     terminalSessionIdRef.current = session.id;
     setTerminalSessionId(session.id);
     // Give the shell a moment to print its prompt before sending the command.
     await new Promise((r) => window.setTimeout(r, 400));
+    if (launchGenerationRef.current !== generation) return;
     const quoted = `'${scriptPath.replace(/'/g, `'\\''`)}'`;
     await getTerminalService().sendCommand(session.id, `bash ${quoted}`);
-    startTaskPolling(task, connId);
+    if (launchGenerationRef.current !== generation) {
+      await relayDeployApi.cancel(connId, task);
+      return;
+    }
+    startTaskPolling(task, connId, generation);
   }, [closeDeployTerminal, startTaskPolling]);
 
   const handleStartDeploy = async () => {
@@ -605,10 +621,13 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
     setStep('deploy');
     setTaskStatus('running');
     setActiveTask('deploy');
+    const generation = ++launchGenerationRef.current;
     try {
       const started = await relayDeployApi.startDeploy(connectionId, port, mirrorMode);
-      await launchInteractiveTask('deploy', connectionId, started.scriptPath);
+      if (launchGenerationRef.current !== generation) return;
+      await launchInteractiveTask('deploy', connectionId, started.scriptPath, generation);
     } catch (e) {
+      if (launchGenerationRef.current !== generation) return;
       setTaskStatus('failed');
       setError(`[start] ${errMsg(e)}`);
     }
@@ -763,7 +782,7 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
                 {t('empty.noResults')}
               </div>
             ) : filteredSavedConnections.map((conn) => (
-              <div
+              <div data-overflow-trigger
                 key={conn.id}
                 className="relay-deploy-wizard__server-item"
                 onClick={() => !connecting && handleQuickConnect(conn)}
@@ -773,7 +792,7 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
               >
                 <div className="relay-deploy-wizard__server-icon"><Server size={16} /></div>
                 <div className="relay-deploy-wizard__server-info">
-                  <span className="relay-deploy-wizard__server-name">{conn.name}</span>
+                  <OverflowText className="relay-deploy-wizard__server-name">{conn.name}</OverflowText>
                   <span className="relay-deploy-wizard__server-detail">
                     {conn.username}@{conn.host}:{conn.port}
                   </span>
@@ -807,7 +826,7 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
                 {t('empty.noResults')}
               </div>
             ) : filteredSSHConfigHosts.map((entry) => (
-              <div
+              <div data-overflow-trigger
                 key={entry.host}
                 className="relay-deploy-wizard__server-item relay-deploy-wizard__server-item--config"
                 onClick={() => handleFillFromConfig(entry)}
@@ -817,7 +836,7 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
               >
                 <div className="relay-deploy-wizard__server-icon"><Server size={16} /></div>
                 <div className="relay-deploy-wizard__server-info">
-                  <span className="relay-deploy-wizard__server-name">{entry.host}</span>
+                  <OverflowText className="relay-deploy-wizard__server-name">{entry.host}</OverflowText>
                   <span className="relay-deploy-wizard__server-detail">
                     {entry.user || ''}@{entry.hostname || entry.host}:{entry.port || 22}
                   </span>
@@ -968,7 +987,7 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
       {ok === 'warn' && <AlertTriangle size={15} className="relay-deploy-wizard__check-icon relay-deploy-wizard__check-icon--warn" />}
       {ok === false && <Icon name="xmark" size="sm" className="relay-deploy-wizard__check-icon relay-deploy-wizard__check-icon--fail" />}
       <span className="relay-deploy-wizard__check-label">{label}</span>
-      <span className="relay-deploy-wizard__check-detail">{detail}</span>
+      <OverflowText className="relay-deploy-wizard__check-detail">{detail}</OverflowText>
     </div>
   );
 
@@ -1220,12 +1239,12 @@ export const RelayDeployWizard: React.FC<RelayDeployWizardProps> = ({
             options={DEPLOY_TERMINAL_OPTIONS}
           />
         </div>
-      ) : (
+      ) : taskStatus === 'running' ? (
         <div className="relay-deploy-wizard__checking relay-deploy-wizard__checking--terminal">
           <Loader2 size={18} className="spinning" />
           <span>{t('relayDeploy.openingTerminal')}</span>
         </div>
-      )}
+      ) : null}
     </ScrollArea>
       <div className="relay-deploy-wizard__actions">
         <Button variant="outline" size="sm" onClick={handleBackToPreflight}
