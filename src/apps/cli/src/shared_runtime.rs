@@ -1793,6 +1793,10 @@ mod tests {
             success: Some(true),
             finish_reason: None,
             has_final_response: Some(true),
+            first_result_ms: None,
+            modified_file_count: None,
+            added_lines: None,
+            deleted_lines: None,
         };
         route_agent_event(&completed, "parent-session", &routes);
         assert_eq!(routes.lock().expect("routes").len(), 2);

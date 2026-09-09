@@ -281,6 +281,7 @@ fn json_usage_accumulates_all_model_round_updates_for_the_turn() {
             max_context_tokens: Some(200_000),
             is_subagent: false,
             cached_tokens: Some(40),
+            reasoning_tokens: None,
             token_details: None,
         },
         AgenticEvent::TokenUsageUpdated {
@@ -294,6 +295,7 @@ fn json_usage_accumulates_all_model_round_updates_for_the_turn() {
             max_context_tokens: Some(200_000),
             is_subagent: false,
             cached_tokens: Some(80),
+            reasoning_tokens: None,
             token_details: None,
         },
     ];
@@ -333,6 +335,7 @@ fn json_usage_omits_optional_totals_when_any_round_does_not_report_them() {
             max_context_tokens: None,
             is_subagent: false,
             cached_tokens: Some(20),
+            reasoning_tokens: None,
             token_details: None,
         },
         AgenticEvent::TokenUsageUpdated {
@@ -346,6 +349,7 @@ fn json_usage_omits_optional_totals_when_any_round_does_not_report_them() {
             max_context_tokens: None,
             is_subagent: false,
             cached_tokens: None,
+            reasoning_tokens: None,
             token_details: None,
         },
     ];
@@ -453,6 +457,10 @@ fn every_exec_terminal_event_is_deferred_until_exec_settlement() {
         success: Some(true),
         finish_reason: Some("complete".to_string()),
         has_final_response: Some(true),
+        first_result_ms: None,
+        modified_file_count: None,
+        added_lines: None,
+        deleted_lines: None,
     };
     let failed = AgenticEvent::DialogTurnFailed {
         session_id: "session-1".to_string(),
@@ -612,6 +620,7 @@ async fn interrupted_turn_buffers_tail_projection_before_a_completed_race() {
                 max_context_tokens: Some(200_000),
                 is_subagent: false,
                 cached_tokens: Some(3),
+                reasoning_tokens: None,
                 token_details: None,
             },
             AgenticEventPriority::Normal,
@@ -629,6 +638,10 @@ async fn interrupted_turn_buffers_tail_projection_before_a_completed_race() {
                 success: Some(true),
                 finish_reason: Some("complete".to_string()),
                 has_final_response: Some(true),
+                first_result_ms: None,
+                modified_file_count: None,
+                added_lines: None,
+                deleted_lines: None,
             },
             AgenticEventPriority::Critical,
         ))

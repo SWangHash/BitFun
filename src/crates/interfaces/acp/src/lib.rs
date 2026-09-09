@@ -4,6 +4,10 @@
 //! runtime. Product hosts select the additive `client` and `server` features
 //! explicitly; the compatibility default enables both roles.
 
+// The projected runtime futures nest coordinator, scheduler, and tool bodies
+// deeply enough that trait solving needs a higher recursion budget.
+#![recursion_limit = "256"]
+
 #[cfg(feature = "client")]
 pub mod client;
 #[cfg(feature = "server")]
