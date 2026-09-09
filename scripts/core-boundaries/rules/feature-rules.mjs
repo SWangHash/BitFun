@@ -1,10 +1,11 @@
 // Boundary rules for feature assembly and optional dependency ownership.
 
 export const servicesReqwestOwnerFeatures = [
-    'feedback',
-    'announcement',
+  'anonymous-auth',
+  'announcement',
   'browser-control',
   'debug-log',
+  'feedback',
   'mcp',
   'miniapp-market',
   'miniapp-runtime',
@@ -256,10 +257,10 @@ export const optionalDependencyFeatureOwnerRules = [
     dependencies: [
       { depName: 'aes', ownerFeatures: ['remote-connect'] },
       { depName: 'aes-gcm', ownerFeatures: ['feedback', 'mcp', 'remote-connect', 'remote-ssh-concrete'] },
-      { depName: 'anyhow', ownerFeatures: ['browser-control', 'debug-log', 'deep-research', 'mcp', 'remote-connect', 'remote-ssh', 'remote-ssh-concrete'] },
+      { depName: 'anyhow', ownerFeatures: ['anonymous-auth', 'feedback', 'browser-control', 'debug-log', 'deep-research', 'mcp', 'remote-connect', 'remote-ssh', 'remote-ssh-concrete'] },
       {
         depName: 'async-trait',
-        ownerFeatures: ['browser-control', 'feedback', 'deep-research', 'git', 'mcp', 'miniapp-market', 'remote-connect', 'remote-ssh', 'remote-ssh-concrete', 'review-platform', 'script-tool-runtime', 'speech', 'workspace-search'],
+        ownerFeatures: ['anonymous-auth', 'browser-control', 'feedback', 'deep-research', 'git', 'mcp', 'miniapp-market', 'remote-connect', 'remote-ssh', 'remote-ssh-concrete', 'review-platform', 'script-tool-runtime', 'speech', 'workspace-search'],
       },
       {
         depName: 'base64',
@@ -267,14 +268,14 @@ export const optionalDependencyFeatureOwnerRules = [
       },
       { depName: 'bitfun-agent-runtime', ownerFeatures: ['deep-research', 'hook-import'] },
       { depName: 'bitfun-core-types', ownerFeatures: ['remote-connect', 'speech'] },
-      { depName: 'bitfun-product-domains', ownerFeatures: ['canvas-runtime', 'feedback', 'function-agents', 'hook-import', 'miniapp-market', 'miniapp-runtime', 'plugin-source'] },
+      { depName: 'bitfun-product-domains', ownerFeatures: ['canvas-runtime', 'feedback', 'function-agents', 'hook-import', 'miniapp-market', 'miniapp-runtime', 'plugin-source', 'privacy'] },
       { depName: 'bitfun-runtime-ports', ownerFeatures: ['deep-research', 'git', 'remote-connect', 'remote-ssh', 'remote-ssh-concrete', 'script-tool-runtime'] },
       {
         depName: 'bitfun-services-core',
         ownerFeatures: ['browser-control', 'git', 'hook-import', 'mcp', 'miniapp-runtime', 'process-tree', 'remote-connect', 'remote-ssh', 'review-platform', 'workspace-search'],
       },
       { depName: 'bzip2', ownerFeatures: ['speech'] },
-      { depName: 'chrono', ownerFeatures: ['debug-log', 'feedback', 'git', 'privacy', 'remote-connect', 'remote-ssh-concrete', 'review-platform', 'speech'] },
+      { depName: 'chrono', ownerFeatures: ['anonymous-auth', 'debug-log', 'feedback', 'git', 'miniapp-market', 'privacy', 'remote-connect', 'remote-ssh-concrete', 'review-platform', 'speech'] },
       { depName: 'dirs', ownerFeatures: ['browser-control', 'miniapp-runtime', 'remote-connect', 'remote-ssh-concrete'] },
       { depName: 'dunce', ownerFeatures: ['plugin-source', 'workspace-search'] },
       { depName: 'fs2', ownerFeatures: ['plugin-source'] },
@@ -314,7 +315,7 @@ export const optionalDependencyFeatureOwnerRules = [
       { depName: 'tokio-tungstenite', ownerFeatures: ['remote-connect'] },
       { depName: 'tokio-util', ownerFeatures: ['remote-ssh', 'speech'] },
       { depName: 'urlencoding', ownerFeatures: ['canvas-runtime', 'miniapp-market', 'remote-connect', 'review-platform'] },
-      { depName: 'uuid', ownerFeatures: ['canvas-runtime', 'debug-log','feedback', 'hook-import', 'miniapp-runtime', 'plugin-source', 'remote-connect', 'remote-ssh-concrete', 'speech'] },
+      { depName: 'uuid', ownerFeatures: ['anonymous-auth', 'canvas-runtime', 'debug-log','feedback', 'hook-import', 'miniapp-runtime', 'plugin-source', 'remote-connect', 'remote-ssh-concrete', 'speech'] },
       { depName: 'which', ownerFeatures: ['miniapp-runtime', 'remote-connect', 'script-tool-runtime', 'workspace-search'] },
       { depName: 'windows', ownerFeatures: ['models-dev', 'plugin-source', 'review-platform'] },
       { depName: 'x25519-dalek', ownerFeatures: ['remote-connect'] },
