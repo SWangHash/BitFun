@@ -59,17 +59,18 @@ $_workbench-gap: 6px;
 .bitfun-workspace-body__nav-divider {
   position: absolute;
   top: 0;
-  bottom: $_workbench-gap;
-  left: calc(#{$_workbench-gap} + var(--nav-width));
+  bottom: $size-gap-2;
+  left: calc(#{$size-gap-2} + var(--nav-width));
   z-index: 10;
-  width: $_workbench-gap;
+  width: $size-gap-2;
   cursor: ew-resize;
   background: transparent;
 
   &::after {
     content: '';
     position: absolute;
-    inset: 38px auto 0 50%;
+    // The scene border starts at the right edge of the resize hit area.
+    inset: 38px auto 0 100%;
     width: 1px;
     border-radius: $size-radius-full;
     background: var(--bf-appearance-token-border-subtle);
