@@ -2812,7 +2812,8 @@ impl SSHConnectionManager {
             c.id != config.id
                 && !(c.host == config.host
                     && c.username == config.username
-                    && c.container == config.container)
+                    && c.container == config.container
+                    && c.wsl == config.wsl)
         });
 
         // Add new entry
@@ -2847,6 +2848,7 @@ impl SSHConnectionManager {
             last_connected: Some(chrono::Utc::now().timestamp() as u64),
             proxy_jump: config.proxy_jump.clone(),
             container: config.container.clone(),
+            wsl: config.wsl.clone(),
             options: config.options.clone(),
         });
 
@@ -3457,6 +3459,7 @@ impl SSHConnectionManager {
                 default_workspace: None,
                 proxy_jump: None,
                 container: None,
+                wsl: None,
                 options: config.options.clone(),
             });
         }
@@ -4272,6 +4275,7 @@ impl SSHConnectionManager {
             default_workspace: saved.default_workspace,
             proxy_jump: saved.proxy_jump,
             container: saved.container,
+            wsl: saved.wsl,
             options: saved.options,
         }))
     }
@@ -6597,6 +6601,7 @@ mod tests {
                 default_workspace: None,
                 proxy_jump: None,
                 container: None,
+                wsl: None,
                 options: Default::default(),
             },
             requested,
@@ -7104,6 +7109,7 @@ mod tests {
                     user: None,
                     interactive: true,
                 }),
+                wsl: None,
                 options: Default::default(),
             };
             manager.connections.write().await.insert(
@@ -7351,6 +7357,7 @@ mod tests {
                 user: None,
                 interactive: true,
             }),
+            wsl: None,
             options: Default::default(),
         };
         let manager = SSHConnectionManager::new(root.join("manager-data"));
@@ -7736,6 +7743,7 @@ mod tests {
             default_workspace: Some("/srv/project".to_string()),
             proxy_jump: None,
             container: None,
+            wsl: None,
             options: Default::default(),
         };
         let alive = Arc::new(AtomicBool::new(true));
@@ -8119,6 +8127,7 @@ mod tests {
                     user: None,
                     interactive: true,
                 }),
+                wsl: None,
                 options: Default::default(),
             })
             .await
@@ -8367,6 +8376,7 @@ mod tests {
                 default_workspace: None,
                 proxy_jump: None,
                 container: None,
+                wsl: None,
                 options: Default::default(),
             })
             .await;
@@ -8395,6 +8405,7 @@ mod tests {
                 default_workspace: Some("/root/project".to_string()),
                 proxy_jump: Some("jump-a,jump-b".to_string()),
                 container: None,
+                wsl: None,
                 options: Default::default(),
             })
             .await
@@ -8484,6 +8495,7 @@ mod tests {
                 default_workspace: Some("/workspace".to_string()),
                 proxy_jump: Some("jump.example.com".to_string()),
                 container: None,
+                wsl: None,
                 options: Default::default(),
             })
             .await
@@ -8528,6 +8540,7 @@ mod tests {
                 default_workspace: None,
                 proxy_jump: None,
                 container: None,
+                wsl: None,
                 options: Default::default(),
             })
             .await

@@ -33,6 +33,25 @@ test("SearchField source preserves consumer key handling before Enter submission
   assert.match(source, /onSearch\?\.\(event\.currentTarget\.value\)/);
 });
 
+test("SearchField supports embedded composition without leaking its variant onto the input", async () => {
+  const markup = renderToStaticMarkup(createElement(SearchField, {
+    "aria-label": "Search modes",
+    size: "sm",
+    variant: "embedded",
+  }));
+  assert.match(markup, /data-openbitfun-component="search-field" data-variant="embedded"/);
+  assert.doesNotMatch(markup, /<input[^>]*variant=/);
+  assert.match(markup, /type="search"/);
+
+  const styles = await readFile(new URL("../src/components/SearchField/SearchField.module.css", import.meta.url), "utf8");
+  const embedded = styles.match(/\.root\[data-variant="embedded"\][^{]+\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(embedded, /block-size:\s*100%/);
+  assert.match(embedded, /padding:\s*0/);
+  assert.match(embedded, /border:\s*0/);
+  assert.match(embedded, /background:\s*transparent/);
+  assert.match(embedded, /box-shadow:\s*none/);
+});
+
 test("SearchField renders custom trailing content before the clear action", () => {
   const markup = renderToStaticMarkup(
     createElement(SearchField, {
