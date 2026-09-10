@@ -141,6 +141,8 @@ export class AppearanceRuntime {
       cssText: `${compiled.cssText}${preparedAssets.cssText ? `\n${preparedAssets.cssText}` : ''}`,
     });
     const previous = this.snapshot;
+    const root = document.documentElement;
+    root.setAttribute('data-bf-appearance-switching', 'true');
     const nextStyle = document.createElement('style');
     nextStyle.setAttribute(STYLE_ATTRIBUTE, String(nextRevision));
     nextStyle.textContent = next.cssText;
@@ -171,6 +173,9 @@ export class AppearanceRuntime {
       nextStyle.remove();
       this.revokeAssetUrls(preparedAssets.urls);
       await this.rollbackRendererTransactions(startedTransactions);
+      // Resolve restored styles while transition suppression is still active.
+      void root.offsetHeight;
+      root.removeAttribute('data-bf-appearance-switching');
       log.error('Appearance transaction failed', { appearanceId: next.id, revision: next.revision, error });
       throw error;
     }
@@ -197,6 +202,10 @@ export class AppearanceRuntime {
     this.revision = nextRevision;
     this.snapshot = next;
     this.emit();
+    // Commit the new styles before restoring transitions; otherwise the browser
+    // can coalesce both mutations and animate directly from the previous theme.
+    void root.offsetHeight;
+    root.removeAttribute('data-bf-appearance-switching');
     if (previousAssetRevision !== null) this.collectAssetGeneration(previousAssetRevision);
     if (next.diagnostics.length > 0) {
       log.warn('Appearance applied with diagnostics', {

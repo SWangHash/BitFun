@@ -398,11 +398,6 @@ const SettingsNav: React.FC = () => {
                       <span className="bitfun-settings-nav__search-result-line">
                         {highlightFirstMatch(line, displayQuery)}
                       </span>
-                      {row.description ? (
-                        <span className="bitfun-settings-nav__search-result-desc">
-                          {highlightFirstMatch(row.description, displayQuery)}
-                        </span>
-                      ) : null}
                     </button>
                   );
                 })}
