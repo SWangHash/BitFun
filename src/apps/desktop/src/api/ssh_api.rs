@@ -1242,6 +1242,7 @@ mod tests {
                 user: None,
                 interactive: true,
             }),
+            wsl: None,
             options: Default::default(),
         };
 

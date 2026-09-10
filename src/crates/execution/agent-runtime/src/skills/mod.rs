@@ -44,5 +44,5 @@ pub use selection::{
 };
 pub use types::{
     render_loaded_skill_for_assistant, ModeSkillInfo, ModeSkillStateReason, SkillData, SkillInfo,
-    SkillLocation, SkillParseError,
+    SkillLocation, SkillParseError, SkillScanDiagnostic, SkillScanReport,
 };

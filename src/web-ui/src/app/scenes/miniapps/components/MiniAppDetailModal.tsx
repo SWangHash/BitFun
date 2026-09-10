@@ -264,7 +264,7 @@ const MiniAppDetailModal: React.FC<MiniAppDetailModalProps> = ({
                   </span>
                   <span className="miniapp-detail-modal__highlight-copy">
                     <strong><OverflowText>{copy.title}</OverflowText></strong>
-                    <span>{copy.description}</span>
+                    <OverflowText lines={2}>{copy.description}</OverflowText>
                   </span>
                 </div>
               );
@@ -292,7 +292,7 @@ const MiniAppDetailModal: React.FC<MiniAppDetailModalProps> = ({
               </Button>
             ) : null}
             <Button
-              variant="fill"
+              variant="primary"
               size="md"
               className="miniapp-detail-modal__primary"
               onClick={() => onOpen(displayedApp.id)}

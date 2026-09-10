@@ -4229,6 +4229,8 @@ export const forbiddenContentUnderRules = [
       regex: /\b(?:use\s+openbitfun_static_hook_support\b|extern\s+crate\s+openbitfun_static_hook_support\b|openbitfun_static_hook_support::)/,
       allowPaths: [
         'src/crates/adapters/static-hook-support/tests/parser.rs',
+        'src/crates/adapters/dsh-adapter/src/hook_source.rs',
+        'src/crates/adapters/pi-adapter/src/hook_source.rs',
         'src/crates/adapters/opencode-adapter/src/hook_source.rs',
         'src/crates/adapters/opencode-adapter/src/command_source.rs',
         'src/crates/adapters/opencode-adapter/src/agent_source.rs',

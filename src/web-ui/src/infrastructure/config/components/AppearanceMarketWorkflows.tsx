@@ -324,7 +324,7 @@ export function AppearanceMarketWorkflows({ workflow }: AppearanceMarketWorkflow
       <div className="appearance-market__manual-submit-actions">
         <Button
           type="button"
-          variant="outline"
+          variant="fill"
           disabled={submitting}
           onClick={() => setManualSubmitOpen(false)}
         >
@@ -332,7 +332,7 @@ export function AppearanceMarketWorkflows({ workflow }: AppearanceMarketWorkflow
         </Button>
         <Button
           type="submit"
-          variant="fill"
+          variant="primary"
           loading={submitting}
           disabled={!manualDraft.packagePath || !manualDraft.licenseValue.trim()}
           leadingIcon={<Icon name="upload" size="sm" aria-hidden="true" />}
@@ -392,7 +392,7 @@ export function AppearanceMarketWorkflows({ workflow }: AppearanceMarketWorkflow
           <div className="appearance-market__workflow-actions">
             {manualSubmitAvailable && (
               <Button
-                variant={manualSubmitOpen ? 'outline' : 'fill'}
+                variant={manualSubmitOpen ? 'outline' : 'primary'}
                 size="sm"
                 onClick={() => setManualSubmitOpen(open => !open)}
                 disabled={submitting}
@@ -599,7 +599,7 @@ export function AppearanceMarketWorkflows({ workflow }: AppearanceMarketWorkflow
                   />
                   <div>
                     <Button
-                      variant="fill"
+                      variant="primary"
                       size="sm"
                       loading={actingId === reviewDetail.submission.submissionId}
                       onClick={() => void decide('approve')}

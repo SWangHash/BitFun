@@ -4,6 +4,7 @@ import type {
   WorkspaceSearchIndexStatus,
   WorkspaceSearchIndexTaskHandle,
 } from '@/infrastructure/api/service-api/tauri-commands';
+import { WORKSPACE_SEARCH_AVAILABLE } from '@/infrastructure/config/workspaceSearchAvailability';
 import { createLogger } from '@/shared/utils/logger';
 import {
   isPeerDeviceModeActive,
@@ -29,7 +30,8 @@ function workspaceSearchUnsupportedReason(
     return 'non_git';
   }
   if (
-    message.includes('Workspace search is disabled')
+    message.includes('Flashgrep is not supported for remote workspaces')
+    || message.includes('Workspace search is disabled')
     || message.includes('Workspace search daemon is unavailable')
     || message.includes('Remote workspace search status is not managed')
   ) {
@@ -41,6 +43,7 @@ function workspaceSearchUnsupportedReason(
 export interface UseWorkspaceSearchIndexOptions {
   workspacePath?: string;
   enabled?: boolean;
+  isRemote?: boolean;
 }
 
 export interface UseWorkspaceSearchIndexResult {
@@ -65,7 +68,8 @@ function isTaskActive(status: WorkspaceSearchIndexStatus | null): boolean {
 export function useWorkspaceSearchIndex(
   options: UseWorkspaceSearchIndexOptions = {}
 ): UseWorkspaceSearchIndexResult {
-  const { workspacePath, enabled = true } = options;
+const { workspacePath, enabled: requestedEnabled = true, isRemote = false } = options;
+  const enabled = WORKSPACE_SEARCH_AVAILABLE && !isRemote && requestedEnabled;
 
   const [indexStatus, setIndexStatus] = useState<WorkspaceSearchIndexStatus | null>(null);
   const [loading, setLoading] = useState(false);

@@ -96,10 +96,17 @@
       z-index: 2;
       pointer-events: none;
     }
+
+    &:not(.openbitfun-scene-viewport__scene--visible) {
+      // Descendants can override inherited visibility. Hide the entire subtree
+      // immediately while keeping its mounted state and layout measurements.
+      opacity: 0;
+      transition: none;
+    }
   }
 
   &__clip[data-scene-motion-phase='preparing'] {
-    .openbitfun-scene-viewport__scene--incoming {
+    .openbitfun-scene-viewport__scene--incoming.openbitfun-scene-viewport__scene--visible {
       opacity: 0.5;
       transition: none;
     }
@@ -112,7 +119,7 @@
   }
 
   .openbitfun-scene-viewport__clip[data-scene-motion-phase='preparing'] {
-    .openbitfun-scene-viewport__scene--incoming {
+    .openbitfun-scene-viewport__scene--incoming.openbitfun-scene-viewport__scene--visible {
       opacity: 1;
     }
   }

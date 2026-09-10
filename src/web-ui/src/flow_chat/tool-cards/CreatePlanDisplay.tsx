@@ -456,7 +456,7 @@ Read the plan file before making changes and treat it as the source of truth. Do
           <Button variant="outline" size="sm" type="button" onClick={handleViewPlan}>
             {t('toolCards.plan.viewPlan')}
           </Button>
-          <Button type="button" variant="fill" size="sm" disabled>
+          <Button type="button" variant="primary" size="sm" disabled>
             {t('toolCards.plan.build')}
           </Button>
         </div>
@@ -588,7 +588,7 @@ Read the plan file before making changes and treat it as the source of truth. Do
         )}
         <Button
           type="button"
-          variant="fill"
+          variant="primary"
           size="sm"
           leadingIcon={
             buildStatus === 'building' || isLoading

@@ -14,7 +14,44 @@ function readWindowControlsSource(): string {
   );
 }
 
+function readLoadingMessage(locale: string): string {
+  const common = JSON.parse(readFileSync(
+    fileURLToPath(new URL(`../../locales/${locale}/common.json`, import.meta.url)),
+    'utf8',
+  ));
+  return common.loading.app;
+}
+
 describe('startup preload shell', () => {
+  it.each([
+    ['zh-CN', 'en-US', 'zh-CN'],
+    ['en-US', 'zh-CN', 'en-US'],
+    ['zh-TW', 'en-US', 'zh-TW'],
+    ['  ZH-hant-TW  ', 'en-US', 'zh-TW'],
+    ['zh-HK', 'en-US', 'zh-TW'],
+    ['en-GB', 'zh-CN', 'en-US'],
+    [undefined, 'zh-Hant', 'zh-TW'],
+    ['fr-FR', 'en-US', 'zh-CN'],
+  ])('localizes first-paint text for saved locale %s and system language %s', (saved, system, expected) => {
+    const dom = new JSDOM(readIndexHtml(), {
+      url: 'http://localhost:1422/',
+      runScripts: 'dangerously',
+      beforeParse(window) {
+        Object.defineProperty(window.navigator, 'language', { value: system });
+        Object.assign(window, {
+          __OPENBITFUN_BOOTSTRAP_LOCALE__: saved,
+          // Older hosts may still inject their own copy; the surface owns it now.
+          __OPENBITFUN_BOOTSTRAP_MESSAGES__: { loadingApp: 'Legacy startup copy' },
+        });
+      },
+    });
+
+    expect(dom.window.document.documentElement.lang).toBe(expected);
+    expect(dom.window.document.querySelector('.splash-screen__message')?.textContent)
+      .toBe(readLoadingMessage(expected!));
+    dom.window.close();
+  });
+
   it('uses injected startup locale text and mirrors native window-control state', async () => {
     let isMaximized = true;
     const invoke = vi.fn().mockImplementation((_command, payload) => {
@@ -29,13 +66,6 @@ describe('startup preload shell', () => {
         Object.defineProperty(window.navigator, 'platform', { value: 'Win32' });
         Object.assign(window, {
           __OPENBITFUN_BOOTSTRAP_LOCALE__: 'zh-CN',
-          __OPENBITFUN_BOOTSTRAP_MESSAGES__: {
-            loadingApp: '正在启动 OpenBitFun...',
-            minimize: '最小化',
-            maximize: '最大化',
-            restore: '还原',
-            close: '关闭',
-          },
           __OPENBITFUN_SHOW_STARTUP_WINDOW_CONTROLS__: true,
           __TAURI_INTERNALS__: { invoke },
         });
@@ -70,6 +100,13 @@ describe('startup preload shell', () => {
     expect(maximizeButton?.getAttribute('aria-label')).toBe('还原');
     expect(visibleMaximizePath()).toBe('M3.5 3.5v-2h7v7h-2 M1.5 3.5h7v7h-7z');
 
+    dom.window.document.documentElement.lang = 'zh-TW';
+    await Promise.resolve();
+    expect(hint?.textContent).toBe(readLoadingMessage('zh-TW'));
+    expect(maximizeButton?.getAttribute('aria-label')).toBe('還原');
+    dom.window.document.documentElement.lang = 'zh-CN';
+    await Promise.resolve();
+
     maximizeButton?.click();
     await Promise.resolve();
     expect(controls?.hasAttribute('data-openbitfun-state')).toBe(false);
@@ -92,6 +129,29 @@ describe('startup preload shell', () => {
     expect(html).toContain('.window-controls.openbitfun-startup-window-controls');
     expect(html).not.toContain('openbitfun-startup-window-controls__btn');
     expect(readWindowControlsSource()).not.toContain("import './WindowControls.scss'");
+    dom.window.close();
+  });
+
+  it('updates a system-language hint when the app resolves its saved language', async () => {
+    const dom = new JSDOM(readIndexHtml(), {
+      url: 'http://localhost:1422/',
+      runScripts: 'dangerously',
+      beforeParse(window) {
+        Object.defineProperty(window.navigator, 'language', { value: 'en-US' });
+      },
+    });
+    const hint = dom.window.document.querySelector('.splash-screen__message');
+    expect(hint?.textContent).toBe(readLoadingMessage('en-US'));
+
+    dom.window.document.documentElement.lang = 'zh-CN';
+    await Promise.resolve();
+    expect(hint?.textContent).toBe(readLoadingMessage('zh-CN'));
+
+    dom.window.dispatchEvent(new dom.window.Event('openbitfun:startup-overlay-hidden'));
+    dom.window.document.documentElement.lang = 'en-US';
+    await Promise.resolve();
+    expect(hint?.textContent).toBe(readLoadingMessage('zh-CN'));
+    dom.window.close();
   });
 
   it('shows the independent pet preload for the companion window', () => {
@@ -102,9 +162,6 @@ describe('startup preload shell', () => {
       beforeParse(window) {
         Object.assign(window, {
           __OPENBITFUN_BOOTSTRAP_LOCALE__: 'en-US',
-          __OPENBITFUN_BOOTSTRAP_MESSAGES__: {
-            petLoading: 'Loading companion...',
-          },
         });
       },
     });
@@ -119,5 +176,6 @@ describe('startup preload shell', () => {
     expect(spriteCss).not.toContain('background:');
     expect(spriteCss).not.toContain('border:');
     expect(spriteCss).not.toContain('box-shadow:');
+    dom.window.close();
   });
 });

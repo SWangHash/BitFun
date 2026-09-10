@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   updateSessionMode: vi.fn(),
   publish: vi.fn(),
   reportFailure: vi.fn(),
+  committed: vi.fn(),
 }));
 
 vi.mock('@/infrastructure/api/service-api/AgentAPI', () => ({
@@ -32,6 +33,7 @@ function Probe({
     },
     publish,
     mocks.reportFailure,
+    mocks.committed,
   );
   return (
     <>
@@ -76,6 +78,7 @@ describe('useSessionModeSelection', () => {
     act(() => hydrate.click());
     expect(mocks.publish).toHaveBeenCalledWith('agentic');
     expect(mocks.updateSessionMode).not.toHaveBeenCalled();
+    expect(mocks.committed).not.toHaveBeenCalled();
 
     await act(async () => {
       select.click();
@@ -89,6 +92,7 @@ describe('useSessionModeSelection', () => {
       remoteSshHost: undefined,
     });
     expect(mocks.publish).toHaveBeenLastCalledWith('agentic');
+    expect(mocks.committed).toHaveBeenCalledWith('agentic');
   });
 
   it('publishes a completed request only to the session that issued it', async () => {
@@ -182,6 +186,8 @@ describe('useSessionModeSelection', () => {
 
     expect(mocks.publish).toHaveBeenCalledOnce();
     expect(mocks.publish).toHaveBeenCalledWith('agentic');
+    expect(mocks.committed).toHaveBeenCalledOnce();
+    expect(mocks.committed).toHaveBeenCalledWith('agentic');
     expect(mocks.reportFailure).toHaveBeenCalledWith(failure, 'ask');
     expect(container.querySelector('[data-testid="pending"]')?.textContent).toBe('false');
   });

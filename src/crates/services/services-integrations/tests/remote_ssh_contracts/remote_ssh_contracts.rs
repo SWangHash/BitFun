@@ -92,6 +92,7 @@ fn remote_target_contract_uses_proxy_jump_and_kebab_case_container_access() {
             user: Some("trainer".to_string()),
             interactive: true,
         }),
+        wsl: None,
         options: Default::default(),
     };
 

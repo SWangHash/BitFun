@@ -1,6 +1,7 @@
 import type { SceneTabId } from '@/app/components/SceneBar/types';
 import type { SettingsDestination } from '@/app/scenes/settings/settingsTypes';
 import type { ProductActionId } from './productActionCatalog';
+import { WORKSPACE_SEARCH_AVAILABLE } from '@/infrastructure/config/workspaceSearchAvailability';
 import generatedCatalog from './generated/interactive-capabilities.json';
 
 export type InteractiveCapabilityKind = 'feature' | 'setting';
@@ -140,7 +141,49 @@ export interface InteractiveCapabilityCatalog {
   definitions: InteractiveCapabilityControlDefinition[];
 }
 
-export const INTERACTIVE_CAPABILITY_CATALOG = generatedCatalog as InteractiveCapabilityCatalog;
+// Keep the host contract intact while filtering controls unavailable for the workspace.
+const catalog = generatedCatalog as InteractiveCapabilityCatalog;
+const suspendedSearchItems = new Set(['accelerated-search', 'search-index']);
+export function getInteractiveCapabilityCatalog(
+  workspaceSearchAvailable = WORKSPACE_SEARCH_AVAILABLE,
+): InteractiveCapabilityCatalog {
+  return workspaceSearchAvailable
+  ? catalog
+  : {
+    ...catalog,
+    capabilities: catalog.capabilities.map((capability) => {
+      if (capability.id !== 'setting.workspace.session') return capability;
+      const items = capability.items.filter(({ id }) => !suspendedSearchItems.has(id));
+      const options = capability.options.filter(({ id }) => id !== 'workspace-search');
+      const titlesZh = items.map(({ titleZh }) => titleZh);
+      const titlesEn = items.map(({ titleEn }) => titleEn);
+      return {
+        ...capability,
+        items,
+        options,
+        summaryZh: titlesZh[0],
+        summaryEn: titlesEn[0],
+        keywordsZh: [capability.titleZh, ...titlesZh],
+        keywordsEn: [capability.titleEn, ...titlesEn],
+        highlightsZh: titlesZh,
+        highlightsEn: titlesEn,
+        stepsZh: capability.stepsZh.slice(0, 2),
+        stepsEn: capability.stepsEn.slice(0, 2),
+        agentExamplesZh: capability.agentExamplesZh.slice(0, 1),
+        agentExamplesEn: capability.agentExamplesEn.slice(0, 1),
+        searchTerms: [capability.titleZh, capability.titleEn, ...titlesZh, ...titlesEn],
+      };
+    }),
+    definitions: catalog.definitions.flatMap((definition) => {
+      if (definition.capabilityId !== 'setting.workspace.session') return [definition];
+      const itemIds = definition.itemIds.filter((id) => !suspendedSearchItems.has(id));
+      return itemIds.length ? [{ ...definition, itemIds }] : [];
+    }),
+  };
+
+}
+
+export const INTERACTIVE_CAPABILITY_CATALOG = getInteractiveCapabilityCatalog();
 
 const capabilityById = new Map(
   INTERACTIVE_CAPABILITY_CATALOG.capabilities.map((capability) => [capability.id, capability]),

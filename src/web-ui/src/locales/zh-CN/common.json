@@ -1511,14 +1511,23 @@
     "tabsLabel": "场景标签页",
     "scrollPrevious": "向左滚动标签页",
     "scrollNext": "向右滚动标签页",
-    "closeTab": "关闭{{label}}"
+    "closeTab": "关闭{{label}}",
+    "workspaceUnavailable": "此会话所属的工作区尚未打开，请先重新打开该工作区，再切换到此会话。"
   },
   "loading": {
     "app": "正在启动 OpenBitFun...",
+    "companion": "正在加载助手...",
     "scenes": "正在加载场景",
     "workspace": "正在加载工作区..."
   },
   "welcomeScene": {
+    "space": {
+      "separator": "，",
+      "work": "干点活儿",
+      "play": "玩点花样",
+      "your": "随你发挥",
+      "suffix": "。"
+    },
     "tabLabel": "欢迎使用",
     "welcomeBack": "欢迎回到",
     "welcomeTabTitle": "欢迎使用",

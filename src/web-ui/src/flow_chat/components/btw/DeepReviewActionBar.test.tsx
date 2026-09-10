@@ -1166,6 +1166,43 @@ describeWithJsdom('DeepReviewActionBar', () => {
     expect(prompt).not.toContain('Recommended option 2: Staged path');
   });
 
+  it('toggles the Other group from partial selection and excludes completed items', async () => {
+    useReviewActionBarStore.getState().showActionBar({
+      childSessionId: 'child-session',
+      parentSessionId: 'parent-session',
+      reviewData: {
+        summary: { recommended_action: 'request_changes' },
+        remediation_plan: ['Completed fix', 'Fix issue 1', 'Fix issue 2'],
+      },
+      phase: 'review_completed',
+      completedRemediationIds: new Set(['remediation-0']),
+    });
+    useReviewActionBarStore.getState().setSelectedRemediationIds(new Set(['remediation-1']));
+
+    await act(async () => {
+      root.render(<ReviewActionBar childSessionId="child-session" />);
+    });
+
+    const groupCheckbox = container.querySelector<HTMLInputElement>(
+      '.deep-review-action-bar__remediation-group-header input[type="checkbox"]',
+    )!;
+    expect(groupCheckbox.getAttribute('aria-checked')).toBe('mixed');
+
+    await act(async () => { groupCheckbox.click(); });
+    expect([...useReviewActionBarStore.getState().selectedRemediationIds].sort())
+      .toEqual(['remediation-1', 'remediation-2']);
+    expect(groupCheckbox.checked).toBe(true);
+
+    await act(async () => { groupCheckbox.click(); });
+    expect(useReviewActionBarStore.getState().selectedRemediationIds.size).toBe(0);
+    expect(groupCheckbox.checked).toBe(false);
+
+    await act(async () => { groupCheckbox.click(); });
+    expect([...useReviewActionBarStore.getState().selectedRemediationIds].sort())
+      .toEqual(['remediation-1', 'remediation-2']);
+    expect(groupCheckbox.checked).toBe(true);
+  });
+
   it('marks completed remediation items when fix completes', async () => {
     const store = useReviewActionBarStore.getState();
     store.showActionBar({

@@ -403,12 +403,12 @@ export const WorkspaceProjectPermissionsDialog: React.FC<WorkspaceProjectPermiss
 
           {rulesDirty ? (
             <div data-openbitfun-component="workspace-project-permissions-dialog" data-openbitfun-part="footer" className="workspace-project-permissions-dialog__footer">
-              <Button type="button" variant="outline" onClick={handleDiscardRules} disabled={isBusy}>
+              <Button type="button" variant="fill" onClick={handleDiscardRules} disabled={isBusy}>
                 {t('projectPermissions.cancel')}
               </Button>
               <Button
                 type="button"
-                variant="fill"
+                variant="primary"
                 loading={rulesSaving}
                 disabled={!rulesValid || rulesRevision === null || isBusy}
                 onClick={() => void handleSaveRules()}

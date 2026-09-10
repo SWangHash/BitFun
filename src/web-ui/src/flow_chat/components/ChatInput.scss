@@ -961,23 +961,6 @@
     max-height: min(240px, calc(100vh - 56px));
     overflow-y: auto;
     padding: 4px 0;
-
-    &::-webkit-scrollbar {
-      width: 3px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: color-mix(in srgb, var(--openbitfun-color-content-on-dark) 15%, transparent);
-      border-radius: 2px;
-
-      &:hover {
-        background: color-mix(in srgb, var(--openbitfun-color-content-on-dark) 25%, transparent);
-      }
-    }
   }
 
   &__slash-command-section {
@@ -1132,14 +1115,6 @@
 
     &__mode-submenu-trigger:hover {
       background: var(--openbitfun-color-action-quiet-hover);
-    }
-
-    &__slash-command-list::-webkit-scrollbar-thumb {
-      background: color-mix(in srgb, var(--openbitfun-color-content-muted) 8%, transparent);
-
-      &:hover {
-        background: color-mix(in srgb, var(--openbitfun-color-content-muted) 12%, transparent);
-      }
     }
   }
 

@@ -224,7 +224,7 @@ const BranchesView: React.FC<BranchesViewProps> = ({ workspacePath }) => {
           <div data-openbitfun-component="branches-view" data-openbitfun-part="actions" className="openbitfun-git-scene-branches__toolbar-actions">
             <Button
               size="sm"
-              variant="fill"
+              variant="primary"
               leadingIcon={<Icon name="plus" size="sm" />}
               onClick={() => handleCreateFrom(branches.find(b => b.current)?.name ?? selectedBranchName ?? '')}
               title={t('dialog.createNewBranch.title')}

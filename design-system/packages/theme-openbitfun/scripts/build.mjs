@@ -38,7 +38,7 @@ const highContrastDarkTokens = resolveTokens(
   mergeTokenDocuments(reference, dark, highContrastDark),
 );
 
-const PUBLIC_THEME_TOKEN_PREFIXES = ["color.", "effect.", "opacity.", "shadow."];
+const PUBLIC_THEME_TOKEN_PREFIXES = ["color.", "component.button.", "effect.", "opacity.", "shadow."];
 const REFERENCE_COLOR_TOKEN_PATTERN = /^ref\.color\.([a-z][a-z0-9-]*)\.(\d+)$/;
 
 function createReferenceColorArtifacts(document, tokens) {

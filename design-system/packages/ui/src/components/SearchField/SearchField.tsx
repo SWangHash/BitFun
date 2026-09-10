@@ -28,11 +28,13 @@ export interface SearchFieldProps
 export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function SearchField({
   className,
   clearLabel,
+  disabled,
   footer,
   leadingIcon,
   onClear,
   onKeyDown,
   onSearch,
+  readOnly,
   shortcut,
   trailing,
   variant = "default",
@@ -49,8 +51,11 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
         <IconButton
           aria-label={clearLabel}
           className={styles.clear}
+          disabled={disabled || readOnly}
           icon={<Icon name="xmark" />}
-          onClick={onClear}
+          onClick={(event) => {
+            if (!disabled && !readOnly) onClear(event);
+          }}
           onMouseDown={(event) => event.preventDefault()}
           shape="circle"
           size="xs"
@@ -58,15 +63,16 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
         />
       )
     : undefined;
-  const endAdornment = clearAction ?? (shortcut === undefined ? undefined : (
+  const shortcutHint = shortcut === undefined ? undefined : (
     <span aria-hidden="true" className={styles.shortcut}>{shortcut}</span>
-  ));
-  const trailingContent = trailing === undefined && endAdornment === undefined
+  );
+  const trailingContent = trailing === undefined && shortcutHint === undefined && clearAction === undefined
     ? undefined
     : (
         <>
           {trailing}
-          {endAdornment}
+          {shortcutHint}
+          {clearAction}
         </>
       );
 
@@ -75,11 +81,13 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
       <Input
         {...props}
         className={styles.field}
+        disabled={disabled}
         leading={leadingIcon === undefined ? undefined : (
-          <span aria-hidden="true" className={styles.icon}>{leadingIcon}</span>
+          <span aria-hidden="true" className={styles.icon} data-openbitfun-part="icon">{leadingIcon}</span>
         )}
         onKeyDown={handleKeyDown}
         ref={ref}
+        readOnly={readOnly}
         trailing={trailingContent}
         type="search"
       />

@@ -65,3 +65,22 @@ configuration, or OS limits automatically. If the problem persists after the
 fix, capture the OpenBitFun version and logs plus the server's SFTP implementation
 and advertised limits so genuine concurrent-handle or server resource exhaustion
 can be distinguished from a client lifecycle problem.
+
+## Development startup
+
+Run `pnpm run desktop:dev` from the repository root. The launcher prepares
+Flashgrep and the locked Sherpa speech libraries before compiling Desktop.
+Sherpa libraries or archives are reused from the current target cache or the
+main Git checkout's target cache. If absent, curl downloads the version-specific
+archive, supporting HTTP and SOCKS proxies; Cargo handles extraction and linking.
+Explicit `SHERPA_ONNX_LIB_DIR` and `SHERPA_ONNX_ARCHIVE_DIR` overrides are preserved.
+
+When another worktree uses the default ports, start a separate dev server:
+
+```sh
+OPENBITFUN_DEV_PORT=1432 pnpm run desktop:dev
+```
+
+HMR uses port 1431 in this example; `OPENBITFUN_DEV_HMR_PORT` can override it.
+The launcher supplies the same HTTP URL to Tauri that Vite listens on, and both
+the main window and companion window read that configured URL.

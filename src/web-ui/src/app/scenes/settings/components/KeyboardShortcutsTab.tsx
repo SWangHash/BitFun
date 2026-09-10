@@ -657,7 +657,7 @@ const KeyboardShortcutsTab: React.FC = () => {
             ) : null}
             {hasPendingChanges && (
               <Button
-                variant="fill"
+                variant="primary"
                 size="sm"
                 onClick={handleApply}
                 disabled={saving || hasBlockingConflicts}

@@ -314,7 +314,7 @@
   &__workspace-item:hover &__workspace-item-name-stack,
   &__workspace-item.is-menu-open &__workspace-item-name-stack,
   &__workspace-item:focus-within &__workspace-item-name-stack {
-    padding-right: 52px;
+    padding-right: 76px;
   }
 
   &__workspace-item-active-icon {
@@ -1205,7 +1205,7 @@
   &__assistant-item:hover &__assistant-item-name-btn,
   &__assistant-item.is-menu-open &__assistant-item-name-btn,
   &__assistant-item:focus-within &__assistant-item-name-btn {
-    padding-right: 52px;
+    padding-right: 76px;
   }
 
   &__assistant-item-label {

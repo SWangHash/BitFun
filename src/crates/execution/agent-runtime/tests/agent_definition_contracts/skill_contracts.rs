@@ -25,6 +25,7 @@ fn builtin_skill(dir_name: &str) -> SkillInfo {
         source_id: "openbitfun".to_string(),
         source_label: "OpenBitFun".to_string(),
         installation_source: None,
+        entry_file: None,
         dir_name: dir_name.to_string(),
         is_builtin: true,
         group_key: builtin_skill_group_key(dir_name).map(str::to_string),
@@ -48,6 +49,7 @@ fn custom_user_skill(dir_name: &str) -> SkillInfo {
         source_id: "openbitfun".to_string(),
         source_label: "OpenBitFun".to_string(),
         installation_source: None,
+        entry_file: None,
         dir_name: dir_name.to_string(),
         is_builtin: false,
         group_key: None,
@@ -180,8 +182,6 @@ fn claude_skill_rejects_unavailable_runtime_semantics() {
     for field in [
         "context: fork",
         "agent: Explore",
-        "model: opus",
-        "effort: high",
         "hooks: {}",
         "paths: src/**",
         "shell: bash",
@@ -201,23 +201,103 @@ fn claude_skill_rejects_unavailable_runtime_semantics() {
         .expect_err("unsupported Claude behavior must fail closed");
         assert!(matches!(error, SkillParseError::InvalidFormat(_)));
     }
+}
 
+#[test]
+fn claude_dynamic_content_loads_unchanged_with_compatibility_notes() {
     for body in [
         "Use ${CLAUDE_SESSION_ID}.",
         "Use ${CLAUDE_EFFORT}.",
         "Read ${CLAUDE_SKILL_DIR}/data.",
         "Run !`git status` before continuing.",
+        "!`git diff`",
+        "Read ${CLAUDE_PROJECT_DIR}/data.",
+        "```!\ngit status\n```",
     ] {
-        let markdown = format!("---\ndescription: Dynamic behavior.\n---\n\n{body}\n");
-        assert!(SkillData::from_markdown_for_source_slot(
-            "/workspace/.claude/skills/dynamic".to_string(),
-            &markdown,
-            SkillLocation::Project,
-            true,
-            "claude",
-        )
-        .is_err());
+        let markdown = format!("---\ndescription: Dynamic behavior.\n---\n\n{body}");
+        for slot in ["claude", "home.claude"] {
+            let skill = SkillData::from_markdown_for_source_slot(
+                "/workspace/.claude/skills/dynamic".to_string(),
+                &markdown,
+                SkillLocation::Project,
+                true,
+                slot,
+            )
+            .expect("dynamic content should load without executing or expanding it");
+            assert_eq!(skill.content, body);
+            assert_eq!(skill.compatibility_warnings.len(), 1);
+            for stable_key in [false, true] {
+                let rendered = render_loaded_skill_for_assistant(&skill, stable_key);
+                assert!(rendered.contains(&skill.compatibility_warnings[0]));
+                assert!(rendered.contains(&format!("<skill_content>\n{body}\n</skill_content>")));
+            }
+            let discovery = SkillData::from_markdown_for_source_slot(
+                skill.path.clone(),
+                &markdown,
+                SkillLocation::Project,
+                false,
+                slot,
+            )
+            .unwrap();
+            assert!(discovery.content.is_empty());
+            assert_eq!(
+                discovery.compatibility_warnings,
+                skill.compatibility_warnings
+            );
+        }
     }
+}
+
+#[test]
+fn claude_excel_punctuation_and_non_command_backticks_need_no_fallback() {
+    let body = "Cross-sheet `!` references: `Sheet1!A1`. Errors: `#REF!`, `#DIV/0!`, `#VALUE!`.\nKEY=!`cmd`\nUnclosed !`command\nHello!";
+    for slot in ["claude", "home.claude"] {
+        let skill = SkillData::from_markdown_for_source_slot(
+            "/skills/officecli-xlsx".into(),
+            &format!("---\nname: officecli-xlsx\ndescription: Excel workflows.\n---\n{body}"),
+            SkillLocation::User,
+            true,
+            slot,
+        )
+        .unwrap();
+        assert_eq!(skill.content, body);
+        assert!(skill.compatibility_warnings.is_empty());
+    }
+}
+
+#[test]
+fn claude_preferences_degrade_without_bypassing_execution_constraints() {
+    let markdown = "---\ndescription: Review.\nmodel: opus\neffort: high\ndisable-model-invocation: true\nuser-invocable: false\n---\nReview.";
+    let skill = SkillData::from_markdown_for_source_slot(
+        "/skills/review".into(),
+        markdown,
+        SkillLocation::User,
+        true,
+        "home.claude",
+    )
+    .unwrap();
+    assert_eq!(skill.compatibility_warnings.len(), 2);
+    assert!(!skill.allow_implicit_invocation);
+    assert!(!skill.allow_user_invocation);
+    assert_eq!(skill.content, "Review.");
+    let restricted = markdown.replace("model: opus", "model: opus\ndisallowed-tools: Write");
+    assert!(SkillData::from_markdown_for_source_slot(
+        "/skills/review".into(),
+        &restricted,
+        SkillLocation::User,
+        true,
+        "home.claude",
+    )
+    .is_err());
+    let generic = SkillData::from_markdown_for_source_slot(
+        "/skills/review".into(),
+        &markdown.replace("description:", "name: review\ndescription:"),
+        SkillLocation::User,
+        true,
+        "openbitfun",
+    )
+    .unwrap();
+    assert!(generic.compatibility_warnings.is_empty());
 }
 
 #[test]
@@ -286,6 +366,7 @@ fn project_skill(dir_name: &str) -> SkillInfo {
         source_id: "openbitfun".to_string(),
         source_label: "OpenBitFun".to_string(),
         installation_source: None,
+        entry_file: None,
         dir_name: dir_name.to_string(),
         is_builtin: false,
         group_key: None,
@@ -444,6 +525,8 @@ fn skill_discovery_root_facts_are_runtime_owned() {
             (".cursor", "cursor", "cursor", "Cursor"),
             (".opencode", "opencode", "opencode", "OpenCode"),
             (".agents", "agents", "agent-skills", "Agent Skills"),
+            (".dsh", "dsh", "deepseek-harness", "DeepSeek Harness"),
+            (".pi", "pi", "pi", "PI"),
         ]
     );
 
@@ -459,6 +542,8 @@ fn skill_discovery_root_facts_are_runtime_owned() {
             (".cursor", "home.cursor", "cursor", "Cursor"),
             (".opencode", "home.opencode", "opencode", "OpenCode"),
             (".agents", "home.agents", "agent-skills", "Agent Skills"),
+            (".dsh", "home.dsh", "deepseek-harness", "DeepSeek Harness"),
+            (".pi/agent", "home.pi", "pi", "PI"),
         ]
     );
     assert_eq!(
@@ -487,6 +572,46 @@ fn skill_source_identity_is_serialized_without_changing_slot_identity() {
     assert_eq!(value["sourceLabel"], "OpenBitFun");
     assert_eq!(value["allowUserInvocation"], false);
     assert_eq!(value["argumentHint"], "[file]");
+}
+
+#[test]
+fn legacy_skill_payload_keeps_directory_entry_and_round_trips_without_new_fields() {
+    let legacy = serde_json::to_value(project_skill("review")).unwrap();
+    assert!(legacy.get("entryFile").is_none());
+    let restored: SkillInfo = serde_json::from_value(legacy.clone()).unwrap();
+    assert!(restored.entry_file.is_none());
+    assert_eq!(serde_json::to_value(restored).unwrap(), legacy);
+    let mut flat = legacy;
+    flat["entryFile"] = serde_json::json!("review.md");
+    let restored: SkillInfo = serde_json::from_value(flat.clone()).unwrap();
+    assert_eq!(restored.entry_file.as_deref(), Some("review.md"));
+    assert_eq!(serde_json::to_value(restored).unwrap(), flat);
+}
+
+#[test]
+fn pi_name_fallback_and_dsh_invocation_metadata_follow_the_source_dialect() {
+    let pi = SkillData::from_markdown_for_source_slot(
+        "/project/.pi/skills".into(),
+        "---\nname: 42\ndescription: PI skill\n---\nbody",
+        SkillLocation::Project,
+        true,
+        "pi",
+    )
+    .unwrap();
+    assert_eq!(pi.name, "skills");
+    for content in [
+        "---\nname: Bad_Name\ndescription: DSH\n---\nbody",
+        "---\nname: good-name\ndescription: DSH\ndisableModelInvocation: true\n---\nbody",
+    ] {
+        assert!(SkillData::from_markdown_for_source_slot(
+            "/project/.dsh/skills/review".into(),
+            content,
+            SkillLocation::Project,
+            true,
+            "dsh"
+        )
+        .is_err());
+    }
 }
 
 #[test]
@@ -1138,4 +1263,22 @@ fn explicit_invocation_reaches_default_hidden_agent_browser() {
             }
         }
     }
+}
+
+#[test]
+fn skill_scan_reports_tolerate_older_shapes_and_escape_diagnostics() {
+    use openbitfun_agent_runtime::skills::{SkillScanDiagnostic, SkillScanReport};
+    let legacy = serde_json::json!({"skills": ["pdf"]});
+    let report: SkillScanReport<String> = serde_json::from_value(legacy.clone()).unwrap();
+    assert!(report.diagnostics.is_empty());
+    let roundtrip: SkillScanReport<String> =
+        serde_json::from_value(serde_json::to_value(report).unwrap()).unwrap();
+    assert_eq!(roundtrip.skills, vec!["pdf"]);
+    let diagnostic = SkillScanDiagnostic {
+        path: "/remote/<path>".into(),
+        source_id: "codex".into(),
+        message: "read & parse failed".into(),
+    };
+    assert!(diagnostic.to_xml().contains("&lt;path&gt;"));
+    assert!(diagnostic.to_xml().contains("read &amp; parse failed"));
 }

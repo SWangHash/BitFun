@@ -353,10 +353,10 @@ export const SkillGroupManagerModal: React.FC<SkillGroupManagerModalProps> = ({
               </ScrollArea>
             </div>
             <div className="skill-group-manager__footer">
-              <Button variant="outline" size="sm" onClick={closeEditor} disabled={saving}>
+              <Button variant="fill" size="sm" onClick={closeEditor} disabled={saving}>
                 {t('agentsOverview.cancel')}
               </Button>
-              <Button variant="fill" size="sm" onClick={() => void saveEditor()} loading={saving}>
+              <Button variant="primary" size="sm" onClick={() => void saveEditor()} loading={saving}>
                 {isEditing && editingGroup
                   ? t('agentsOverview.skillGroupPicker.saveGroup')
                   : t('agentsOverview.skillGroupPicker.createGroup')}

@@ -35,6 +35,8 @@ function createWorkspace(overrides: Partial<WorkspaceInfo>): WorkspaceInfo {
 describe('normalizeUserDefaultChatInputModeId', () => {
   it('normalizes non-empty strings and rejects blank values', () => {
     expect(normalizeUserDefaultChatInputModeId(' PlannerPlus ')).toBe('PlannerPlus');
+    expect(normalizeUserDefaultChatInputModeId(' ultra ')).toBe('Ultra');
+    expect(normalizeUserDefaultChatInputModeId('CREATIVE')).toBe('Creative');
     expect(normalizeUserDefaultChatInputModeId('   ')).toBeNull();
     expect(normalizeUserDefaultChatInputModeId(null)).toBeNull();
   });

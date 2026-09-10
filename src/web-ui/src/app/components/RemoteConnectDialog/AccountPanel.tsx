@@ -1144,7 +1144,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
             </div>
             <div className="account-panel__actions" data-openbitfun-component="remote-account-panel" data-openbitfun-part="actions">
               <Button
-                variant="fill"
+                variant="primary"
                 size="sm"
                 leadingIcon={<LogIn />}
                 onClick={handleLogin}
@@ -1191,7 +1191,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               </button>
             </div>
             <div className="account-panel__actions" data-openbitfun-component="remote-account-panel" data-openbitfun-part="actions">
-              <Button variant="outline" size="sm" onClick={handleCancelOverwrite} disabled={loading}>
+              <Button variant="fill" size="sm" onClick={handleCancelOverwrite} disabled={loading}>
                 {t('accountLogin.disagree')}
               </Button>
             </div>
@@ -1370,7 +1370,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               <div className="account-panel__actions" data-openbitfun-component="remote-account-panel" data-openbitfun-part="actions">
                 {relayError && (
                   <Button
-                    variant="fill"
+                    variant="primary"
                     size="sm"
                     leadingIcon={<Icon name="refresh" size="lg" />}
                     onClick={handleRetryConnect}

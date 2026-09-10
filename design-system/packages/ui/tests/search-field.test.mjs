@@ -33,6 +33,25 @@ test("SearchField source preserves consumer key handling before Enter submission
   assert.match(source, /onSearch\?\.\(event\.currentTarget\.value\)/);
 });
 
+test("SearchField supports embedded composition without leaking its variant onto the input", async () => {
+  const markup = renderToStaticMarkup(createElement(SearchField, {
+    "aria-label": "Search modes",
+    size: "sm",
+    variant: "embedded",
+  }));
+  assert.match(markup, /data-openbitfun-component="search-field" data-variant="embedded"/);
+  assert.doesNotMatch(markup, /<input[^>]*variant=/);
+  assert.match(markup, /type="search"/);
+
+  const styles = await readFile(new URL("../src/components/SearchField/SearchField.module.css", import.meta.url), "utf8");
+  const embedded = styles.match(/\.root\[data-variant="embedded"\][^{]+\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(embedded, /block-size:\s*100%/);
+  assert.match(embedded, /padding:\s*0/);
+  assert.match(embedded, /border:\s*0/);
+  assert.match(embedded, /background:\s*transparent/);
+  assert.match(embedded, /box-shadow:\s*none/);
+});
+
 test("SearchField renders custom trailing content before the clear action", () => {
   const markup = renderToStaticMarkup(
     createElement(SearchField, {
@@ -75,7 +94,7 @@ test("SearchField panel uses canonical frosted tokens with an opaque reduced-tra
     "utf8",
   );
   assert.match(styles, /border-radius: var\(--openbitfun-radius-lg\)/);
-  assert.match(styles, /@supports[^}]+background: var\(--openbitfun-color-surface-subtle\)/s);
+  assert.match(styles, /@supports[^}]+background: color-mix\(in srgb, var\(--openbitfun-color-surface-raised\) 80%, transparent\)/s);
   assert.match(styles, /backdrop-filter: var\(--openbitfun-effect-blur-medium\)/);
   assert.match(styles, /@media \(prefers-reduced-transparency: reduce\)[^}]+background: var\(--openbitfun-color-surface-raised\)[^}]+backdrop-filter: none/s);
 });
@@ -121,17 +140,30 @@ test("SearchField owns pill composition while reusing Input behavior", async () 
   assert.match(styles, /--openbitfun-type-meta-font-size/);
 });
 
-test("SearchField focus changes only the existing border color", async () => {
-  const styles = await readFile(
-    new URL("../src/components/SearchField/SearchField.module.css", import.meta.url),
-    "utf8",
-  );
-  const focusRule = styles.match(
-    /\.root \.field:not\(\[data-invalid="true"\]\):focus-within\s*\{([^}]+)\}/,
+test("SearchField owns a quiet single-border focus without changing Input's focus contract", async () => {
+  const [styles, inputStyles] = await Promise.all([
+    readFile(new URL("../src/components/SearchField/SearchField.module.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/Input/Input.module.css", import.meta.url), "utf8"),
+  ]);
+  const focusRule = inputStyles.match(
+    /\.field:focus-within\s*\{([^}]+)\}/,
   )?.[1];
 
+  const searchFocusRule = styles.match(
+    /\.root\[data-variant="default"\] \.field:where\(:not\(\[data-invalid="true"\], \[data-disabled="true"\]\)\):is\(:hover, :focus-within\)\s*\{([^}]+)\}/,
+  )?.[1];
+  const panelFocusRule = styles.match(
+    /\.root\[data-variant="panel"\]:focus-within\s*\{([^}]+)\}/,
+  )?.[1];
+
+  assert.ok(searchFocusRule);
+  assert.match(searchFocusRule, /border-color: var\(--openbitfun-color-border-default\)/);
+  assert.doesNotMatch(searchFocusRule, /box-shadow|border-width|outline/);
+  assert.ok(panelFocusRule);
+  assert.match(panelFocusRule, /outline-color: var\(--openbitfun-color-border-default\)/);
   assert.ok(focusRule);
-  assert.match(focusRule, /border-color: var\(--openbitfun-color-content-primary\)/);
+  assert.match(focusRule, /border-color: var\(--openbitfun-color-field-border-active\)/);
+  assert.doesNotMatch(inputStyles, /--openbitfun-color-field-border-focus|\.field[^{}]*:focus-visible/);
   assert.match(focusRule, /box-shadow: none/);
   assert.doesNotMatch(focusRule, /border-width|outline/);
 });

@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useSceneStore } from '../../stores/sceneStore';
 import { useNavSceneStore } from '../../stores/navSceneStore';
 import { normalizeResourceLayout, useWorkspaceResourceState } from './workspaceResourceState';
+import { getSessionSceneTabId } from '../../components/SceneBar/types';
+
+const sessionTarget = { surfaceId: 'local', workspaceKey: 'project', sessionId: 'task' };
 
 describe('workspace resource navigation', () => {
   beforeEach(() => {
@@ -10,14 +13,15 @@ describe('workspace resource navigation', () => {
     useNavSceneStore.getState().closeNavScene();
   });
   it('opens resources without replacing the active conversation', () => {
-    useSceneStore.getState().openScene('session');
+    useSceneStore.getState().openSessionScene(sessionTarget);
     useNavSceneStore.getState().openNavScene('file-viewer');
-    expect(useSceneStore.getState().activeTabId).toBe('session');
+    expect(useSceneStore.getState().activeTabId).toBe(getSessionSceneTabId(sessionTarget));
   });
   it('keeps resources during file, terminal and conversation navigation', () => {
     useNavSceneStore.getState().openNavScene('file-viewer');
     for (const scene of ['file-viewer', 'terminal', 'session'] as const) {
-      useSceneStore.getState().openScene(scene);
+      if (scene === 'session') useSceneStore.getState().openSessionScene(sessionTarget);
+      else useSceneStore.getState().openScene(scene);
       expect(useNavSceneStore.getState().showSceneNav).toBe(true);
       expect(useNavSceneStore.getState().navSceneId).toBe('file-viewer');
     }

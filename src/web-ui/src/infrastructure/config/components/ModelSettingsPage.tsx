@@ -2312,7 +2312,7 @@ const ModelSettingsPage: React.FC = () => {
 
 
             <div className="openbitfun-model-settings__selection-actions" data-openbitfun-component="model-settings" data-openbitfun-part="selectionActions">
-              <Button variant="outline" size="sm" onClick={() => setCreationMode(null)}>
+              <Button variant="fill" size="sm" onClick={() => setCreationMode(null)}>
                 {t('actions.cancel')}
               </Button>
             </div>
@@ -2757,7 +2757,7 @@ const ModelSettingsPage: React.FC = () => {
     return (
       <>
         <div className="openbitfun-model-settings__form openbitfun-model-settings__form--modal" data-openbitfun-component="model-settings" data-openbitfun-part="form">
-          <ScrollArea className="openbitfun-model-settings__form-scrollable" data-openbitfun-component="model-settings" data-openbitfun-part="formBody">
+          <div className="openbitfun-model-settings__form-content" data-openbitfun-component="model-settings" data-openbitfun-part="formBody">
             <ConfigPageSection
               title={isProviderScopedEditing ? t('editProviderSubtitle') : t('editSubtitle')}
               className="openbitfun-model-settings__edit-section"
@@ -3233,7 +3233,7 @@ const ModelSettingsPage: React.FC = () => {
               )}
             </ConfigPageSection>
           )}
-          </ScrollArea>
+          </div>
 
         </div>
       </>
@@ -3586,7 +3586,7 @@ const ModelSettingsPage: React.FC = () => {
                           {(account.provider !== 'opencode' || !hasOpenCodeOfferings) && (
                             <Button
                               size="sm"
-                              variant="fill"
+                              variant="primary"
                               disabled={anyLoginInProgress}
                               onClick={() => handleImportFromSubscription(account)}
                             >
@@ -3606,7 +3606,7 @@ const ModelSettingsPage: React.FC = () => {
                       ) : (
                         <Button
                           size="sm"
-                          variant="fill"
+                          variant="primary"
                           loading={isLoggingIn}
                           disabled={anyLoginInProgress}
                           onClick={() => void handleSubscriptionLogin(account.provider)}
@@ -3619,7 +3619,7 @@ const ModelSettingsPage: React.FC = () => {
                       {isLoggingIn && (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="fill"
                           disabled={loginPanel?.status === 'cancelling'}
                           onClick={() => void handleCancelSubscriptionLogin(account.provider)}
                         >
@@ -3752,7 +3752,7 @@ const ModelSettingsPage: React.FC = () => {
               icon={<Wifi size={36} aria-hidden="true" />}
               description={t('empty.noModels')}
               actions={(
-                <Button data-testid="settings-model-create-first-config-btn" variant="fill" size="sm" onClick={handleCreateNew} leadingIcon={<Icon name="plus" size="sm" />}>
+                <Button data-testid="settings-model-create-first-config-btn" variant="primary" size="sm" onClick={handleCreateNew} leadingIcon={<Icon name="plus" size="sm" />}>
                   {t('actions.createFirst')}
                 </Button>
               )}
@@ -4095,7 +4095,7 @@ const ModelSettingsPage: React.FC = () => {
             </Button>
             <Button
               size="sm"
-              variant="fill"
+              variant="primary"
               tone="danger"
               onClick={() => void confirmSubscriptionLogout()}
             >
@@ -4160,13 +4160,13 @@ const ModelSettingsPage: React.FC = () => {
         ) : renderEditingForm()}
               </DialogBody>
         {!reasoningPanelDraft && (
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={requestCloseEditingModal} disabled={isEditorSaving}>
+          <DialogFooter appearance="floating">
+            <Button variant="fill" size="sm" onClick={requestCloseEditingModal} disabled={isEditorSaving}>
               {t('actions.cancel')}
             </Button>
             <Button
               data-testid="settings-model-save-btn"
-              variant="fill"
+              variant="primary"
               size="sm"
               onClick={() => void handleSave()}
               loading={isEditorSaving}

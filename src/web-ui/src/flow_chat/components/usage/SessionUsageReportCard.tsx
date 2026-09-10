@@ -475,7 +475,7 @@ export const SessionUsageReportCard: React.FC<SessionUsageReportCardProps> = ({
                 type="button"
                 variant="outline"
                 size="sm"
-                trailingIcon={<Icon name="chevron-right" size="lg" style={{ width: 13, height: 13 }} aria-hidden />}
+                trailingIcon={<Icon name="chevron-right" aria-hidden />}
                 onClick={handleOpenDetails}
                 disabled={!onOpenDetails}
                 aria-label={t('usage.actions.openDetails')}

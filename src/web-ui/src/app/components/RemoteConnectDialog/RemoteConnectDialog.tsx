@@ -1049,7 +1049,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           onCopyUrl={handleCopyPairingUrl}
         />
         <div className="openbitfun-remote-connect__pairing-actions">
-          <Button variant="outline" size="sm" onClick={handleCancelConnect}>
+          <Button variant="fill" size="sm" onClick={handleCancelConnect}>
             {connectionOwner === 'network' ? t('remoteConnect.cancelInvitation') : t('remoteConnect.cancel')}
           </Button>
         </div>
@@ -1192,7 +1192,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
           <div className="openbitfun-remote-connect__network-actions">
             {renderErrorBlock()}
             <Button
-              variant="fill"
+              variant="primary"
               size="sm"
               className="openbitfun-remote-connect__primary-action"
               loading={loading}
@@ -1414,7 +1414,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                       </div>
                     )}
                     <WeixinLoginProgress phase="scan" />
-                    <Button variant="outline" size="sm" onClick={handleCancelWeixinQr}>
+                    <Button variant="fill" size="sm" onClick={handleCancelWeixinQr}>
                       {t('remoteConnect.botWeixinQrCancel')}
                     </Button>
                   </div>
@@ -1422,7 +1422,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 {weixinQrSessionKey && !weixinQrImageUrl && weixinAwaitingPhoneConfirm && (
                   <div className="openbitfun-remote-connect__weixin-qr openbitfun-remote-connect__weixin-qr--await">
                     <WeixinLoginProgress phase="confirm" />
-                    <Button variant="outline" size="sm" onClick={handleCancelWeixinQr}>
+                    <Button variant="fill" size="sm" onClick={handleCancelWeixinQr}>
                       {t('remoteConnect.botWeixinQrCancel')}
                     </Button>
                   </div>
@@ -1430,7 +1430,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 {weixinQrSessionKey && !weixinQrImageUrl && !weixinAwaitingPhoneConfirm && !weixinNeedsVerifyCode && (
                   <div className="openbitfun-remote-connect__weixin-qr">
                     <WeixinLoginProgress phase={loading ? 'starting' : 'confirm'} />
-                    <Button variant="outline" size="sm" onClick={handleCancelWeixinQr}>
+                    <Button variant="fill" size="sm" onClick={handleCancelWeixinQr}>
                       {t('remoteConnect.cancel')}
                     </Button>
                   </div>
@@ -1455,7 +1455,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                       {t('remoteConnect.botWeixinVerifyCodeHint')}
                     </p>
                     <Button
-                      variant="fill"
+                      variant="primary"
                       size="sm"
                       className="openbitfun-remote-connect__primary-action"
                       onClick={handleSubmitWeixinVerifyCode}
@@ -1467,7 +1467,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
                 )}
                 {!weixinQrSessionKey && !weixinQrImageUrl && !weixinNeedsVerifyCode && (
                   <Button
-                    variant="fill"
+                    variant="primary"
                     size="sm"
                     className="openbitfun-remote-connect__primary-action"
                     loading={loading}
@@ -1481,7 +1481,7 @@ export const RemoteConnectDialog: React.FC<RemoteConnectDialogProps> = ({
             {renderErrorBlock()}
             {botTab !== 'weixin' && (
               <Button
-                variant="fill"
+                variant="primary"
                 size="sm"
                 className="openbitfun-remote-connect__primary-action"
                 loading={loading}

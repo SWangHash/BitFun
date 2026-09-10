@@ -1,6 +1,27 @@
 {
   "$description": "OpenBitFun dark semantic theme migrated from the built-in dark Appearance.",
+  "component": {
+    "button": {
+      "$description": "Button-specific state colors. Keep shared action colors stable for other controls and preserve contrast-mode feedback.",
+      "content": { "$type": "color", "$value": "{color.action.neutral.content}" },
+      "textContent": { "$type": "color", "$value": "{color.accent.default}" },
+      "textContentHover": { "$type": "color", "$value": "{color.accent.hover}" },
+      "textContentDisabled": { "$type": "color", "$value": "{color.accent.disabled}" },
+      "outlineBorder": { "$type": "color", "$value": "{color.action.neutral.border}" },
+      "outlineBorderInteractive": { "$type": "color", "$value": "{color.action.neutral.border}" },
+      "fillBackground": { "$type": "color", "$value": "{color.action.neutral.surface}" },
+      "fillBackgroundHover": { "$type": "color", "$value": "{color.action.neutral.surfaceHover}" },
+      "fillBackgroundPressed": { "$type": "color", "$value": "{color.action.neutral.surfacePressed}" },
+      "primaryBackground": { "$type": "color", "$value": "{color.action.primary.background}" },
+      "primaryBackgroundHover": { "$type": "color", "$value": "{color.action.primary.hover}" },
+      "primaryBackgroundPressed": { "$type": "color", "$value": "{color.action.primary.pressed}" },
+      "primaryContentDisabled": { "$type": "color", "$value": "{color.action.neutral.contentDisabled}" }
+    }
+  },
   "color": {
+    "actionCard": {
+      "background": { "$type": "color", "$value": "{color.action.neutral.surface}" }
+    },
     "surface": {
       "canvas": { "$type": "color", "$value": "{ref.color.neutral.950}" },
       "panel": { "$type": "color", "$value": "{ref.color.neutral.900}" },
@@ -46,6 +67,7 @@
       "thumbHover": { "$type": "color", "$value": "{color.action.neutral.surfacePressed}" }
     },
     "content": {
+      "caption": { "$description": "Menu and navigation group captions; carries final opacity without attenuating primary text again.", "$type": "color", "$value": "{color.content.muted}" },
       "primary": { "$type": "color", "$value": "{ref.color.neutral.200}" },
       "secondary": { "$type": "color", "$value": "{ref.color.neutral.350}" },
       "muted": { "$type": "color", "$value": "{ref.color.neutral.550}" },
@@ -157,6 +179,9 @@
       }
     },
     "field": {
+      "groupBackground": { "$description": "Grouped form tint; independent of opaque tertiary containers and transient subtle feedback.", "$type": "color", "$value": "{color.surface.tertiary}" },
+      "borderActive": { "$type": "color", "$value": "{color.field.borderFocus}" },
+      "placeholder": { "$type": "color", "$value": "{color.content.muted}" },
       "background": { "$type": "color", "$value": "{ref.color.neutral.900}" },
       "backgroundHover": { "$type": "color", "$value": "rgba(255, 255, 255, 0.06)" },
       "border": { "$type": "color", "$value": "rgba(255, 255, 255, 0.18)" },

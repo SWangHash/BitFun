@@ -598,6 +598,39 @@ mod tests {
     }
 
     #[test]
+    fn account_settings_payload_preserves_chat_input_default_preference() {
+        let mut config = crate::service::config::GlobalConfig::default();
+        config.app.flow_chat.default_mode_strategy =
+            Some(crate::service::config::types::ChatInputDefaultModeStrategy::FollowLast);
+        config.app.flow_chat.default_mode_id = Some("Ultra".to_string());
+        config.app.flow_chat.last_mode_id = Some("Creative".to_string());
+
+        let payload = settings_payload(config, "2026-01-01T00:00:00Z", "1.0.0");
+        let export = config_export_value(&payload).unwrap();
+
+        assert_eq!(
+            export.config.app.flow_chat.default_mode_strategy,
+            Some(crate::service::config::types::ChatInputDefaultModeStrategy::FollowLast)
+        );
+        assert_eq!(
+            export.config.app.flow_chat.default_mode_id.as_deref(),
+            Some("Ultra")
+        );
+        assert_eq!(
+            export.config.app.flow_chat.last_mode_id.as_deref(),
+            Some("Creative")
+        );
+        assert_eq!(
+            serde_json::to_value(export).unwrap()["config"]["app"]["flow_chat"],
+            serde_json::json!({
+                "default_mode_strategy": "follow_last",
+                "default_mode_id": "Ultra",
+                "last_mode_id": "Creative"
+            })
+        );
+    }
+
+    #[test]
     fn content_hash_rejects_bare_config_payload() {
         let bare = serde_json::to_string(&crate::service::config::GlobalConfig::default()).unwrap();
         assert!(settings_content_hash(&bare).is_err());
@@ -640,6 +673,9 @@ mod tests {
         assert!(export.config.app.user_tool_groups.groups.is_empty());
         assert!(export.config.app.user_skill_groups.groups.is_empty());
         assert!(!export.config.app.prevent_sleep);
+        assert_eq!(export.config.app.flow_chat.default_mode_strategy, None);
+        assert_eq!(export.config.app.flow_chat.default_mode_id, None);
+        assert_eq!(export.config.app.flow_chat.last_mode_id, None);
         assert!(export.config.font.is_none());
         assert!(export.config.app.ai_experience.quick_actions.is_empty());
         let reexported = serde_json::to_string(&export).unwrap();

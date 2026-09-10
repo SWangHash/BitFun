@@ -117,18 +117,52 @@
     padding: var(--openbitfun-overlay-menu-surface-padding);
   }
 
+  &--skills {
+    width: max-content;
+    min-width: min(300px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+  }
+
   &__skill-option > [data-openbitfun-part='content'] {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
+  }
+
+  &__skill-name {
+    display: block;
+    white-space: nowrap;
   }
 
   &__skill-option > [data-openbitfun-part='metadata'] {
     flex: 1 1 auto;
+    inline-size: 8rem;
     min-inline-size: 0;
     max-inline-size: 60%;
   }
 
   &__skill-description {
     inline-size: 100%;
+    // This picker uses a visible ellipsis instead of the shared resting fade.
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  &__skill-option:not(:hover):not(:focus-visible) &__skill-description > [data-overflow-content] {
+    display: block;
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    // Virtual selection alone must not start the marquee on initial opening.
+    animation: none;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__skill-description > [data-overflow-content] {
+      display: block;
+      min-inline-size: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
   
   &__footer {
@@ -164,4 +198,14 @@
   .chat-context-picker__spinner {
     animation: none;
   }
+}
+
+.chat-context-picker__diagnostics {
+  padding: 8px 12px;
+  max-height: 160px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  font-size: var(--openbitfun-type-flow-support-font-size);
+
+  summary { cursor: pointer; }
 }

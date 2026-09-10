@@ -104,6 +104,90 @@ const install = (...ids: string[]) => {
 };
 
 describe('navigation status synchronization', () => {
+  it('keeps selection stable and promotes background starts even without mounted rows', () => {
+    const older = { ...row('older'), createdAt: 10 };
+    const newer = { ...row('newer'), createdAt: 20 };
+    sources.sessions.set(older.sessionId, older);
+    sources.sessions.set(newer.sessionId, newer);
+    install();
+    const notify = vi.fn();
+    disposers.push(sessionNavStatusService.subscribeOrdering(notify));
+    sources.sessions.set(older.sessionId, { ...older, status: 'active', lastActiveAt: Date.now() });
+    sources.storeListeners.forEach(listener => listener({ sessions: sources.sessions }));
+    expect(sessionNavStatusService.getSortTimestamp(older)).toBe(10);
+    expect(notify).not.toHaveBeenCalled();
+    sources.events.get('onDialogTurnStarted')!({ sessionId: older.sessionId, turnId: 'turn' });
+    const startedAt = sessionNavStatusService.getSortTimestamp(older);
+    expect(startedAt).toBeGreaterThan(sessionNavStatusService.getSortTimestamp(newer));
+    expect(sessionNavStatusService.isRunning(older.sessionId)).toBe(true);
+    notify.mockClear();
+    sources.events.get('onDialogTurnStarted')!({ sessionId: older.sessionId, turnId: 'turn' });
+    sources.events.get('onSessionStateChanged')!({ sessionId: older.sessionId, newState: 'processing' });
+    expect(sessionNavStatusService.getSortTimestamp(older)).toBe(startedAt);
+    expect(notify).not.toHaveBeenCalled();
+    sources.events.get('onDialogTurnCompleted')!({ sessionId: older.sessionId, turnId: 'turn' });
+    expect(sessionNavStatusService.getSortTimestamp(older)).toBe(startedAt);
+    expect(sessionNavStatusService.isRunning(older.sessionId)).toBe(false);
+    expect(sources.read).not.toHaveBeenCalled();
+  });
+
+  it('promotes detached jobs through the same queued to running projection', () => {
+    const value = row('dispatch-order', { dispatchJobId: 'job', dispatchJobState: 'queued' });
+    sources.sessions.set(value.sessionId, value);
+    install();
+    let startedAt: number | undefined;
+    for (const dispatchJobState of ['running', 'completed'] as const) {
+      sources.sessions.set(value.sessionId, { ...value, config: { ...value.config, dispatchJobState } });
+      sources.storeListeners.forEach(listener => listener({ sessions: sources.sessions }));
+      expect(sessionNavStatusService.getSortTimestamp(value)).toBeGreaterThan(value.createdAt);
+      startedAt ??= sessionNavStatusService.getSortTimestamp(value);
+      expect(sessionNavStatusService.getSortTimestamp(value)).toBe(startedAt);
+      expect(sessionNavStatusService.isRunning(value.sessionId)).toBe(dispatchJobState === 'running');
+    }
+    expect(sources.read).not.toHaveBeenCalled();
+  });
+
+  it('retains ordering when rows remount and only promotes again after a blocking interaction resumes', () => {
+    const value = row('remount-order', { dispatchJobId: 'job', dispatchJobState: 'running' });
+    sources.sessions.set(value.sessionId, value);
+    install();
+    expect(sessionNavStatusService.getSortTimestamp(value)).toBe(value.createdAt);
+    const unsubscribe = sessionNavStatusService.subscribe(value.sessionId, () => {});
+    unsubscribe();
+    disposers.push(sessionNavStatusService.subscribe(value.sessionId, () => {}));
+    expect(sessionNavStatusService.getSortTimestamp(value)).toBe(value.createdAt);
+    sources.permissions = [{ requestId: 'approval', sessionId: value.sessionId, roundId: 'round' } as PermissionRequest];
+    sources.permissionListeners.forEach(listener => listener());
+    expect(sessionNavStatusService.getSortTimestamp(value)).toBe(value.createdAt);
+    sources.permissions = [];
+    sources.permissionListeners.forEach(listener => listener());
+    expect(sessionNavStatusService.getSortTimestamp(value)).toBeGreaterThan(value.createdAt);
+  });
+
+  it('retains starts and completions from a background device without reordering the current device', () => {
+    const value = row('same-id-on-devices');
+    sources.sessions.set(value.sessionId, value);
+    activateSurface('ordering-local');
+    install();
+    activateSurface('ordering-peer');
+    activateSurface('ordering-local');
+    sessionActivityStore.observe('ordering-peer', 'agentic://dialog-turn-started', {
+      sessionId: value.sessionId, turnId: 'remote-turn',
+    });
+    sessionActivityStore.observe('ordering-peer', 'agentic://dialog-turn-completed', {
+      sessionId: value.sessionId, turnId: 'remote-turn',
+    });
+    expect(sessionNavStatusService.getSortTimestamp(value)).toBe(value.createdAt);
+    activateSurface('ordering-peer');
+    const startedAt = sessionNavStatusService.getSortTimestamp(value);
+    expect(startedAt).toBeGreaterThan(value.createdAt);
+    activateSurface('ordering-local');
+    expect(sessionNavStatusService.getSortTimestamp(value)).toBe(value.createdAt);
+    activateSurface('ordering-peer');
+    expect(sessionNavStatusService.getSortTimestamp(value)).toBe(startedAt);
+    expect(sources.read).not.toHaveBeenCalled();
+  });
+
   it('bootstraps all unopened rows in one request and never populates their transcripts', async () => {
     const ids = Array.from({ length: 40 }, (_, i) => `initial-${i}`);
     ids.forEach(id => sources.sessions.set(id, row(id)));

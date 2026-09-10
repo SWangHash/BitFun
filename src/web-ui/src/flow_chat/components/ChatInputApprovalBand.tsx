@@ -349,7 +349,7 @@ export const ChatInputApprovalBand: React.FC<ChatInputApprovalBandProps> = ({
             <div className="openbitfun-chat-input-approval__buttons">
               {/* Rejecting is the safe answer, so it leads. */}
               <Button
-                variant="outline"
+                variant="fill"
                 size="sm"
                 leadingIcon={<Icon name="xmark" size="sm" />}
                 disabled={responding}

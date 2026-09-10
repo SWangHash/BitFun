@@ -180,7 +180,7 @@ export const UpdateInstallProgressModal: React.FC<UpdateInstallProgressModalProp
                 {t('update.downloadAgain')}
               </Button>
             ) : null}
-            <Button variant="outline" size="md" disabled={installing} onClick={onCloseInstalled}>
+            <Button variant="fill" size="md" disabled={installing} onClick={onCloseInstalled}>
               {t('update.restartLater')}
             </Button>
             <Button variant="primary" size="md" disabled={installing} loading={installing} onClick={onRestart}>

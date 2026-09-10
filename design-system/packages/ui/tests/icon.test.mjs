@@ -5,6 +5,7 @@ import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import { createHash } from "node:crypto";
 import { Icon, iconNames, canonicalIconNames, iconAliases } from "../dist/index.js";
+import { Network } from "lucide-react";
 
 test("Icon exposes the complete named catalog without duplicate names", () => {
   assert.equal(iconNames.length, 66);
@@ -47,6 +48,25 @@ test("Icon exposes semantic size, tone, and accessible label independently", () 
   assert.match(markup, /data-openbitfun-tone="success"/);
 });
 
+test("Icon normalizes Lucide fallbacks without exposing product-owned line weight", () => {
+  const markup = renderToStaticMarkup(createElement(Icon, {
+    glyph: Network,
+    label: "Network",
+    size: "sm",
+    tone: "secondary",
+  }));
+
+  assert.match(markup, /data-openbitfun-component="icon"/);
+  assert.match(markup, /data-openbitfun-source="line"/);
+  assert.match(markup, /data-size="sm"/);
+  assert.match(markup, /data-openbitfun-tone="secondary"/);
+  assert.match(markup, /role="img"/);
+  assert.match(markup, /aria-label="Network"/);
+  assert.match(markup, /<svg[^>]*stroke-width="1.6"/);
+  assert.match(markup, /<svg[^>]*aria-hidden="true"/);
+  assert.doesNotMatch(markup, /mask-image/);
+});
+
 test("Icon styles consume only public geometry and semantic color tokens", async () => {
   const styles = await readFile(new URL("../dist/styles.css", import.meta.url), "utf8");
 
@@ -55,6 +75,7 @@ test("Icon styles consume only public geometry and semantic color tokens", async
   assert.match(styles, /--openbitfun-color-content-primary/);
   assert.match(styles, /--openbitfun-color-status-success-content/);
   assert.match(styles, /mask-size:contain/);
+  assert.match(styles, /data-openbitfun-source=line/);
 });
 
 test("Icon mask assets are color-agnostic", async () => {
@@ -93,6 +114,23 @@ test("compatibility aliases share the canonical mask without duplicating assets"
     assert.ok(!canonicalIconNames.includes(alias));
   }
   assert.ok(!canonicalIconNames.includes("turn"));
+});
+
+test("monochrome catalog paths delegate alpha while layered artwork stays authored", async () => {
+  const assets = new URL("../src/components/Icon/assets/", import.meta.url);
+  const catalog = JSON.parse(await readFile(new URL("fixtures/icon-assets.json", import.meta.url), "utf8"));
+  for (const entry of catalog) {
+    const source = await readFile(new URL(entry.asset, assets), "utf8");
+    const markup = renderToStaticMarkup(createElement(Icon, { name: entry.name }));
+    if (entry.name === "progress-25" || entry.name === "turn") {
+      assert.doesNotMatch(markup, /data-openbitfun-artwork="monochrome"/);
+      assert.match(source, entry.name === "progress-25" ? /stroke-opacity="0.2"/ : /fill-opacity="0.05"/);
+    } else {
+      assert.equal((source.match(/<path /g) ?? []).length, 1, entry.name);
+      assert.doesNotMatch(source, /(?:fill-|stroke-)?opacity=/, entry.name);
+      assert.match(markup, /data-openbitfun-artwork="monochrome"/);
+    }
+  }
 });
 
 test("published Icon masks contain the current asset attributes for every catalog entry", async () => {

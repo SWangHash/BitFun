@@ -408,7 +408,7 @@ export function AppearanceMarketDialog({ isOpen, onClose }: AppearanceMarketDial
               && !updateAvailable
               && !linkedToOtherListing ? (
               <Button
-                variant={active ? 'outline' : 'fill'}
+                variant={active ? 'outline' : 'primary'}
                 disabled={active
                   || unsupported
                   || incompatibleVersion
@@ -421,7 +421,7 @@ export function AppearanceMarketDialog({ isOpen, onClose }: AppearanceMarketDial
               </Button>
             ) : (
               <Button
-                variant="fill"
+                variant="primary"
                 disabled={installDisabled}
                 onClick={() => release && void handleInstall(release)}
               >
@@ -636,7 +636,7 @@ export function AppearanceMarketDialog({ isOpen, onClose }: AppearanceMarketDial
                         >
                           <strong><OverflowText>{item.name}</OverflowText></strong>
                           <OverflowText>{item.author || item.owner.login} · v{item.packageVersion}</OverflowText>
-                          <p><OverflowText>{item.description}</OverflowText></p>
+                          <OverflowText as="p" lines={2}>{item.description}</OverflowText>
                         </div>
                         {local && (
                           <span

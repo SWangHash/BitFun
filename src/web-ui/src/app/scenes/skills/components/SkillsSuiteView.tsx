@@ -542,7 +542,7 @@ const SkillsSuiteView: React.FC = () => {
                         <div className="skills-suite__group-actions" data-openbitfun-scene="skills" data-openbitfun-part="suiteGroupActions">
                           {showSaveButton ? (
                             <Button
-                              variant="fill"
+                              variant="primary"
                               size="sm"
                               loading={savingAction?.groupKey === group.id && savingAction.kind === 'save'}
                               disabled={isSaving}
@@ -552,7 +552,7 @@ const SkillsSuiteView: React.FC = () => {
                             </Button>
                           ) : null}
                           <Button
-                            variant={allEnabled ? 'outline' : 'fill'}
+                            variant={allEnabled ? 'outline' : 'primary'}
                             size="sm"
                             loading={savingAction?.groupKey === group.id && savingAction.kind === 'toggle'}
                             disabled={isSaving}

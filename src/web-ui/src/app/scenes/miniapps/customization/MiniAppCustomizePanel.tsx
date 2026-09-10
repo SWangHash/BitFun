@@ -473,7 +473,7 @@ export const MiniAppCustomizePanel: React.FC<MiniAppCustomizePanelProps> = ({
 
       <div className="miniapp-customize-panel__actions" data-openbitfun-component="miniapp-customize-panel" data-openbitfun-part="actions">
         <Button
-          variant="fill"
+          variant="primary"
           size="sm"
           onClick={() => void handleStart()}
           disabled={!trimmedRequest || busy}
@@ -542,7 +542,7 @@ export const MiniAppCustomizePanel: React.FC<MiniAppCustomizePanelProps> = ({
 
       <div className="miniapp-customize-panel__footer" data-openbitfun-component="miniapp-customize-panel" data-openbitfun-part="footer">
         <Button
-          variant="outline"
+          variant="fill"
           size="sm"
           onClick={() => void handleDiscard()}
           disabled={busy}
@@ -553,7 +553,7 @@ export const MiniAppCustomizePanel: React.FC<MiniAppCustomizePanelProps> = ({
           {t('customize.discard')}
         </Button>
         <Button
-          variant="fill"
+          variant="primary"
           size="sm"
           onClick={() => void handleApply()}
           disabled={!hasPreview || busy}

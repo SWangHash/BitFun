@@ -20,6 +20,7 @@
   box-sizing: border-box;
   min-height: 1px;
   padding: 0;
+  position: relative;
 
   // A regular user message starts a new Turn. Give it a clear boundary from
   // the preceding Turn, balancing the reserved action row below its bubble.
@@ -106,26 +107,49 @@
     animation: none;
   }
 
-  &--search-match {
-    outline: 1px solid color-mix(in srgb, var(--openbitfun-color-accent-default) 35%, transparent);
-    outline-offset: -1px;
-    border-radius: 6px;
-  }
+}
 
-  &--search-current {
-    outline: 2px solid color-mix(in srgb, var(--openbitfun-color-accent-default) 75%, transparent);
-    outline-offset: -1px;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--openbitfun-color-accent-default) 8%, transparent);
+// The current text line is a passive overlay, never a new transcript surface.
+.flowchat-search-line {
+  position: absolute;
+  pointer-events: none;
+  background: var(--openbitfun-color-action-neutral-surface);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: calc(-1 * var(--openbitfun-space-2));
+    border-inline-start: var(--openbitfun-focus-width) solid var(--openbitfun-color-control-switch-track-checked);
   }
 }
 
 ::highlight(openbitfun-flowchat-search-current) {
   color: inherit;
-  background: color-mix(in srgb, var(--openbitfun-color-accent-default) 42%, transparent);
+  background: var(--openbitfun-color-accent-border-subtle);
 }
 
 ::highlight(openbitfun-flowchat-search-match) {
   color: inherit;
-  background: color-mix(in srgb, var(--openbitfun-color-accent-default) 16%, transparent);
+  background: var(--openbitfun-color-selection-surface);
+}
+
+@media (forced-colors: active) {
+  .flowchat-search-line {
+    background: transparent;
+
+    &::before {
+      border-color: Highlight;
+    }
+  }
+
+  ::highlight(openbitfun-flowchat-search-current) {
+    color: HighlightText;
+    background: Highlight;
+  }
+
+  ::highlight(openbitfun-flowchat-search-match) {
+    color: MarkText;
+    background: Mark;
+  }
 }

@@ -320,13 +320,13 @@ export const BranchSelectModal: React.FC<BranchSelectModalProps> = ({
             </div>
           ) : null}
           <Button
-            variant="outline"
+            variant="fill"
             onClick={onClose}
           >
             {tCommon('actions.cancel')}
           </Button>
           <Button
-            variant="fill"
+            variant="primary"
             onClick={handleConfirm}
             disabled={!selectedBranch}
           >

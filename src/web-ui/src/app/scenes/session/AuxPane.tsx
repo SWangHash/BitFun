@@ -7,13 +7,13 @@
 
 import { forwardRef, useEffect, useRef, useImperativeHandle, useCallback } from 'react';
 import { ContentCanvas, useCanvasStore } from '../../components/panels/content-canvas';
-import { GlobalSearchContent } from '../../global-search/GlobalSearchRoot';
 import {
   switchAgentCanvasWorkspace,
   removeAgentCanvasSnapshot,
 } from '../../components/panels/content-canvas/stores';
 import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
 import { useCurrentWorkspace } from '@/infrastructure/contexts/WorkspaceContext';
+import { useI18n } from '@/infrastructure/i18n';
 import type { PanelContent as OldPanelContent } from '../../components/panels/base/types';
 import type { PanelContent } from '../../components/panels/content-canvas/types';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
@@ -39,6 +39,7 @@ interface AuxPaneProps {
 
 const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
   ({ workspacePath, isSceneActive = true, terminalResizeSuspended = false }, ref) => {
+    const { t } = useI18n('components');
     const { workspace } = useCurrentWorkspace();
     const workspaceId = workspace?.id;
 
@@ -102,8 +103,7 @@ const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
 
     const prevWorkspaceIdRef = useRef<string | undefined>(undefined);
 
-    useEffect(() => {
-      const next = workspaceId;
+    const syncAgentCanvasWorkspace = useCallback((next: string | undefined) => {
       const prev = prevWorkspaceIdRef.current;
       if (prev === next) return;
 
@@ -114,7 +114,7 @@ const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
       switchAgentCanvasWorkspace(prev ?? null, next ?? null);
       syncSessionOwnedBrowserTabs(flowChatStore.getState().activeSessionId);
       prevWorkspaceIdRef.current = next;
-    }, [syncSessionOwnedBrowserTabs, workspaceId]);
+}, [syncSessionOwnedBrowserTabs, workspaceId]);
 
     useEffect(() => {
       let previousSessionId: string | null | undefined;
@@ -130,12 +130,21 @@ const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
 
     useEffect(() => {
       const removeListener = workspaceManager.addEventListener((event) => {
+        if (
+          event.type === 'workspace:switched'
+          || event.type === 'workspace:active-changed'
+        ) {
+          // WorkspaceManager emits these events synchronously while activation is
+          // still in progress. Swap the canvas before callers can open the target
+          // session's review tab; the context effect above remains a fallback.
+          syncAgentCanvasWorkspace(event.workspace?.id);
+        }
         if (event.type === 'workspace:closed') {
           removeAgentCanvasSnapshot(event.workspaceId);
         }
       });
       return () => removeListener();
-    }, []);
+    }, [syncAgentCanvasWorkspace]);
 
     const handleInteraction = useCallback(async (itemId: string, userInput: string) => {
       log.debug('Panel interaction', { itemId, userInput });
@@ -155,7 +164,15 @@ const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
           onBeforeClose={handleBeforeClose}
           terminalResizeSuspended={terminalResizeSuspended}
           missionControlEnabled={false}
-          emptyState={<GlobalSearchContent active={isSceneActive} variant="embedded" />}
+          emptyState={
+            <div
+              className="openbitfun-aux-pane__empty-state"
+              data-openbitfun-component="aux-pane"
+              data-openbitfun-part="emptyState"
+            >
+              {t('canvas.noContentOpen')}
+            </div>
+          }
         />
       </div>
     );

@@ -21,7 +21,7 @@
       "editor": { "label": "Editor", "description": "Code editor appearance, indentation, display, and formatting." },
       "models": { "label": "Models", "description": "Default models, providers, subscriptions, catalog, and network proxy." },
       "memory": { "label": "Memory", "description": "Memory generation, use, extraction, and consolidation." },
-      "sessionWorkspace": { "label": "Session & Workspace", "description": "Session titles and current workspace search." },
+      "sessionWorkspace": { "label": "Session & Workspace", "description": "Default Harness, session titles, and current workspace search." },
       "worktrees": { "label": "Worktrees", "description": "Git worktree isolation and parallel-session defaults." },
       "execution": { "label": "Execution & Permissions", "description": "Tool permissions, execution, review, and recovery settings." },
       "browserDesktopControl": { "label": "Browser & Desktop Control", "description": "Browser connections, desktop interaction, and required system permissions." },

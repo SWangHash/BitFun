@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { useModernFlowChatStore } from '@/flow_chat/store/modernFlowChatStore';
 import type { Session } from '@/flow_chat/types/flow-chat';
 import { activateSurface, LOCAL_SURFACE_ID } from '@/infrastructure/peer-device/deviceSurface';
-import { useSceneStore } from '../stores/sceneStore';
+import { selectActiveSceneId, useSceneStore } from '../stores/sceneStore';
+import { resolveSessionSceneTarget } from './sessionSceneTarget';
+import { workspaceManager, type WorkspaceEventListener } from '@/infrastructure/services/business/workspaceManager';
+import type { WorkspaceInfo } from '@/shared/types';
 import { startSessionSceneLifecycle } from './sessionSceneLifecycle';
 
 function session(sessionId: string, overrides: Partial<Session> = {}): Session {
@@ -39,11 +42,13 @@ describe('Session scene resource lifetime with real stores', () => {
     select([], null);
     useModernFlowChatStore.getState().clear();
     useSceneStore.getState().resetForPeerSwitch();
+    stop = startSessionSceneLifecycle();
   });
 
   afterEach(() => {
     stop?.();
     stop = undefined;
+    vi.restoreAllMocks();
     activateSurface(LOCAL_SURFACE_ID);
     select([], null);
     useModernFlowChatStore.getState().clear();
@@ -53,7 +58,6 @@ describe('Session scene resource lifetime with real stores', () => {
   it('removes the last session tab, projection and navigation history together', () => {
     select([session('last')], 'last');
     useSceneStore.getState().openScene('session');
-    stop = startSessionSceneLifecycle();
 
     flowChatStore.removeSession('last', { nextActiveSessionId: null });
 
@@ -66,11 +70,136 @@ describe('Session scene resource lifetime with real stores', () => {
     });
   });
 
+  it('retains different workspaces and replaces only the selected workspace session', () => {
+    const first = session('a1', { workspacePath: '/projects/a' });
+    const second = session('a2', { workspacePath: '/projects/a' });
+    const other = session('b1', { workspacePath: '/projects/b' });
+    select([first, second, other], first.sessionId);
+    useSceneStore.getState().openScene('session');
+    const firstTabId = useSceneStore.getState().activeTabId;
+
+    flowChatStore.switchSession(other.sessionId);
+    useSceneStore.getState().openScene('session');
+    const otherTabId = useSceneStore.getState().activeTabId;
+    flowChatStore.switchSession(second.sessionId);
+    useSceneStore.getState().openScene('session');
+
+    expect(useSceneStore.getState().openTabs.map(tab => [tab.id, tab.session?.sessionId])).toEqual([
+      [firstTabId, second.sessionId], [otherTabId, other.sessionId],
+    ]);
+    expect(useSceneStore.getState().activeTabId).toBe(firstTabId);
+    expect(flowChatStore.getState().sessions.size).toBe(3);
+  });
+
+  it('preserves workspace tabs during a temporary empty selection', () => {
+    const first = session('a', { workspacePath: '/a' });
+    const second = session('b', { workspacePath: '/b' });
+    select([first, second], 'a');
+    useSceneStore.getState().openScene('session');
+    select([first, second], null);
+    expect(useSceneStore.getState().openTabs.map(tab => tab.session?.sessionId)).toEqual(['a']);
+    select([first, second], 'b');
+    expect(useSceneStore.getState().openTabs.map(tab => tab.session?.sessionId)).toEqual(['a', 'b']);
+  });
+
+  it('defers legacy identity changes until pending navigation commits', () => {
+    const original = session('legacy');
+    select([original], original.sessionId);
+    useSceneStore.getState().openScene('session');
+    const tabId = useSceneStore.getState().activeTabId!;
+    useSceneStore.setState({ pendingTabId: tabId });
+    select([{ ...original, workspaceId: 'known-workspace' }], original.sessionId);
+    expect(useSceneStore.getState().activeTabId).toBe(tabId);
+    useSceneStore.setState({ pendingTabId: null });
+    expect(useSceneStore.getState().activeTabId).not.toBe(tabId);
+    expect(useSceneStore.getState().openTabs).toHaveLength(1);
+    expect(useSceneStore.getState().openTabs[0].session?.sessionId).toBe(original.sessionId);
+    expect(useSceneStore.getState().navHistory).not.toContain(tabId);
+  });
+
+  it('removes a deleted background workspace tab without stealing focus', () => {
+    const first = session('a', { workspacePath: '/a' });
+    const second = session('b', { workspacePath: '/b' });
+    select([first, second], 'a');
+    useSceneStore.getState().openScene('session');
+    flowChatStore.switchSession('b');
+    const activeTabId = useSceneStore.getState().activeTabId;
+    flowChatStore.removeSession('a');
+    expect(useSceneStore.getState().activeTabId).toBe(activeTabId);
+    expect(useSceneStore.getState().openTabs.map(tab => tab.session?.sessionId)).toEqual(['b']);
+    expect(flowChatStore.getActiveSession()?.sessionId).toBe('b');
+  });
+
+  it('closing a background tab keeps its active session available', () => {
+    const first = session('a', { workspacePath: '/a', status: 'active' });
+    const second = session('b', { workspacePath: '/b' });
+    select([first, second], 'a');
+    useSceneStore.getState().openScene('session');
+    const firstTabId = useSceneStore.getState().activeTabId!;
+    flowChatStore.switchSession('b');
+    useSceneStore.getState().closeScene(firstTabId);
+    expect(flowChatStore.getState().sessions.get('a')).toBe(first);
+    expect(flowChatStore.getActiveSession()?.sessionId).toBe('b');
+    expect(useSceneStore.getState().navHistory).not.toContain(firstTabId);
+  });
+
+  it.each(['legacy', 'bound', 'worktree', 'remote'] as const)(
+    'retires a closed %s workspace tab without reactivating its cached session', kind => {
+      stop?.();
+      const workspace = {
+        id: 'closing', rootPath: '/projects/a',
+        ...(kind === 'remote' ? { connectionId: 'ssh-a', sshHost: 'host-a' } : {}),
+      } as WorkspaceInfo;
+      const first = session('a', {
+        workspacePath: kind === 'worktree' ? '/worktrees/a' : workspace.rootPath,
+        ...(kind === 'bound' ? { workspaceId: workspace.id } : {}),
+        ...(kind === 'worktree' ? { projectWorkspacePath: workspace.rootPath } : {}),
+        ...(kind === 'remote' ? { remoteConnectionId: 'ssh-a', remoteSshHost: 'host-a' } : {}),
+      });
+      const workspaceState = {
+        ...workspaceManager.getState(), currentWorkspace: workspace,
+        activeWorkspaceId: workspace.id, openedWorkspaces: new Map([[workspace.id, workspace]]),
+      };
+      let onWorkspaceEvent: WorkspaceEventListener = () => {};
+      vi.spyOn(workspaceManager, 'getState').mockImplementation(() => workspaceState);
+      vi.spyOn(workspaceManager, 'addEventListener').mockImplementation(listener => {
+        onWorkspaceEvent = listener;
+        return () => {};
+      });
+      select([first], first.sessionId);
+      stop = startSessionSceneLifecycle();
+      useSceneStore.getState().openScene('settings');
+      useSceneStore.getState().openScene('session');
+      const tabId = useSceneStore.getState().activeTabId;
+      const open = vi.spyOn(useSceneStore.getState(), 'openSessionScene');
+
+      workspaceState.openedWorkspaces = new Map();
+      onWorkspaceEvent({ type: 'workspace:closed', workspaceId: workspace.id });
+
+      expect(open).not.toHaveBeenCalled();
+      expect(useSceneStore.getState().openTabs.map(tab => tab.id)).toEqual(['settings']);
+      expect(useSceneStore.getState().activeTabId).toBe('settings');
+      expect(useSceneStore.getState().navHistory).not.toContain(tabId);
+      expect(flowChatStore.getState().sessions.get(first.sessionId)).toBe(first);
+      // The active session may lag the workspace update until hydrate completes.
+      select([{ ...first, title: 'Late update' }], first.sessionId);
+      expect(useSceneStore.getState().openTabs.map(tab => tab.id)).toEqual(['settings']);
+    },
+  );
+
+  it('does not reopen a closed tab when its session is updated in the background', () => {
+    const first = session('a');
+    select([first], 'a');
+    useSceneStore.getState().openScene('session');
+    useSceneStore.getState().closeScene(useSceneStore.getState().activeTabId!);
+    select([{ ...first, title: 'Background title' }], 'a');
+    expect(useSceneStore.getState().openTabs).toEqual([]);
+  });
+
   it('returns to another open tab when the selected session disappears', () => {
     select([session('active')], 'active');
     useSceneStore.getState().openScene('settings');
     useSceneStore.getState().openScene('session');
-    stop = startSessionSceneLifecycle();
 
     flowChatStore.removeSession('active');
 
@@ -86,7 +215,6 @@ describe('Session scene resource lifetime with real stores', () => {
     select([session('active')], 'active');
     useSceneStore.getState().openScene('session');
     useSceneStore.getState().openScene('settings');
-    stop = startSessionSceneLifecycle();
 
     flowChatStore.removeSessionsForWorkspace({ rootPath: '/workspace/project' });
 
@@ -97,11 +225,10 @@ describe('Session scene resource lifetime with real stores', () => {
   it('keeps a valid replacement selection when another session is removed', () => {
     select([session('removed'), session('retained')], 'retained');
     useSceneStore.getState().openScene('session');
-    stop = startSessionSceneLifecycle();
 
     flowChatStore.removeSession('removed');
 
-    expect(useSceneStore.getState().activeTabId).toBe('session');
+    expect(selectActiveSceneId(useSceneStore.getState())).toBe('session');
     expect(useModernFlowChatStore.getState().activeSession?.sessionId).toBe('retained');
   });
 
@@ -112,18 +239,18 @@ describe('Session scene resource lifetime with real stores', () => {
       });
       select([retained], retained.sessionId);
       useSceneStore.getState().openScene('session');
-      stop = startSessionSceneLifecycle();
 
-      expect(useSceneStore.getState().activeTabId).toBe('session');
+
+      expect(selectActiveSceneId(useSceneStore.getState())).toBe('session');
       expect(useModernFlowChatStore.getState().activeSession).toBe(retained);
     },
   );
 
   it('reconciles orphan tabs and stale presentation when the shell remounts', () => {
+    stop?.();
     const stale = session('stale');
     useModernFlowChatStore.getState().setActiveSession(stale);
-    useSceneStore.getState().openScene('session');
-
+    useSceneStore.getState().openSessionScene(resolveSessionSceneTarget(stale, [], 'local'));
     stop = startSessionSceneLifecycle();
 
     expect(useSceneStore.getState().activeTabId).toBeNull();
@@ -137,7 +264,6 @@ describe('Session scene resource lifetime with real stores', () => {
     const retained = session('retained');
     select([retained], 'missing');
     useSceneStore.getState().openScene('session');
-    stop = startSessionSceneLifecycle();
 
     expect(useSceneStore.getState().activeTabId).toBeNull();
     expect(flowChatStore.getState().sessions.get('retained')).toBe(retained);
@@ -147,7 +273,6 @@ describe('Session scene resource lifetime with real stores', () => {
     const local = session('local-session');
     select([local], local.sessionId);
     useSceneStore.getState().openScene('session');
-    stop = startSessionSceneLifecycle();
 
     activateSurface('empty-peer-lifecycle-test');
     expect(useSceneStore.getState().activeTabId).toBeNull();
@@ -158,22 +283,22 @@ describe('Session scene resource lifetime with real stores', () => {
     expect(useModernFlowChatStore.getState().activeSession).toBe(local);
     expect(useSceneStore.getState().openTabs).toEqual([]);
     useSceneStore.getState().openScene('session');
-    expect(useSceneStore.getState().activeTabId).toBe('session');
+    expect(selectActiveSceneId(useSceneStore.getState())).toBe('session');
   });
 
   it('allows a newly established session to open after the empty state', () => {
-    stop = startSessionSceneLifecycle();
+
     select([session('created')], 'created');
     expect(useSceneStore.getState().openTabs).toEqual([]);
 
     useSceneStore.getState().openScene('session');
-    expect(useSceneStore.getState().activeTabId).toBe('session');
+    expect(selectActiveSceneId(useSceneStore.getState())).toBe('session');
     expect(useModernFlowChatStore.getState().activeSession?.sessionId).toBe('created');
   });
 
   it('clears previous visible-turn metadata when selecting another session', () => {
     select([session('first')], 'first');
-    stop = startSessionSceneLifecycle();
+
     useModernFlowChatStore.getState().setVisibleTurnInfo({
       turnIndex: 2, totalTurns: 3, userMessage: 'old', turnId: 'old-turn', visibleTurnIds: ['old-turn'],
     });
@@ -184,14 +309,14 @@ describe('Session scene resource lifetime with real stores', () => {
   });
 
   it('stops observing both stores when the shell unmounts', () => {
-    stop = startSessionSceneLifecycle();
-    stop();
+
+    stop?.();
     stop = undefined;
 
     useSceneStore.getState().openScene('session');
     select([session('later')], 'later');
 
-    expect(useSceneStore.getState().activeTabId).toBe('session');
+    expect(useSceneStore.getState().openTabs).toEqual([]);
     expect(useModernFlowChatStore.getState().activeSession).toBeNull();
   });
 });

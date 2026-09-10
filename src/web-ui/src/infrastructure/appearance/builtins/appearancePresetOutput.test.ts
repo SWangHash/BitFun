@@ -1,4 +1,4 @@
-import { themes } from '@openbitfun/theme-openbitfun';
+import { themeCssVariables, themes, type ThemeTokenName } from '@openbitfun/theme-openbitfun';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
@@ -45,6 +45,67 @@ function statusContrast(content: string, tint: string, background: string): numb
 }
 
 describe('builtin appearance preset output', () => {
+  it('keeps published light field states in root and chrome while preserving named palettes', () => {
+    const settings = getBuiltinAppearance('openbitfun-light')?.renderers?.['theme-tokens']?.settings;
+    for (const tokens of [settings?.tokens, settings?.scopes?.chrome].filter(Boolean)) {
+      for (const [name, value] of Object.entries(themes.light)) {
+        if (name.startsWith('color.field.') || name === 'color.actionCard.background') expect(tokens?.[themeCssVariables[name as ThemeTokenName]]).toBe(value);
+      }
+    }
+    expect(settings?.tokens['--openbitfun-color-field-border']).toBe('rgba(0, 0, 0, 0.08)');
+    expect(settings?.tokens['--openbitfun-color-field-border-hover']).toBe('rgba(0, 0, 0, 0.20)');
+    expect(settings?.tokens['--openbitfun-color-field-border-active']).toBe('rgba(0, 0, 0, 0.20)');
+    expect(settings?.tokens['--openbitfun-color-field-border-focus']).toBe(themes.light['color.field.borderFocus']);
+    expect(settings?.tokens['--openbitfun-color-field-group-background']).toBe('rgba(0, 0, 0, 0.03)');
+    expect(settings?.tokens['--openbitfun-color-field-placeholder']).toBe('rgba(0, 0, 0, 0.40)');
+    for (const palette of builtinAppearancePalettes) {
+      if (palette.id === 'openbitfun-light') continue;
+      const tokens = getBuiltinAppearanceThemeTokens(palette.id);
+      expect(tokens['--openbitfun-color-action-card-background']).toBe(palette.colors.element.base);
+      expect(tokens['--openbitfun-color-field-border']).toBe(palette.colors.border.base);
+      expect(tokens['--openbitfun-color-field-border-focus']).toBe(palette.colors.accent[500]);
+      expect(tokens['--openbitfun-color-field-border-active']).toBe(palette.colors.accent[500]);
+      expect(tokens['--openbitfun-color-field-group-background']).toBe(palette.colors.background.tertiary);
+      expect(tokens['--openbitfun-color-field-placeholder']).toBe(palette.colors.text.muted);
+    }
+  });
+  it('uses the public Button palette in default appearances without changing shared action colors', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      const appearance = getBuiltinAppearance(`openbitfun-${mode}`);
+      const settings = appearance?.renderers?.['theme-tokens']?.settings;
+      for (const [name, value] of Object.entries(themes[mode])) {
+        if (!name.startsWith('component.button.')) continue;
+        expect(settings?.tokens[themeCssVariables[name as ThemeTokenName]]).toBe(value);
+      }
+    }
+    const light = getBuiltinAppearanceThemeTokens('openbitfun-light');
+    expect(light['--openbitfun-component-button-content']).toBe('rgba(0, 0, 0, 0.80)');
+    expect(light['--openbitfun-component-button-text-content']).toBe('#059cb0');
+    expect(light['--openbitfun-color-action-primary-background']).toBe('#101a27');
+    expect(light['--openbitfun-color-action-neutral-content']).toBe('rgba(0, 0, 0, 0.80)');
+  });
+
+  it('preserves the action colors of branded presets through the Button contract', () => {
+    for (const palette of builtinAppearancePalettes) {
+      if (palette.id === 'openbitfun-light' || palette.id === 'openbitfun-dark') continue;
+      const tokens = getBuiltinAppearanceThemeTokens(palette.id);
+      expect(tokens['--openbitfun-component-button-primary-background']).toBe(tokens['--openbitfun-color-action-primary-background']);
+      expect(tokens['--openbitfun-component-button-text-content']).toBe(tokens['--openbitfun-color-accent-default']);
+      expect(tokens['--openbitfun-component-button-content']).toBe(tokens['--openbitfun-color-action-neutral-content']);
+    }
+  });
+
+  it('keeps menu label and caption colors consistent between the public light theme and product portals', () => {
+    const settings = getBuiltinAppearance('openbitfun-light')!.renderers!['theme-tokens']!.settings;
+    for (const tokens of [settings.tokens, ...(settings.scopes?.chrome ? [settings.scopes.chrome] : [])]) {
+      expect(tokens['--openbitfun-color-action-neutral-content']).toBe(themes.light['color.action.neutral.content']);
+      expect(tokens['--openbitfun-color-content-caption']).toBe(themes.light['color.content.caption']);
+    }
+    for (const palette of builtinAppearancePalettes.filter(p => p.id !== 'openbitfun-light')) {
+      expect(getBuiltinAppearanceThemeTokens(palette.id)['--openbitfun-color-action-neutral-content']).toBe(palette.colors.text.secondary);
+    }
+  });
+
   it('formats hex palette references as stable rgb strings', () => {
     expect(rgbFromHex('#00e6ff')).toBe('rgb(0, 230, 255)');
     expect(rgbaFromHex('#00e6ff', 0.12)).toBe('rgba(0, 230, 255, 0.12)');

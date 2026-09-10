@@ -189,7 +189,7 @@ const NurseryGallery: React.FC = () => {
         actions={(
           <Button
             type="button"
-            variant="fill"
+            variant="primary"
             size="sm"
             onClick={handleCreateAssistant}
             disabled={creating}
@@ -298,7 +298,7 @@ const NurseryGallery: React.FC = () => {
               action={(
                 <Button
                   type="button"
-                  variant="fill"
+                  variant="primary"
                   size="sm"
                   onClick={handleCreateAssistant}
                   disabled={creating}

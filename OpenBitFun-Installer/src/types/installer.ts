@@ -83,7 +83,6 @@ export interface InstallOptions {
   desktopShortcut: boolean;
   startMenu: boolean;
   launchAfterInstall: boolean;
-  migrateLegacyData: boolean;
   appLanguage: AppLanguage;
   themePreference: ThemePreferenceId;
   modelConfig: ModelConfig | null;
@@ -110,7 +109,6 @@ export const DEFAULT_OPTIONS: InstallOptions = {
   desktopShortcut: true,
   startMenu: true,
   launchAfterInstall: true,
-  migrateLegacyData: false,
   appLanguage: 'zh-CN',
   themePreference: SYSTEM_THEME_ID,
   modelConfig: null,

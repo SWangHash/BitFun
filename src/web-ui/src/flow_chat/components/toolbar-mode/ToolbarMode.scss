@@ -225,22 +225,7 @@ $transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--openbitfun-color-content-muted) 45%, transparent) transparent;
   -ms-overflow-style: auto;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--openbitfun-color-content-muted) 40%, transparent);
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
 }
 
 .openbitfun-toolbar-mode__session-dropdown {

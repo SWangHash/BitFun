@@ -632,6 +632,7 @@
     "codeBlock": "代码块",
     "image": "图片",
     "url": "URL",
+    "dropToAdd": "松开即可添加",
     "dragHint": "拖放文件到此处添加上下文"
   },
   "agent": {
@@ -750,6 +751,7 @@
       "profileChangeOutcomeUnknown": "暂时无法确认 Harness 是否已切换，请刷新会话后再重试。",
       "profileUnavailable": "当前 OpenBitFun Host 不支持该 Harness。",
       "profileChangeFailed": "切换 Harness 失败，请重试。",
+      "rememberFailed": "Harness 已切换，但未能记住本次选择。之后的新会话可能继续使用原默认设置。",
       "otherAgentsTitle": "智能体",
       "otherAgentsEmpty": "当前没有可用的主智能体",
       "unavailable": "不可用",
@@ -978,6 +980,8 @@
     "currentStatus": "当前状态: {{status}}"
   },
   "contextPicker": {
+    "skillsIncomplete": "部分技能扫描失败，已成功读取的技能仍可使用。",
+    "skillsDiagnosticsUnavailable": "当前主机不提供技能扫描诊断。",
     "menuTitle": "选择上下文",
     "searchResults": "搜索结果",
     "loading": "加载中...",
@@ -1427,9 +1431,10 @@
     "sendInput": "发送输入",
     "sendInputUnavailable": "只能向正在运行的交互式命令发送输入。",
     "copy": "复制输出",
+    "copyRaw": "复制原始输出",
+    "replayIncomplete": "较早的输出已丢弃，无法完整恢复终端状态；保留内容可能显示不完整。",
+    "unknownGeometry": "无法确定源终端尺寸，不能准确重放输出。你仍可复制原始输出。",
     "copyCommand": "复制命令",
-    "simplifiedView": "简化显示",
-    "simplifiedViewTooltip": "隐藏终端控制符，让输出更易读。",
     "loading": "正在加载输出...",
     "empty": "暂未捕获到输出。",
     "remote": "远程",
@@ -1504,6 +1509,8 @@
     }
   },
   "exportImage": {
+    "collapsedThinking": "简洁长图",
+    "expandedThinking": "含思考长图",
     "subtitle": "AI 编程助手 · 对话记录",
     "poweredBy": "Powered by",
     "aiAssistant": "AI 编程助手",

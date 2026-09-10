@@ -175,11 +175,11 @@ const ActionFormModal: React.FC<ActionFormModalProps> = ({ isOpen, target, onClo
         </div>
 
         <div data-openbitfun-component="quick-actions-config" data-openbitfun-part="dialogFooter" className="quick-actions-config__modal-footer">
-          <Button variant="outline" size="sm" onClick={requestClose} disabled={saving}>
+          <Button variant="fill" size="sm" onClick={requestClose} disabled={saving}>
             {t('modal.cancel')}
           </Button>
           <Button
-            variant="fill"
+            variant="primary"
             size="sm"
             onClick={() => void onSubmit(label.trim(), prompt.trim())}
             disabled={!canSubmit || saving}

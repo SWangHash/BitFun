@@ -249,7 +249,7 @@ const InsightsScene: React.FC = () => {
           </div>
           {generating ? (
             <Button
-              variant="outline"
+              variant="fill"
               size="sm"
               leadingIcon={<Icon name="xmark" size="lg" />}
               onClick={cancelGeneration}
@@ -258,7 +258,7 @@ const InsightsScene: React.FC = () => {
             </Button>
           ) : (
             <Button
-              variant="fill"
+              variant="primary"
               size="sm"
               leadingIcon={<BarChart3 />}
               onClick={generateReport}

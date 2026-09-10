@@ -1,3 +1,4 @@
+import { ChatInputImagePreview } from './ChatInputImagePreview';
 /**
  * Standalone chat input component
  * Separated from bottom bar, supports session-level state awareness
@@ -123,10 +124,8 @@ import { openBtwSessionInAuxPane, selectActiveBtwSessionTab } from '../services/
 import { resolveSessionRelationship } from '../utils/sessionMetadata';
 import { isProjectedSessionEmpty } from '../utils/flowChatTurnIdentity';
 import {
-  DEFAULT_CHAT_INPUT_MODE_CONFIG_PATH,
   canSwitchSessionMainAgent,
   isChatInputActionVisibleForTarget,
-  normalizeUserDefaultChatInputModeId,
   resolveAvailableChatInputMode,
   resolveChatInputCanUseSkills,
   resolveChatInputMainAgentModes,
@@ -136,6 +135,10 @@ import {
   resolveSessionAssistantWorkspace,
   hasCompleteThreadGoalTools,
 } from '../utils/chatInputMode';
+import {
+  chatInputModePreferenceService,
+  resolveConfiguredChatInputDefaultModeId,
+} from '../services/ChatInputModePreferenceService';
 import {
   resolveComposerExecutionLevelSelection,
   resolveChatInputExecutionLevelPolicy,
@@ -274,6 +277,9 @@ const log = createLogger('ChatInput');
 export interface ChatInputProps {
   className?: string;
   isSceneActive?: boolean;
+  /** The host conversation area that accepts files for this composer. */
+  fileDropTargetRef?: React.RefObject<HTMLElement | null>;
+  onFileDragOverChange?: (isOver: boolean) => void;
   /**
    * Optional content and transport registration for hosts that embed the
    * standard composer. The registration never replaces ChatInput's UI.
@@ -481,6 +487,8 @@ interface ExternalFileIntakeRequest {
 export const ChatInput: React.FC<ChatInputProps> = ({
   className = '',
   isSceneActive = true,
+  fileDropTargetRef,
+  onFileDragOverChange,
   registration,
 }) => {
   const deviceSurfaceScope = getActiveSurfaceScope();
@@ -503,6 +511,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const richTextInputRef = useRef<RichTextInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const externalFileDropTargetRef = useRef<HTMLDivElement>(null);
+  const [nativeFileDragOver, setNativeFileDragOver] = useState(false);
+  const [contextFileDragOver, setContextFileDragOver] = useState(false);
   const inputAreaAnchorRef = useRef<HTMLDivElement>(null);
   const agentBoostRef = useRef<HTMLDivElement>(null);
   const boostTriggerRef = useRef<HTMLSpanElement>(null);
@@ -1482,6 +1492,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     loading: resolvedModeSkillsLoading,
     hasLoaded: resolvedModeSkillsLoaded,
     failed: resolvedModeSkillsLoadFailed,
+    diagnostics: resolvedSkillDiagnostics,
+    diagnosticsAvailable: resolvedSkillDiagnosticsAvailable,
     retry: retryResolvedModeSkills,
   } = useResolvedModeSkills({
     enabled: isSceneActive && canUseSkillsForTarget && (
@@ -1494,9 +1506,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     modeId: effectiveSendAgentType,
     workspacePath: targetWorkspacePath,
   });
+  const skillReferenceNames = useMemo(
+    () => Object.fromEntries(resolvedModeSkills.map(skill => [skill.key, skill.name])),
+    [resolvedModeSkills],
+  );
   const userInvocableSkills = useMemo(
-    // Management keeps the full catalog; invocation surfaces apply both runtime and author visibility.
-    () => resolvedModeSkills.filter(isSkillAvailableForUserInvocation),
+    // All input pickers use the host-selected winner for each skill name.
+    () => {
+      const seenNames = new Set<string>();
+      return resolvedModeSkills.filter(skill => {
+        if (!skill.selectedForRuntime || !isSkillAvailableForUserInvocation(skill)
+          || !skill.name.trim() || seenNames.has(skill.name)) return false;
+        seenNames.add(skill.name);
+        return true;
+      });
+    },
     [resolvedModeSkills]
   );
 
@@ -1506,7 +1530,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       : [],
     [canUseSkillsForTarget, resolvedModeSkills],
   );
-  const showAdditionalModes = quickSkillShortcuts.length > 0;
+  // Claw is the fixed runtime owner for Assistant sessions, so presenting
+  // quick Skills as alternate modes in their add menu is misleading.
+  const showAdditionalModes = chatInputModePolicy.fixedModeId !== 'Claw'
+    && quickSkillShortcuts.length > 0;
   const boostMenuLayoutRevision = quickSkillShortcuts
     .map(shortcut => shortcut.id)
     .join('|');
@@ -2889,21 +2916,29 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   React.useEffect(() => {
     let cancelled = false;
 
-    (async () => {
-      try {
-        const value = await configAPI.getConfig(DEFAULT_CHAT_INPUT_MODE_CONFIG_PATH, {
-          skipRetryOnNotFound: true,
-        });
-        if (!cancelled) {
-          setUserDefaultModeId(normalizeUserDefaultChatInputModeId(value));
-        }
-      } catch (error) {
-        log.warn('Failed to load default chat input mode preference', { error });
+    const publishPreference = (
+      preference: Awaited<ReturnType<typeof chatInputModePreferenceService.getPreference>>,
+    ) => {
+      if (!cancelled) {
+        setUserDefaultModeId(resolveConfiguredChatInputDefaultModeId(preference));
       }
-    })();
+    };
+
+    void chatInputModePreferenceService.getPreference()
+      .then(publishPreference)
+      .catch(error => {
+        log.warn('Failed to load default chat input mode preference', { error });
+      });
+    const unsubscribe = chatInputModePreferenceService.subscribe(
+      publishPreference,
+      error => {
+        log.warn('Failed to refresh default chat input mode preference', { error });
+      },
+    );
 
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 
@@ -2915,11 +2950,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       if (sessionId && mode) {
         log.debug('Session switched, syncing mode', { sessionId, mode });
         dispatchMode({ type: 'SET_CURRENT_MODE', payload: mode });
-        try {
-          sessionStorage.setItem('openbitfun:flowchat:lastMode', mode);
-        } catch {
-          // ignore
-        }
       }
     };
 
@@ -2957,11 +2987,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         publishModeSelection(nextMode);
       } else {
         dispatchMode({ type: 'SET_CURRENT_MODE', payload: nextMode });
-        try {
-          sessionStorage.setItem('openbitfun:flowchat:lastMode', nextMode);
-        } catch {
-          // ignore
-        }
       }
     }
   }, [
@@ -3182,12 +3207,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
 
     const q = (slashCommandState.query || '').trim().toLowerCase();
-    const seenNames = new Set<string>();
+    const seenKeys = new Set<string>();
     return userInvocableSkills
       .filter(skill => {
         const normalizedName = skill.name.trim();
         const normalizedNameKey = normalizedName.toLowerCase();
-        if (!normalizedName || seenNames.has(normalizedNameKey)) {
+        if (!normalizedName || seenKeys.has(skill.key)) {
           return false;
         }
         if (!isSlashAddressableSkillName(normalizedName)) {
@@ -3199,7 +3224,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           normalizedNameKey.includes(q) ||
           skill.description.toLowerCase().includes(q);
         if (matches) {
-          seenNames.add(normalizedNameKey);
+          seenKeys.add(skill.key);
         }
         return matches;
       })
@@ -4305,12 +4330,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       type: 'SET_CURRENT_MODE',
       payload: modeId,
     });
-
-    try {
-      sessionStorage.setItem('openbitfun:flowchat:lastMode', modeId);
-    } catch {
-      // ignore
-    }
   }, [effectiveTargetSessionId]);
 
   const sessionModeSelectionTarget = useMemo(() => effectiveTargetSessionId && effectiveTargetSession
@@ -4328,6 +4347,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       log.error('Failed to update Session agent mode', { error, modeId });
       notificationService.error(t('chatInput.modeChangeFailed'));
   }, [t]);
+  const rememberCommittedHarnessMode = useCallback((modeId: string) => {
+    void chatInputModePreferenceService.rememberMode(modeId)
+      .then(preference => {
+        setUserDefaultModeId(resolveConfiguredChatInputDefaultModeId(preference));
+      })
+      .catch(error => {
+        log.warn('Failed to remember ChatInput Harness selection', { error, modeId });
+        notificationService.warning(t('chatInput.harness.rememberFailed'));
+      });
+  }, [t]);
   const {
     isModeChangePending,
     publishModeSelection,
@@ -4336,6 +4365,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     sessionModeSelectionTarget,
     publishSessionModeSelection,
     reportModeSelectionFailure,
+    rememberCommittedHarnessMode,
   );
 
   const requestHarnessProfileChange = useCallback(async (profileId: SelectableHarnessProfileId) => {
@@ -4418,6 +4448,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         flowChatSessionConfigForCurrentWorkspace(workspace),
         modeId,
       );
+      rememberCommittedHarnessMode(modeId);
       const composer = sessionComposerStore.getState();
       composer.setValue(newSessionId, transferredDraft.value);
       composer.setContexts(newSessionId, transferredDraft.contexts);
@@ -4451,7 +4482,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     } finally {
       setIsHarnessSessionCreating(false);
     }
-  }, [isHarnessSessionCreating, replaceContexts, workspace]);
+  }, [isHarnessSessionCreating, rememberCommittedHarnessMode, replaceContexts, workspace]);
   
   const interruptedTurnRecovery = useMemo(
     () => selectInterruptedTurnRecovery(effectiveTargetSession, {
@@ -4771,12 +4802,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [addClipboardImageFiles, captureExternalFileIntakeRequest, enqueueExternalFileIntake]);
 
   useLocalFileDrop({
-    targetRef: externalFileDropTargetRef,
-    enabled: !isWindowsDesktopRuntime()
+    targetRef: fileDropTargetRef ?? externalFileDropTargetRef,
+    enabled: isSceneActive && !isWindowsDesktopRuntime()
       && !caps.transferInFlight
       && !isInterruptedTurnRecoveryInFlight,
     onDropPaths: paths => intakeExternalPaths('drop', paths),
+    onDragOver: setNativeFileDragOver,
   });
+
+  useEffect(() => {
+    onFileDragOverChange?.(isSceneActive && !caps.transferInFlight
+      && !isInterruptedTurnRecoveryInFlight && (nativeFileDragOver || contextFileDragOver));
+  }, [onFileDragOverChange, isSceneActive, caps.transferInFlight,
+    isInterruptedTurnRecoveryInFlight, nativeFileDragOver, contextFileDragOver]);
+
+  useEffect(() => () => onFileDragOverChange?.(false), [onFileDragOverChange]);
 
   const handleRecoverInterruptedTurn = useCallback(async () => {
     const candidate = interruptedTurnRecovery;
@@ -5185,7 +5225,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     const replaceInlineTrigger = getRichTextTriggerController()?.replaceActiveInlineTrigger;
 
     if (inlineTriggerState.isActive) {
-      replaceInlineTrigger?.(`[$${item.skillName}]`);
+      replaceInlineTrigger?.(createSkillPromptReferenceToken(item.skillName));
       setQueuedInput(null);
       setSlashCommandState({ isActive: false, kind: 'all', query: '', selectedIndex: 0 });
       window.setTimeout(() => richTextInputRef.current?.focus(), 0);
@@ -5840,9 +5880,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     <>
       {deepReviewConsentDialog}
       <ContextDropZone
+        extendedTargetRef={fileDropTargetRef}
+        onDragStateChange={setContextFileDragOver}
         acceptedTypes={['file', 'directory', 'image', 'code-snippet', 'mermaid-diagram']}
         className="openbitfun-chat-input-drop-zone"
-        disabled={isInterruptedTurnRecoveryInFlight}
+        disabled={!isSceneActive || caps.transferInFlight || isInterruptedTurnRecoveryInFlight}
         onExternalFilesDrop={
           isWindowsDesktopRuntime() && !caps.transferInFlight
             ? files => { void handleHtmlExternalFilesDrop(files); }
@@ -5958,26 +6000,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   data-testid="chat-input-image-strip"
                 >
                   {imageContexts.map(image => {
-                    const previewUrl = image.thumbnailUrl || image.dataUrl;
                     return (
                       <div data-openbitfun-component="chat-input" data-openbitfun-part="image"
                         key={image.id}
                         className="openbitfun-chat-input__image-chip"
                         title={image.imageName}
                       >
-                        {previewUrl ? (
-                          <img
-                            className="openbitfun-chat-input__image-chip-thumb"
-                            data-openbitfun-component="chat-input"
-                            data-openbitfun-part="imagePreview"
-                            src={previewUrl}
-                            alt={image.imageName}
-                          />
-                        ) : (
-                          <div className="openbitfun-chat-input__image-chip-thumb openbitfun-chat-input__image-chip-thumb--placeholder" data-openbitfun-component="chat-input" data-openbitfun-part="imagePreview">
-                            <Icon name="image" size="sm" />
-                          </div>
-                        )}
+                        <ChatInputImagePreview image={image} surfaceEpoch={deviceSurfaceScope.epoch} />
                         <button
                           type="button"
                           className="openbitfun-chat-input__image-chip-remove"
@@ -6008,6 +6037,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 onLargePaste={createLargePastePlaceholder}
                 onPasteFiles={handleClipboardFiles}
                 pendingLargePastes={pendingLargePastes}
+                skillReferenceNames={skillReferenceNames}
                 onUpdateLargePaste={updateLargePaste}
                 onRemoveLargePaste={removeLargePaste}
                 onKeyDown={handleKeyDown}
@@ -6037,6 +6067,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 skills={canUseSkillsForTarget ? userInvocableSkills : []}
                 skillsLoading={resolvedModeSkillsLoading}
                 skillsLoadFailed={resolvedModeSkillsLoadFailed}
+                skillDiagnostics={resolvedSkillDiagnostics}
+                skillDiagnosticsAvailable={resolvedSkillDiagnosticsAvailable}
                 onRetrySkills={retryResolvedModeSkills}
                 onSelectSkill={canUseSkillsForTarget ? selectContextSkill : undefined}
                 onAddImage={!isAcpTargetSession ? handleContextPickerAddImage : undefined}
@@ -6086,7 +6118,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                               onMouseEnter={() => setSlashCommandState(prev => ({ ...prev, selectedIndex: index }))}
                             >
                               <OverflowText className="openbitfun-chat-input__slash-command-name" data-openbitfun-component="chat-input" data-openbitfun-part="commandName">{action.command}</OverflowText>
-                              <span className="openbitfun-chat-input__slash-command-label" data-openbitfun-component="chat-input" data-openbitfun-part="commandLabel">{action.label}</span>
+                              <OverflowText lines={2} className="openbitfun-chat-input__slash-command-label" data-openbitfun-component="chat-input" data-openbitfun-part="commandLabel" marqueeActive={index === slashCommandState.selectedIndex}>{action.label}</OverflowText>
                             </div>
                           ))
                         ) : (

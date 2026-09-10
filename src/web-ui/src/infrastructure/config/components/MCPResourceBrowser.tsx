@@ -138,7 +138,7 @@ export const MCPResourceBrowser: React.FC<MCPResourceBrowserProps> = ({ serverId
           </Button>
           {onClose && (
             <Button
-              variant="outline"
+              variant="fill"
               size="sm"
               onClick={onClose}
             >
@@ -183,7 +183,7 @@ export const MCPResourceBrowser: React.FC<MCPResourceBrowserProps> = ({ serverId
                 <div data-openbitfun-component="mcp-resource-browser" data-openbitfun-part="resourceInfo" className="resource-info">
                   <div className="resource-name"><OverflowText>{resource.name}</OverflowText></div>
                   {resource.description && (
-                    <div className="resource-description">{resource.description}</div>
+                    <OverflowText as="div" lines={2} className="resource-description">{resource.description}</OverflowText>
                   )}
                   <div className="resource-uri"><OverflowText>{resource.uri}</OverflowText></div>
                 </div>

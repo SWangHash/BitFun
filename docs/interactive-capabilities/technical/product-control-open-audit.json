@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "generatedFrom": "src/shared/interactive-capabilities/catalog.json",
-  "catalogDigest": "d7a7419ddd673eb733ae8bd33dbb3dcd3b4d1ce0acfc953067a3403fe26d6699",
-  "count": 212,
+  "catalogDigest": "409e6dbef7ebceafccc11606e2855227b9a33fa1ed71f5b4608da04e8a23de7d",
+  "count": 213,
   "reasonCounts": {
     "externalAuth": 4,
     "secretEntry": 5,
-    "unstructuredInteraction": 185,
+    "unstructuredInteraction": 186,
     "visualSelection": 18
   },
   "entries": [
@@ -2889,6 +2889,23 @@
         "command:reset_memory",
         "source:src/web-ui/src/locales/zh-CN/settings/memory.json#actions.resetSettings",
         "command:reset_config"
+      ]
+    },
+    {
+      "capabilityId": "setting.workspace.session",
+      "itemId": "default-agent-harness",
+      "titleZh": "让普通新会话跟随 ChatInput 上次选择，或固定使用指定 Harness",
+      "titleEn": "Make regular new sessions follow the last ChatInput selection or use a fixed Harness",
+      "reasonCode": "unstructuredInteraction",
+      "reasonZh": "“让普通新会话跟随 ChatInput 上次选择，或固定使用指定 Harness”由会话设置页中的关联控件共同管理，目前没有一个能确定完成整个流程的单一结构化 Command；Agent 会打开精确入口，并把选择保留在用户可见界面。",
+      "reasonEn": "“Make regular new sessions follow the last ChatInput selection or use a fixed Harness” is managed by related controls on the session settings page and currently has no single structured Command that can deterministically complete the whole workflow; the Agent opens the exact entry and keeps the selection visible to the user.",
+      "presentationTarget": {
+        "kind": "settings",
+        "pageId": "workspace.session"
+      },
+      "evidence": [
+        "source:src/web-ui/src/infrastructure/config/components/DefaultHarnessConfig.tsx#DefaultHarnessConfig",
+        "source:src/web-ui/src/locales/zh-CN/settings/runtime.json#defaultHarness.title"
       ]
     },
     {

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "digest": "fnv1a64:4cdcd7ff4dcd85a9",
+  "digest": "fnv1a64:255dceea3d2c1591",
   "retiredCommandPrefixes": [
     {
       "prefix": "lsp_",
@@ -6472,7 +6472,7 @@
     {
       "id": "search_build_index",
       "surface": "tauri_command",
-      "remoteWorkspace": "RemoteRouted",
+      "remoteWorkspace": "RemoteUnsupported",
       "peer": {
         "kind": "proxied"
       },
@@ -6520,7 +6520,7 @@
     {
       "id": "search_get_repo_status",
       "surface": "tauri_command",
-      "remoteWorkspace": "RemoteRouted",
+      "remoteWorkspace": "RemoteUnsupported",
       "peer": {
         "kind": "proxied"
       },
@@ -6532,7 +6532,7 @@
     {
       "id": "search_rebuild_index",
       "surface": "tauri_command",
-      "remoteWorkspace": "RemoteRouted",
+      "remoteWorkspace": "RemoteUnsupported",
       "peer": {
         "kind": "proxied"
       },

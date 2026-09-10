@@ -247,6 +247,29 @@ test("text, action, and field focus pairs meet their contrast requirements", () 
   }
 });
 
+test("Button states have a mode-complete palette independent from shared actions", () => {
+  const light = themes.light;
+  assert.equal(light["component.button.outlineBorder"], "rgba(0, 0, 0, 0.08)");
+  assert.equal(light["component.button.outlineBorderInteractive"], "transparent");
+  for (const suffix of ["", "Hover", "Pressed"]) {
+    assert.equal(light[`component.button.fillBackground${suffix}`], "rgba(0, 0, 0, 0.08)");
+  }
+  assert.equal(light["component.button.primaryBackground"], "rgba(0, 0, 0, 0.80)");
+  assert.equal(light["component.button.primaryBackgroundHover"], "rgba(0, 0, 0, 0.60)");
+  assert.equal(light["component.button.primaryBackgroundPressed"], "rgba(0, 0, 0, 0.90)");
+  assert.equal(light["component.button.primaryContentDisabled"], "rgba(0, 0, 0, 0.20)");
+  assert.equal(light["component.button.textContent"], "#059cb0");
+  assert.equal(light["component.button.textContentDisabled"], "rgba(5, 156, 176, 0.30)");
+  const names = Object.keys(light).filter(name => name.startsWith("component.button."));
+  for (const [mode, values] of Object.entries(themes)) {
+    assert.deepEqual(Object.keys(values).filter(name => name.startsWith("component.button.")), names);
+    if (mode === "light") continue;
+    assert.equal(values["component.button.primaryBackground"], values["color.action.primary.background"]);
+    assert.equal(values["component.button.outlineBorderInteractive"], values["color.action.neutral.border"]);
+    assert.equal(values["component.button.fillBackgroundPressed"], values["color.action.neutral.surfacePressed"]);
+  }
+});
+
 test("default modes preserve the built-in Appearance anchor values", () => {
   assert.equal(themes.light["color.surface.canvas"], "#fdfdfd");
   assert.equal(themes.light["color.content.primary"], "rgba(0, 0, 0, 0.80)");
@@ -298,7 +321,7 @@ test("default modes preserve the built-in Appearance anchor values", () => {
   assert.equal(themes.light["color.status.warning.surface"], "rgba(255, 140, 0, 0.1)");
   assert.equal(themes.light["shadow.base"], "0 4px 8px rgba(16, 26, 39, 0.07)");
   assert.equal(themes.light["shadow.composer"], "0 2px 6px rgba(0, 0, 0, 0.08)");
-  assert.equal(themes.light["shadow.menu"], "0 4px 10px rgba(0, 0, 0, 0.12)");
+  assert.equal(themes.light["shadow.menu"], "0 4px 20px rgba(0, 0, 0, 0.12)");
   assert.equal(themes.light["shadow.overlay"], "0 4px 20px rgba(0, 0, 0, 0.12)");
   assert.equal(themes.light["opacity.disabled"], 0.55);
   assert.equal(themes.dark["color.surface.canvas"], "#0e0e10");
@@ -350,11 +373,13 @@ test("public theme catalog contains only semantic theme tokens for every mode", 
   assert.equal(themeTokenCatalog.length, Object.keys(themes.light).length);
   for (const token of themeTokenCatalog) {
     assert.equal(
-      ["color.", "effect.", "opacity.", "shadow."].some((prefix) => token.name.startsWith(prefix)),
+      ["color.", "component.button.", "effect.", "opacity.", "shadow."].some((prefix) => token.name.startsWith(prefix)),
       true,
     );
     assert.equal(token.name.startsWith("ref."), false);
-    if (token.name.startsWith("color.")) assert.equal(token.type, "color");
+    if (token.name.startsWith("color.") || token.name.startsWith("component.button.")) {
+      assert.equal(token.type, "color");
+    }
     assert.deepEqual(Object.keys(token.values), themeModes);
   }
 });

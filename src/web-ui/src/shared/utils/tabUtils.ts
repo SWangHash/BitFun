@@ -449,13 +449,9 @@ export function createTerminalTab(
   mode: 'agent' | 'project' | 'bottom-terminal' = 'agent',
   options: CreateTerminalTabOptions = {}
 ): void {
-  const title = sessionName.length > 20 
-    ? `${sessionName.slice(0, 20)}...` 
-    : sessionName;
-
   const detail = {
     type: 'terminal',
-    title: `${title}`,
+    title: sessionName,
     data: { sessionId, sessionName },
     metadata: {
       isTerminal: true,

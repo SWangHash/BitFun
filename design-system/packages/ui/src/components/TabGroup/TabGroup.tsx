@@ -9,6 +9,7 @@ import {
 } from "react";
 import { classNames } from "../../internal/classNames";
 import { OverflowText } from "../../primitives/OverflowText";
+import { RollingText } from "../RollingText";
 import styles from "./TabGroup.module.css";
 
 export interface TabGroupItem {
@@ -17,6 +18,8 @@ export interface TabGroupItem {
   icon?: ReactNode;
   id?: string;
   label: ReactNode;
+  /** Opt plain text into vertical replacement without remounting the tab. */
+  labelTransitionKey?: string | number;
   panelId?: string;
   value: string;
 }
@@ -157,9 +160,20 @@ export const TabGroup = forwardRef<HTMLDivElement, TabGroupProps>(function TabGr
                   {item.icon}
                 </span>
               )}
-              <OverflowText behavior="marquee" className={styles.label} data-openbitfun-part="label">
-                {item.label}
-              </OverflowText>
+              {item.labelTransitionKey !== undefined
+                && (typeof item.label === "string" || typeof item.label === "number") ? (
+                <RollingText
+                  className={styles.label}
+                  data-openbitfun-part="label"
+                  transitionKey={item.labelTransitionKey}
+                >
+                  {item.label}
+                </RollingText>
+              ) : (
+                <OverflowText behavior="marquee" className={styles.label} data-openbitfun-part="label">
+                  {item.label}
+                </OverflowText>
+              )}
             </button>
             {hasEndAction && (
               <span className={styles.endAction} data-openbitfun-part="endAction">

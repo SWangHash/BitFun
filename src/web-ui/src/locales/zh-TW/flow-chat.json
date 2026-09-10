@@ -624,6 +624,7 @@
     "codeBlock": "代碼塊",
     "image": "圖片",
     "url": "URL",
+    "dropToAdd": "放開即可新增",
     "dragHint": "拖放檔案到此處新增上下文"
   },
   "agent": {
@@ -742,6 +743,7 @@
       "profileChangeOutcomeUnknown": "暫時無法確認 Harness 是否已切換，請重新整理工作階段後再重試。",
       "profileUnavailable": "目前 OpenBitFun Host 不支援該 Harness。",
       "profileChangeFailed": "切換 Harness 失敗，請重試。",
+      "rememberFailed": "Harness 已切換，但無法記住本次選擇。之後的新工作階段可能繼續使用原預設值。",
       "otherAgentsTitle": "智能體",
       "otherAgentsEmpty": "目前沒有可用的主智能體",
       "unavailable": "無法使用",
@@ -970,6 +972,8 @@
     "currentStatus": "目前狀態: {{status}}"
   },
   "contextPicker": {
+    "skillsIncomplete": "部分技能掃描失敗，已成功讀取的技能仍可使用。",
+    "skillsDiagnosticsUnavailable": "目前主機不提供技能掃描診斷。",
     "menuTitle": "選擇上下文",
     "searchResults": "搜尋結果",
     "loading": "載入中...",
@@ -1419,9 +1423,10 @@
     "sendInput": "傳送輸入",
     "sendInputUnavailable": "只能向正在運行的互動式命令傳送輸入。",
     "copy": "複製輸出",
+    "copyRaw": "複製原始輸出",
+    "replayIncomplete": "較早的輸出已捨棄，無法完整恢復終端狀態；保留內容可能顯示不完整。",
+    "unknownGeometry": "無法確定來源終端尺寸，不能準確重播輸出。你仍可複製原始輸出。",
     "copyCommand": "複製命令",
-    "simplifiedView": "簡化顯示",
-    "simplifiedViewTooltip": "隱藏終端控制符，讓輸出更易讀。",
     "loading": "正在載入輸出...",
     "empty": "暫未擷取到輸出。",
     "remote": "遠端",
@@ -1496,6 +1501,8 @@
     }
   },
   "exportImage": {
+    "collapsedThinking": "精簡長圖",
+    "expandedThinking": "含思考長圖",
     "subtitle": "AI 編程助手 · 對話記錄",
     "poweredBy": "Powered by",
     "aiAssistant": "AI 編程助手",

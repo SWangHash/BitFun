@@ -9,6 +9,16 @@ const mocks = vi.hoisted(() => ({
     openScene: vi.fn(),
   },
   switchChatSession: vi.fn(),
+  workspaceState: {
+    activeWorkspaceId: null as string | null,
+    currentWorkspace: null as { id: string; rootPath: string } | null,
+    openedWorkspaces: new Map(),
+  },
+  setActiveWorkspace: vi.fn(),
+}));
+
+vi.mock('@/infrastructure/services/business/workspaceManager', () => ({
+  workspaceManager: { getState: () => mocks.workspaceState, setActiveWorkspace: mocks.setActiveWorkspace },
 }));
 
 vi.mock('@/app/services/AppManager', () => ({
@@ -44,6 +54,10 @@ describe('openMainSession resource activation', () => {
     mocks.flowChatState.sessions = new Map();
     vi.clearAllMocks();
     mocks.switchChatSession.mockReset();
+    mocks.workspaceState.activeWorkspaceId = null;
+    mocks.workspaceState.currentWorkspace = null;
+    mocks.workspaceState.openedWorkspaces = new Map();
+    mocks.setActiveWorkspace.mockReset();
   });
 
   it('does not open a scene for a missing or removed session', async () => {
@@ -93,5 +107,45 @@ describe('openMainSession resource activation', () => {
 
     await expect(openMainSession('target')).rejects.toThrow('Host unavailable');
     expect(mocks.sceneState.openScene).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unavailable remote workspace instead of using the current local directory', async () => {
+    const local = { id: 'local', rootPath: '/project' };
+    mocks.workspaceState.currentWorkspace = local;
+    mocks.workspaceState.openedWorkspaces = new Map([['local', local]]);
+    mocks.flowChatState.sessions.set('remote', {
+      sessionId: 'remote', workspacePath: '/project', remoteSshHost: 'server',
+    });
+    await expect(openMainSession('remote')).rejects.toThrow();
+    expect(mocks.switchChatSession).not.toHaveBeenCalled();
+    expect(mocks.sceneState.openScene).not.toHaveBeenCalled();
+  });
+
+  it('orders workspace activation and only opens the latest requested session', async () => {
+    const a = { id: 'a', rootPath: '/a' };
+    const b = { id: 'b', rootPath: '/b' };
+    mocks.workspaceState.openedWorkspaces = new Map([['a', a], ['b', b]]);
+    mocks.workspaceState.activeWorkspaceId = 'b';
+    mocks.flowChatState.sessions.set('a', { sessionId: 'a', workspaceId: 'a', workspacePath: '/a' });
+    mocks.flowChatState.sessions.set('b', { sessionId: 'b', workspaceId: 'b', workspacePath: '/b' });
+    let releaseA!: () => void;
+    const pendingA = new Promise<void>(resolve => { releaseA = resolve; });
+    mocks.setActiveWorkspace.mockImplementation(async (id: string) => {
+      if (id === 'a') await pendingA;
+      mocks.workspaceState.activeWorkspaceId = id;
+    });
+    mocks.switchChatSession.mockImplementation(async (id: string) => {
+      mocks.flowChatState.activeSessionId = id;
+    });
+    const first = openMainSession('a');
+    await Promise.resolve();
+    const second = openMainSession('b');
+    releaseA();
+    await Promise.all([first, second]);
+
+    expect(mocks.setActiveWorkspace.mock.calls.map(([id]) => id)).toEqual(['a', 'b']);
+    expect(mocks.switchChatSession.mock.calls.map(([id]) => id)).toEqual(['b']);
+    expect(mocks.workspaceState.activeWorkspaceId).toBe('b');
+    expect(mocks.sceneState.openScene).toHaveBeenCalledTimes(1);
   });
 });

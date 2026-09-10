@@ -133,7 +133,7 @@ export function ComposerVoiceInputButton({ controller }: ComposerVoiceInputButto
             <span data-openbitfun-component="composer-voice-input" data-openbitfun-part="action" data-openbitfun-action="install">
               <Button
                 className="openbitfun-chat-input__voice-setup-action"
-                variant="fill"
+                variant="primary"
                 size="sm"
                 onClick={(event) => {
                   event.stopPropagation();

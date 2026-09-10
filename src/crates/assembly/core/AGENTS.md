@@ -238,6 +238,12 @@ Skill discovery, installation provenance, and local/remote registry regressions:
 cargo test --locked -p openbitfun-core --no-default-features --features agent-runtime,git --lib agentic::tools::implementations::skills::
 ```
 
+For configured OpenCode discovery and explicit skill loading, include their owner feature and tool tests:
+
+```bash
+cargo test --locked -p openbitfun-core --no-default-features --features agent-runtime,git,external-sources --lib agentic::tools::implementations::skill
+```
+
 Detached Dispatch controller, target query compatibility, and managed-baseline checks:
 
 ```bash

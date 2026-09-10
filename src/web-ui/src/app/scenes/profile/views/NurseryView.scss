@@ -508,15 +508,6 @@ $nursery-gallery-gutter: clamp(16px, 2.5vw, 28px);
     flex: 1;
     overflow-x: hidden;
     min-height: 0;
-
-    &::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: var(--openbitfun-color-border-subtle);
-      border-radius: 2px;
-    }
   }
 
   // ── Scrollable content (template page, no tabs) ────────────────────────
@@ -528,15 +519,6 @@ $nursery-gallery-gutter: clamp(16px, 2.5vw, 28px);
     display: flex;
     flex-direction: column;
     gap: var(--openbitfun-space-6);
-
-    &::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: var(--openbitfun-color-border-subtle);
-      border-radius: 2px;
-    }
   }
 
   // ── Loading state ──────────────────────────────────────────────────────
@@ -1450,15 +1432,6 @@ $nursery-gallery-gutter: clamp(16px, 2.5vw, 28px);
     color: var(--openbitfun-color-content-secondary);
   }
 
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--openbitfun-color-border-subtle);
-    border-radius: 2px;
-  }
-
   // Override SessionsSection's built-in NavPanel indentation so rows
   // align flush with the chat input above; slightly roomier than nav but not loose.
   .openbitfun-nav-panel__inline-list {
@@ -1740,15 +1713,6 @@ $nursery-gallery-gutter: clamp(16px, 2.5vw, 28px);
     flex: 1;
     min-height: 0;
     padding: var(--openbitfun-space-3) var(--openbitfun-space-4);
-
-    &::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: var(--openbitfun-color-border-subtle);
-      border-radius: 2px;
-    }
 
     // Outer frame is .acp-right-shell — drop nested list chrome
     .asv__list {

@@ -172,21 +172,6 @@
     border-top: none;
     border-radius: 0 0 6px 6px;
 
-    // Custom scrollbar.
-    &::-webkit-scrollbar {
-      width: 4px;
-    }
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    &::-webkit-scrollbar-thumb {
-      background: color-mix(in srgb, var(--openbitfun-color-content-on-dark) 12%, transparent);
-      border-radius: 2px;
-      
-      &:hover {
-        background: color-mix(in srgb, var(--openbitfun-color-content-on-dark) 20%, transparent);
-      }
-    }
   }
 
   // Reviewer context section replaces raw prompt for review-team members.

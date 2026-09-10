@@ -453,7 +453,7 @@ export const AskUser = forwardRef<HTMLDivElement, AskUserProps>(function AskUser
                 onClick={onSubmit}
                 size="sm"
                 title={submitTitle}
-                variant="fill"
+                variant="primary"
               >
                 {state === "submitting" && submittingLabel !== undefined
                   ? submittingLabel

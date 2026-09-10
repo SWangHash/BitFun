@@ -1,6 +1,6 @@
 import { agentAPI, type AgenticEvent, type PermissionRequest } from '@/infrastructure/api/service-api/AgentAPI';
 import { sessionAPI } from '@/infrastructure/api/service-api/SessionAPI';
-import { getActiveSurfaceId, getActiveSurfaceScope, onSurfaceActivated, surfaceIdForDevice } from '@/infrastructure/peer-device/deviceSurface';
+import { getActiveSurfaceId, getActiveSurfaceScope, onSurfaceActivated, surfaceIdForDevice, type DeviceSurfaceId } from '@/infrastructure/peer-device/deviceSurface';
 import { observeSurfaceEvents } from '@/infrastructure/peer-device/deviceSurfaceRouting';
 import { createLogger } from '@/shared/utils/logger';
 import { flowChatStore } from '../store/FlowChatStore';
@@ -9,6 +9,7 @@ import { stateMachineManager } from '../state-machine';
 import { SessionExecutionState } from '../state-machine/types';
 import { driverForSession, sessionDriverNavigationStatusSources } from '../session-drivers/registry';
 import { deriveSessionNavStatus, type SessionNavStatus } from '../utils/sessionNavStatus';
+import { SessionNavOrdering } from '../utils/sessionNavOrdering';
 import type { Session } from '../types/flow-chat';
 import { ensureActivePermissionMailbox, liveSessionInteractionStore } from './liveSessionInteractionStore';
 import { SessionActivitySync, type ActivityTarget } from './sessionActivitySync';
@@ -17,13 +18,21 @@ const log = createLogger('SessionNavStatus');
 const RECONCILE_INTERVAL_MS = 15_000;
 const SETTLED_RECONCILE_INTERVAL_MS = 60_000;
 const IDLE: SessionNavStatus = { kind: 'idle', pendingCount: 0 };
-const rows = new Map<string, { listeners: Set<() => void>; status: SessionNavStatus; session?: Session }>();
+const rows = new Map<string, { listeners: Set<() => void>; status: SessionNavStatus }>();
+const ordering = new SessionNavOrdering();
+const orderingListeners = new Set<() => void>();
+let orderingRevision = 0;
 const failed = new Set<string>();
 const unsupported = new Set<string>();
 let permissionSource: readonly PermissionRequest[] | undefined;
 let permissionsBySession = new Map<string, PermissionRequest[]>();
 let cleanup: (() => void) | undefined;
 let requestRefresh: ((sessionId: string, force?: boolean) => void) | undefined;
+
+function publishOrdering(): void {
+  orderingRevision++;
+  for (const notify of orderingListeners) notify();
+}
 
 function indexPermissions(): void {
   const mailbox = liveSessionInteractionStore.getActiveSnapshot().requests;
@@ -43,9 +52,10 @@ function indexPermissions(): void {
 
 function publish(sessionId: string): void {
   const row = rows.get(sessionId);
-  if (!row) return;
+  const surfaceId = getActiveSurfaceId();
   const session = flowChatStore.getState().sessions.get(sessionId);
-  row.session = session;
+  if (!session && ordering.delete(surfaceId, sessionId)) publishOrdering();
+  if (!session && !row) return;
   const driver = driverForSession(sessionId, session);
   const source = driver.permissionRequestSource(sessionId);
   const navigationStatus = driver.navigationStatusSource?.getSnapshot(sessionId);
@@ -60,6 +70,8 @@ function publish(sessionId: string): void {
       : source.getSnapshot() as readonly PermissionRequest[],
     reachability: navigationStatus?.reachability,
   });
+  if (session && ordering.observe(surfaceId, session, next)) publishOrdering();
+  if (!row) return;
   if (row.status.kind === next.kind && row.status.pendingCount === next.pendingCount) return;
   row.status = next;
   for (const notify of row.listeners) notify();
@@ -167,21 +179,30 @@ export function installSessionNavStatusService(): () => void {
     sessionActivityStore.observe(surfaceIdForDevice(deviceId), name, payload);
   }));
   disposers.push(sessionActivityStore.subscribe((surfaceId, sessionId) => {
-    if (surfaceId !== getActiveSurfaceId()) return;
-    const summary = sessionActivityStore.get(sessionId)?.summary;
+    const summary = sessionActivityStore.get(sessionId, surfaceId)?.summary;
+    if (surfaceId !== getActiveSurfaceId()) {
+      const session = ordering.get(surfaceId, sessionId)?.session;
+      if (session && summary && !session.config.dispatchJobId) {
+        ordering.observe(surfaceId, session, deriveSessionNavStatus({ session, activity: summary }));
+      }
+      return;
+    }
     if (summary) flowChatStore.applySessionActivityReceipt(summary);
     publish(sessionId);
     refresh(sessionId);
   }));
   disposers.push(flowChatStore.subscribe(state => {
-    for (const [sessionId, row] of rows) {
-      const session = state.sessions.get(sessionId);
-      if (row.session === session) continue;
-      const prior = row.session;
+    const surfaceId = getActiveSurfaceId();
+    for (const sessionId of ordering.sessionIds(surfaceId)) {
+      if (!state.sessions.has(sessionId)) publish(sessionId);
+    }
+    for (const [sessionId, session] of state.sessions) {
+      const prior = ordering.get(surfaceId, sessionId)?.session;
+      if (prior === session) continue;
+      publish(sessionId);
       if (prior?.needsUserAttention !== session?.needsUserAttention) {
         sessionActivityStore.invalidate(sessionId);
       }
-      publish(sessionId);
       if (!prior && session) refresh(sessionId);
     }
   }));
@@ -213,8 +234,7 @@ export function installSessionNavStatusService(): () => void {
   }));
   for (const source of sessionDriverNavigationStatusSources()) {
     disposers.push(source.subscribe(() => {
-      for (const sessionId of rows.keys()) {
-        const session = flowChatStore.getState().sessions.get(sessionId);
+      for (const [sessionId, session] of flowChatStore.getState().sessions) {
         if (driverForSession(sessionId, session).navigationStatusSource === source) publish(sessionId);
       }
     }));
@@ -231,7 +251,8 @@ export function installSessionNavStatusService(): () => void {
     failed.clear();
     retry.clear();
     machineTurns.clear();
-    for (const sessionId of rows.keys()) publish(sessionId);
+    for (const sessionId of new Set([...rows.keys(), ...flowChatStore.getState().sessions.keys()])) publish(sessionId);
+    publishOrdering();
     refreshAll();
   }));
   const interval = setInterval(() => refreshAll(false), RECONCILE_INTERVAL_MS);
@@ -247,6 +268,7 @@ export function installSessionNavStatusService(): () => void {
     document.addEventListener('visibilitychange', wake);
   }
   void ensureActivePermissionMailbox();
+  for (const sessionId of flowChatStore.getState().sessions.keys()) publish(sessionId);
   for (const sessionId of rows.keys()) { publish(sessionId); refresh(sessionId); }
   cleanup = () => {
     disposed = true;
@@ -264,12 +286,25 @@ export function installSessionNavStatusService(): () => void {
     unsupported.clear();
     permissionSource = undefined;
     permissionsBySession.clear();
+    ordering.clear();
     cleanup = undefined;
   };
   return cleanup;
 }
 
 export const sessionNavStatusService = {
+  clearSurface(surfaceId: DeviceSurfaceId): void {
+    ordering.clearSurface(surfaceId);
+    if (surfaceId === getActiveSurfaceId()) publishOrdering();
+  },
+  getOrderingSnapshot: (): number => orderingRevision,
+  subscribeOrdering(notify: () => void): () => void {
+    orderingListeners.add(notify);
+    return () => { orderingListeners.delete(notify); };
+  },
+  getSortTimestamp: (session: Session): number => ordering.get(getActiveSurfaceId(), session.sessionId)?.sortTimestamp
+    ?? session.lastFinishedAt ?? session.createdAt,
+  isRunning: (sessionId: string): boolean => ordering.get(getActiveSurfaceId(), sessionId)?.status.kind === 'running',
   getSnapshot: (sessionId: string): SessionNavStatus => rows.get(sessionId)?.status ?? IDLE,
   subscribe(sessionId: string, notify: () => void): () => void {
     let row = rows.get(sessionId);

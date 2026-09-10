@@ -104,15 +104,44 @@ record, both on subscription and after every source change. Explicit sync from
 an async opener cannot select a different session. Shell and standalone chat
 hosts share one source subscription.
 
+`sceneStore` owns resource tabs and their navigation history. A Session tab is
+keyed by `(device surface, owning workspace)` and holds only a session reference.
+Opening another session in that workspace replaces the reference in place;
+other workspace tabs retain their references and order. The owning workspace
+is the project root even when execution runs in a worktree. Workspace ids are
+preferred; older metadata falls back to scoped local/SSH roots without changing
+persisted records. Labels show only the referenced session title; workspace
+ownership stays in the resource identity. Background title updates are scoped
+to their own tabs and never follow the currently selected session.
+
+The design system's `TabGroup` receives `labelTransitionKey = sessionId` for
+session slots. Its public `RollingText` component owns vertical replacement,
+width interpolation, interruption, reduced-motion preference, and accessibility.
+Session title edits and focusing a different workspace do not replay replacement.
+The shell does not own animation snapshots or timers.
+
 `app/services/sessionSceneLifecycle.ts`, installed for the `AppLayout` lifetime,
-binds the Session scene to that selected record. When it no longer exists, the
-shell closes the Session tab through `sceneStore`, which also removes its
-navigation history. Other tabs remain available; closing the final tab exposes
-the existing tabless empty surface. Delete, archive, workspace removal, and
-device-surface changes use this same rule instead of mutation-specific UI
-callbacks. Creating or opening a session establishes the record before opening
-its scene. Loading, offline, and failed history records still exist and remain
-recoverable; absence of rendered turns is never evidence of removal.
+provides the resource activation adapter. Tab clicks, shortcuts, history, and
+close fallback all activate the workspace and session through that adapter
+before committing navigation. Workspace activation is ordered, and superseded
+navigation cannot select a session after its history finishes loading. The
+scene store handles the tab transaction and settings-draft exit; the adapter
+uses the existing session/workspace owners for resource activation.
+
+`SceneViewport` mounts one Session presentation host for all workspace tabs.
+Tab identity and scene-host identity are separate: chrome, file/terminal
+routing, voice context, and the customization facade still address the
+`session` scene. No additional global composers or runtime subscriptions are
+mounted for background tabs.
+
+When a referenced session no longer exists, reconciliation removes its tab and
+history, including background tabs. A temporary empty selection does not remove
+other records' tabs. Closing a tab does not delete or stop a session; closing the
+final tab exposes the tabless empty surface. Device-surface changes reset the
+shell tabs without deleting either device's session container. Creating or
+opening a session establishes its record first. Loading, offline, and failed
+history records remain recoverable; absence of rendered turns is never evidence
+of removal.
 
 This is frontend view reconciliation. It does not delete persisted sessions,
 create replacement sessions, or change the runtime state machine and remote

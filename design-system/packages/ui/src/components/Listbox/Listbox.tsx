@@ -215,6 +215,7 @@ export const ListboxOption = forwardRef<HTMLButtonElement, ListboxOptionProps>(
     metadata,
     selected = false,
     tabIndex = -1,
+    title,
     value,
     ...props
   }, ref) {
@@ -234,6 +235,7 @@ export const ListboxOption = forwardRef<HTMLButtonElement, ListboxOptionProps>(
         ref={ref}
         role="option"
         tabIndex={tabIndex}
+        title={title}
         type="button"
       >
         {leading !== undefined && leading !== null && (
@@ -242,7 +244,7 @@ export const ListboxOption = forwardRef<HTMLButtonElement, ListboxOptionProps>(
           </span>
         )}
         <span className={styles.content} data-openbitfun-part="content">
-          <OverflowText className={styles.label} data-openbitfun-part="label">{children}</OverflowText>
+          <OverflowText title={title === "" ? "" : undefined} className={styles.label} data-openbitfun-part="label" marqueeActive={active}>{children}</OverflowText>
           {description !== undefined && description !== null && (
             <span className={styles.description} data-openbitfun-part="description">
               {description}
@@ -250,7 +252,7 @@ export const ListboxOption = forwardRef<HTMLButtonElement, ListboxOptionProps>(
           )}
         </span>
         {metadata !== undefined && metadata !== null && (
-          <OverflowText className={styles.metadata} data-openbitfun-part="metadata">{metadata}</OverflowText>
+          <OverflowText title={title === "" ? "" : undefined} className={styles.metadata} data-openbitfun-part="metadata" marqueeActive={active}>{metadata}</OverflowText>
         )}
         <span aria-hidden="true" className={styles.indicator} data-openbitfun-part="indicator">
           {indicator ?? (selected ? <Icon name="check-line" /> : null)}

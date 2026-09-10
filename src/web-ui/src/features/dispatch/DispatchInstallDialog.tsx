@@ -504,7 +504,7 @@ export const DispatchInstallDialog: React.FC<DispatchInstallDialogProps> = ({
                     {t('dispatch.oneClickDeployDescription')}
                   </span>
                   <Button
-                    variant="fill"
+                    variant="primary"
                     size="sm"
                     disabled={targetMutationInProgress || probing}
                     onClick={() => void prepareTarget()}
@@ -629,7 +629,7 @@ export const DispatchInstallDialog: React.FC<DispatchInstallDialogProps> = ({
         >
           <DialogFooter>
           <Button
-            variant="outline"
+            variant="fill"
             size="sm"
             disabled={
               preparationPhase === 'provisioning'
@@ -648,7 +648,7 @@ export const DispatchInstallDialog: React.FC<DispatchInstallDialogProps> = ({
                 : t('dispatch.cancel')}
           </Button>
           <Button
-            variant="fill"
+            variant="primary"
             size="sm"
             disabled={
               !ready

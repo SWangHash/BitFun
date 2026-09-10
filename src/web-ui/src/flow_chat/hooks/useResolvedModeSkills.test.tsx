@@ -7,7 +7,7 @@ import { configAPI } from '@/infrastructure/api/service-api/ConfigAPI';
 import { useResolvedModeSkills } from './useResolvedModeSkills';
 
 vi.mock('@/infrastructure/api/service-api/ConfigAPI', () => ({
-  configAPI: { getModeSkillConfigs: vi.fn() },
+  configAPI: { getModeSkillScanReport: vi.fn() },
 }));
 vi.mock('@/shared/utils/logger', () => ({ createLogger: () => ({ error: vi.fn() }) }));
 
@@ -39,10 +39,10 @@ describe('useResolvedModeSkills', () => {
     root = createRoot(container);
     props = { enabled: true, surfaceEpoch: 1, modeId: 'agent', workspacePath: '/project' };
     requests.length = 0;
-    vi.mocked(configAPI.getModeSkillConfigs).mockReset().mockImplementation(() => {
+    vi.mocked(configAPI.getModeSkillScanReport).mockReset().mockImplementation(() => {
       const request = deferred();
       requests.push(request);
-      return request.promise;
+      return request.promise.then(skills => ({ skills, diagnostics: [], diagnosticsAvailable: true }));
     });
   });
   afterEach(async () => { await act(async () => root.unmount()); });

@@ -126,8 +126,8 @@ export function RemoteNetworkConnections({
         <div className="openbitfun-remote-connect__relay-action-row">
           <Button variant="text" size="sm" onClick={onDeploy}>{t('remoteConnect.desc_custom_server_link')}</Button>
           {room ? <Button variant="outline" size="sm" onClick={onDisconnect}>{t('remoteConnect.disconnect')}</Button>
-            : invitation ? <Button variant="outline" size="sm" onClick={onCancel}>{t('remoteConnect.cancelInvitation')}</Button>
-              : <Button variant="fill" size="sm" loading={loading} onClick={onConnect}>
+            : invitation ? <Button variant="fill" size="sm" onClick={onCancel}>{t('remoteConnect.cancelInvitation')}</Button>
+              : <Button variant="primary" size="sm" loading={loading} onClick={onConnect}>
                 {loading ? t('remoteConnect.connecting') : t('remoteConnect.showConnectionCode')}
               </Button>}
         </div>

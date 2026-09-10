@@ -124,25 +124,6 @@
     overflow-y: auto;
     padding-right: 4px;
 
-    scrollbar-width: thin;
-    scrollbar-color: var(--openbitfun-color-field-border-hover) transparent;
-
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background-color: var(--openbitfun-color-field-border-hover);
-      border-radius: 3px;
-
-      &:hover {
-        background-color: var(--openbitfun-color-border-strong);
-      }
-    }
   }
 
   // ==================== File row ====================

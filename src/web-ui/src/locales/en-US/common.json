@@ -1511,14 +1511,23 @@
     "tabsLabel": "Scene tabs",
     "scrollPrevious": "Scroll tabs left",
     "scrollNext": "Scroll tabs right",
-    "closeTab": "Close {{label}}"
+    "closeTab": "Close {{label}}",
+    "workspaceUnavailable": "This session's workspace is not open. Reopen its workspace to switch to this session."
   },
   "loading": {
     "app": "Starting OpenBitFun...",
+    "companion": "Loading companion...",
     "scenes": "Loading scene",
     "workspace": "Loading workspace..."
   },
   "welcomeScene": {
+    "space": {
+      "separator": ", ",
+      "work": "Work",
+      "play": "Play",
+      "your": "Your",
+      "suffix": " space."
+    },
     "tabLabel": "Welcome",
     "welcomeBack": "Welcome back to",
     "welcomeTabTitle": "Welcome",

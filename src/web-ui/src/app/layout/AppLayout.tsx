@@ -336,7 +336,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
           const initialSessionMode =
             currentWorkspace.workspaceKind === WorkspaceKind.Assistant
               ? 'Claw'
-              : explicitPreferredMode || 'agentic';
+              : explicitPreferredMode;
           sessionId = await flowChatManager.createChatSession(
             flowChatSessionConfigForWorkspace(currentWorkspace),
             initialSessionMode,
@@ -586,8 +586,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
     return () => window.removeEventListener('toolbar-cancel-task', handleToolbarCancelTask);
   }, []);
 
-  // Create one unified project session. Balanced Harness currently uses the
-  // existing agentic runtime path until the typed Harness contract lands.
+  // Create one unified project session using the user's default Harness policy.
   const handleCreateFlowChatSession = React.useCallback(async () => {
     try {
       if (!currentWorkspace?.rootPath) {
@@ -596,7 +595,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ className = '' }) => {
       }
       const flowChatManager = FlowChatManager.getInstance();
       const sessionConfig = flowChatSessionConfigForWorkspace(currentWorkspace);
-      const sessionId = await flowChatManager.createChatSession(sessionConfig, 'agentic');
+      const sessionId = await flowChatManager.createChatSession(sessionConfig);
       await openMainSession(sessionId);
     } catch (error) {
       log.error('Failed to create FlowChat session', error);

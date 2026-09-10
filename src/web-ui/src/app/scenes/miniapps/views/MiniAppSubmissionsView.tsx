@@ -549,7 +549,7 @@ const MiniAppSubmissionsView: React.FC<MiniAppSubmissionsViewProps> = ({ tabs })
 
           <Button
             type="submit"
-            variant="fill"
+            variant="primary"
             disabled={busy || localActionsDisabled || apps.length === 0}
           >
             {busy ? <Loader2 size={15} className="gallery-spinning" /> : <Send size={15} />}

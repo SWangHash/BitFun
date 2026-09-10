@@ -514,7 +514,7 @@ const CreateAgentPage: React.FC = () => {
         <ScrollArea className="th__list-body">
           <div className="th__list-inner">
             <p className="th-create-panel__error" data-openbitfun-component="create-agent-page" data-openbitfun-part="error" role="alert">{detailError}</p>
-            <Button variant="outline" size="sm" onClick={openHome}>
+            <Button variant="fill" size="sm" onClick={openHome}>
               {t('agentsOverview.form.cancel')}
             </Button>
           </div>
@@ -536,7 +536,7 @@ const CreateAgentPage: React.FC = () => {
               <Button
                 className="th-create-page__action"
                 type="button"
-                variant="outline"
+                variant="fill"
                 size="sm"
                 onClick={openHome}
                 disabled={submitting}
@@ -547,7 +547,7 @@ const CreateAgentPage: React.FC = () => {
                 className="th-create-page__action"
                 type="submit"
                 form="custom-agent-form"
-                variant="fill"
+                variant="primary"
                 size="sm"
                 disabled={submitting || toolsEditing}
                 aria-busy={submitting}
@@ -763,7 +763,7 @@ const CreateAgentPage: React.FC = () => {
                           <div className="th-create-panel__tool-edit-actions">
                             <Button
                               type="button"
-                              variant="outline"
+                              variant="fill"
                               size="sm"
                               onClick={() => {
                                 setToolsEditing(false);
@@ -775,7 +775,7 @@ const CreateAgentPage: React.FC = () => {
                             </Button>
                             <Button
                               type="button"
-                              variant="outline"
+                              variant="primary"
                               size="sm"
                               onClick={() => {
                                 setSelectedTools(new Set(pendingTools ?? selectedTools));

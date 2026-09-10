@@ -79,7 +79,7 @@ required. The default dev profile keeps line tables while reducing PDB size.
 
 All commands that pass `--no-bundle` emit a staged runtime tree rather than a
 single-file application. The executable depends on the adjacent `frontend`,
-`mobile-web`, and `resources` directories. Use
+`flashgrep`, `mobile-web`, and `resources` directories. Use
 `pnpm run desktop:build:nsis` for a distributable Windows installer.
 
 ## DevTools feature (model rule)
@@ -97,6 +97,8 @@ The `devtools` Cargo feature exists for debugging UI/UX in the desktop app. When
 cargo check -p openbitfun-desktop && cargo test -p openbitfun-desktop
 ```
 
+For skill discovery response compatibility and timeouts, use
+`cargo test -p openbitfun-desktop --lib api::skill_api::tests`.
 For staged application-update cache and signature behavior, use
 `cargo test -p openbitfun-desktop --lib api::update_api::tests`.
 For peer system-info response compatibility, run
@@ -126,3 +128,11 @@ concurrent builds cannot replace its lazy modules. It uses temporary product sto
 the private test store intentionally does not survive process exit.
 That debug-only switch takes effect only with the existing E2E storage guard;
 release builds always use the packaged protocol.
+
+For alternate dev-server ports and preview startup URL changes, run
+`node --test scripts/dev-startup.test.mjs` and
+`cargo test -p openbitfun-desktop --no-default-features --lib appearance::development_frontend_tests`.
+`OPENBITFUN_DEV_PORT` selects the HTTP port; `OPENBITFUN_DEV_HMR_PORT` defaults
+to the previous port. Desktop and Vite must use the same values. Development
+launchers reuse the locked Sherpa library/archive cache across Git worktrees,
+or download the archive through curl when absent; explicit SHERPA_ONNX overrides win.

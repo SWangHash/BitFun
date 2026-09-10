@@ -79,8 +79,6 @@
     border-radius: var(--openbitfun-layout-confirm-dialog-preview-radius);
     color: var(--openbitfun-color-content-primary);
     background: var(--openbitfun-color-surface-tertiary);
-    scrollbar-color: var(--openbitfun-color-scrollbar-thumb) transparent;
-    scrollbar-width: thin;
   }
 
   .preview pre {

@@ -16,7 +16,39 @@ import {
 } from './appearancePayload';
 
 const CANONICAL_THEME_VARIABLE_NAMES = Object.values(themeCssVariables);
-const CANONICAL_THEME_VARIABLE_NAMES_HASH = 'e80ebcdf9452a0b5f8ab26d9b41cb81c4e74d75451e4402f99afc68af3c13f42';
+const SHARED_THEME_VARIABLE_NAMES_HASH = 'e80ebcdf9452a0b5f8ab26d9b41cb81c4e74d75451e4402f99afc68af3c13f42';
+// Button owns these state colors independently of the existing shared actions.
+// Keep the original shared contract intact and enumerate this addition exactly.
+const BUTTON_THEME_VARIABLE_NAMES = [
+  '--openbitfun-component-button-content',
+  '--openbitfun-component-button-fill-background',
+  '--openbitfun-component-button-fill-background-hover',
+  '--openbitfun-component-button-fill-background-pressed',
+  '--openbitfun-component-button-outline-border',
+  '--openbitfun-component-button-outline-border-interactive',
+  '--openbitfun-component-button-primary-background',
+  '--openbitfun-component-button-primary-background-hover',
+  '--openbitfun-component-button-primary-background-pressed',
+  '--openbitfun-component-button-primary-content-disabled',
+  '--openbitfun-component-button-text-content',
+  '--openbitfun-component-button-text-content-disabled',
+  '--openbitfun-component-button-text-content-hover',
+] as const;
+// Field editing borders and hints have dedicated semantics; preserve the shared
+// contract fingerprint while asserting these two additions by their exact names.
+const FIELD_STATE_THEME_VARIABLE_NAMES = [
+  '--openbitfun-color-field-border-active',
+  '--openbitfun-color-field-placeholder',
+] as const;
+// Grouped forms own a translucent fill independently of opaque tertiary surfaces
+// and transient subtle feedback; keep this addition outside the shared fingerprint.
+const FIELD_GROUP_THEME_VARIABLE_NAME = '--openbitfun-color-field-group-background';
+// Menu and navigation captions own their final contrast independently of body
+// descriptions and field hints; assert this addition without changing the shared baseline.
+const CAPTION_THEME_VARIABLE_NAME = '--openbitfun-color-content-caption';
+// Persistent action cards own their fill independently of transient feedback
+// and form groups; keep the shared contract fingerprint unchanged.
+const ACTION_CARD_THEME_VARIABLE_NAME = '--openbitfun-color-action-card-background';
 const RETIRED_WIDGET_VARIABLE_NAMES = [
   '--background-primary',
   '--bg-primary',
@@ -59,14 +91,28 @@ describe('generated widget appearance payload contract', () => {
   it('derives its complete host payload allowlist from the canonical theme package', () => {
     expect(WIDGET_APPEARANCE_VAR_NAMES).toEqual(CANONICAL_THEME_VARIABLE_NAMES);
     expect(new Set(WIDGET_APPEARANCE_VAR_NAMES).size).toBe(WIDGET_APPEARANCE_VAR_NAMES.length);
+    const buttonNames = WIDGET_APPEARANCE_VAR_NAMES.filter(name => name.startsWith('--openbitfun-component-button-'));
+    const fieldStateNames = WIDGET_APPEARANCE_VAR_NAMES.filter(name => FIELD_STATE_THEME_VARIABLE_NAMES.some(fieldName => fieldName === name));
+    const sharedNames = WIDGET_APPEARANCE_VAR_NAMES.filter(name => (
+      !name.startsWith('--openbitfun-component-button-')
+      && !FIELD_STATE_THEME_VARIABLE_NAMES.some(fieldName => fieldName === name)
+      && name !== FIELD_GROUP_THEME_VARIABLE_NAME
+      && name !== CAPTION_THEME_VARIABLE_NAME
+      && name !== ACTION_CARD_THEME_VARIABLE_NAME
+    ));
+    expect(buttonNames).toEqual(BUTTON_THEME_VARIABLE_NAMES);
+    expect(fieldStateNames).toEqual(FIELD_STATE_THEME_VARIABLE_NAMES);
+    expect(WIDGET_APPEARANCE_VAR_NAMES).toContain(FIELD_GROUP_THEME_VARIABLE_NAME);
+    expect(WIDGET_APPEARANCE_VAR_NAMES).toContain(CAPTION_THEME_VARIABLE_NAME);
+    expect(WIDGET_APPEARANCE_VAR_NAMES).toContain(ACTION_CARD_THEME_VARIABLE_NAME);
     expect({
-      count: WIDGET_APPEARANCE_VAR_NAMES.length,
-      hash: hashNames(WIDGET_APPEARANCE_VAR_NAMES),
-      first: WIDGET_APPEARANCE_VAR_NAMES[0],
-      last: WIDGET_APPEARANCE_VAR_NAMES[WIDGET_APPEARANCE_VAR_NAMES.length - 1],
+      count: sharedNames.length,
+      hash: hashNames(sharedNames),
+      first: sharedNames[0],
+      last: sharedNames[sharedNames.length - 1],
     }).toEqual({
       count: 127,
-      hash: CANONICAL_THEME_VARIABLE_NAMES_HASH,
+      hash: SHARED_THEME_VARIABLE_NAMES_HASH,
       first: '--openbitfun-color-accent-border',
       last: '--openbitfun-shadow-xs',
     });
@@ -115,6 +161,13 @@ describe('generated widget appearance payload contract', () => {
       '--openbitfun-color-action-primary-content': '#101010',
       '--openbitfun-color-action-primary-hover': 'linear-gradient(test-hover)',
       '--openbitfun-color-action-primary-pressed': '#202020',
+      '--openbitfun-color-action-card-background': 'rgba(0, 0, 0, 0.07)',
+      '--openbitfun-color-content-caption': 'rgba(0, 0, 0, 0.45)',
+      '--openbitfun-component-button-primary-background': '#303030',
+      '--openbitfun-component-button-fill-background': 'rgba(0, 0, 0, 0.08)',
+      '--openbitfun-color-field-border-active': 'rgba(0, 0, 0, 0.20)',
+      '--openbitfun-color-field-group-background': 'rgba(0, 0, 0, 0.03)',
+      '--openbitfun-color-field-placeholder': 'rgba(0, 0, 0, 0.40)',
       '--openbitfun-color-status-danger-surface': 'rgba(200, 0, 0, 0.12)',
       '--openbitfun-color-status-danger-border': '#303030',
       '--openbitfun-shadow-raised': '0 1px 2px #404040',

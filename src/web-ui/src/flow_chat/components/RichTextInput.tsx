@@ -106,6 +106,7 @@ export interface RichTextInputProps
   onLargePaste?: (text: string) => string | null;
   onPasteFiles?: (paste: ClipboardFilePaste) => void | Promise<void>;
   pendingLargePastes?: Record<string, string>;
+  skillReferenceNames?: Readonly<Record<string, string>>;
   onUpdateLargePaste?: (placeholder: string, text: string) => string;
   onRemoveLargePaste?: (placeholder: string) => void;
   onKeyDown?: (e: React.KeyboardEvent) => void;
@@ -225,6 +226,7 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
   onLargePaste,
   onPasteFiles,
   pendingLargePastes = EMPTY_PENDING_LARGE_PASTES,
+  skillReferenceNames,
   onUpdateLargePaste,
   onRemoveLargePaste,
   onKeyDown,
@@ -517,11 +519,11 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
           token,
           contextType: 'skill-reference',
           inlineTokenType: 'skill-ref',
-          title: `Skill: ${payload.skillName}`,
-          displayText: payload.skillName,
+          title: '',
+          displayText: (payload.skillKey && skillReferenceNames?.[payload.skillKey]) || payload.skillName,
         })
       : null;
-  }, [createSkillStyledReferenceElement]);
+  }, [createSkillStyledReferenceElement, skillReferenceNames]);
 
   const createAdditionalModeReferenceElement = useCallback((token: string): HTMLSpanElement | null => {
     const payload = parseAdditionalModePromptReferenceToken(token);
@@ -605,7 +607,7 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
             kind: 'inline-token',
             token,
             tokenType: 'skill',
-            label: skill.skillName,
+            label: element.querySelector('[data-openbitfun-part="tagText"]')?.textContent || skill.skillName,
           });
           return;
         }
@@ -1634,10 +1636,10 @@ export const RichTextInput = React.forwardRef<HTMLDivElement, RichTextInputProps
           <Button type="button" size="sm" variant="outline" onClick={() => void handleCopyLargePaste()}>
             {largePasteCopied ? t('input.largePasteCopied') : t('input.largePasteCopy')}
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => setActiveLargePaste(null)}>
+          <Button type="button" size="sm" variant="fill" onClick={() => setActiveLargePaste(null)}>
             {t('input.largePasteCancel')}
           </Button>
-          <Button type="button" size="sm" variant="fill" onClick={handleSaveLargePaste}>
+          <Button type="button" size="sm" variant="primary" onClick={handleSaveLargePaste}>
             {t('input.largePasteSave')}
           </Button>
         </DialogFooter>

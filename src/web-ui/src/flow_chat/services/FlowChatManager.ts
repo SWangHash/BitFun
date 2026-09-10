@@ -14,7 +14,7 @@ import { ACPClientAPI } from '@/infrastructure/api/service-api/ACPClientAPI';
 import { stateMachineManager } from '../state-machine';
 import { EventBatcher } from './EventBatcher';
 import { createLogger } from '@/shared/utils/logger';
-import { installSessionNavStatusService } from './sessionNavStatusService';
+import { installSessionNavStatusService, sessionNavStatusService } from './sessionNavStatusService';
 import {
   getActiveSurfaceId,
   getActiveSurfaceScope,
@@ -601,6 +601,7 @@ export class FlowChatManager {
   /** Permanently forget a peer that was explicitly detached or became lost. */
   public discardDeviceSurface(surfaceId: DeviceSurfaceId): void {
     this.context.flowChatStore.discardSurfaceState(surfaceId);
+    sessionNavStatusService.clearSurface(surfaceId);
     stateMachineManager.clearSurface(surfaceId);
     this.context.processingManager.clearSurface(surfaceId);
     pendingQueueManager.clearSurface(surfaceId);
@@ -694,8 +695,8 @@ export class FlowChatManager {
     }
   }
 
-  async switchChatSession(sessionId: string): Promise<void> {
-    return switchChatSessionModule(this.context, sessionId);
+  async switchChatSession(sessionId: string, isStillRelevant?: () => boolean): Promise<void> {
+    return switchChatSessionModule(this.context, sessionId, isStillRelevant);
   }
 
   preloadHistoricalSessionForOpen(sessionId: string): void {
