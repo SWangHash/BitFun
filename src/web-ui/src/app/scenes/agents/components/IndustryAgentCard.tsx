@@ -55,7 +55,7 @@ const IndustryAgentCard: React.FC<IndustryAgentCardProps> = ({
         <div className="agent-card__header-info" data-bf-component="industry-agent-card" data-bf-part="headerInfo">
           <div className="agent-card__title-row" data-bf-component="industry-agent-card" data-bf-part="titleRow">
             <span className="agent-card__name" data-bf-component="industry-agent-card" data-bf-part="name" data-testid="agent-list-item-title">
-              {t('industryAgentsZone.qtMigration.name')}
+              {agent.name}
             </span>
             <div className="agent-card__badges" data-bf-component="industry-agent-card" data-bf-part="badges">
               <Badge variant="accent">{t('industryAgentsZone.badge')}</Badge>

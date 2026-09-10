@@ -52,7 +52,6 @@
     "empty": "暂无行业智能体",
     "workflowLabel": "内置领域工作流",
     "qtMigration": {
-      "name": "QT 迁移专家",
       "description": "Qt 5.12/5.15工程鸿蒙化迁移：评估->8步代码迁移->编译构建->部署验->问题修复闭环，全程可视化任务进度。"
     }
   },
@@ -214,6 +213,7 @@
       "imageUnderstanding": "图像理解",
       "interactionCanvas": "交互与画布",
       "computerAutomation": "计算机与自动化",
+      "qtMigration": "QT 迁移",
       "extension": "扩展 · {{provider}}",
       "other": "其他",
       "selectedCount": "已启用 {{count}} 个工具",

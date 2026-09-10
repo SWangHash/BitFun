@@ -3,7 +3,7 @@
 //! Allows AI to ask questions to users during execution and wait for answers
 
 use async_trait::async_trait;
-use bitfun_agent_runtime::question_templates::{
+use bitfun_agent_runtime::qt_migration_question_templates::{
     resolve_question_template_with_context, QtMigrationQuestionContext,
 };
 use bitfun_agent_runtime::user_questions::{
@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
-use crate::agentic::tools::implementations::analyze_migration_request_tool::AnalyzeMigrationRequestTool;
+use crate::agentic::tools::implementations::qt_migration_intake_tool::QtMigrationIntakeTool;
 use crate::agentic::tools::user_input_manager::get_user_input_manager;
 use crate::infrastructure::events::event_system::{get_global_event_system, BackendEvent};
 use crate::util::errors::BitFunResult;
@@ -229,7 +229,7 @@ Usage notes:
             // model-provided paths with paths discovered from local resources.
             // The backend validates, deduplicates, sorts, and caps the final list.
             if template_id.as_str()
-                == bitfun_agent_runtime::question_templates::QT_MIGRATION_PATHS_TEMPLATE_ID
+                == bitfun_agent_runtime::qt_migration_question_templates::QT_MIGRATION_PATHS_TEMPLATE_ID
             {
                 let migration_enabled = context
                     .custom_data
@@ -251,7 +251,7 @@ Usage notes:
                             Some(
                                 &path_manager
                                     .builtin_skills_dir()
-                                    .join(bitfun_agent_runtime::intake_state::OHOS_QT_SKILLS_DIR),
+                                    .join(bitfun_agent_runtime::qt_migration_intake_state::QT_MIGRATION_SKILL_DIR),
                             ),
                             &candidates,
                         );

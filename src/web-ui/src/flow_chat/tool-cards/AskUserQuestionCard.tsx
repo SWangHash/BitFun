@@ -289,10 +289,15 @@ export const AskUserQuestionCard: React.FC<ToolCardProps> = ({
       ...prev,
       [questionIndex]: value
     }));
-    if (value.length > 0) {
+    // Template inputs (inputPlaceholder) are always mounted: typing just clears
+    // the option highlight. Plain "Other" inputs mount on selection — clearing
+    // the answer here would unmount the input on every keystroke and drop
+    // focus to <body>, sending the next keystrokes to the chat composer.
+    const question = questions[questionIndex];
+    if (value.length > 0 && question?.inputPlaceholder) {
       setAnswers(prev => ({
         ...prev,
-        [questionIndex]: questions[questionIndex]?.multiSelect ? [] : ''
+        [questionIndex]: ''
       }));
     }
   }, [questions]);
