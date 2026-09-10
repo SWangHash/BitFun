@@ -66,6 +66,45 @@ describe('AppearanceRuntime', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
+  it('flushes committed and rolled-back styles before restoring transitions', async () => {
+    const root = document.documentElement;
+    const observations: Array<{ switching: string | null; mode: string | null; background: string }> = [];
+    const flush = vi.spyOn(root, 'offsetHeight', 'get').mockImplementation(() => {
+      observations.push({
+        switching: root.getAttribute('data-bf-appearance-switching'),
+        mode: root.getAttribute('data-bf-appearance-mode'),
+        background: root.style.backgroundColor,
+      });
+      return 0;
+    });
+    const adapter: AppearanceRendererAdapter<'css-tokens'> = {
+      id: 'css-tokens',
+      validate: () => [],
+      apply: async next => {
+        root.style.backgroundColor = next?.background ?? '';
+        if (next?.background === 'red') throw new Error('renderer failed');
+      },
+    };
+    const runtime = new AppearanceRuntime(
+      new AppearanceRegistry().registerRenderer(adapter).freeze(),
+    );
+
+    await runtime.initialize({ ...pkg('test.light', 'white'), mode: 'light' });
+    await runtime.applyPackage(pkg('test.dark', 'black'));
+    await runtime.applyPackage({ ...pkg('test.light', 'white'), mode: 'light' });
+    await expect(runtime.applyPackage(pkg('test.failed', 'red'))).rejects.toThrow('renderer failed');
+
+    expect(observations).toEqual([
+      { switching: 'true', mode: 'light', background: 'white' },
+      { switching: 'true', mode: 'dark', background: 'black' },
+      { switching: 'true', mode: 'light', background: 'white' },
+      { switching: 'true', mode: 'light', background: 'white' },
+    ]);
+    expect(root.hasAttribute('data-bf-appearance-switching')).toBe(false);
+    expect(document.querySelectorAll('style[data-bf-appearance-runtime]')).toHaveLength(1);
+    flush.mockRestore();
+  });
+
   it('creates host-owned blob URLs for package assets and revokes replaced URLs', async () => {
     const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValueOnce('blob:test-background');
     const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
