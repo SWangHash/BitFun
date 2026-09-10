@@ -130,6 +130,7 @@ export function useComposerVoiceInput({
   const liveTextBaseRef = useRef('');
   const liveTextEditedRef = useRef(false);
   const lastRenderedTextRef = useRef('');
+  const inputActivatedRef = useRef(false);
   const speechRuntimeSupported = isTauriRuntime() || isOpenHarmonyRuntime();
 
   const mergeLiveText = useCallback((nextText: string) => {
@@ -192,7 +193,10 @@ export function useComposerVoiceInput({
       if (mergedText === getCurrentText() && liveTextEditedRef.current) {
         return;
       }
-      activateInput();
+      if (!inputActivatedRef.current) {
+        activateInput();
+        inputActivatedRef.current = true;
+      }
       replaceText(mergedText);
       lastRenderedTextRef.current = mergedText;
     });
@@ -474,7 +478,10 @@ export function useComposerVoiceInput({
       const result = await speechAPI.finishInputSession(session.sessionId);
       const text = result.text.trim() || liveTextRef.current.trim();
       if (text) {
-        activateInput();
+        if (!inputActivatedRef.current) {
+          activateInput();
+          inputActivatedRef.current = true;
+        }
         const current = getCurrentText();
         const expectedPreview = liveTextRef.current
           ? (liveTextBaseRef.current ? `${liveTextBaseRef.current} ${liveTextRef.current}` : liveTextRef.current)
@@ -550,6 +557,7 @@ export function useComposerVoiceInput({
     liveTextBaseRef.current = getCurrentText().trim();
     liveTextEditedRef.current = false;
     lastRenderedTextRef.current = liveTextBaseRef.current;
+    inputActivatedRef.current = false;
     latestAudioLevelRef.current = 0;
     setAudioLevel(0);
     const recordingId = activeRecordingIdRef.current + 1;

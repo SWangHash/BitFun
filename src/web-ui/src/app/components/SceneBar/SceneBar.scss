@@ -342,6 +342,11 @@
   }
 }
 
+[data-bf-appearance-switching='true'] .bitfun-scene-tab,
+[data-bf-appearance-switching='true'] .bitfun-scene-tab * {
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bitfun-scene-tab,
   .bitfun-scene-tab__action,
