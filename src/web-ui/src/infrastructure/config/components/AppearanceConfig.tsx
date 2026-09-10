@@ -57,7 +57,7 @@ function AppearanceSelectionSection() {
       {
         value: SYSTEM_APPEARANCE_ID,
         label: t('appearance.systemAppearance'),
-        description: t('appearance.systemAppearanceDescription'),
+        description: '',
         testId: 'appearance-palette-option',
         testAttributes: {
           'data-appearance-id': SYSTEM_APPEARANCE_ID,
@@ -66,7 +66,7 @@ function AppearanceSelectionSection() {
       ...appearances.map((appearance) => ({
         value: appearance.id,
         label: getAppearanceDisplayName(appearance),
-        description: getAppearanceDisplayDescription(appearance),
+        description: '',
         testId: 'appearance-palette-option',
         testAttributes: {
           'data-appearance-id': appearance.id,

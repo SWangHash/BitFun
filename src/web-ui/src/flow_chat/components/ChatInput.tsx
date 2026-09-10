@@ -828,7 +828,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       }
       collapseVerificationRafRef.current = requestAnimationFrame(() => {
         collapseVerificationRafRef.current = null;
-        measureIsMultiLine('collapse-confirmation');
+        measureIsMultiLineRef.current?.('collapse-confirmation');
       });
       return;
     }
@@ -841,7 +841,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   useEffect(() => {
     // Defer one frame so RichTextInput has synced the new value to the contenteditable DOM.
     const rafId = requestAnimationFrame(() => {
-      measureIsMultiLine('value-effect');
+      measureIsMultiLineRef.current?.('value-effect');
       checkDomEmpty();
     });
     return () => cancelAnimationFrame(rafId);
@@ -853,21 +853,26 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   useEffect(() => {
     const el = richTextInputRef.current;
     if (!el) return;
-    let rafId: number;
+    let rafId: number | null = null;
     const observer = new MutationObserver(() => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       rafId = requestAnimationFrame(() => {
-        measureIsMultiLine('mutation-observer');
+        rafId = null;
+        // The observer outlives renders; use the current target, images and text.
+        measureIsMultiLineRef.current?.('mutation-observer');
         checkDomEmpty();
       });
     });
-    observer.observe(el, { childList: true, subtree: true });
+    observer.observe(el, { childList: true, characterData: true, subtree: true });
     return () => {
       observer.disconnect();
-      cancelAnimationFrame(rafId);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
     };
-  // measureIsMultiLine / checkDomEmpty capture latest closure values
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [checkDomEmpty]);
 
   useEffect(() => {
     const containerEl = containerRef.current;

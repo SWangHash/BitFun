@@ -159,6 +159,10 @@ $_indent-width: 8px;
     background-color $motion-base $easing-standard,
     color $motion-base $easing-standard;
   color: var(--bf-appearance-token-color-text-secondary);
+
+  [data-bf-appearance-switching='true'] & {
+    transition: none !important;
+  }
   
   &:focus {
     outline: none;
@@ -396,11 +400,11 @@ $_indent-width: 8px;
   max-width: min(280px, calc(100vw - 16px));
   padding: 4px 8px;
   border-radius: 4px;
-  background: var(--bf-appearance-token-color-overlay-black-80, rgba(0, 0, 0, 0.8));
-  color: var(--bf-appearance-token-color-static-white, #fff);
+  background: var(--bf-appearance-token-color-bg-elevated);
+  color: var(--bf-appearance-token-color-text-primary);
   font-size: var(--bf-appearance-token-font-size-xs);
   line-height: 1.4;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--bf-appearance-token-shadow-sm);
   pointer-events: none;
   white-space: normal;
   overflow-wrap: anywhere;

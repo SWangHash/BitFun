@@ -51,6 +51,9 @@
   display: inline-flex;
   align-items: center;
   width: auto;
+  min-width: 0;
+  min-height: 28px;
+  flex: 0 0 auto;
   margin-right: $size-gap-2;
 }
 
@@ -104,6 +107,7 @@
   width: clamp(270px, 27vw, 320px);
   max-width: 100%;
   min-width: 270px;
+  flex: 0 0 clamp(270px, 27vw, 320px);
   height: 32px;
   padding: 0 2px 0 9px;
   gap: 5px;
@@ -113,7 +117,7 @@
   box-shadow:
     0 1px 4px var(--bf-appearance-token-color-overlay-black-12),
     inset 0 1px 0 var(--bf-appearance-token-color-overlay-white-04);
-  animation: bitfun-voice-pill-in 220ms cubic-bezier(0.18, 0.9, 0.3, 1.18) both;
+  animation: none;
 }
 
 .bitfun-chat-input__voice-pill-status {
